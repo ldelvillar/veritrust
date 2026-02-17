@@ -3,9 +3,19 @@ Este módulo se encarga de la limpieza y preparación
 de los datos para el entrenamiento del modelo BERT.
 """
 
+import sys
+import os
 import re
 import pandas as pd
-from load_data import load_dataset
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "../.."))
+
+# 2. Añadimos la raíz al path si no está
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+from src.utils.load_data import load_dataset
 
 
 def clean_text(text):
