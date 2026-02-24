@@ -10,15 +10,13 @@ import pandas as pd
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../.."))
-
-# 2. Añadimos la raíz al path si no está
 if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.utils.load_data import load_dataset
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
     """Limpia el texto para el entrenamiento del modelo BERT."""
     if not isinstance(text, str):
         return ""

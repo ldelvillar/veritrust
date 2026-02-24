@@ -8,6 +8,8 @@ import os
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
+    BatchEncoding,
+    EvalPrediction,
     DistilBertTokenizer,
     DistilBertForSequenceClassification,
     Trainer,
@@ -38,21 +40,21 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 class PubHealthDataset(torch.utils.data.Dataset):
     """Clase personalizada para manejar el dataset en formato PyTorch."""
 
-    def __init__(self, encodings, labels):
+    def __init__(self, encodings: BatchEncoding, labels: list[int]) -> None:
         self.encodings = encodings
         self.labels = labels
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         # Convertir a tensores de PyTorch para el modelo
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
         item["labels"] = torch.tensor(self.labels[idx])
         return item
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.labels)
 
 
-def compute_metrics(pred):
+def compute_metrics(pred: EvalPrediction) -> dict:
     """Calcula métricas de evaluación: Precisión, Recall, F1 y Accuracy."""
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
@@ -65,7 +67,7 @@ def compute_metrics(pred):
     return {"accuracy": acc, "f1": f1, "precision": precision, "recall": recall}
 
 
-def run_training():
+def run_training() -> None:
     """Función principal para ejecutar el entrenamiento del modelo BERT."""
     # Cargar y preprocesar los datos de entrenamiento y validación
     raw_train = load_dataset()
@@ -120,7 +122,7 @@ def run_training():
         eval_strategy="epoch",  # Evaluar al final de cada época
         save_strategy="epoch",  # Guardar checkpoint al final de cada época
         load_best_model_at_end=True,  # Al final, quedarse con el mejor modelo
-        metric_for_best_model="f1",  # Optimizar para F1-Score (mejor para datasets desbalanceados)
+        metric_for_best_model="f1",  # Optimizar para F1-Score
         save_total_limit=2,  # No llenar el disco duro, guardar solo los 2 últimos
     )
 
