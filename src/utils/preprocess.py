@@ -66,8 +66,15 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     # Eliminar columnas innecesarias
     df = df.drop(columns=["claim_id", "subjects"], errors="ignore")
 
-    # Descartar noticias con la etiqueta 'mixture' o 'unproven'
-    df = df[df["label"].isin([0, 1])].copy()
+    # Descartar noticias con la etiqueta 'unproven'
+    df = df[df["label"].isin([0, 1, 3])].copy()
+
+    # Convertir la etiqueta 'mixture' en 'false'
+    df["label"] = df["label"].replace(
+        {
+            3: 1,
+        }
+    )
 
     # Limpiar texto de las columnas 'explanation' y 'main_text'
     df["explanation"] = df["explanation"].fillna("").apply(clean_text)

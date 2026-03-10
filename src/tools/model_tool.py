@@ -1,6 +1,6 @@
 """
 Este módulo define una herramienta de detección de Fake
-News utilizando un modelo de IA basado en DistilBERT.
+News utilizando un modelo de IA basado en BioBERT.
 """
 
 import os
@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import BertTokenizer, BertForSequenceClassification
 
 
 class DetectorInput(BaseModel):
@@ -37,8 +37,8 @@ class FakeNewsDetectorTool(BaseTool):
     def _run(self, text: str) -> str:
         try:
             # Cargar modelo y tokenizador
-            tokenizer = DistilBertTokenizer.from_pretrained(self.model_path)
-            model = DistilBertForSequenceClassification.from_pretrained(self.model_path)
+            tokenizer = BertTokenizer.from_pretrained(self.model_path)
+            model = BertForSequenceClassification.from_pretrained(self.model_path)
 
             # Procesar texto
             inputs = tokenizer(
@@ -49,11 +49,11 @@ class FakeNewsDetectorTool(BaseTool):
                 logits = model(**inputs).logits
                 probs = F.softmax(logits, dim=1)
 
-            # 0: Real, 1: Fake
+            # 0=verdadera, 1=falsa
             real_prob = probs[0][0].item()
             fake_prob = probs[0][1].item()
 
-            resultado = "FALSA" if fake_prob > real_prob else "REAL"
+            resultado = "falsa" if fake_prob > real_prob else "verdadera"
             confianza = max(fake_prob, real_prob)
 
             return (
@@ -65,7 +65,10 @@ class FakeNewsDetectorTool(BaseTool):
             return f"Error al ejecutar el detector: {str(e)}"
 
 
-# Prueba individual de la herramienta
 if __name__ == "__main__":
     tool = FakeNewsDetectorTool()
-    print(tool.run("La lejía cura el COVID de forma instantánea según estudios."))
+    print(
+        tool.run(
+            "La comida procesada en exceso no tiene efectos negativos sobre la salud"
+        )
+    )

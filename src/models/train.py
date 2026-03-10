@@ -10,8 +10,8 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
     BatchEncoding,
     EvalPrediction,
-    DistilBertTokenizer,
-    DistilBertForSequenceClassification,
+    BertTokenizer,
+    BertForSequenceClassification,
     Trainer,
     TrainingArguments,
 )
@@ -26,7 +26,7 @@ from src.utils.preprocess import preprocess_data
 
 
 # Configuración e hiperparámetros
-MODEL_NAME = "distilbert-base-uncased"
+MODEL_NAME = "dmis-lab/biobert-v1.1"
 OUTPUT_DIR = "./models/bert_classifier"
 MAX_LENGTH = 128
 BATCH_SIZE = 16
@@ -88,7 +88,7 @@ def run_training() -> None:
 
     # Tokenización
     print(f"Tokenizando con {MODEL_NAME}")
-    tokenizer = DistilBertTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
 
     train_encodings = tokenizer(
         train_texts, truncation=True, padding=True, max_length=MAX_LENGTH
@@ -104,9 +104,7 @@ def run_training() -> None:
     # Configuración del modelo
     print(f"Inicializando modelo. Usando dispositivo: {DEVICE}")
 
-    model = DistilBertForSequenceClassification.from_pretrained(
-        MODEL_NAME, num_labels=2
-    )
+    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
     model.to(DEVICE)
 
     # Argumentos de entrenamiento
@@ -121,7 +119,7 @@ def run_training() -> None:
         logging_steps=100,
         eval_strategy="epoch",  # Evaluar al final de cada época
         save_strategy="epoch",  # Guardar checkpoint al final de cada época
-        load_best_model_at_end=True,  # Al final, quedarse con el mejor modelo
+        load_best_model_at_end=True,  # Quedarse con el mejor modelo al final
         metric_for_best_model="f1",  # Optimizar para F1-Score
         save_total_limit=2,  # No llenar el disco duro, guardar solo los 2 últimos
     )
