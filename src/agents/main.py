@@ -3,17 +3,8 @@ Este módulo construye el grafo de LangGraph, define los nodos (agentes) y ejecu
 el flujo completo para verificar noticias falsas en el ámbito de la salud.
 """
 
-import sys
-import os
 from typing import TypedDict, List
 from langgraph.graph import StateGraph, START, END
-
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../"))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 from src.agents.extractor import extractor
 from src.agents.translator import translator
 from src.agents.health_expert import health_expert

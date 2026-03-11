@@ -3,8 +3,6 @@ Este módulo contiene las funciones necesarias para entrenar
 el modelo BERT para detectar noticias falsas en salud pública.
 """
 
-import sys
-import os
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
@@ -15,12 +13,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../"))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 from src.utils.load_data import load_dataset
 from src.utils.preprocess import preprocess_data
 

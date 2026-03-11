@@ -3,16 +3,8 @@ Este módulo define un agente experto en salud que interpreta el análisis técn
 IA sobre una afirmación médica y lo explica al paciente utilizando terminología clínica rigurosa.
 """
 
-import sys
-import os
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../"))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 from src.tools.model_tool import FakeNewsDetectorTool
 
 
@@ -98,7 +90,6 @@ if __name__ == "__main__":
         ],
     }
 
-    # Pasar el estado simulado al nodo para verificar su funcionamiento
     explanations = health_expert(simulated_state)
 
     print("\n" + "=" * 50)

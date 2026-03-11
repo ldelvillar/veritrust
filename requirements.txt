@@ -92,6 +92,7 @@ six==1.17.0
 stack-data==0.6.3
 sympy==1.14.0
 tenacity==9.1.4
+-e git+https://github.com/ldelvillar/tfg.git@e7344d7fcce2655ce796c1cef7bd4da9ee0f446f#egg=tfg
 threadpoolctl==3.6.0
 tokenizers==0.22.2
 tomlkit==0.14.0
