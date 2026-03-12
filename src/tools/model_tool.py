@@ -34,7 +34,7 @@ class FakeNewsDetectorTool(BaseTool):
         os.path.join(os.path.dirname(__file__), "../../models/bert_classifier")
     )
 
-    def _run(self, text: str) -> str:
+    def _run(self, text: str) -> dict[str, str | float]:
         try:
             # Cargar modelo y tokenizador
             tokenizer = BertTokenizer.from_pretrained(self.model_path)
@@ -56,19 +56,13 @@ class FakeNewsDetectorTool(BaseTool):
             resultado = "falsa" if fake_prob > real_prob else "verdadera"
             confianza = max(fake_prob, real_prob)
 
-            return (
-                f"El análisis de IA sugiere que la noticia es {resultado} "
-                f"con una confianza del {confianza:.2%}."
-            )
+            return {"resultado": resultado, "confianza": round(confianza, 4)}
 
         except (OSError, ValueError, RuntimeError) as e:
-            return f"Error al ejecutar el detector: {str(e)}"
+            print(f"Error al ejecutar el detector: {str(e)}")
+            return {"resultado": "error", "confianza": 0.0000}
 
 
 if __name__ == "__main__":
     tool = FakeNewsDetectorTool()
-    print(
-        tool.run(
-            "La comida procesada en exceso no tiene efectos negativos sobre la salud"
-        )
-    )
+    print(tool.run("Bleach cures COVID instantly according to studies."))

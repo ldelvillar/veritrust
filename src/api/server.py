@@ -46,22 +46,34 @@ def analyze_news(body: AnalyzeRequest):
             "input_text": text,
             "extracted_statements": [],
             "translated_statements": [],
-            "clinical_explanations": [],
+            "label": "",
+            "confidence": "",
+            "medical_explanation": "",
         }
 
         # Ejecutar el grafo
         result = verification_system.invoke(initial_state)
 
-        # Obtener las explicaciones generadas
-        explanations = result.get("clinical_explanations", [])
+        # Obtener los resultados
+        label = result.get("label", "Indefinida")
+        confidence = result.get("confidence", "Indefinida")
+        explanation = result.get(
+            "medical_explanation", "No se pudo obtener la explicación médica."
+        )
 
-        if not explanations or "No se detectaron afirmaciones" in explanations[0]:
+        if not explanation:
             return {
                 "status": "warning",
                 "message": "No se detectaron afirmaciones medicas verificables en el texto.",
-                "explanations": [],
+                "explanations": "",
             }
 
-        return {"status": "success", "explanations": explanations}
+        return {
+            "status": "success",
+            "label": label,
+            "confidence": confidence,
+            "explanation": explanation,
+        }
     except Exception as e:
+        print(f"Error al analizar la noticia: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e

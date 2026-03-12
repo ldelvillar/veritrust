@@ -20,10 +20,12 @@ class AgentState(TypedDict):
     input_text: str
     extracted_statements: List[str]
     translated_statements: List[str]
-    clinical_explanations: List[str]
+    label: str
+    confidence: str
+    medical_explanation: str
 
 
-def create_graph():
+def create_graph() -> StateGraph[AgentState]:
     """Instancia y configura el flujo de trabajo multiagente."""
     # Inicializar el grafo con el estado definido
     workflow = StateGraph(AgentState)
@@ -62,7 +64,9 @@ if __name__ == "__main__":
         "input_text": INPUT_TEXT,
         "extracted_statements": [],
         "translated_statements": [],
-        "clinical_explanations": [],
+        "label": "",
+        "confidence": "",
+        "medical_explanation": "",
     }
 
     print("[Sistema] Iniciando verificación de noticias falsas...")
@@ -73,7 +77,9 @@ if __name__ == "__main__":
 
     # Mostrar los resultados finales
     print("\n" + "=" * 50)
-    print("INFORME FINAL DEL SISTEMA")
-    print("=" * 50)
-    for informe in result.get("clinical_explanations", []):
-        print(f"{informe}\n{'-'*50}")
+    label, confidence = result.get("label", "desconocida"), result.get(
+        "confidence", "indefinida"
+    )
+    print(f"La noticia es {label} con una confianza del {confidence * 100:.2f}%.")
+    print("\nAnalisis médico:")
+    print(result.get("medical_explanation", "No se generó informe."))

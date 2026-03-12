@@ -1,6 +1,6 @@
 """
 Este módulo define un agente experto en salud que interpreta el análisis técnico de un modelo de
-IA sobre una afirmación médica y lo explica al paciente utilizando terminología clínica rigurosa.
+IA sobre una afirmación médica y lo explica al paciente utilizando terminología médica rigurosa.
 """
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -10,10 +10,10 @@ from src.tools.model_tool import FakeNewsDetectorTool
 
 def health_expert(state: dict) -> dict:
     """
-    Recibe las afirmaciones extraídas, usa BERT para verificarlas
-    y Llama 3.2 para redactar el informe clínico.
+    Recibe las afirmaciones extraídas, usa el modelo BERT
+    para verificarlas y redacta el informe médico con Llama 3.2.
     """
-    print("[Agente Experto] Evaluando afirmaciones y redactando informes clínicos...")
+    print("[Agente Experto] Evaluando afirmaciones y redactando informes médicos...")
 
     # Recuperar la lista de afirmaciones extraídas y traducidas
     extracted_statements = state.get("extracted_statements", [])
@@ -22,59 +22,78 @@ def health_expert(state: dict) -> dict:
     # Terminar la ejecución si la lista de afirmaciones está vacía
     if not extracted_statements or not translated_statements:
         return {
-            "clinical_explanations": [
-                "No se detectaron afirmaciones médicas para evaluar."
-            ]
+            "global_confidence": "Indeterminado",
+            "medical_explanation": "No se detectaron afirmaciones médicas para evaluar.",
         }
 
     # Instanciar el LLM y la herramienta detectora
-    llm = ChatOllama(model="llama3", temperature=0)
+    llm = ChatOllama(model="llama3.2", temperature=0)
     bert_tool = FakeNewsDetectorTool()
 
     # Definir el prompt de sistema
     system_prompt = SystemMessage(
         content=(
-            "Eres un 'Agente Experto en Salud Pública y Epidemiología'. Tu labor es interpretar "
-            "el análisis técnico de un modelo de IA sobre una afirmación médica "
-            "y explicárselo al paciente. Instrucciones OBLIGATORIAS: "
-            "Comienza indicando el veredicto del análisis técnico de forma clara. "
-            "Explica médicamente por qué la afirmación original carece o tiene evidencia, "
-            "usando terminología clínica rigurosa (ej. toxicidad, patógenos, profilaxis). "
-            "Concluye SIEMPRE con este descargo exacto: '*Nota: Este análisis es generado "
-            "por un sistema de IA y no sustituye el consejo de un profesional médico.*'"
+            "Eres un 'Agente Experto en Salud Publica y Epidemiologia'. Tu labor es interpretar "
+            "el analisis tecnico global de un modelo de IA sobre un texto medico "
+            "y explicarselo al paciente. Instrucciones OBLIGATORIAS: "
+            "Comienza indicando el veredicto global de forma clara. "
+            "Desglosa y explica medicamente cada una de las afirmaciones originales extraidas, "
+            "indicando por que carecen o tienen evidencia, usando terminologia clinica "
+            "rigurosa. Concluye SIEMPRE con este descargo exacto: '*Nota: Este analisis "
+            "es generado por un sistema de IA y no sustituye el consejo de un profesional medico.*'"
         )
     )
 
-    clinical_explanations = []
+    total_fake_prob = 0.0
+    total_statements = len(translated_statements)
+    all_statements = ""
 
     # Iterar sobre cada afirmación para analizarla individualmente
     for original, translated in zip(extracted_statements, translated_statements):
         print("Analizando afirmación con BERT...")
 
         # Obtener el resultado del modelo
-        model_output = bert_tool.invoke({"text": translated})
+        result = bert_tool.invoke({"text": translated})
+        label, confidence = result["resultado"], result["confianza"]
 
-        expert_message = HumanMessage(
-            content=(
-                f"Afirmación del usuario a evaluar: '{original}'\n\n"
-                f"Resultado inamovible de nuestro detector de Fake News (BERT): {model_output}\n\n"
-                f"Redacta el informe clínico final basándote estrictamente en este resultado."
-            )
+        # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global
+        fake_prob = confidence if label == "falsa" else (1.0 - confidence)
+        total_fake_prob += fake_prob
+
+        # Unir todas las afirmaciones para el informe médico
+        all_statements += f"- Afirmacion: '{original}'\n"
+
+    # Calcular la media global
+    fake_avg = total_fake_prob / total_statements
+
+    # Determinar etiqueta global
+    global_label = "falsa" if fake_avg > 0.40 else "verdadera"
+    global_confidence = fake_avg if global_label == "falsa" else (1.0 - fake_avg)
+
+    # Construir el prompt para el LLM con todo el contexto
+    expert_message = HumanMessage(
+        content=(
+            f"Veredicto global del detector tecnico: La noticia es {global_label} con una "
+            f"seguridad del {global_confidence * 100:.2f}%.\n\n"
+            f"Afirmaciones detectadas en el texto original a analizar:\n"
+            f"{all_statements}\n"
+            f"Redacta un unico informe medico exhaustivo que englobe todas estas afirmaciones "
+            f"y justifique el veredicto global."
         )
+    )
 
-        print("Generando explicación clínica...")
+    print("Generando explicación médica...")
 
-        # Invocar al LLM para generar la explicación clínica basada en el resultado del modelo
-        answer = llm.invoke([system_prompt, expert_message])
-
-        # Guardar el resultado combinando la afirmación original y su explicación clínica
-        result = f"**Afirmación:** {original}\n**Análisis:**\n{answer.content}"
-        clinical_explanations.append(result)
+    # Invocar al LLM para generar la explicación médica basada en el resultado del modelo
+    medical_explanation = llm.invoke([system_prompt, expert_message]).content
 
     print("[Agente Experto] Todos los informes generados.")
 
-    # Devolver el estado actualizado con los informes clínicos generados
-    return {"clinical_explanations": clinical_explanations}
+    return {
+        "label": global_label,
+        "confidence": global_confidence,
+        "medical_explanation": medical_explanation,
+    }
 
 
 if __name__ == "__main__":
@@ -95,5 +114,6 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("RESULTADOS FINALES:")
     print("=" * 50)
-    for explanation in explanations["clinical_explanations"]:
-        print(f"{explanation}\n{'-'*50}")
+    print(f"Etiqueta global: {explanations['label']}")
+    print(f"Confianza global: {explanations['confidence']:.2f}")
+    print(f"Explicación médica:\n{explanations['medical_explanation']}")
