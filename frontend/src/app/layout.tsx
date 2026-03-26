@@ -10,9 +10,9 @@ const onest = Onest({
 });
 
 export const metadata: Metadata = {
-  title: 'Detector de Fake News con IA | VeriTrust',
+  title: 'Detector de Desinformación con IA | VeriTrust',
   description:
-    'Detecta noticias falsas con nuestro sistema impulsado por IA. Veritrust proporciona una evaluación de su veracidad, ayudando a identificar información confiable y combatir la desinformación en línea.',
+    'Detecta afirmaciones médicas falsas con nuestro sistema impulsado por IA. Veritrust proporciona una evaluación de su veracidad, ayudando a identificar información confiable y combatir la desinformación en línea.',
 };
 
 export default function RootLayout({

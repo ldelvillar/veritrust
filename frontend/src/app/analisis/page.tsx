@@ -60,7 +60,7 @@ export default function AnalisisPage() {
       {loading && (
         <div className="flex flex-col items-center gap-4 text-gray-500">
           <Spinner className="size-10 animate-spin text-primary" />
-          <p className="text-lg font-medium">Analizando la noticia...</p>
+          <p className="text-lg font-medium">Analizando el texto...</p>
         </div>
       )}
 

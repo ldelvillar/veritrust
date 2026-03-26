@@ -203,7 +203,7 @@ export default function Result({ result }: ResultProps) {
           href="/"
           className="rounded-lg bg-primary px-3 py-2 text-white transition duration-300 hover:bg-primary/90"
         >
-          Analizar otra noticia
+          Analizar otro texto
         </Link>
       </div>
     </div>
