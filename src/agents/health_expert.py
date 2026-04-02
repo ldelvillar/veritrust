@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.tools.model_tool import FakeNewsDetectorTool
+from src.prompts.main import HEALTH_EXPERT_PROMPT
 
 
 def health_expert(state: dict) -> dict:
@@ -41,18 +42,7 @@ def health_expert(state: dict) -> dict:
     bert_tool = FakeNewsDetectorTool()
 
     # Definir el prompt de sistema
-    system_prompt = SystemMessage(
-        content=(
-            "Eres un 'Agente Experto en Salud Publica y Epidemiologia'. Tu labor es interpretar "
-            "el analisis tecnico global de un modelo de IA sobre un texto medico "
-            "y explicarselo al paciente. Instrucciones OBLIGATORIAS: "
-            "Comienza indicando el veredicto global de forma clara. "
-            "Desglosa y explica medicamente cada una de las afirmaciones originales extraidas, "
-            "indicando por que carecen o tienen evidencia, usando terminologia clinica "
-            "rigurosa. Concluye SIEMPRE con este descargo exacto: '*Nota: Este analisis "
-            "es generado por un sistema de IA y no sustituye el consejo de un profesional medico.*'"
-        )
-    )
+    system_prompt = SystemMessage(content=HEALTH_EXPERT_PROMPT)
 
     total_fake_prob = 0.0
     total_statements = len(translated_statements)

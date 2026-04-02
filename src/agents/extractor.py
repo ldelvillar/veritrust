@@ -7,6 +7,7 @@ from typing import List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
+from src.prompts.main import EXTRACTOR_PROMPT
 
 
 class MedicalStatements(BaseModel):
@@ -30,19 +31,7 @@ system_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            (
-                "Eres un analista de datos implacable y meticuloso especializado en el ámbito de "
-                "la salud y la medicina.Tu única tarea es leer el texto del usuario y extraer "
-                "afirmaciones fácticas sobre salud, enfermedades, tratamientos o nutrición que "
-                "necesiten ser verificadas con evidencia científica. "
-                " Reglas:"
-                "- Extrae SOLO afirmaciones concretas."
-                "- Ignora opiniones personales, introducciones, chistes o texto de relleno."
-                "- Reformula la afirmación para que sea una oración independiente y clara "
-                "(Ej: 'El ajo cura el cáncer de estómago')."
-                "- Si el texto no contiene ninguna afirmación médica verificable, devuelve una "
-                "lista vacía."
-            ),
+            EXTRACTOR_PROMPT,
         ),
         ("user", "Texto a analizar: {texto}"),
     ]

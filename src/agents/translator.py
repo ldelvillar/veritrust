@@ -5,6 +5,7 @@ traduce al español para que el modelo pueda clasificarlo correctamente.
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
+from src.prompts.main import TRANSLATOR_PROMPT
 
 
 def translator(state: dict) -> dict:
@@ -25,14 +26,7 @@ def translator(state: dict) -> dict:
     llm = ChatOllama(model="translategemma", temperature=0)
 
     # Definir el prompt de sistema
-    system_prompt = SystemMessage(
-        content=(
-            "You are a professional Spanish (es) to English (en) medical translator. "
-            "Your goal is to accurately translate the clinical meaning of the original "
-            "Spanish text into English. Produce ONLY the English translation, "
-            "without any additional explanations, quotes, or commentary."
-        )
-    )
+    system_prompt = SystemMessage(content=TRANSLATOR_PROMPT)
 
     translated_statements = []
 
