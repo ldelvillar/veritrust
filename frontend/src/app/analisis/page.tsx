@@ -19,6 +19,17 @@ export default function AnalisisPage() {
   const hasFetched = useRef(false);
 
   useEffect(() => {
+    if (loading) document.title = 'Analizando texto...';
+    else document.title = 'Resultados del Análisis';
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute(
+        'content',
+        'Resultados detallados del análisis del texto médico, incluyendo veredicto global, confianza y explicación.'
+      );
+  }, [loading]);
+
+  useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
