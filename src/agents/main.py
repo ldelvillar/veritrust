@@ -3,7 +3,15 @@ Este módulo construye el grafo de LangGraph, define los nodos (agentes) y ejecu
 el flujo completo para verificar noticias falsas en el ámbito de la salud.
 """
 
+import sys
+from pathlib import Path
 from typing import TypedDict, List
+
+# Asegurar que al ejecutar este archivo como script, se use el código local del repositorio.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from langgraph.graph import StateGraph, START, END
 from src.agents.extractor import extractor
 from src.agents.translator import translator
@@ -50,7 +58,7 @@ def create_graph() -> StateGraph[AgentState]:
 if __name__ == "__main__":
     INPUT_TEXT = (
         "He leído en un foro que el consumo masivo de vitamina C previene cualquier "
-        "tipo de infección viral, y que las mascarillas causan hipoxia severa."
+        "tipo de infección viral."
     )
 
     # Arrancar Ollama
@@ -80,6 +88,5 @@ if __name__ == "__main__":
     label, confidence = result.get("label", "desconocida"), result.get(
         "confidence", "indefinida"
     )
-    print(f"La noticia es {label} con una confianza del {confidence * 100:.2f}%.")
     print("\nAnalisis médico:")
     print(result.get("medical_explanation", "No se generó informe."))

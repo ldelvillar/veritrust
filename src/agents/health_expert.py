@@ -3,8 +3,18 @@ Este módulo define un agente experto en salud que interpreta el análisis técn
 IA sobre una afirmación médica y lo explica al paciente utilizando terminología médica rigurosa.
 """
 
+import ast
+import sys
+from pathlib import Path
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
+
+# Asegura que, al ejecutar este archivo como script, se use el código local del repositorio.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.tools.model_tool import FakeNewsDetectorTool
 
 
@@ -54,7 +64,25 @@ def health_expert(state: dict) -> dict:
 
         # Obtener el resultado del modelo
         result = bert_tool.invoke({"text": translated})
-        label, confidence = result["resultado"], result["confianza"]
+
+        # LangChain puede serializar salidas no-string de herramientas a texto.
+        if isinstance(result, str):
+            try:
+                parsed = ast.literal_eval(result)
+                if isinstance(parsed, dict):
+                    result = parsed
+            except (SyntaxError, ValueError):
+                pass
+
+        if (
+            not isinstance(result, dict)
+            or "label" not in result
+            or "confidence" not in result
+        ):
+            raise ValueError(f"Salida inesperada del detector: {result}")
+
+        print(f"Resultado del modelo para la afirmación: {result}")
+        label, confidence = result["label"], result["confidence"]
 
         # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global
         fake_prob = confidence if label == "falsa" else (1.0 - confidence)
