@@ -3,9 +3,10 @@ API REST para el Sistema Multiagente de Salud.
 Conecta el frontend con el flujo de agentes.
 """
 
+from typing import Annotated
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
 
@@ -28,7 +29,10 @@ verification_system = create_graph()
 class AnalyzeRequest(BaseModel):
     """Modelo de datos para la solicitud de análisis."""
 
-    text: str
+    text: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=10000),
+    ]
 
 
 @app.get("/")

@@ -1,0 +1,143 @@
+"""Tests de integración para la API server, verificando endpoints y manejo de errores."""
+
+import importlib
+import sys
+import types
+from pathlib import Path
+from fastapi.testclient import TestClient
+
+
+def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
+    project_root = Path(__file__).resolve().parents[3]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    fake_agents_module = types.ModuleType("src.agents.main")
+    start_calls = {"count": 0}
+
+    class _FakeGraph:
+        def __init__(self):
+            self.invocations = []
+
+        def invoke(self, state):
+            self.invocations.append(state)
+            if invoke_error is not None:
+                raise invoke_error
+            return invoke_result if invoke_result is not None else {}
+
+    fake_graph = _FakeGraph()
+
+    def create_graph():
+        return fake_graph
+
+    fake_agents_module.create_graph = create_graph
+
+    fake_start_module = types.ModuleType("src.utils.start_ollama")
+
+    def start_ollama():
+        start_calls["count"] += 1
+
+    fake_start_module.start_ollama = start_ollama
+
+    monkeypatch.setitem(sys.modules, "src.agents.main", fake_agents_module)
+    monkeypatch.setitem(sys.modules, "src.utils.start_ollama", fake_start_module)
+
+    sys.modules.pop("src.api.server", None)
+    server_module = importlib.import_module("src.api.server")
+
+    return server_module, fake_graph, start_calls
+
+
+def test_root_endpoint_returns_service_status(monkeypatch):
+    server_module, _, start_calls = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "online"
+    assert start_calls["count"] == 1
+
+
+def test_analisis_returns_success_payload(monkeypatch):
+    result = {
+        "label": "falsa",
+        "confidence": 0.92,
+        "medical_explanation": "No hay evidencia clínica sólida.",
+    }
+    server_module, fake_graph, _ = _load_server_module(
+        monkeypatch, invoke_result=result
+    )
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["label"] == "falsa"
+    assert body["confidence"] == 0.92
+    assert "explanation" in body
+    assert fake_graph.invocations[0]["input_text"] == "Bleach cures COVID"
+
+
+def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
+    result = {
+        "label": "verdadera",
+        "confidence": 0.6,
+        "medical_explanation": "",
+    }
+    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={"text": "Texto sin claim"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "warning"
+    assert "message" in body
+
+
+def test_analisis_returns_500_on_unexpected_error(monkeypatch):
+    server_module, _, _ = _load_server_module(
+        monkeypatch, invoke_error=RuntimeError("graph failed")
+    )
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={"text": "Texto"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "graph failed"
+
+
+def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={})
+
+    assert response.status_code == 422
+    assert fake_graph.invocations == []
+
+
+def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    empty_response = client.post("/analisis", json={"text": ""})
+    whitespace_response = client.post("/analisis", json={"text": "   \n\t  "})
+
+    assert empty_response.status_code == 422
+    assert whitespace_response.status_code == 422
+    assert fake_graph.invocations == []
+
+
+def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    very_long_text = "a" * 10001
+    response = client.post("/analisis", json={"text": very_long_text})
+
+    assert response.status_code == 422
+    assert fake_graph.invocations == []

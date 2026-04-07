@@ -1,0 +1,119 @@
+"""Tests de integración para el grafo completo de agentes definido en src.agents.main."""
+
+import importlib
+import sys
+import types
+from pathlib import Path
+
+
+def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl):
+    project_root = Path(__file__).resolve().parents[3]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    fake_extractor_module = types.ModuleType("src.agents.extractor")
+    fake_extractor_module.extractor = extractor_impl
+
+    fake_translator_module = types.ModuleType("src.agents.translator")
+    fake_translator_module.translator = translator_impl
+
+    fake_health_module = types.ModuleType("src.agents.health_expert")
+    fake_health_module.health_expert = health_impl
+
+    fake_start_module = types.ModuleType("src.utils.start_ollama")
+    fake_start_module.start_ollama = lambda: None
+
+    monkeypatch.setitem(sys.modules, "src.agents.extractor", fake_extractor_module)
+    monkeypatch.setitem(sys.modules, "src.agents.translator", fake_translator_module)
+    monkeypatch.setitem(sys.modules, "src.agents.health_expert", fake_health_module)
+    monkeypatch.setitem(sys.modules, "src.utils.start_ollama", fake_start_module)
+
+    sys.modules.pop("src.agents.main", None)
+    return importlib.import_module("src.agents.main")
+
+
+def _minimal_state():
+    return {
+        "input_text": "Texto de prueba",
+        "extracted_statements": [],
+        "translated_statements": [],
+        "label": "",
+        "confidence": "",
+        "medical_explanation": "",
+    }
+
+
+def test_create_graph_returns_compiled_invocable(monkeypatch):
+    def extractor(state):
+        return {"extracted_statements": ["Claim"]}
+
+    def translator(state):
+        return {"translated_statements": ["Claim"]}
+
+    def health_expert(state):
+        return {
+            "label": "falsa",
+            "confidence": "0.95",
+            "medical_explanation": "Explicación médica de prueba.",
+        }
+
+    main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
+    graph = main_module.create_graph()
+
+    assert hasattr(graph, "invoke")
+    assert callable(graph.invoke)
+
+
+def test_graph_invocation_with_min_state_contains_expected_keys(monkeypatch):
+    def extractor(state):
+        return {"extracted_statements": ["A"]}
+
+    def translator(state):
+        return {"translated_statements": ["A"]}
+
+    def health_expert(state):
+        return {
+            "label": "verdadera",
+            "confidence": "0.70",
+            "medical_explanation": "Todo correcto.",
+        }
+
+    main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
+    graph = main_module.create_graph()
+    result = graph.invoke(_minimal_state())
+
+    expected_keys = {
+        "input_text",
+        "extracted_statements",
+        "translated_statements",
+        "label",
+        "confidence",
+        "medical_explanation",
+    }
+    assert expected_keys.issubset(result.keys())
+
+
+def test_graph_keeps_contract_when_nodes_return_empty_values(monkeypatch):
+    def extractor(state):
+        return {"extracted_statements": []}
+
+    def translator(state):
+        return {"translated_statements": []}
+
+    def health_expert(state):
+        return {
+            "label": "",
+            "confidence": "",
+            "medical_explanation": "",
+        }
+
+    main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
+    graph = main_module.create_graph()
+    result = graph.invoke(_minimal_state())
+
+    assert result["input_text"] == "Texto de prueba"
+    assert result["extracted_statements"] == []
+    assert result["translated_statements"] == []
+    assert result["label"] == ""
+    assert result["confidence"] == ""
+    assert result["medical_explanation"] == ""
