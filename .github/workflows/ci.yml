@@ -64,10 +64,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests with coverage
+      - name: Run tests with coverage
         run: |
           mkdir -p test-results
-          pytest -q src/tests/unit \
+          pytest -q src/tests \
             --junitxml=test-results/pytest.xml \
             --cov=src \
             --cov-fail-under=80 \
