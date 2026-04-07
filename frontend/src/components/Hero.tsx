@@ -6,7 +6,7 @@ export default function Hero() {
       </h1>
       <p className="mt-3 text-base leading-relaxed text-gray-600 sm:mt-4 sm:text-lg">
         Esta herramienta utiliza un sistema multiagente que busca entre bases de
-        datos especializadas y analiza patrones lingüisticos para detectar
+        datos especializadas y analiza patrones lingüísticos para detectar
         afirmaciones médicas falsas.
       </p>
     </section>
