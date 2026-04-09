@@ -5,6 +5,7 @@ import sys
 import types
 from pathlib import Path
 from fastapi.testclient import TestClient
+from src.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
 def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
@@ -137,8 +138,9 @@ def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "warning"
-    assert "message" in body
+    assert body["status"] == "error"
+    assert body["message"] == ERROR_NO_MEDICAL_CLAIMS
+    assert body["explanations"] == ""
 
 
 def test_analisis_returns_500_on_unexpected_error(monkeypatch):
@@ -150,7 +152,7 @@ def test_analisis_returns_500_on_unexpected_error(monkeypatch):
     response = client.post("/analisis", json={"text": "Texto"})
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "graph failed"
+    assert response.json()["detail"] == ERROR_INTERNAL
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):

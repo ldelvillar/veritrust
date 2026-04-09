@@ -9,6 +9,12 @@ from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
 from src.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
 from src.api.schemas import AnalyzeRequest
+from src.api.messages import (
+    ERROR_MEMORY_LIMIT,
+    ERROR_CONNECTION,
+    ERROR_INTERNAL,
+    ERROR_NO_MEDICAL_CLAIMS,
+)
 
 app = FastAPI()
 
@@ -74,8 +80,8 @@ def analyze_news(body: AnalyzeRequest):
 
         if not explanation:
             return {
-                "status": "warning",
-                "message": "No se detectaron afirmaciones medicas verificables en el texto.",
+                "status": "error",
+                "message": ERROR_NO_MEDICAL_CLAIMS,
                 "explanations": "",
             }
 
@@ -86,5 +92,15 @@ def analyze_news(body: AnalyzeRequest):
             "explanation": explanation,
         }
     except Exception as e:
-        print(f"Error al analizar la noticia: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        error_msg = str(e).lower()
+        print(f"Error al analizar la noticia: {error_msg}")
+
+        # Traducir errores a mensajes para el usuario
+        if "model requires more system memory" in error_msg:
+            friendly_msg = ERROR_MEMORY_LIMIT
+        elif "connection refused" in error_msg or "connect call failed" in error_msg:
+            friendly_msg = ERROR_CONNECTION
+        else:
+            friendly_msg = ERROR_INTERNAL
+
+        raise HTTPException(status_code=500, detail=friendly_msg) from e

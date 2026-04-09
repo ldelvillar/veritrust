@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Spinner from '@/assets/Spinner';
 import Result from '@/components/Result';
+import Spinner from '@/assets/Spinner';
+import WarningIcon from '@/assets/Warning';
 
 interface AnalisisResult {
   label: string;
@@ -53,8 +54,16 @@ export default function AnalisisPage() {
           body: JSON.stringify(text ? { text } : { url }),
         });
 
-        if (!response.ok)
-          throw new Error(`Response status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage =
+            typeof errorData.detail === 'string'
+              ? errorData.detail
+              : Array.isArray(errorData.detail)
+                ? errorData.detail[0].msg
+                : `Status ${response.status}: Error al conectar con el servidor`;
+          throw new Error(errorMessage);
+        }
 
         const data = await response.json();
         setResult(data);
@@ -78,9 +87,22 @@ export default function AnalisisPage() {
       )}
 
       {error && (
-        <div className="w-full max-w-3xl rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
-          <p className="font-semibold">Error al procesar el análisis</p>
-          <p className="mt-1 text-sm">{error}</p>
+        <div className="flex w-full max-w-2xl flex-col items-center gap-5 rounded-2xl border border-red-100 bg-white p-8 text-center shadow-2xl shadow-red-100/50 md:p-12">
+          <div className="flex size-16 items-center justify-center rounded-full bg-red-100 text-red-500">
+            <WarningIcon className="size-8" />
+          </div>
+          <div>
+            <h2 className="mb-2 text-2xl font-bold text-gray-800">
+              Ups, ha ocurrido un error
+            </h2>
+            <p className="text-base text-gray-600">{error}</p>
+          </div>
+          <button
+            onClick={() => router.replace('/')}
+            className="mt-3 rounded-xl bg-red-50 px-6 py-3 font-semibold text-red-600 transition-colors hover:bg-red-100 focus:ring-4 focus:ring-red-100 focus:outline-none"
+          >
+            Volver al inicio
+          </button>
         </div>
       )}
 
