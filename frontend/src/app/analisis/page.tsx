@@ -19,8 +19,8 @@ export default function AnalisisPage() {
   const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (loading) document.title = 'Analizando texto...';
-    else document.title = 'Resultados del Análisis';
+    if (loading) document.title = 'Analizando el texto | VeriTrust';
+    else document.title = 'Resultados del Análisis | VeriTrust';
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute(
@@ -34,13 +34,15 @@ export default function AnalisisPage() {
     hasFetched.current = true;
 
     const text = sessionStorage.getItem('analisis_text');
+    const url = sessionStorage.getItem('analisis_url');
 
-    if (!text) {
+    if (!text && !url) {
       router.replace('/');
       return;
     }
 
     sessionStorage.removeItem('analisis_text');
+    sessionStorage.removeItem('analisis_url');
 
     const fetchResult = async () => {
       try {
@@ -48,7 +50,7 @@ export default function AnalisisPage() {
         const response = await fetch(URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify(text ? { text } : { url }),
         });
 
         if (!response.ok)

@@ -39,8 +39,19 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     fake_start_module.start_ollama = start_ollama
 
+    fake_extract_module = types.ModuleType("src.utils.extract_text_from_url")
+
+    class FakeURLExtractionError(Exception):
+        pass
+
+    fake_extract_module.URLExtractionError = FakeURLExtractionError
+    fake_extract_module.extract_text_from_url = lambda url: "Texto extraído de la URL"
+
     monkeypatch.setitem(sys.modules, "src.agents.main", fake_agents_module)
     monkeypatch.setitem(sys.modules, "src.utils.start_ollama", fake_start_module)
+    monkeypatch.setitem(
+        sys.modules, "src.utils.extract_text_from_url", fake_extract_module
+    )
 
     sys.modules.pop("src.api.server", None)
     server_module = importlib.import_module("src.api.server")
@@ -79,6 +90,38 @@ def test_analisis_returns_success_payload(monkeypatch):
     assert body["confidence"] == 0.92
     assert "explanation" in body
     assert fake_graph.invocations[0]["input_text"] == "Bleach cures COVID"
+
+
+def test_analisis_returns_success_with_url(monkeypatch):
+    result = {
+        "label": "verdadera",
+        "confidence": 0.85,
+        "medical_explanation": "El texto extraído contiene información correcta.",
+    }
+    server_module, fake_graph, _ = _load_server_module(
+        monkeypatch, invoke_result=result
+    )
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={"url": "https://ejemplo.com/noticia"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["label"] == "verdadera"
+    assert body["confidence"] == 0.85
+    assert "explanation" in body
+    assert fake_graph.invocations[0]["input_text"] == "Texto extraído de la URL"
+
+
+def test_analisis_rejects_invalid_url(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analisis", json={"url": "not-a-valid-url"})
+
+    # Pydantic HttpUrl validation should fail with 422
+    assert response.status_code == 422
 
 
 def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):

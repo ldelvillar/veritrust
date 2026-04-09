@@ -3,12 +3,12 @@ API REST para el Sistema Multiagente de Salud.
 Conecta el frontend con el flujo de agentes.
 """
 
-from typing import Annotated
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, StringConstraints
 from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
+from src.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
+from src.api.schemas import AnalyzeRequest
 
 app = FastAPI()
 
@@ -26,15 +26,6 @@ start_ollama()
 verification_system = create_graph()
 
 
-class AnalyzeRequest(BaseModel):
-    """Modelo de datos para la solicitud de análisis."""
-
-    text: Annotated[
-        str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=10000),
-    ]
-
-
 @app.get("/")
 def read_root():
     """Endpoint de prueba para verificar que el servidor está funcionando."""
@@ -44,7 +35,23 @@ def read_root():
 @app.post("/analisis")
 def analyze_news(body: AnalyzeRequest):
     """Endpoint para analizar una noticia utilizando el sistema multiagente."""
-    text = body.text
+    if not body.text and not body.url:
+        raise HTTPException(
+            status_code=400,
+            detail="Se debe proporcionar un texto o una URL para analizar.",
+        )
+
+    if body.text and body.url:
+        raise HTTPException(
+            status_code=400,
+            detail="Se debe proporcionar solo uno de los campos: 'text' o 'url', pero no ambos.",
+        )
+
+    try:
+        text = extract_text_from_url(str(body.url)) if body.url else body.text
+    except URLExtractionError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
     try:
         initial_state = {
             "input_text": text,
