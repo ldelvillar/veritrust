@@ -1,5 +1,6 @@
 'use client';
 
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -63,18 +64,21 @@ export default function Header() {
         </div>
 
         <div className="hidden items-center gap-5 md:flex">
-          <Link
-            href="/login"
-            className="transition duration-200 hover:text-primary"
-          >
-            <p>Iniciar sesión</p>
-          </Link>
-          <Link
-            href="/registro"
-            className="rounded-lg bg-primary px-4 py-2 text-white transition duration-200 hover:bg-primary/90"
-          >
-            <p>Registrarse</p>
-          </Link>
+          <Show when="signed-out">
+            <SignInButton>
+              <button className="h-10 cursor-pointer px-4 text-sm font-medium transition duration-300 hover:text-primary sm:h-12 sm:px-5 sm:text-base">
+                Iniciar sesión
+              </button>
+            </SignInButton>
+            <SignUpButton>
+              <button className="h-10 cursor-pointer rounded-lg bg-primary px-4 text-sm font-medium text-white transition duration-300 hover:bg-primary/90 sm:h-12 sm:px-5 sm:text-base">
+                Registrarse
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
         </div>
 
         <button

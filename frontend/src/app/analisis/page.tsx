@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import { useAuth } from '@clerk/nextjs';
 
 interface AnalisisResult {
   label: string;
@@ -14,6 +15,7 @@ interface AnalisisResult {
 
 export default function AnalisisPage() {
   const router = useRouter();
+  const { getToken } = useAuth();
   const [result, setResult] = useState<AnalisisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -48,9 +50,14 @@ export default function AnalisisPage() {
     const fetchResult = async () => {
       try {
         const URL = 'http://127.0.0.1:8000/analisis';
+        const token = await getToken();
+
         const response = await fetch(URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify(text ? { text } : { url }),
         });
 
@@ -75,7 +82,7 @@ export default function AnalisisPage() {
     };
 
     fetchResult();
-  }, [router]);
+  }, [router, getToken]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-12">

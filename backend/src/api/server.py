@@ -3,12 +3,13 @@ API REST para el Sistema Multiagente de Salud.
 Conecta el frontend con el flujo de agentes.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
 from src.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
 from src.api.schemas import AnalyzeRequest
+from src.api.utils import check_rate_limit, get_current_user
 from src.api.messages import (
     ERROR_MEMORY_LIMIT,
     ERROR_CONNECTION,
@@ -39,8 +40,12 @@ def read_root():
 
 
 @app.post("/analisis")
-def analyze_news(body: AnalyzeRequest):
+def analyze_news(body: AnalyzeRequest, user=Depends(get_current_user)):
     """Endpoint para analizar una noticia utilizando el sistema multiagente."""
+    user_id = user["sub"]
+
+    check_rate_limit(user_id)
+
     if not body.text and not body.url:
         raise HTTPException(
             status_code=400,

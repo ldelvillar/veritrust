@@ -5,6 +5,7 @@ import sys
 import types
 from pathlib import Path
 from fastapi.testclient import TestClient
+from src.api import utils as api_utils
 from src.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
@@ -56,6 +57,12 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     sys.modules.pop("src.api.server", None)
     server_module = importlib.import_module("src.api.server")
+
+    # Evita que el rate limit se acumule entre tests
+    api_utils.rate_limit.clear()
+    server_module.app.dependency_overrides[server_module.get_current_user] = lambda: {
+        "sub": "test-user"
+    }
 
     return server_module, fake_graph, start_calls
 
@@ -186,3 +193,14 @@ def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
 
     assert response.status_code == 422
     assert fake_graph.invocations == []
+
+
+def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+    server_module.app.dependency_overrides.pop(server_module.get_current_user, None)
+
+    response = client.post("/analisis", json={"text": "Texto"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Missing Authorization header"
