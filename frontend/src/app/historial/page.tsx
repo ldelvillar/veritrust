@@ -1,18 +1,97 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
-import HistoryFilters from '@/components/HistoryFilters';
+import { useEffect, useMemo, useState } from 'react';
+import HistoryFilters, {
+  DateRangeFilter,
+  ScoreSortOrder,
+  SourceTypeFilter,
+} from '@/components/HistoryFilters';
 import HistoryResultsTable, {
   HistoryItem,
 } from '@/components/HistoryResultsTable';
 import { CONFIG } from '@/config';
+
+const getScore = (confidence: number | string): number => {
+  const parsed = Number(confidence);
+  if (Number.isNaN(parsed)) return 0;
+
+  const normalized = parsed <= 1 ? parsed * 100 : parsed;
+  return Math.max(0, Math.min(100, Math.round(normalized)));
+};
+
+const getDateRangeThreshold = (
+  dateRangeFilter: DateRangeFilter
+): number | null => {
+  const dayInMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  if (dateRangeFilter === '7d') return now - 7 * dayInMs;
+  if (dateRangeFilter === '30d') return now - 30 * dayInMs;
+  if (dateRangeFilter === '90d') return now - 90 * dayInMs;
+  return null;
+};
+
+const matchesSearchQuery = (item: HistoryItem, query: string): boolean => {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return true;
+
+  const searchableFields = [
+    item.input_text,
+    item.input_url,
+    item.label,
+    item.source_type,
+  ];
+
+  return searchableFields.some(field =>
+    (field ?? '').toLocaleLowerCase().includes(normalizedQuery)
+  );
+};
 
 export default function HistorialPage() {
   const { getToken } = useAuth();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sourceTypeFilter, setSourceTypeFilter] =
+    useState<SourceTypeFilter>('all');
+  const [dateRangeFilter, setDateRangeFilter] =
+    useState<DateRangeFilter>('all');
+  const [scoreSortOrder, setScoreSortOrder] = useState<ScoreSortOrder>('desc');
+
+  const filteredHistory = useMemo(() => {
+    const threshold = getDateRangeThreshold(dateRangeFilter);
+
+    return history.filter(item => {
+      const searchMatches = matchesSearchQuery(item, searchQuery);
+      if (!searchMatches) return false;
+
+      const sourceMatches =
+        sourceTypeFilter === 'all' || item.source_type === sourceTypeFilter;
+      if (!sourceMatches) return false;
+
+      if (threshold === null) return true;
+
+      const parsedDate = Date.parse(item.created_at);
+      if (Number.isNaN(parsedDate)) return true;
+
+      return parsedDate >= threshold;
+    });
+  }, [history, searchQuery, sourceTypeFilter, dateRangeFilter]);
+
+  const sortedHistory = useMemo(() => {
+    const sorted = [...filteredHistory];
+
+    sorted.sort((a, b) => {
+      const aScore = getScore(a.confidence);
+      const bScore = getScore(b.confidence);
+
+      return scoreSortOrder === 'desc' ? bScore - aScore : aScore - bScore;
+    });
+
+    return sorted;
+  }, [filteredHistory, scoreSortOrder]);
 
   useEffect(() => {
     document.title = 'Historial de Análisis | VeriTrust';
@@ -92,10 +171,19 @@ export default function HistorialPage() {
         </button>
       </div>
 
-      <HistoryFilters />
+      <HistoryFilters
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        sourceTypeFilter={sourceTypeFilter}
+        onSourceTypeFilterChange={setSourceTypeFilter}
+        dateRangeFilter={dateRangeFilter}
+        onDateRangeFilterChange={setDateRangeFilter}
+        scoreSortOrder={scoreSortOrder}
+        onScoreSortOrderChange={setScoreSortOrder}
+      />
 
       <HistoryResultsTable
-        history={history}
+        history={sortedHistory}
         totalCount={totalCount}
         isLoading={isLoading}
       />

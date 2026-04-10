@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
+import Arrow from '@/assets/Arrow';
 
 export interface HistoryItem {
   id: string;
@@ -80,7 +81,7 @@ export default function HistoryResultsTable({
         </div>
       ) : history.length === 0 ? (
         <div className="px-5 py-12 text-center text-sm font-medium text-slate-500">
-          Aún no tienes análisis.
+          Aún no tienes análisis o los resultados no coinciden con los filtros.
         </div>
       ) : (
         <ul>
@@ -132,7 +133,10 @@ export default function HistoryResultsTable({
                   href={`/analisis/${item.id}`}
                   className="justify-self-end text-sm font-bold text-primary"
                 >
-                  Ver informe →
+                  <div className="flex flex-row items-center gap-2">
+                    Ver informe{' '}
+                    <Arrow className="size-4 rotate-270 text-primary" />
+                  </div>
                 </Link>
               </li>
             );
