@@ -94,10 +94,69 @@ def test_analisis_returns_success_payload(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "success"
+    assert "analysis_id" in body
     assert body["label"] == "falsa"
     assert body["confidence"] == 0.92
     assert "explanation" in body
     assert fake_graph.invocations[0]["input_text"] == "Bleach cures COVID"
+
+
+def test_analisis_saves_history_only_on_success(monkeypatch):
+    result = {
+        "label": "falsa",
+        "confidence": 0.92,
+        "medical_explanation": "No hay evidencia clínica sólida.",
+    }
+    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
+    client = TestClient(server_module.app)
+
+    calls = []
+
+    def fake_save_successful_analysis(**kwargs):
+        calls.append(kwargs)
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        server_module,
+        "save_successful_analysis",
+        fake_save_successful_analysis,
+    )
+
+    response = client.post("/analisis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["analysis_id"] == "11111111-1111-1111-1111-111111111111"
+    assert len(calls) == 1
+    assert calls[0]["user_id"] == "test-user"
+
+
+def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
+    result = {
+        "label": "verdadera",
+        "confidence": 0.6,
+        "medical_explanation": "",
+    }
+    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
+    client = TestClient(server_module.app)
+
+    calls = []
+
+    def fake_save_successful_analysis(**kwargs):
+        calls.append(kwargs)
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        server_module,
+        "save_successful_analysis",
+        fake_save_successful_analysis,
+    )
+
+    response = client.post("/analisis", json={"text": "Texto sin claim"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "error"
+    assert calls == []
 
 
 def test_analisis_returns_success_with_url(monkeypatch):
@@ -166,6 +225,87 @@ def test_analisis_returns_500_on_unexpected_error(monkeypatch):
 
     assert response.status_code == 500
     assert response.json()["detail"] == ERROR_INTERNAL
+
+
+def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    record = types.SimpleNamespace(
+        id="11111111-1111-1111-1111-111111111111",
+        user_id="test-user",
+        source_type="text",
+        input_text="Texto ejemplo",
+        input_url=None,
+        label="falsa",
+        confidence=0.88,
+        explanation="Explicación de ejemplo",
+        created_at="2026-04-10T12:00:00+00:00",
+    )
+
+    def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        assert analysis_id == "11111111-1111-1111-1111-111111111111"
+        return record
+
+    monkeypatch.setattr(
+        server_module,
+        "get_user_analysis_by_id",
+        fake_get_user_analysis_by_id,
+    )
+
+    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["item"]["id"] == "11111111-1111-1111-1111-111111111111"
+    assert body["item"]["user_id"] == "test-user"
+
+
+def test_analisis_detail_returns_404_when_not_found(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    monkeypatch.setattr(
+        server_module,
+        "get_user_analysis_by_id",
+        lambda **kwargs: None,
+    )
+
+    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Análisis no encontrado."
+
+
+def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get("/analisis/not-a-uuid")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "El id de análisis no es válido."
+
+
+def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+        raise server_module.HistoryDatabaseError("db down")
+
+    monkeypatch.setattr(
+        server_module,
+        "get_user_analysis_by_id",
+        fake_get_user_analysis_by_id,
+    )
+
+    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 500
+    assert "No se pudo recuperar el análisis" in response.json()["detail"]
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
@@ -258,3 +398,62 @@ def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing Authorization header"
+
+
+def test_historial_returns_user_history(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    history_rows = [
+        {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "user_id": "test-user",
+            "source_type": "text",
+            "input_text": "Texto ejemplo",
+            "input_url": None,
+            "label": "falsa",
+            "confidence": 0.88,
+            "explanation": "Explicación de ejemplo",
+            "created_at": "2026-04-10T12:00:00+00:00",
+        }
+    ]
+
+    def fake_list_user_analysis_history(*, user_id, limit, offset):
+        assert user_id == "test-user"
+        assert limit == 10
+        assert offset == 0
+        return [types.SimpleNamespace(**row) for row in history_rows]
+
+    monkeypatch.setattr(
+        server_module,
+        "list_user_analysis_history",
+        fake_list_user_analysis_history,
+    )
+
+    response = client.get("/historial?limit=10&offset=0")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["count"] == 1
+    assert body["items"][0]["user_id"] == "test-user"
+    assert body["items"][0]["source_type"] == "text"
+
+
+def test_historial_returns_500_when_database_fails(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    def fake_list_user_analysis_history(*, user_id, limit, offset):
+        raise server_module.HistoryDatabaseError("db down")
+
+    monkeypatch.setattr(
+        server_module,
+        "list_user_analysis_history",
+        fake_list_user_analysis_history,
+    )
+
+    response = client.get("/historial")
+
+    assert response.status_code == 500
+    assert "No se pudo recuperar el historial" in response.json()["detail"]

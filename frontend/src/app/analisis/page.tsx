@@ -6,8 +6,10 @@ import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import { useAuth } from '@clerk/nextjs';
+import { CONFIG } from '@/config';
 
 interface AnalisisResult {
+  analysis_id?: string | null;
   label: string;
   confidence: string;
   explanation: string;
@@ -71,7 +73,7 @@ export default function AnalisisPage() {
 
     const fetchResult = async () => {
       try {
-        const URL = 'http://127.0.0.1:8000/analisis';
+        const URL = CONFIG.API_URL + '/analisis';
         const token = await getToken();
 
         const response = await fetch(URL, {
@@ -95,6 +97,12 @@ export default function AnalisisPage() {
         }
 
         const data = await response.json();
+
+        if (typeof data.analysis_id === 'string' && data.analysis_id) {
+          router.replace(`/analisis/${data.analysis_id}`);
+          return;
+        }
+
         setResult(data);
       } catch (err) {
         if (err instanceof Error) setError(err.message);
