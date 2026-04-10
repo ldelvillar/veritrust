@@ -111,7 +111,10 @@ def test_analisis_returns_success_with_url(monkeypatch):
     )
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={"url": "https://ejemplo.com/noticia"})
+    response = client.post(
+        "/analisis",
+        json={"url": "https://ejemplo.com/noticia", "source_type": "url"},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -126,7 +129,10 @@ def test_analisis_rejects_invalid_url(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={"url": "not-a-valid-url"})
+    response = client.post(
+        "/analisis",
+        json={"url": "not-a-valid-url", "source_type": "url"},
+    )
 
     # Pydantic HttpUrl validation should fail with 422
     assert response.status_code == 422
@@ -167,6 +173,54 @@ def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post("/analisis", json={})
+
+    assert response.status_code == 422
+    assert fake_graph.invocations == []
+
+
+def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analisis",
+        json={
+            "text": "Un texto",
+            "url": "https://ejemplo.com/noticia",
+        },
+    )
+
+    assert response.status_code == 422
+    assert fake_graph.invocations == []
+
+
+def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analisis",
+        json={
+            "url": "https://ejemplo.com/noticia",
+            "source_type": "text",
+        },
+    )
+
+    assert response.status_code == 422
+    assert fake_graph.invocations == []
+
+
+def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
+    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analisis",
+        json={
+            "text": "Un texto",
+            "source_type": "url",
+        },
+    )
 
     assert response.status_code == 422
     assert fake_graph.invocations == []

@@ -59,6 +59,7 @@ export default function Form() {
 
     sessionStorage.removeItem('analisis_text');
     sessionStorage.removeItem('analisis_url');
+    sessionStorage.removeItem('analisis_source_type');
 
     if (inputMethod === 'file') {
       if (!selectedFile) {
@@ -68,6 +69,7 @@ export default function Form() {
       try {
         const text = await selectedFile.text();
         sessionStorage.setItem('analisis_text', text);
+        sessionStorage.setItem('analisis_source_type', 'file');
       } catch (error) {
         console.error('Error al leer el archivo:', error);
         alert('Hubo un error al leer el archivo.');
@@ -79,12 +81,14 @@ export default function Form() {
         return;
       }
       sessionStorage.setItem('analisis_url', formData.url);
+      sessionStorage.setItem('analisis_source_type', 'url');
     } else {
       if (!formData.text.trim()) {
         alert('Por favor, introduce un texto.');
         return;
       }
       sessionStorage.setItem('analisis_text', formData.text);
+      sessionStorage.setItem('analisis_source_type', 'text');
     }
 
     router.push('/analisis');

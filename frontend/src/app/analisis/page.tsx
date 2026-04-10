@@ -13,6 +13,12 @@ interface AnalisisResult {
   explanation: string;
 }
 
+type SourceType = 'text' | 'file' | 'url';
+
+const isSourceType = (value: string | null): value is SourceType => {
+  return value === 'text' || value === 'file' || value === 'url';
+};
+
 export default function AnalisisPage() {
   const router = useRouter();
   const { getToken } = useAuth();
@@ -38,14 +44,30 @@ export default function AnalisisPage() {
 
     const text = sessionStorage.getItem('analisis_text');
     const url = sessionStorage.getItem('analisis_url');
+    const storedSourceType = sessionStorage.getItem('analisis_source_type');
 
     if (!text && !url) {
       router.replace('/');
       return;
     }
 
+    const sourceType: SourceType = isSourceType(storedSourceType)
+      ? storedSourceType
+      : url
+        ? 'url'
+        : 'text';
+
+    const requestBody =
+      sourceType === 'url' && url
+        ? { url, source_type: 'url' as const }
+        : {
+            text: text ?? '',
+            source_type: sourceType === 'file' ? 'file' : 'text',
+          };
+
     sessionStorage.removeItem('analisis_text');
     sessionStorage.removeItem('analisis_url');
+    sessionStorage.removeItem('analisis_source_type');
 
     const fetchResult = async () => {
       try {
@@ -58,7 +80,7 @@ export default function AnalisisPage() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(text ? { text } : { url }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

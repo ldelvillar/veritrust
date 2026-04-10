@@ -46,33 +46,21 @@ def analyze_news(body: AnalyzeRequest, user=Depends(get_current_user)):
 
     check_rate_limit(user_id)
 
-    if not body.text and not body.url:
-        raise HTTPException(
-            status_code=400,
-            detail="Se debe proporcionar un texto o una URL para analizar.",
-        )
-
-    if body.text and body.url:
-        raise HTTPException(
-            status_code=400,
-            detail="Se debe proporcionar solo uno de los campos: 'text' o 'url', pero no ambos.",
-        )
-
     try:
         text = extract_text_from_url(str(body.url)) if body.url else body.text
     except URLExtractionError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    try:
-        initial_state = {
-            "input_text": text,
-            "extracted_statements": [],
-            "translated_statements": [],
-            "label": "",
-            "confidence": "",
-            "medical_explanation": "",
-        }
+    initial_state = {
+        "input_text": text,
+        "extracted_statements": [],
+        "translated_statements": [],
+        "label": "",
+        "confidence": "",
+        "medical_explanation": "",
+    }
 
+    try:
         # Ejecutar el grafo
         result = verification_system.invoke(initial_state)
 
