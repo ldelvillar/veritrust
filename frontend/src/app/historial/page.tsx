@@ -162,7 +162,7 @@ export default function HistorialPage() {
             Análisis anteriores
           </h1>
           <p className="mt-2 text-sm font-medium text-slate-500">
-            Revisa y gestiona tus informes previos de credibilidad de noticias.
+            Revisa y gestiona tus informes previos.
           </p>
         </div>
 
