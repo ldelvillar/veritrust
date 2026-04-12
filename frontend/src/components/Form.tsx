@@ -54,6 +54,27 @@ export default function Form() {
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) {
+      return;
+    }
+
+    const target = e.target as EventTarget | null;
+    const isTextArea = target instanceof HTMLTextAreaElement;
+
+    // Preservar comportamiento multilínea en textarea con Shift+Enter.
+    if (isTextArea && e.shiftKey) {
+      return;
+    }
+
+    if (inputMethod === 'file') {
+      return;
+    }
+
+    e.preventDefault();
+    e.currentTarget.requestSubmit();
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -98,6 +119,7 @@ export default function Form() {
     <form
       className="mb-10 flex w-full max-w-3xl flex-col items-center justify-center gap-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl shadow-gray-200/50 transition-all md:mb-12 md:p-8"
       onSubmit={handleSubmit}
+      onKeyDown={handleKeyDown}
     >
       <div className="flex w-full max-w-md rounded-xl bg-gray-100/80 p-1.5 backdrop-blur-sm">
         <button
