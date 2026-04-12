@@ -61,12 +61,79 @@ def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
     assert "Authentication provider is not configured" in exc.value.detail
 
 
+def test_get_expected_issuer_uses_explicit_clerk_issuer(monkeypatch):
+    monkeypatch.setattr(
+        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+    )
+
+    issuer = utils_module._get_expected_issuer()
+
+    assert issuer == "https://my-tenant.clerk.accounts.dev"
+
+
+def test_get_expected_issuer_falls_back_to_jwks_url(monkeypatch):
+    monkeypatch.setattr(utils_module, "CLERK_ISSUER", None)
+    monkeypatch.setattr(
+        utils_module,
+        "CLERK_JWKS_URL",
+        "https://my-tenant.clerk.accounts.dev/.well-known/jwks.json",
+    )
+
+    issuer = utils_module._get_expected_issuer()
+
+    assert issuer == "https://my-tenant.clerk.accounts.dev"
+
+
+def test_get_expected_issuer_raises_500_when_not_configured(monkeypatch):
+    monkeypatch.setattr(utils_module, "CLERK_ISSUER", None)
+    monkeypatch.setattr(utils_module, "CLERK_JWKS_URL", None)
+
+    with pytest.raises(HTTPException) as exc:
+        utils_module._get_expected_issuer()
+
+    assert exc.value.status_code == 500
+    assert "Authentication provider is not fully configured" in exc.value.detail
+
+
+def test_get_expected_audience_parses_single_audience(monkeypatch):
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
+
+    audience = utils_module._get_expected_audience()
+
+    assert audience == "my-api"
+
+
+def test_get_expected_audience_parses_multiple_audiences(monkeypatch):
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api, my-other-api")
+
+    audience = utils_module._get_expected_audience()
+
+    assert audience == ["my-api", "my-other-api"]
+
+
+def test_get_expected_audience_raises_500_when_not_configured(monkeypatch):
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "")
+
+    with pytest.raises(HTTPException) as exc:
+        utils_module._get_expected_audience()
+
+    assert exc.value.status_code == 500
+    assert "Authentication provider is not fully configured" in exc.value.detail
+
+
 def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
-    def _fake_decode(token, signing_key, algorithms, options):
+    monkeypatch.setattr(
+        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+    )
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
+
+    def _fake_decode(token, signing_key, algorithms, audience, issuer, options):
         assert token == "valid-token"
         assert signing_key == "signing-key"
         assert algorithms == ["RS256"]
-        assert options == {"verify_aud": False, "verify_iss": False}
+        assert audience == "my-api"
+        assert issuer == "https://my-tenant.clerk.accounts.dev"
+        assert options == {"verify_aud": True, "verify_iss": True}
         return {"sub": "user_1", "sid": "session_1"}
 
     monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
@@ -95,6 +162,10 @@ def test_get_current_user_rejects_invalid_auth_header():
 
 
 def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
+    monkeypatch.setattr(
+        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+    )
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
     monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
 
     def _raise_expired(*args, **kwargs):
@@ -110,6 +181,10 @@ def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
 
 
 def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
+    monkeypatch.setattr(
+        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+    )
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
     monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
 
     def _raise_invalid(*args, **kwargs):
@@ -125,6 +200,10 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
 
 
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
+    monkeypatch.setattr(
+        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+    )
+    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
     monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "bad-key")
 
     def _raise_type_error(*args, **kwargs):

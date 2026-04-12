@@ -13,6 +13,8 @@ load_dotenv()
 
 CLERK_PEM_PUBLIC_KEY = os.environ.get("CLERK_PEM_PUBLIC_KEY")
 CLERK_JWKS_URL = os.environ.get("CLERK_JWKS_URL")
+CLERK_ISSUER = os.environ.get("CLERK_ISSUER")
+CLERK_AUDIENCE = os.environ.get("CLERK_AUDIENCE")
 
 jwks_client = PyJWKClient(CLERK_JWKS_URL) if CLERK_JWKS_URL else None
 
@@ -44,6 +46,39 @@ def _get_signing_key(token: str) -> str:
     return pem_key
 
 
+def _get_expected_issuer() -> str:
+    """Obtiene el issuer esperado de Clerk para validar el claim iss."""
+    issuer = (CLERK_ISSUER or "").strip()
+    if issuer:
+        return issuer
+
+    jwks_url = (CLERK_JWKS_URL or "").strip()
+    suffix = "/.well-known/jwks.json"
+    if jwks_url.endswith(suffix):
+        return jwks_url[: -len(suffix)]
+
+    raise HTTPException(
+        status_code=500,
+        detail=(
+            "Authentication provider is not fully configured. Set CLERK_ISSUER "
+            "or a valid CLERK_JWKS_URL."
+        ),
+    )
+
+
+def _get_expected_audience() -> str | list[str]:
+    """Obtiene la audiencia esperada de Clerk para validar el claim aud."""
+    raw_audience = (CLERK_AUDIENCE or "").strip()
+    if not raw_audience:
+        raise HTTPException(
+            status_code=500,
+            detail="Authentication provider is not fully configured. Set CLERK_AUDIENCE.",
+        )
+
+    audiences = [aud.strip() for aud in raw_audience.split(",") if aud.strip()]
+    return audiences if len(audiences) > 1 else audiences[0]
+
+
 def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
     """Dependencia para obtener el usuario actual a partir del token de autenticación."""
     if not authorization:
@@ -53,6 +88,8 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
         raise HTTPException(status_code=401, detail="Invalid auth header")
 
     token = authorization.replace("Bearer ", "")
+    expected_issuer = _get_expected_issuer()
+    expected_audience = _get_expected_audience()
 
     try:
         signing_key = _get_signing_key(token)
@@ -60,7 +97,9 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
             token,
             signing_key,
             algorithms=["RS256"],
-            options={"verify_aud": False, "verify_iss": False},
+            audience=expected_audience,
+            issuer=expected_issuer,
+            options={"verify_aud": True, "verify_iss": True},
         )
 
     except jwt.ExpiredSignatureError as e:
