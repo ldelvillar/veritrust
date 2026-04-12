@@ -11,8 +11,8 @@ interface FormData {
 
 export default function Form() {
   const router = useRouter();
-  const [inputMethod, setInputMethod] = useState<'text' | 'file' | 'url'>(
-    'text'
+  const [inputMethod, setInputMethod] = useState<'url' | 'file' | 'text'>(
+    'url'
   );
   const [formData, setFormData] = useState<FormData>({
     text: '',
@@ -125,13 +125,13 @@ export default function Form() {
         <button
           type="button"
           className={`flex w-1/3 items-center justify-center rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
-            inputMethod === 'text'
+            inputMethod === 'url'
               ? 'bg-white text-primary shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
           }`}
-          onClick={() => setInputMethod('text')}
+          onClick={() => setInputMethod('url')}
         >
-          Pegar Texto
+          Pegar URL
         </button>
         <button
           type="button"
@@ -147,33 +147,34 @@ export default function Form() {
         <button
           type="button"
           className={`flex w-1/3 items-center justify-center rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
-            inputMethod === 'url'
+            inputMethod === 'text'
               ? 'bg-white text-primary shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
           }`}
-          onClick={() => setInputMethod('url')}
+          onClick={() => setInputMethod('text')}
         >
-          Pegar URL
+          Pegar Texto
         </button>
       </div>
 
       <div className="flex w-full flex-col gap-4">
-        {inputMethod === 'text' && (
+        {inputMethod === 'url' && (
           <div className="flex flex-col gap-3">
             <label
-              htmlFor="text"
+              htmlFor="url"
               className="text-center text-lg font-semibold text-gray-800 md:text-xl"
             >
-              Introduce el texto
+              Introduce una URL
             </label>
-            <textarea
-              name="text"
-              id="text"
-              className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:min-h-50 sm:text-base"
-              placeholder="Escribe o pega aquí tu texto (al menos 50 caracteres recomendados)..."
-              value={formData.text}
+            <input
+              type="url"
+              name="url"
+              id="url"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:text-base"
+              placeholder="https://ejemplo.com/noticia"
+              value={formData.url}
               onChange={handleChange}
-            ></textarea>
+            />
           </div>
         )}
 
@@ -231,23 +232,22 @@ export default function Form() {
           </div>
         )}
 
-        {inputMethod === 'url' && (
+        {inputMethod === 'text' && (
           <div className="flex flex-col gap-3">
             <label
-              htmlFor="url"
+              htmlFor="text"
               className="text-center text-lg font-semibold text-gray-800 md:text-xl"
             >
-              Introduce una URL
+              Introduce el texto
             </label>
-            <input
-              type="url"
-              name="url"
-              id="url"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:text-base"
-              placeholder="https://ejemplo.com/noticia"
-              value={formData.url}
+            <textarea
+              name="text"
+              id="text"
+              className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:min-h-50 sm:text-base"
+              placeholder="Escribe o pega aquí tu texto (al menos 50 caracteres recomendados)..."
+              value={formData.text}
               onChange={handleChange}
-            />
+            ></textarea>
           </div>
         )}
 
