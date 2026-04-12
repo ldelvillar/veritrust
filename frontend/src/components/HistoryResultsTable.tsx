@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
+import Warning from '@/assets/Warning';
 
 export interface HistoryItem {
   id: string;
@@ -18,6 +19,8 @@ interface HistoryResultsTableProps {
   history: HistoryItem[];
   totalCount: number;
   isLoading: boolean;
+  errorMessage?: string | null;
+  onRetry?: () => void;
 }
 
 const getTitle = (item: HistoryItem): string => {
@@ -63,6 +66,8 @@ export default function HistoryResultsTable({
   history,
   totalCount,
   isLoading,
+  errorMessage,
+  onRetry,
 }: HistoryResultsTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
@@ -78,6 +83,31 @@ export default function HistoryResultsTable({
         <div className="flex items-center justify-center gap-3 px-5 py-12 text-sm font-semibold text-slate-500">
           <Spinner className="size-5 animate-spin text-primary" />
           Cargando análisis...
+        </div>
+      ) : errorMessage ? (
+        <div className="px-5 py-12">
+          <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-left">
+            <div className="flex items-start gap-3">
+              <Warning className="mt-0.5 size-5 shrink-0 text-red-500" />
+              <div>
+                <p className="text-sm font-bold text-red-700">
+                  No se pudo cargar tu historial
+                </p>
+                <p className="mt-1 text-sm font-medium text-red-600">
+                  {errorMessage}
+                </p>
+                {onRetry ? (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-4 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
+                  >
+                    Reintentar
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
       ) : history.length === 0 ? (
         <div className="px-5 py-12 text-center text-sm font-medium text-slate-500">
@@ -148,7 +178,9 @@ export default function HistoryResultsTable({
         <p className="text-xs font-semibold text-slate-400">
           {isLoading
             ? 'Cargando registros...'
-            : `Mostrando ${history.length === 0 ? 0 : 1} a ${history.length} de ${totalCount} registros`}
+            : errorMessage
+              ? 'No se pudieron cargar los registros.'
+              : `Mostrando ${history.length === 0 ? 0 : 1} a ${history.length} de ${totalCount} registros`}
         </p>
 
         <div className="flex items-center gap-2">

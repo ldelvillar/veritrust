@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import HistoryFilters, {
   DateRangeFilter,
   ScoreSortOrder,
@@ -53,6 +53,7 @@ export default function HistorialPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] =
     useState<SourceTypeFilter>('all');
@@ -103,52 +104,55 @@ export default function HistorialPage() {
       );
   }, []);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      setIsLoading(true);
+  const fetchHistory = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
 
-      try {
-        const URL = CONFIG.API_URL + '/historial';
-        const token = await getToken();
+    try {
+      const URL = CONFIG.API_URL + '/historial';
+      const token = await getToken();
 
-        if (!token) {
-          throw new Error('No se pudo obtener el token de autenticación.');
-        }
-
-        const response = await fetch(URL, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMessage =
-            typeof errorData.detail === 'string'
-              ? errorData.detail
-              : Array.isArray(errorData.detail)
-                ? errorData.detail[0].msg
-                : `Status ${response.status}: Error al conectar con el servidor`;
-          throw new Error(errorMessage);
-        }
-
-        const data = await response.json();
-        const items = Array.isArray(data.items) ? data.items : [];
-        setHistory(items);
-        setTotalCount(
-          typeof data.count === 'number' ? data.count : items.length
-        );
-      } catch (error) {
-        console.error('Error al obtener el historial de análisis:', error);
-      } finally {
-        setIsLoading(false);
+      if (!token) {
+        throw new Error('No se pudo obtener el token de autenticación.');
       }
-    };
 
-    fetchHistory();
+      const response = await fetch(URL, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          typeof errorData.detail === 'string'
+            ? errorData.detail
+            : Array.isArray(errorData.detail)
+              ? errorData.detail[0].msg
+              : `Status ${response.status}: Error al conectar con el servidor`;
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      setHistory(items);
+      setTotalCount(typeof data.count === 'number' ? data.count : items.length);
+    } catch (error) {
+      console.error('Error al obtener el historial de análisis:', error);
+
+      setHistory([]);
+      setTotalCount(0);
+      setFetchError('Ha habido un error de comunicación con el servidor.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [getToken]);
+
+  useEffect(() => {
+    void fetchHistory();
+  }, [fetchHistory]);
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 md:px-6 lg:py-10">
@@ -186,6 +190,8 @@ export default function HistorialPage() {
         history={sortedHistory}
         totalCount={totalCount}
         isLoading={isLoading}
+        errorMessage={fetchError}
+        onRetry={fetchHistory}
       />
     </section>
   );
