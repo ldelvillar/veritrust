@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cloud from '@/assets/Cloud';
+import { SourceType } from '@/types';
 
 interface FormData {
   text: string;
@@ -11,9 +12,7 @@ interface FormData {
 
 export default function Form() {
   const router = useRouter();
-  const [inputMethod, setInputMethod] = useState<'url' | 'file' | 'text'>(
-    'url'
-  );
+  const [inputMethod, setInputMethod] = useState<SourceType>('url');
   const [formData, setFormData] = useState<FormData>({
     text: '',
     url: '',

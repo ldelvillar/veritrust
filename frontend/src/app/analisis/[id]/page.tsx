@@ -6,14 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import { AnalysisDetail } from '@/types';
 import { CONFIG } from '@/config';
-
-interface AnalysisDetail {
-  id: string;
-  label: string;
-  confidence: number | string;
-  explanation: string;
-}
 
 export default function AnalisisDetailPage() {
   const params = useParams<{ id: string }>();

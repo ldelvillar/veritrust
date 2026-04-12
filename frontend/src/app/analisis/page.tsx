@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
-import { useAuth } from '@clerk/nextjs';
+import { SourceType } from '@/types';
 import { CONFIG } from '@/config';
 
 interface AnalisisResult {
@@ -14,8 +15,6 @@ interface AnalisisResult {
   confidence: string;
   explanation: string;
 }
-
-type SourceType = 'text' | 'file' | 'url';
 
 const isSourceType = (value: string | null): value is SourceType => {
   return value === 'text' || value === 'file' || value === 'url';
