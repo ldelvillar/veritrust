@@ -145,20 +145,21 @@ export default function Header() {
               Ayuda
             </Link>
             <div className="mt-1 flex flex-col gap-2 border-t border-border pt-3">
-              <Link
-                href="/login"
-                className="rounded-md px-2 py-1 transition duration-200 hover:bg-gray-100 hover:text-primary"
-                onClick={closeMenu}
-              >
-                Iniciar sesión
-              </Link>
-              <Link
-                href="/registro"
-                className="w-fit rounded-lg bg-primary px-4 py-2 text-white transition duration-200 hover:bg-primary/90"
-                onClick={closeMenu}
-              >
-                Registrarse
-              </Link>
+              <Show when="signed-out">
+                <SignInButton>
+                  <button className="h-10 cursor-pointer px-4 text-sm font-medium transition duration-300 hover:text-primary sm:h-12 sm:px-5 sm:text-base">
+                    Iniciar sesión
+                  </button>
+                </SignInButton>
+                <SignUpButton>
+                  <button className="h-10 cursor-pointer rounded-lg bg-primary px-4 text-sm font-medium text-white transition duration-300 hover:bg-primary/90 sm:h-12 sm:px-5 sm:text-base">
+                    Registrarse
+                  </button>
+                </SignUpButton>
+              </Show>
+              <Show when="signed-in">
+                <UserButton />
+              </Show>
             </div>
           </div>
         </div>
