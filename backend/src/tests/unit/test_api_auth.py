@@ -127,12 +127,13 @@ def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
     )
     monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
 
-    def _fake_decode(token, signing_key, algorithms, audience, issuer, options):
+    def _fake_decode(token, signing_key, algorithms, audience, issuer, leeway, options):
         assert token == "valid-token"
         assert signing_key == "signing-key"
         assert algorithms == ["RS256"]
         assert audience == "my-api"
         assert issuer == "https://my-tenant.clerk.accounts.dev"
+        assert leeway == 10
         assert options == {"verify_aud": True, "verify_iss": True}
         return {"sub": "user_1", "sid": "session_1"}
 
