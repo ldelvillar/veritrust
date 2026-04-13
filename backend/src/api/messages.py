@@ -7,7 +7,7 @@ ERROR_MEMORY_LIMIT = (
 )
 
 ERROR_CONNECTION = (
-    "El servidor está en mantenimiento o no responde. "
+    "Los servidores están en mantenimiento o no responden. "
     "Por favor, inténtalo de nuevo más tarde. Si el problema persiste, "
     "contacta al soporte técnico para que pueda escalar el problema."
 )

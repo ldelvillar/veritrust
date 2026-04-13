@@ -8,6 +8,12 @@ import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import { SourceType } from '@/types';
 import { CONFIG } from '@/config';
+import {
+  ERROR_CONNECTION,
+  ERROR_INTERNAL,
+  ERROR_MEMORY_LIMIT,
+  ERROR_NO_MEDICAL_CLAIMS,
+} from '@/messages';
 
 interface AnalisisResult {
   analysis_id?: string | null;
@@ -104,7 +110,21 @@ export default function AnalisisPage() {
 
         setResult(data);
       } catch (err) {
-        if (err instanceof Error) setError(err.message);
+        const message = err instanceof Error ? err.message : String(err);
+        if (
+          ![
+            ERROR_CONNECTION,
+            ERROR_MEMORY_LIMIT,
+            ERROR_INTERNAL,
+            ERROR_NO_MEDICAL_CLAIMS,
+          ].includes(message)
+        ) {
+          setError(ERROR_INTERNAL);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError(ERROR_INTERNAL);
+        }
       } finally {
         setLoading(false);
       }
