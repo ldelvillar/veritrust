@@ -13,7 +13,9 @@ from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
 from src.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
 from src.api.database import (
+    DashboardSummary,
     HistoryDatabaseError,
+    get_user_dashboard_summary,
     get_user_analysis_by_id,
     list_user_analysis_history,
     save_successful_analysis,
@@ -195,4 +197,27 @@ def get_history(
         "count": total_count,
         "page": page,
         "page_size": page_size,
+    }
+
+
+@app.get("/dashboard/resumen")
+def get_dashboard_summary(user=Depends(get_current_user)):
+    """Endpoint para obtener métricas agregadas del dashboard del usuario."""
+    user_id = user["sub"]
+
+    try:
+        summary: DashboardSummary = get_user_dashboard_summary(user_id=user_id)
+    except HistoryDatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo recuperar el dashboard.",
+        ) from e
+
+    return {
+        "status": "success",
+        "kpis": summary.kpis.__dict__,
+        "trend": [point.__dict__ for point in summary.trend],
+        "source_breakdown": [item.__dict__ for item in summary.source_breakdown],
+        "domain_breakdown": [item.__dict__ for item in summary.domain_breakdown],
+        "alerts": [item.__dict__ for item in summary.alerts],
     }

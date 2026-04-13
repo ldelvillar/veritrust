@@ -474,3 +474,89 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
 
     assert response.status_code == 500
     assert "No se pudo recuperar el historial" in response.json()["detail"]
+
+
+def test_dashboard_resumen_returns_summary(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    summary = types.SimpleNamespace(
+        kpis=types.SimpleNamespace(
+            total_analyses=23,
+            reliable_rate=61.5,
+            average_confidence=74.2,
+            week_over_week_delta=15.0,
+        ),
+        trend=[
+            types.SimpleNamespace(
+                date="2026-04-10",
+                total=3,
+                average_confidence=71.0,
+            )
+        ],
+        source_breakdown=[
+            types.SimpleNamespace(
+                source_type="url",
+                total=8,
+                average_confidence=68.3,
+            )
+        ],
+        domain_breakdown=[
+            types.SimpleNamespace(
+                domain="ejemplo.com",
+                total=4,
+                average_confidence=66.2,
+            )
+        ],
+        alerts=[
+            types.SimpleNamespace(
+                id="11111111-1111-1111-1111-111111111111",
+                source_type="url",
+                input_text=None,
+                input_url="https://ejemplo.com/nota",
+                label="falsa",
+                confidence=0.2,
+                created_at="2026-04-10T12:00:00+00:00",
+            )
+        ],
+    )
+
+    def fake_get_user_dashboard_summary(*, user_id):
+        assert user_id == "test-user"
+        return summary
+
+    monkeypatch.setattr(
+        server_module,
+        "get_user_dashboard_summary",
+        fake_get_user_dashboard_summary,
+    )
+
+    response = client.get("/dashboard/resumen")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["kpis"]["total_analyses"] == 23
+    assert body["trend"][0]["date"] == "2026-04-10"
+    assert body["source_breakdown"][0]["source_type"] == "url"
+    assert body["domain_breakdown"][0]["domain"] == "ejemplo.com"
+    assert body["alerts"][0]["label"] == "falsa"
+
+
+def test_dashboard_resumen_returns_500_when_database_fails(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    def fake_get_user_dashboard_summary(*, user_id):
+        raise server_module.HistoryDatabaseError("db down")
+
+    monkeypatch.setattr(
+        server_module,
+        "get_user_dashboard_summary",
+        fake_get_user_dashboard_summary,
+    )
+
+    response = client.get("/dashboard/resumen")
+
+    assert response.status_code == 500
+    assert "No se pudo recuperar el dashboard" in response.json()["detail"]
