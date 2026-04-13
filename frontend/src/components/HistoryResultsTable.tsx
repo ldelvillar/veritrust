@@ -71,7 +71,7 @@ export default function HistoryResultsTable({
 }: HistoryResultsTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-      <div className="grid grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-slate-50 px-5 py-4 text-xs font-bold tracking-widest text-slate-400 uppercase">
+      <div className="hidden grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-slate-50 px-5 py-4 text-xs font-bold tracking-widest text-slate-400 uppercase md:grid">
         <span>Título del artículo</span>
         <span>Tipo</span>
         <span>Fecha de análisis</span>
@@ -122,7 +122,7 @@ export default function HistoryResultsTable({
             return (
               <li
                 key={item.id}
-                className="grid grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] items-center gap-4 border-b border-border px-5 py-4 last:border-b-0"
+                className="border-b border-border px-4 py-4 last:border-b-0 md:grid md:grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] md:items-center md:gap-4 md:px-5"
               >
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-slate-800">
@@ -133,11 +133,11 @@ export default function HistoryResultsTable({
                   </p>
                 </div>
 
-                <span className="text-sm font-semibold text-slate-600">
+                <span className="mt-3 inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 md:mt-0 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-sm md:text-slate-600">
                   {getTypeLabel(item.source_type)}
                 </span>
 
-                <span className="text-sm font-semibold text-slate-500">
+                <span className="mt-3 block text-xs font-semibold text-slate-500 md:mt-0 md:text-sm">
                   {new Date(item.created_at).toLocaleString('es-ES', {
                     month: 'short',
                     day: 'numeric',
@@ -147,8 +147,8 @@ export default function HistoryResultsTable({
                   })}
                 </span>
 
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-full max-w-24 rounded-full bg-slate-200">
+                <div className="mt-4 flex items-center gap-3 md:mt-0">
+                  <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
                     <div
                       className={`h-full rounded-full ${scoreColor}`}
                       style={{ width: `${score}%` }}
@@ -161,12 +161,10 @@ export default function HistoryResultsTable({
 
                 <Link
                   href={`/analisis/${item.id}`}
-                  className="justify-self-end text-sm font-bold text-primary"
+                  className="mt-4 inline-flex w-fit items-center gap-2 text-sm font-bold text-primary md:mt-0 md:justify-self-end"
                 >
-                  <div className="flex flex-row items-center gap-2">
-                    Ver informe{' '}
-                    <Arrow className="size-4 rotate-270 text-primary" />
-                  </div>
+                  Ver informe
+                  <Arrow className="size-4 rotate-270 text-primary" />
                 </Link>
               </li>
             );
@@ -174,7 +172,7 @@ export default function HistoryResultsTable({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border bg-slate-50 px-5 py-3">
+      <div className="flex flex-col gap-4 border-t border-border bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <p className="text-xs font-semibold text-slate-400">
           {isLoading
             ? 'Cargando registros...'
@@ -183,7 +181,7 @@ export default function HistoryResultsTable({
               : `Mostrando ${history.length === 0 ? 0 : 1} a ${history.length} de ${totalCount} registros`}
         </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
           <button
             type="button"
             className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-400"
