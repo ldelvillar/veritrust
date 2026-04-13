@@ -4,8 +4,10 @@ Conecta el frontend con el flujo de agentes.
 """
 
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
+from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from src.agents.main import create_graph
 from src.utils.start_ollama import start_ollama
@@ -39,6 +41,16 @@ app.add_middleware(
 # Inicializar el sistema
 start_ollama()
 verification_system = create_graph()
+
+
+def _get_date_threshold(
+    date_range: Literal["all", "7d", "30d", "90d"],
+) -> datetime | None:
+    if date_range == "all":
+        return None
+
+    days = {"7d": 7, "30d": 30, "90d": 90}[date_range]
+    return datetime.now(timezone.utc) - timedelta(days=days)
 
 
 @app.get("/")
@@ -149,18 +161,27 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
 
 @app.get("/historial")
 def get_history(
-    limit: int = 20,
-    offset: int = 0,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None, max_length=200),
+    source_type: Literal["all", "text", "file", "url"] = "all",
+    date_range: Literal["all", "7d", "30d", "90d"] = "all",
+    score_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
 ):
     """Endpoint para listar el historial de análisis del usuario autenticado."""
     user_id = user["sub"]
+    offset = (page - 1) * page_size
 
     try:
-        records = list_user_analysis_history(
+        records, total_count = list_user_analysis_history(
             user_id=user_id,
-            limit=limit,
+            limit=page_size,
             offset=offset,
+            search_query=search,
+            source_type=None if source_type == "all" else source_type,
+            created_after=_get_date_threshold(date_range),
+            score_sort_order=score_sort,
         )
     except HistoryDatabaseError as e:
         raise HTTPException(
@@ -171,5 +192,7 @@ def get_history(
     return {
         "status": "success",
         "items": [record.__dict__ for record in records],
-        "count": len(records),
+        "count": total_count,
+        "page": page,
+        "page_size": page_size,
     }

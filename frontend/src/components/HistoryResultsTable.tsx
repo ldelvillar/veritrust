@@ -18,9 +18,12 @@ export interface HistoryItem {
 interface HistoryResultsTableProps {
   history: HistoryItem[];
   totalCount: number;
+  currentPage: number;
+  pageSize: number;
   isLoading: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
+  onPageChange: (page: number) => void;
 }
 
 const getTitle = (item: HistoryItem): string => {
@@ -62,13 +65,46 @@ const getScoreColor = (score: number): string => {
   return 'bg-red-500';
 };
 
+const getVisiblePages = (
+  currentPage: number,
+  totalPages: number,
+  maxVisible: number = 5
+): number[] => {
+  if (totalPages <= maxVisible) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const half = Math.floor(maxVisible / 2);
+  let start = Math.max(1, currentPage - half);
+  let end = Math.min(totalPages, start + maxVisible - 1);
+
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+};
+
 export default function HistoryResultsTable({
   history,
   totalCount,
+  currentPage,
+  pageSize,
   isLoading,
   errorMessage,
   onRetry,
+  onPageChange,
 }: HistoryResultsTableProps) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startRecord =
+    totalCount === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const endRecord =
+    totalCount === 0 ? 0 : Math.min(safeCurrentPage * pageSize, totalCount);
+  const visiblePages = getVisiblePages(safeCurrentPage, totalPages);
+  const isPaginationDisabled =
+    isLoading || Boolean(errorMessage) || totalCount === 0;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="hidden grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-slate-50 px-5 py-4 text-xs font-bold tracking-widest text-slate-400 uppercase md:grid">
@@ -178,37 +214,47 @@ export default function HistoryResultsTable({
             ? 'Cargando registros...'
             : errorMessage
               ? 'No se pudieron cargar los registros.'
-              : `Mostrando ${history.length === 0 ? 0 : 1} a ${history.length} de ${totalCount} registros`}
+              : `Mostrando ${startRecord} a ${endRecord} de ${totalCount} registros`}
         </p>
 
         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
           <button
             type="button"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-400"
+            onClick={() => onPageChange(safeCurrentPage - 1)}
+            disabled={isPaginationDisabled || safeCurrentPage === 1}
+            aria-label="Página anterior"
+            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500 transition disabled:cursor-not-allowed disabled:text-slate-300"
           >
             ‹
           </button>
+
+          {visiblePages.map(page => {
+            const isActive = page === safeCurrentPage;
+
+            return (
+              <button
+                key={page}
+                type="button"
+                onClick={() => onPageChange(page)}
+                disabled={isPaginationDisabled}
+                aria-current={isActive ? 'page' : undefined}
+                className={`size-8 rounded-lg text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-primary text-white'
+                    : 'border border-border bg-white text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300'
+                }`}
+              >
+                {page}
+              </button>
+            );
+          })}
+
           <button
             type="button"
-            className="size-8 rounded-lg bg-primary text-sm font-bold text-white"
-          >
-            1
-          </button>
-          <button
-            type="button"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500"
-          >
-            2
-          </button>
-          <button
-            type="button"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500"
-          >
-            3
-          </button>
-          <button
-            type="button"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-400"
+            onClick={() => onPageChange(safeCurrentPage + 1)}
+            disabled={isPaginationDisabled || safeCurrentPage === totalPages}
+            aria-label="Página siguiente"
+            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500 transition disabled:cursor-not-allowed disabled:text-slate-300"
           >
             ›
           </button>

@@ -418,11 +418,24 @@ def test_historial_returns_user_history(monkeypatch):
         }
     ]
 
-    def fake_list_user_analysis_history(*, user_id, limit, offset):
+    def fake_list_user_analysis_history(
+        *,
+        user_id,
+        limit,
+        offset,
+        search_query,
+        source_type,
+        created_after,
+        score_sort_order,
+    ):
         assert user_id == "test-user"
         assert limit == 10
         assert offset == 0
-        return [types.SimpleNamespace(**row) for row in history_rows]
+        assert search_query == "vacuna"
+        assert source_type == "text"
+        assert created_after is not None
+        assert score_sort_order == "asc"
+        return [types.SimpleNamespace(**row) for row in history_rows], 12
 
     monkeypatch.setattr(
         server_module,
@@ -430,12 +443,16 @@ def test_historial_returns_user_history(monkeypatch):
         fake_list_user_analysis_history,
     )
 
-    response = client.get("/historial?limit=10&offset=0")
+    response = client.get(
+        "/historial?page=1&page_size=10&search=vacuna&source_type=text&date_range=30d&score_sort=asc"
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "success"
-    assert body["count"] == 1
+    assert body["count"] == 12
+    assert body["page"] == 1
+    assert body["page_size"] == 10
     assert body["items"][0]["user_id"] == "test-user"
     assert body["items"][0]["source_type"] == "text"
 
@@ -444,7 +461,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    def fake_list_user_analysis_history(*, user_id, limit, offset):
+    def fake_list_user_analysis_history(**kwargs):
         raise server_module.HistoryDatabaseError("db down")
 
     monkeypatch.setattr(

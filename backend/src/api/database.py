@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
 from dotenv import load_dotenv
@@ -155,13 +156,51 @@ def list_user_analysis_history(
     user_id: str,
     limit: int = 20,
     offset: int = 0,
-) -> list[HistoryRecord]:
-    """Lista historial del usuario ordenado por fecha descendente."""
+    search_query: Optional[str] = None,
+    source_type: Optional[str] = None,
+    created_after: Optional[datetime] = None,
+    score_sort_order: str = "desc",
+) -> tuple[list[HistoryRecord], int]:
+    """Lista historial paginado del usuario y devuelve tambien el total."""
 
     conninfo = _build_connection_string()
 
     safe_limit = max(1, min(limit, 100))
     safe_offset = max(0, offset)
+    safe_source_type = source_type if source_type in {"text", "file", "url"} else None
+    safe_score_sort = "ASC" if score_sort_order.lower() == "asc" else "DESC"
+
+    where_clauses = ["user_id = %s"]
+    where_params: list[Any] = [user_id]
+
+    normalized_search = (search_query or "").strip()
+    if normalized_search:
+        like_pattern = f"%{normalized_search}%"
+        where_clauses.append(
+            "("
+            "COALESCE(input_text, '') ILIKE %s OR "
+            "COALESCE(input_url, '') ILIKE %s OR "
+            "COALESCE(label, '') ILIKE %s OR "
+            "COALESCE(source_type, '') ILIKE %s"
+            ")"
+        )
+        where_params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
+
+    if safe_source_type:
+        where_clauses.append("source_type = %s")
+        where_params.append(safe_source_type)
+
+    if created_after is not None:
+        where_clauses.append("created_at >= %s")
+        where_params.append(created_after)
+
+    where_sql = " AND ".join(where_clauses)
+
+    count_query = f"""
+        SELECT COUNT(*)
+        FROM public.analysis_history
+        WHERE {where_sql}
+    """
 
     query = """
 		SELECT
@@ -175,15 +214,21 @@ def list_user_analysis_history(
 			explanation,
 			created_at
 		FROM public.analysis_history
-		WHERE user_id = %s
-		ORDER BY created_at DESC
+		WHERE {where_sql}
+		ORDER BY confidence {safe_score_sort}, created_at DESC
 		LIMIT %s OFFSET %s
-	"""
+	""".format(
+        where_sql=where_sql, safe_score_sort=safe_score_sort
+    )
 
     try:
         with psycopg2.connect(conninfo) as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (user_id, safe_limit, safe_offset))
+                cur.execute(count_query, tuple(where_params))
+                count_row = cur.fetchone()
+                total_count = int(count_row[0]) if count_row else 0
+
+                cur.execute(query, (*where_params, safe_limit, safe_offset))
                 rows = cur.fetchall()
     except psycopg2.Error as exc:
         raise HistoryDatabaseError(
@@ -191,7 +236,7 @@ def list_user_analysis_history(
             "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
         ) from exc
 
-    return [
+    records = [
         HistoryRecord(
             id=str(row[0]),
             user_id=row[1],
@@ -205,6 +250,8 @@ def list_user_analysis_history(
         )
         for row in rows
     ]
+
+    return records, total_count
 
 
 def get_user_analysis_by_id(*, user_id: str, analysis_id: str) -> HistoryRecord | None:
