@@ -88,8 +88,6 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
         raise HTTPException(status_code=401, detail="Invalid auth header")
 
     token = authorization.replace("Bearer ", "")
-    expected_issuer = _get_expected_issuer()
-    expected_audience = _get_expected_audience()
 
     try:
         signing_key = _get_signing_key(token)
@@ -97,8 +95,9 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
             token,
             signing_key,
             algorithms=["RS256"],
-            audience=expected_audience,
-            issuer=expected_issuer,
+            audience=_get_expected_audience(),
+            issuer=_get_expected_issuer(),
+            leeway=10,
             options={"verify_aud": True, "verify_iss": True},
         )
 

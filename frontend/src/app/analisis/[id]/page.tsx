@@ -44,7 +44,7 @@ export default function AnalisisDetailPage() {
 
     const fetchAnalysis = async () => {
       try {
-        const token = await getToken();
+        const token = await getToken({ template: 'veritrust-api' });
         if (!token) {
           throw new Error('No se pudo obtener el token de autenticación.');
         }

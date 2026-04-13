@@ -79,7 +79,7 @@ export default function AnalisisPage() {
     const fetchResult = async () => {
       try {
         const URL = CONFIG.API_URL + '/analisis';
-        const token = await getToken();
+        const token = await getToken({ template: 'veritrust-api' });
 
         const response = await fetch(URL, {
           method: 'POST',

@@ -110,7 +110,7 @@ export default function HistorialPage() {
 
     try {
       const URL = CONFIG.API_URL + '/historial';
-      const token = await getToken();
+      const token = await getToken({ template: 'veritrust-api' });
 
       if (!token) {
         throw new Error('No se pudo obtener el token de autenticación.');
