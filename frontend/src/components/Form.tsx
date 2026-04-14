@@ -2,16 +2,38 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import Cloud from '@/assets/Cloud';
+import Spinner from '@/assets/Spinner';
+import WarningIcon from '@/assets/Warning';
 import { SourceType } from '@/types';
+import { CONFIG } from '@/config';
+import {
+  ERROR_CONNECTION,
+  ERROR_INTERNAL,
+  ERROR_MEMORY_LIMIT,
+  ERROR_NO_MEDICAL_CLAIMS,
+} from '@/messages';
 
 interface FormData {
   text: string;
   url: string;
 }
 
+interface CreateAnalysisResponse {
+  analysis_id?: string | null;
+  label: string;
+  confidence: string | number;
+  explanation: string;
+}
+
 export default function Form() {
   const router = useRouter();
+  const { getToken } = useAuth();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [inputMethod, setInputMethod] = useState<SourceType>('url');
   const [formData, setFormData] = useState<FormData>({
     text: '',
@@ -76,42 +98,93 @@ export default function Form() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
 
-    sessionStorage.removeItem('analisis_text');
-    sessionStorage.removeItem('analisis_url');
-    sessionStorage.removeItem('analisis_source_type');
+    let textContent = '';
+    const finalSourceType: SourceType = inputMethod;
 
     if (inputMethod === 'file') {
       if (!selectedFile) {
-        alert('Por favor, selecciona un archivo primero.');
+        setError('Por favor, selecciona un archivo primero.');
         return;
       }
       try {
-        const text = await selectedFile.text();
-        sessionStorage.setItem('analisis_text', text);
-        sessionStorage.setItem('analisis_source_type', 'file');
-      } catch (error) {
-        console.error('Error al leer el archivo:', error);
-        alert('Hubo un error al leer el archivo.');
+        textContent = await selectedFile.text();
+      } catch (err) {
+        console.error('Error al leer el archivo:', err);
+        setError('Hubo un error al leer el archivo.');
         return;
       }
     } else if (inputMethod === 'url') {
       if (!formData.url.trim()) {
-        alert('Por favor, introduce una URL.');
+        setError('Por favor, introduce una URL.');
         return;
       }
-      sessionStorage.setItem('analisis_url', formData.url);
-      sessionStorage.setItem('analisis_source_type', 'url');
     } else {
       if (!formData.text.trim()) {
-        alert('Por favor, introduce un texto.');
+        setError('Por favor, introduce un texto.');
         return;
       }
-      sessionStorage.setItem('analisis_text', formData.text);
-      sessionStorage.setItem('analisis_source_type', 'text');
+      textContent = formData.text;
     }
 
-    router.push('/analisis');
+    const requestBody =
+      inputMethod === 'url'
+        ? { url: formData.url, source_type: 'url' as const }
+        : { text: textContent, source_type: finalSourceType };
+
+    setIsLoading(true);
+
+    try {
+      const token = await getToken({ template: 'veritrust-api' });
+
+      const response = await fetch(`${CONFIG.API_URL}/analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          typeof errorData.detail === 'string'
+            ? errorData.detail
+            : Array.isArray(errorData.detail)
+              ? errorData.detail[0].msg
+              : `Status ${response.status}: Error al conectar con el servidor`;
+        throw new Error(errorMessage);
+      }
+
+      const data = (await response.json()) as CreateAnalysisResponse;
+
+      if (data.analysis_id) {
+        router.push(`/analisis/${data.analysis_id}`);
+      } else {
+        // En caso de que no haya guardado id por alguna razón, podríamos enviarlo al error, o redirigir
+        throw new Error('No se generó un ID de análisis válido.');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        ![
+          ERROR_CONNECTION,
+          ERROR_MEMORY_LIMIT,
+          ERROR_INTERNAL,
+          ERROR_NO_MEDICAL_CLAIMS,
+        ].includes(message)
+      ) {
+        setError(ERROR_INTERNAL);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(ERROR_INTERNAL);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -123,33 +196,36 @@ export default function Form() {
       <div className="flex w-full max-w-md rounded-xl bg-gray-100/80 p-1.5 backdrop-blur-sm">
         <button
           type="button"
+          disabled={isLoading}
           className={`flex w-1/3 items-center justify-center rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
             inputMethod === 'url'
               ? 'bg-white text-primary shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
           onClick={() => setInputMethod('url')}
         >
           Pegar URL
         </button>
         <button
           type="button"
+          disabled={isLoading}
           className={`flex w-1/3 items-center justify-center rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
             inputMethod === 'file'
               ? 'bg-white text-primary shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
           onClick={() => setInputMethod('file')}
         >
           Subir Archivo
         </button>
         <button
           type="button"
+          disabled={isLoading}
           className={`flex w-1/3 items-center justify-center rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
             inputMethod === 'text'
               ? 'bg-white text-primary shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
           onClick={() => setInputMethod('text')}
         >
           Pegar Texto
@@ -169,7 +245,8 @@ export default function Form() {
               type="url"
               name="url"
               id="url"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:text-base"
+              disabled={isLoading}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
               placeholder="https://ejemplo.com/noticia"
               value={formData.url}
               onChange={handleChange}
@@ -191,7 +268,7 @@ export default function Form() {
                 isDragging
                   ? 'scale-[1.01] border-primary bg-primary/5'
                   : 'border-gray-300 bg-gray-50 hover:border-primary/50 hover:bg-gray-100/80'
-              }`}
+              } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -225,6 +302,7 @@ export default function Form() {
                 type="file"
                 className="hidden"
                 accept=".txt,.md"
+                disabled={isLoading}
                 onChange={handleFileChange}
               />
             </label>
@@ -242,7 +320,8 @@ export default function Form() {
             <textarea
               name="text"
               id="text"
-              className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none sm:min-h-50 sm:text-base"
+              disabled={isLoading}
+              className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-800 transition-all placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-50 sm:text-base"
               placeholder="Escribe o pega aquí tu texto (al menos 50 caracteres recomendados)..."
               value={formData.text}
               onChange={handleChange}
@@ -250,16 +329,31 @@ export default function Form() {
           </div>
         )}
 
+        {error && (
+          <div className="mt-2 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+            <WarningIcon className="size-5 shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={
+            isLoading ||
             (inputMethod === 'text' && !formData.text.trim()) ||
             (inputMethod === 'file' && !selectedFile) ||
             (inputMethod === 'url' && !formData.url.trim())
           }
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 hover:shadow-primary/40 focus:ring-4 focus:ring-primary/20 focus:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none sm:text-lg"
         >
-          Analizar Texto
+          {isLoading ? (
+            <>
+              <Spinner className="size-5 animate-spin text-white" />
+              <span>Analizando...</span>
+            </>
+          ) : (
+            'Analizar Texto'
+          )}
         </button>
       </div>
     </form>
