@@ -6,6 +6,7 @@ import types
 from pathlib import Path
 from fastapi.testclient import TestClient
 from src.api import utils as api_utils
+from src.api.database import HistoryDatabaseError
 from src.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
@@ -60,7 +61,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     # Evita que el rate limit se acumule entre tests
     api_utils.rate_limit.clear()
-    server_module.app.dependency_overrides[server_module.get_current_user] = lambda: {
+    server_module.app.dependency_overrides[api_utils.get_current_user] = lambda: {
         "sub": "test-user"
     }
 
@@ -117,8 +118,7 @@ def test_analisis_saves_history_only_on_success(monkeypatch):
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        server_module,
-        "save_successful_analysis",
+        "src.api.routes.analysis.save_successful_analysis",
         fake_save_successful_analysis,
     )
 
@@ -147,8 +147,7 @@ def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        server_module,
-        "save_successful_analysis",
+        "src.api.routes.analysis.save_successful_analysis",
         fake_save_successful_analysis,
     )
 
@@ -249,8 +248,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         return record
 
     monkeypatch.setattr(
-        server_module,
-        "get_user_analysis_by_id",
+        "src.api.routes.analysis.get_user_analysis_by_id",
         fake_get_user_analysis_by_id,
     )
 
@@ -268,8 +266,7 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
     client = TestClient(server_module.app)
 
     monkeypatch.setattr(
-        server_module,
-        "get_user_analysis_by_id",
+        "src.api.routes.analysis.get_user_analysis_by_id",
         lambda **kwargs: None,
     )
 
@@ -294,11 +291,10 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     def fake_get_user_analysis_by_id(*, user_id, analysis_id):
-        raise server_module.HistoryDatabaseError("db down")
+        raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        server_module,
-        "get_user_analysis_by_id",
+        "src.api.routes.analysis.get_user_analysis_by_id",
         fake_get_user_analysis_by_id,
     )
 
@@ -392,7 +388,7 @@ def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
 def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
-    server_module.app.dependency_overrides.pop(server_module.get_current_user, None)
+    server_module.app.dependency_overrides.pop(api_utils.get_current_user, None)
 
     response = client.post("/analisis", json={"text": "Texto"})
 
@@ -438,8 +434,7 @@ def test_historial_returns_user_history(monkeypatch):
         return [types.SimpleNamespace(**row) for row in history_rows], 12
 
     monkeypatch.setattr(
-        server_module,
-        "list_user_analysis_history",
+        "src.api.routes.history.list_user_analysis_history",
         fake_list_user_analysis_history,
     )
 
@@ -462,11 +457,10 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     def fake_list_user_analysis_history(**kwargs):
-        raise server_module.HistoryDatabaseError("db down")
+        raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        server_module,
-        "list_user_analysis_history",
+        "src.api.routes.history.list_user_analysis_history",
         fake_list_user_analysis_history,
     )
 
@@ -526,8 +520,7 @@ def test_dashboard_resumen_returns_summary(monkeypatch):
         return summary
 
     monkeypatch.setattr(
-        server_module,
-        "get_user_dashboard_summary",
+        "src.api.routes.dashboard.get_user_dashboard_summary",
         fake_get_user_dashboard_summary,
     )
 
@@ -548,11 +541,10 @@ def test_dashboard_resumen_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     def fake_get_user_dashboard_summary(*, user_id):
-        raise server_module.HistoryDatabaseError("db down")
+        raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        server_module,
-        "get_user_dashboard_summary",
+        "src.api.routes.dashboard.get_user_dashboard_summary",
         fake_get_user_dashboard_summary,
     )
 
