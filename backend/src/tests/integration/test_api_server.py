@@ -470,7 +470,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     assert "No se pudo recuperar el historial" in response.json()["detail"]
 
 
-def test_dashboard_resumen_returns_summary(monkeypatch):
+def test_dashboard_summary_returns_summary(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
@@ -524,7 +524,7 @@ def test_dashboard_resumen_returns_summary(monkeypatch):
         fake_get_user_dashboard_summary,
     )
 
-    response = client.get("/dashboard/resumen")
+    response = client.get("/dashboard/summary")
 
     assert response.status_code == 200
     body = response.json()
@@ -536,7 +536,7 @@ def test_dashboard_resumen_returns_summary(monkeypatch):
     assert body["alerts"][0]["label"] == "falsa"
 
 
-def test_dashboard_resumen_returns_500_when_database_fails(monkeypatch):
+def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
@@ -548,7 +548,7 @@ def test_dashboard_resumen_returns_500_when_database_fails(monkeypatch):
         fake_get_user_dashboard_summary,
     )
 
-    response = client.get("/dashboard/resumen")
+    response = client.get("/dashboard/summary")
 
     assert response.status_code == 500
     assert "No se pudo recuperar el dashboard" in response.json()["detail"]

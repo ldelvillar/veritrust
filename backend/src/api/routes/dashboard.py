@@ -13,7 +13,7 @@ from src.api.database import (
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-@router.get("/resumen")
+@router.get("/summary")
 def get_dashboard_summary(user=Depends(get_current_user)):
     """Endpoint para obtener métricas agregadas del dashboard del usuario."""
     user_id = user["sub"]

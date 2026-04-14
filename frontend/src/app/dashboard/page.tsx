@@ -84,7 +84,7 @@ export default function DashboardPage() {
         throw new Error('No se pudo obtener el token de autenticación.');
       }
 
-      const response = await fetch(`${CONFIG.API_URL}/dashboard/resumen`, {
+      const response = await fetch(`${CONFIG.API_URL}/dashboard/summary`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
