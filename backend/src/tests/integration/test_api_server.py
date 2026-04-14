@@ -59,6 +59,9 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     sys.modules.pop("src.api.server", None)
     server_module = importlib.import_module("src.api.server")
 
+    server_module.app.state.verification_system = fake_graph
+    start_calls["count"] += 1
+
     # Evita que el rate limit se acumule entre tests
     api_utils.rate_limit.clear()
     server_module.app.dependency_overrides[api_utils.get_current_user] = lambda: {

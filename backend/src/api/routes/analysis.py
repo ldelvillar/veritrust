@@ -1,5 +1,6 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -19,6 +20,7 @@ from src.api.messages import (
 )
 
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("")
@@ -31,6 +33,12 @@ def analyze_news(
     user_id = user["sub"]
 
     check_rate_limit(user_id)
+    verification_system = getattr(request.app.state, "verification_system", None)
+    if verification_system is None:
+        raise HTTPException(
+            status_code=503,
+            detail="El servicio de análisis no está disponible temporalmente.",
+        )
 
     try:
         text = extract_text_from_url(str(body.url)) if body.url else body.text
@@ -48,7 +56,7 @@ def analyze_news(
 
     try:
         # Ejecutar el grafo
-        result = request.app.state.verification_system.invoke(initial_state)
+        result = verification_system.invoke(initial_state)
 
         # Obtener los resultados
         label = result.get("label", "Indefinida")
@@ -82,7 +90,7 @@ def analyze_news(
         }
     except Exception as e:
         error_msg = str(e).lower()
-        print(f"Error al analizar la noticia: {error_msg}")
+        logger.exception("Error al analizar la noticia: %s", error_msg)
 
         # Traducir errores a mensajes para el usuario
         if "model requires more system memory" in error_msg:

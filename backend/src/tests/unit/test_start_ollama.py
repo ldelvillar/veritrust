@@ -35,18 +35,23 @@ def test_start_ollama_does_not_spawn_when_server_is_up(monkeypatch):
 def test_start_ollama_spawns_server_when_connection_fails(monkeypatch):
     popen_calls = []
     sleep_calls = []
+    urlopen_calls = {"count": 0}
 
-    def fake_urlopen(*args, **kwargs):
-        raise urllib.error.URLError("offline")
+    def fake_urlopen(*_args, **_kwargs):
+        urlopen_calls["count"] += 1
+        if urlopen_calls["count"] == 1:
+            raise urllib.error.URLError("offline")
+        return _DummyResponse()
 
     def fake_popen(*args, **kwargs):
         popen_calls.append((args, kwargs))
 
+    def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+
     monkeypatch.setattr(start_ollama_module.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(start_ollama_module.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(
-        start_ollama_module.time, "sleep", lambda s: sleep_calls.append(s)
-    )
+    monkeypatch.setattr(start_ollama_module.time, "sleep", fake_sleep)
 
     start_ollama_module.start_ollama()
 
@@ -58,7 +63,7 @@ def test_start_ollama_spawns_server_when_connection_fails(monkeypatch):
     assert sleep_calls == [3]
 
 
-def test_start_ollama_exits_when_binary_is_missing(monkeypatch, capsys):
+def test_start_ollama_raises_when_binary_is_missing(monkeypatch):
     def fake_urlopen(*args, **kwargs):
         raise urllib.error.URLError("offline")
 
@@ -68,9 +73,7 @@ def test_start_ollama_exits_when_binary_is_missing(monkeypatch, capsys):
     monkeypatch.setattr(start_ollama_module.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(start_ollama_module.subprocess, "Popen", fake_popen)
 
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(start_ollama_module.OllamaStartupError) as exc:
         start_ollama_module.start_ollama()
 
-    captured = capsys.readouterr()
-    assert exc.value.code == 1
-    assert "No se encuentra 'Ollama'" in captured.out
+    assert "No se encuentra 'Ollama'" in str(exc.value)
