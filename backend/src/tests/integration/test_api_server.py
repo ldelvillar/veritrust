@@ -439,7 +439,7 @@ def test_historial_returns_user_history(monkeypatch):
     )
 
     response = client.get(
-        "/historial?page=1&page_size=10&search=vacuna&source_type=text&date_range=30d&score_sort=asc"
+        "/history?page=1&page_size=10&search=vacuna&source_type=text&date_range=30d&score_sort=asc"
     )
 
     assert response.status_code == 200
@@ -464,7 +464,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
         fake_list_user_analysis_history,
     )
 
-    response = client.get("/historial")
+    response = client.get("/history")
 
     assert response.status_code == 500
     assert "No se pudo recuperar el historial" in response.json()["detail"]

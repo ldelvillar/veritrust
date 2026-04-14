@@ -9,7 +9,7 @@ from src.api.database import HistoryDatabaseError, list_user_analysis_history
 from src.api.utils import get_current_user
 
 
-router = APIRouter(prefix="/historial", tags=["Historial"])
+router = APIRouter(prefix="/history", tags=["Historial"])
 
 
 def _get_date_threshold(

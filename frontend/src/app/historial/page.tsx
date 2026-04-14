@@ -62,7 +62,7 @@ export default function HistorialPage() {
         params.set('search', trimmedQuery);
       }
 
-      const URL = `${CONFIG.API_URL}/historial?${params.toString()}`;
+      const URL = `${CONFIG.API_URL}/history?${params.toString()}`;
       const token = await getToken({ template: 'veritrust-api' });
 
       if (!token) {
