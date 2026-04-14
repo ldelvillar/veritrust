@@ -18,7 +18,7 @@ from src.api.messages import (
     ERROR_NO_MEDICAL_CLAIMS,
 )
 
-router = APIRouter(prefix="/analisis", tags=["Analisis"])
+router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
 
 @router.post("")

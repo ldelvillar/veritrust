@@ -90,7 +90,7 @@ def test_analisis_returns_success_payload(monkeypatch):
     )
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={"text": "Bleach cures COVID"})
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 200
     body = response.json()
@@ -122,7 +122,7 @@ def test_analisis_saves_history_only_on_success(monkeypatch):
         fake_save_successful_analysis,
     )
 
-    response = client.post("/analisis", json={"text": "Bleach cures COVID"})
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 200
     assert response.json()["status"] == "success"
@@ -151,7 +151,7 @@ def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
         fake_save_successful_analysis,
     )
 
-    response = client.post("/analisis", json={"text": "Texto sin claim"})
+    response = client.post("/analysis", json={"text": "Texto sin claim"})
 
     assert response.status_code == 200
     assert response.json()["status"] == "error"
@@ -170,7 +170,7 @@ def test_analisis_returns_success_with_url(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analisis",
+        "/analysis",
         json={"url": "https://ejemplo.com/noticia", "source_type": "url"},
     )
 
@@ -188,7 +188,7 @@ def test_analisis_rejects_invalid_url(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analisis",
+        "/analysis",
         json={"url": "not-a-valid-url", "source_type": "url"},
     )
 
@@ -205,7 +205,7 @@ def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={"text": "Texto sin claim"})
+    response = client.post("/analysis", json={"text": "Texto sin claim"})
 
     assert response.status_code == 200
     body = response.json()
@@ -220,7 +220,7 @@ def test_analisis_returns_500_on_unexpected_error(monkeypatch):
     )
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={"text": "Texto"})
+    response = client.post("/analysis", json={"text": "Texto"})
 
     assert response.status_code == 500
     assert response.json()["detail"] == ERROR_INTERNAL
@@ -252,7 +252,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         fake_get_user_analysis_by_id,
     )
 
-    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 200
     body = response.json()
@@ -270,7 +270,7 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
         lambda **kwargs: None,
     )
 
-    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Análisis no encontrado."
@@ -280,7 +280,7 @@ def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    response = client.get("/analisis/not-a-uuid")
+    response = client.get("/analysis/not-a-uuid")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "El id de análisis no es válido."
@@ -298,7 +298,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
         fake_get_user_analysis_by_id,
     )
 
-    response = client.get("/analisis/11111111-1111-1111-1111-111111111111")
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 500
     assert "No se pudo recuperar el análisis" in response.json()["detail"]
@@ -308,7 +308,7 @@ def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
     server_module, fake_graph, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    response = client.post("/analisis", json={})
+    response = client.post("/analysis", json={})
 
     assert response.status_code == 422
     assert fake_graph.invocations == []
@@ -319,7 +319,7 @@ def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analisis",
+        "/analysis",
         json={
             "text": "Un texto",
             "url": "https://ejemplo.com/noticia",
@@ -335,7 +335,7 @@ def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analisis",
+        "/analysis",
         json={
             "url": "https://ejemplo.com/noticia",
             "source_type": "text",
@@ -351,7 +351,7 @@ def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analisis",
+        "/analysis",
         json={
             "text": "Un texto",
             "source_type": "url",
@@ -366,8 +366,8 @@ def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
     server_module, fake_graph, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    empty_response = client.post("/analisis", json={"text": ""})
-    whitespace_response = client.post("/analisis", json={"text": "   \n\t  "})
+    empty_response = client.post("/analysis", json={"text": ""})
+    whitespace_response = client.post("/analysis", json={"text": "   \n\t  "})
 
     assert empty_response.status_code == 422
     assert whitespace_response.status_code == 422
@@ -379,7 +379,7 @@ def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
     client = TestClient(server_module.app)
 
     very_long_text = "a" * 10001
-    response = client.post("/analisis", json={"text": very_long_text})
+    response = client.post("/analysis", json={"text": very_long_text})
 
     assert response.status_code == 422
     assert fake_graph.invocations == []
@@ -390,7 +390,7 @@ def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
     client = TestClient(server_module.app)
     server_module.app.dependency_overrides.pop(api_utils.get_current_user, None)
 
-    response = client.post("/analisis", json={"text": "Texto"})
+    response = client.post("/analysis", json={"text": "Texto"})
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing Authorization header"

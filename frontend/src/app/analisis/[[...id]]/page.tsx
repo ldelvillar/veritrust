@@ -87,7 +87,7 @@ export default function AnalisisPage() {
           }
 
           const response = await fetch(
-            `${CONFIG.API_URL}/analisis/${analysisId}`,
+            `${CONFIG.API_URL}/analysis/${analysisId}`,
             {
               method: 'GET',
               headers: {
@@ -164,7 +164,7 @@ export default function AnalisisPage() {
       try {
         const token = await getToken({ template: 'veritrust-api' });
 
-        const response = await fetch(`${CONFIG.API_URL}/analisis`, {
+        const response = await fetch(`${CONFIG.API_URL}/analysis`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
