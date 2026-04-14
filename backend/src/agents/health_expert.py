@@ -5,6 +5,7 @@ IA sobre una afirmación médica y lo explica al paciente utilizando terminolog�
 
 import ast
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -17,6 +18,17 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.tools.model_tool import FakeNewsDetectorTool
 from src.prompts.main import HEALTH_EXPERT_PROMPT
+
+
+@lru_cache(maxsize=8)
+def _build_bert_tool(tool_class: type[FakeNewsDetectorTool]) -> FakeNewsDetectorTool:
+    """Construye y cachea una instancia de detector por clase concreta."""
+    return tool_class()
+
+
+def _get_bert_tool() -> FakeNewsDetectorTool:
+    """Devuelve una instancia reutilizable del detector BERT."""
+    return _build_bert_tool(FakeNewsDetectorTool)
 
 
 def health_expert(state: dict) -> dict:
@@ -39,7 +51,7 @@ def health_expert(state: dict) -> dict:
 
     # Instanciar el LLM y la herramienta detectora
     llm = ChatOllama(model="llama3.2", temperature=0)
-    bert_tool = FakeNewsDetectorTool()
+    bert_tool = _get_bert_tool()
 
     # Definir el prompt de sistema
     system_prompt = SystemMessage(content=HEALTH_EXPERT_PROMPT)
