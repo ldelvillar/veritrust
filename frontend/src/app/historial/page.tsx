@@ -10,9 +10,14 @@ import HistoryFilters, {
 import HistoryResultsTable, {
   HistoryItem,
 } from '@/components/HistoryResultsTable';
-import { CONFIG } from '@/config';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
 
 const PAGE_SIZE = 10;
+
+interface HistoryResponse {
+  items?: HistoryItem[];
+  count?: number;
+}
 
 export default function HistorialPage() {
   const { getToken } = useAuth();
@@ -62,33 +67,14 @@ export default function HistorialPage() {
         params.set('search', trimmedQuery);
       }
 
-      const URL = `${CONFIG.API_URL}/history?${params.toString()}`;
-      const token = await getToken({ template: 'veritrust-api' });
+      const data = await fetchJsonWithAuth<HistoryResponse>(
+        getToken,
+        `/history?${params.toString()}`,
+        {
+          method: 'GET',
+        }
+      );
 
-      if (!token) {
-        throw new Error('No se pudo obtener el token de autenticación.');
-      }
-
-      const response = await fetch(URL, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          typeof errorData.detail === 'string'
-            ? errorData.detail
-            : Array.isArray(errorData.detail)
-              ? errorData.detail[0].msg
-              : `Status ${response.status}: Error al conectar con el servidor`;
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
       const items = Array.isArray(data.items) ? data.items : [];
       setHistory(items);
       setTotalCount(typeof data.count === 'number' ? data.count : items.length);

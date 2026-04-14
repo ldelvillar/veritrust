@@ -7,7 +7,7 @@ import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import { AnalysisDetail } from '@/types';
-import { CONFIG } from '@/config';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
 
 interface ResultData {
   label: string;
@@ -54,34 +54,14 @@ export default function AnalisisPage() {
       }
 
       try {
-        const token = await getToken({ template: 'veritrust-api' });
-        if (!token) {
-          throw new Error('No se pudo obtener el token de autenticación.');
-        }
-
-        const response = await fetch(
-          `${CONFIG.API_URL}/analysis/${analysisId}`,
+        const data = await fetchJsonWithAuth<{ item?: AnalysisDetail }>(
+          getToken,
+          `/analysis/${analysisId}`,
           {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
+            errorContextMessage: 'Error al obtener el análisis',
           }
         );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMessage =
-            typeof errorData.detail === 'string'
-              ? errorData.detail
-              : Array.isArray(errorData.detail)
-                ? errorData.detail[0].msg
-                : `Status ${response.status}: Error al obtener el análisis`;
-          throw new Error(errorMessage);
-        }
-
-        const data = (await response.json()) as { item?: AnalysisDetail };
         if (!data?.item) {
           throw new Error(
             'La respuesta del servidor no contiene un análisis válido.'

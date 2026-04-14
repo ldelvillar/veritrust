@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import Warning from '@/assets/Warning';
-import { CONFIG } from '@/config';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
 
 interface DashboardKpis {
   total_analyses: number;
@@ -78,30 +78,14 @@ export default function DashboardPage() {
     setFetchError(null);
 
     try {
-      const token = await getToken({ template: 'veritrust-api' });
+      const data = await fetchJsonWithAuth<DashboardPayload>(
+        getToken,
+        '/dashboard/summary',
+        {
+          method: 'GET',
+        }
+      );
 
-      if (!token) {
-        throw new Error('No se pudo obtener el token de autenticación.');
-      }
-
-      const response = await fetch(`${CONFIG.API_URL}/dashboard/summary`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          typeof errorData.detail === 'string'
-            ? errorData.detail
-            : `Status ${response.status}: Error al conectar con el servidor`;
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
       setDashboard({
         kpis: data.kpis,
         trend: Array.isArray(data.trend) ? data.trend : [],

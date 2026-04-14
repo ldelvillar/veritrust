@@ -7,7 +7,7 @@ import Cloud from '@/assets/Cloud';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import { SourceType } from '@/types';
-import { CONFIG } from '@/config';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
 import {
   ERROR_CONNECTION,
   ERROR_INTERNAL,
@@ -83,7 +83,6 @@ export default function Form() {
     const target = e.target as EventTarget | null;
     const isTextArea = target instanceof HTMLTextAreaElement;
 
-    // Preservar comportamiento multilínea en textarea con Shift+Enter.
     if (isTextArea && e.shiftKey) {
       return;
     }
@@ -136,34 +135,18 @@ export default function Form() {
     setIsLoading(true);
 
     try {
-      const token = await getToken({ template: 'veritrust-api' });
-
-      const response = await fetch(`${CONFIG.API_URL}/analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          typeof errorData.detail === 'string'
-            ? errorData.detail
-            : Array.isArray(errorData.detail)
-              ? errorData.detail[0].msg
-              : `Status ${response.status}: Error al conectar con el servidor`;
-        throw new Error(errorMessage);
-      }
-
-      const data = (await response.json()) as CreateAnalysisResponse;
+      const data = await fetchJsonWithAuth<CreateAnalysisResponse>(
+        getToken,
+        '/analysis',
+        {
+          method: 'POST',
+          body: requestBody,
+        }
+      );
 
       if (data.analysis_id) {
         router.push(`/analisis/${data.analysis_id}`);
       } else {
-        // En caso de que no haya guardado id por alguna razón, podríamos enviarlo al error, o redirigir
         throw new Error('No se generó un ID de análisis válido.');
       }
     } catch (err) {
