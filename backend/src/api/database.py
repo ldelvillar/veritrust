@@ -7,16 +7,19 @@ import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from dotenv import load_dotenv
 import psycopg2
 
 from src.api.schemas import AnalyzeRequest
 
-load_dotenv()
-
 logger = logging.getLogger(__name__)
+
+_DATABASE_CONFIGURATION_HINT = (
+    "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+)
+_VALID_SOURCE_TYPES = {"text", "file", "url"}
 
 
 class HistoryDatabaseError(RuntimeError):
@@ -102,6 +105,8 @@ class DashboardSummary:
 def _build_connection_string() -> str:
     """Obtiene la cadena de conexion desde la variable DATABASE_URL."""
 
+    _ensure_environment_loaded()
+
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         raise HistoryDatabaseError(
@@ -109,6 +114,23 @@ def _build_connection_string() -> str:
         )
 
     return db_url
+
+
+def _ensure_environment_loaded() -> None:
+    """Carga variables de entorno una única vez y evita side effects al importar."""
+
+    already_loaded = getattr(_ensure_environment_loaded, "_loaded", False)
+    if already_loaded:
+        return
+
+    load_dotenv()
+    setattr(_ensure_environment_loaded, "_loaded", True)
+
+
+def _build_database_error(context_message: str) -> str:
+    """Construye mensajes de error de BD consistentes para todas las operaciones."""
+
+    return f"{context_message} {_DATABASE_CONFIGURATION_HINT}"
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -125,6 +147,105 @@ def _normalize_confidence(confidence: Any) -> float:
         raise HistoryDatabaseError(f"Confidence fuera de rango [0, 1]: {value}.")
 
     return value
+
+
+def _map_history_record(row: Sequence[Any]) -> HistoryRecord:
+    """Mapea una fila SQL a un registro de historial tipado."""
+
+    return HistoryRecord(
+        id=str(row[0]),
+        user_id=str(row[1]),
+        source_type=str(row[2]),
+        input_text=row[3],
+        input_url=row[4],
+        label=str(row[5]),
+        confidence=float(row[6]),
+        explanation=str(row[7]),
+        created_at=str(row[8]),
+    )
+
+
+def _sanitize_history_query_params(
+    *,
+    limit: int,
+    offset: int,
+    source_type: Optional[str],
+    score_sort_order: str,
+) -> tuple[int, int, Optional[str], str]:
+    """Normaliza límites, filtros y orden para consultas de historial."""
+
+    safe_limit = max(1, min(limit, 100))
+    safe_offset = max(0, offset)
+    safe_source_type = source_type if source_type in _VALID_SOURCE_TYPES else None
+    safe_score_sort = "ASC" if score_sort_order.lower() == "asc" else "DESC"
+    return safe_limit, safe_offset, safe_source_type, safe_score_sort
+
+
+def _build_history_where_clause(
+    *,
+    user_id: str,
+    search_query: Optional[str],
+    source_type: Optional[str],
+    created_after: Optional[datetime],
+) -> tuple[str, list[Any]]:
+    """Construye cláusula WHERE y parámetros para historial paginado."""
+
+    where_clauses = ["user_id = %s"]
+    where_params: list[Any] = [user_id]
+
+    normalized_search = (search_query or "").strip()
+    if normalized_search:
+        like_pattern = f"%{normalized_search}%"
+        where_clauses.append(
+            "("
+            "COALESCE(input_text, '') ILIKE %s OR "
+            "COALESCE(input_url, '') ILIKE %s OR "
+            "COALESCE(label, '') ILIKE %s OR "
+            "COALESCE(source_type, '') ILIKE %s"
+            ")"
+        )
+        where_params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
+
+    if source_type:
+        where_clauses.append("source_type = %s")
+        where_params.append(source_type)
+
+    if created_after is not None:
+        where_clauses.append("created_at >= %s")
+        where_params.append(created_after)
+
+    return " AND ".join(where_clauses), where_params
+
+
+def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, str]:
+    """Genera consultas SQL para conteo y listado de historial."""
+
+    count_query = f"""
+        SELECT COUNT(*)
+        FROM public.analysis_history
+        WHERE {where_sql}
+    """
+
+    list_query = """
+        SELECT
+            id,
+            user_id,
+            source_type,
+            input_text,
+            input_url,
+            label,
+            confidence,
+            explanation,
+            created_at
+        FROM public.analysis_history
+        WHERE {where_sql}
+        ORDER BY confidence {safe_score_sort}, created_at DESC
+        LIMIT %s OFFSET %s
+    """.format(
+        where_sql=where_sql, safe_score_sort=safe_score_sort
+    )
+
+    return count_query, list_query
 
 
 def save_analysis_history(
@@ -149,6 +270,8 @@ def save_analysis_history(
         RETURNING id
 	"""
 
+    inserted_row = None
+
     try:
         with psycopg2.connect(conninfo) as conn:
             with conn.cursor() as cur:
@@ -166,18 +289,15 @@ def save_analysis_history(
                 )
                 inserted_row = cur.fetchone()
             conn.commit()
-
-            if not inserted_row:
-                raise HistoryDatabaseError(
-                    "No se pudo obtener el id del análisis guardado."
-                )
-
-            return str(inserted_row[0])
     except psycopg2.Error as exc:
         raise HistoryDatabaseError(
-            "No se pudo guardar el analisis en la base de datos. "
-            "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+            _build_database_error("No se pudo guardar el analisis en la base de datos.")
         ) from exc
+
+    if not inserted_row:
+        raise HistoryDatabaseError("No se pudo obtener el id del análisis guardado.")
+
+    return str(inserted_row[0])
 
 
 def save_successful_analysis(
@@ -227,61 +347,21 @@ def list_user_analysis_history(
 
     conninfo = _build_connection_string()
 
-    safe_limit = max(1, min(limit, 100))
-    safe_offset = max(0, offset)
-    safe_source_type = source_type if source_type in {"text", "file", "url"} else None
-    safe_score_sort = "ASC" if score_sort_order.lower() == "asc" else "DESC"
-
-    where_clauses = ["user_id = %s"]
-    where_params: list[Any] = [user_id]
-
-    normalized_search = (search_query or "").strip()
-    if normalized_search:
-        like_pattern = f"%{normalized_search}%"
-        where_clauses.append(
-            "("
-            "COALESCE(input_text, '') ILIKE %s OR "
-            "COALESCE(input_url, '') ILIKE %s OR "
-            "COALESCE(label, '') ILIKE %s OR "
-            "COALESCE(source_type, '') ILIKE %s"
-            ")"
+    safe_limit, safe_offset, safe_source_type, safe_score_sort = (
+        _sanitize_history_query_params(
+            limit=limit,
+            offset=offset,
+            source_type=source_type,
+            score_sort_order=score_sort_order,
         )
-        where_params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
-
-    if safe_source_type:
-        where_clauses.append("source_type = %s")
-        where_params.append(safe_source_type)
-
-    if created_after is not None:
-        where_clauses.append("created_at >= %s")
-        where_params.append(created_after)
-
-    where_sql = " AND ".join(where_clauses)
-
-    count_query = f"""
-        SELECT COUNT(*)
-        FROM public.analysis_history
-        WHERE {where_sql}
-    """
-
-    query = """
-		SELECT
-			id,
-			user_id,
-			source_type,
-			input_text,
-			input_url,
-			label,
-			confidence,
-			explanation,
-			created_at
-		FROM public.analysis_history
-		WHERE {where_sql}
-		ORDER BY confidence {safe_score_sort}, created_at DESC
-		LIMIT %s OFFSET %s
-	""".format(
-        where_sql=where_sql, safe_score_sort=safe_score_sort
     )
+    where_sql, where_params = _build_history_where_clause(
+        user_id=user_id,
+        search_query=search_query,
+        source_type=safe_source_type,
+        created_after=created_after,
+    )
+    count_query, list_query = _build_history_queries(where_sql, safe_score_sort)
 
     try:
         with psycopg2.connect(conninfo) as conn:
@@ -290,28 +370,16 @@ def list_user_analysis_history(
                 count_row = cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                cur.execute(query, (*where_params, safe_limit, safe_offset))
+                cur.execute(list_query, (*where_params, safe_limit, safe_offset))
                 rows = cur.fetchall()
     except psycopg2.Error as exc:
         raise HistoryDatabaseError(
-            "No se pudo consultar el historial en la base de datos. "
-            "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+            _build_database_error(
+                "No se pudo consultar el historial en la base de datos."
+            )
         ) from exc
 
-    records = [
-        HistoryRecord(
-            id=str(row[0]),
-            user_id=row[1],
-            source_type=row[2],
-            input_text=row[3],
-            input_url=row[4],
-            label=row[5],
-            confidence=float(row[6]),
-            explanation=row[7],
-            created_at=str(row[8]),
-        )
-        for row in rows
-    ]
+    records = [_map_history_record(row) for row in rows]
 
     return records, total_count
 
@@ -344,23 +412,63 @@ def get_user_analysis_by_id(*, user_id: str, analysis_id: str) -> HistoryRecord 
                 row = cur.fetchone()
     except psycopg2.Error as exc:
         raise HistoryDatabaseError(
-            "No se pudo consultar el análisis en la base de datos. "
-            "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+            _build_database_error(
+                "No se pudo consultar el análisis en la base de datos."
+            )
         ) from exc
 
     if not row:
         return None
 
-    return HistoryRecord(
-        id=str(row[0]),
-        user_id=row[1],
-        source_type=row[2],
-        input_text=row[3],
-        input_url=row[4],
-        label=row[5],
-        confidence=float(row[6]),
-        explanation=row[7],
-        created_at=str(row[8]),
+    return _map_history_record(row)
+
+
+def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[int, int]:
+    """Normaliza parámetros de dashboard para mantener límites seguros."""
+
+    safe_trend_days = max(7, min(trend_days, 90))
+    safe_alert_limit = max(1, min(alert_limit, 20))
+    return safe_trend_days, safe_alert_limit
+
+
+def _extract_kpis_values(
+    kpi_row: Sequence[Any] | None,
+) -> tuple[int, float, int, int, int]:
+    """Extrae valores de KPI con defaults cuando no hay resultados."""
+
+    total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
+    average_confidence = float(kpi_row[1] or 0.0) if kpi_row else 0.0
+    reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
+    current_week_total = int(kpi_row[3] or 0) if kpi_row else 0
+    previous_week_total = int(kpi_row[4] or 0) if kpi_row else 0
+    return (
+        total_analyses,
+        average_confidence,
+        reliable_total,
+        current_week_total,
+        previous_week_total,
+    )
+
+
+def _calculate_reliable_rate(*, reliable_total: int, total_analyses: int) -> float:
+    """Calcula porcentaje de análisis etiquetados como fiables."""
+
+    if total_analyses == 0:
+        return 0.0
+    return round((reliable_total / total_analyses) * 100, 1)
+
+
+def _calculate_week_over_week_delta(
+    *, current_week_total: int, previous_week_total: int
+) -> float:
+    """Calcula variación semanal porcentual con manejo de división por cero."""
+
+    if previous_week_total == 0:
+        return 0.0 if current_week_total == 0 else 100.0
+
+    return round(
+        ((current_week_total - previous_week_total) / previous_week_total) * 100,
+        1,
     )
 
 
@@ -382,14 +490,112 @@ def _extract_domain(url: str | None) -> str | None:
     return host.lower() if host else None
 
 
+def _build_trend_points(
+    *, trend_rows: Sequence[Sequence[Any]], trend_start_date: date, trend_days: int
+) -> list[DashboardTrendPoint]:
+    """Construye una serie diaria continua para tendencia de dashboard."""
+
+    trend_map: dict[date, tuple[int, float]] = {}
+    for row in trend_rows:
+        row_day: date = row[0]
+        row_total = int(row[1] or 0)
+        row_avg_confidence = float(row[2] or 0.0)
+        trend_map[row_day] = (row_total, row_avg_confidence)
+
+    trend_points: list[DashboardTrendPoint] = []
+    for day_offset in range(trend_days):
+        point_day = trend_start_date + timedelta(days=day_offset)
+        point_total, point_avg_confidence = trend_map.get(point_day, (0, 0.0))
+        trend_points.append(
+            DashboardTrendPoint(
+                date=point_day.isoformat(),
+                total=point_total,
+                average_confidence=round(point_avg_confidence * 100, 1),
+            )
+        )
+
+    return trend_points
+
+
+def _build_source_breakdown(
+    source_rows: Sequence[Sequence[Any]],
+) -> list[DashboardSourceBreakdownItem]:
+    """Mapea la distribución por fuente para el dashboard."""
+
+    return [
+        DashboardSourceBreakdownItem(
+            source_type=str(row[0]),
+            total=int(row[1] or 0),
+            average_confidence=_round_percentage(float(row[2] or 0.0)),
+        )
+        for row in source_rows
+    ]
+
+
+def _build_domain_breakdown(
+    *, domain_rows: Sequence[Sequence[Any]], limit: int = 5
+) -> list[DashboardDomainBreakdownItem]:
+    """Agrega y ordena dominios de URL por frecuencia para el dashboard."""
+
+    domain_aggregates: dict[str, dict[str, float]] = {}
+    for row in domain_rows:
+        domain = _extract_domain(row[0])
+        if not domain:
+            continue
+
+        confidence = float(row[1] or 0.0)
+        if domain not in domain_aggregates:
+            domain_aggregates[domain] = {"total": 0.0, "sum_confidence": 0.0}
+
+        domain_aggregates[domain]["total"] += 1
+        domain_aggregates[domain]["sum_confidence"] += confidence
+
+    sorted_domains = sorted(
+        domain_aggregates.items(),
+        key=lambda item: item[1]["total"],
+        reverse=True,
+    )[:limit]
+
+    return [
+        DashboardDomainBreakdownItem(
+            domain=domain,
+            total=int(values["total"]),
+            average_confidence=_round_percentage(
+                values["sum_confidence"] / values["total"]
+            ),
+        )
+        for domain, values in sorted_domains
+        if values["total"] > 0
+    ]
+
+
+def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertItem]:
+    """Mapea filas de alertas (baja credibilidad) para el dashboard."""
+
+    return [
+        DashboardAlertItem(
+            id=str(row[0]),
+            source_type=str(row[1]),
+            input_text=row[2],
+            input_url=row[3],
+            label=str(row[4]),
+            confidence=float(row[5] or 0.0),
+            created_at=str(row[6]),
+        )
+        for row in alert_rows
+    ]
+
+
 def get_user_dashboard_summary(
     *, user_id: str, trend_days: int = 14, alert_limit: int = 5
 ) -> DashboardSummary:
     """Obtiene métricas agregadas para el dashboard del usuario."""
 
     conninfo = _build_connection_string()
-    safe_trend_days = max(7, min(trend_days, 90))
-    safe_alert_limit = max(1, min(alert_limit, 20))
+    safe_trend_days, safe_alert_limit = _sanitize_dashboard_params(
+        trend_days=trend_days,
+        alert_limit=alert_limit,
+    )
 
     kpis_query = """
         SELECT
@@ -491,99 +697,36 @@ def get_user_dashboard_summary(
                 alert_rows = cur.fetchall()
     except psycopg2.Error as exc:
         raise HistoryDatabaseError(
-            "No se pudo consultar el resumen del dashboard en la base de datos. "
-            "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+            _build_database_error(
+                "No se pudo consultar el resumen del dashboard en la base de datos."
+            )
         ) from exc
 
-    total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
-    average_confidence = float(kpi_row[1] or 0.0) if kpi_row else 0.0
-    reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
-    current_week_total = int(kpi_row[3] or 0) if kpi_row else 0
-    previous_week_total = int(kpi_row[4] or 0) if kpi_row else 0
+    (
+        total_analyses,
+        average_confidence,
+        reliable_total,
+        current_week_total,
+        previous_week_total,
+    ) = _extract_kpis_values(kpi_row)
 
-    reliable_rate = (
-        round((reliable_total / total_analyses) * 100, 1) if total_analyses else 0.0
+    reliable_rate = _calculate_reliable_rate(
+        reliable_total=reliable_total,
+        total_analyses=total_analyses,
+    )
+    week_over_week_delta = _calculate_week_over_week_delta(
+        current_week_total=current_week_total,
+        previous_week_total=previous_week_total,
     )
 
-    if previous_week_total == 0:
-        week_over_week_delta = 0.0 if current_week_total == 0 else 100.0
-    else:
-        week_over_week_delta = round(
-            ((current_week_total - previous_week_total) / previous_week_total) * 100,
-            1,
-        )
-
-    trend_map: dict[date, tuple[int, float]] = {}
-    for row in trend_rows:
-        row_day: date = row[0]
-        row_total = int(row[1] or 0)
-        row_avg_confidence = float(row[2] or 0.0)
-        trend_map[row_day] = (row_total, row_avg_confidence)
-
-    trend_points: list[DashboardTrendPoint] = []
-    for day_offset in range(safe_trend_days):
-        point_day = trend_start_date + timedelta(days=day_offset)
-        point_total, point_avg_confidence = trend_map.get(point_day, (0, 0.0))
-        trend_points.append(
-            DashboardTrendPoint(
-                date=point_day.isoformat(),
-                total=point_total,
-                average_confidence=round(point_avg_confidence * 100, 1),
-            )
-        )
-
-    source_breakdown = [
-        DashboardSourceBreakdownItem(
-            source_type=str(row[0]),
-            total=int(row[1] or 0),
-            average_confidence=_round_percentage(float(row[2] or 0.0)),
-        )
-        for row in source_rows
-    ]
-
-    domain_aggregates: dict[str, dict[str, float]] = {}
-    for row in domain_rows:
-        domain = _extract_domain(row[0])
-        if not domain:
-            continue
-
-        confidence = float(row[1] or 0.0)
-        if domain not in domain_aggregates:
-            domain_aggregates[domain] = {"total": 0.0, "sum_confidence": 0.0}
-
-        domain_aggregates[domain]["total"] += 1
-        domain_aggregates[domain]["sum_confidence"] += confidence
-
-    sorted_domains = sorted(
-        domain_aggregates.items(),
-        key=lambda item: item[1]["total"],
-        reverse=True,
-    )[:5]
-
-    domain_breakdown = [
-        DashboardDomainBreakdownItem(
-            domain=domain,
-            total=int(values["total"]),
-            average_confidence=_round_percentage(
-                values["sum_confidence"] / values["total"]
-            ),
-        )
-        for domain, values in sorted_domains
-        if values["total"] > 0
-    ]
-
-    alerts = [
-        DashboardAlertItem(
-            id=str(row[0]),
-            source_type=str(row[1]),
-            input_text=row[2],
-            input_url=row[3],
-            label=str(row[4]),
-            confidence=float(row[5] or 0.0),
-            created_at=str(row[6]),
-        )
-        for row in alert_rows
-    ]
+    trend_points = _build_trend_points(
+        trend_rows=trend_rows,
+        trend_start_date=trend_start_date,
+        trend_days=safe_trend_days,
+    )
+    source_breakdown = _build_source_breakdown(source_rows)
+    domain_breakdown = _build_domain_breakdown(domain_rows=domain_rows, limit=5)
+    alerts = _build_alerts(alert_rows)
 
     return DashboardSummary(
         kpis=DashboardKpis(
