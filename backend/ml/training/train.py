@@ -13,8 +13,8 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from src.utils.load_data import load_dataset
-from src.utils.preprocess import preprocess_data
+from ml.utils.load_data import load_dataset
+from ml.utils.preprocess import preprocess_data
 
 
 # Configuración e hiperparámetros

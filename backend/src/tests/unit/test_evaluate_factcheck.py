@@ -31,8 +31,8 @@ def _load_eval_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "google.auth.credentials", fake_google_credentials)
     monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
 
-    sys.modules.pop("src.evaluation.evaluate_factcheck", None)
-    return importlib.import_module("src.evaluation.evaluate_factcheck")
+    sys.modules.pop("ml.evaluation.evaluate_factcheck", None)
+    return importlib.import_module("ml.evaluation.evaluate_factcheck")
 
 
 def test_normalize_veredict_maps_known_labels(monkeypatch) -> None:

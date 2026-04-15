@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 import numpy as np
 import pandas as pd
-from src.models import train as train_module
+from ml.training import train as train_module
 
 
 def test_pubhealth_dataset_len_and_getitem_returns_expected_tensors() -> None:

@@ -1,7 +1,7 @@
 """Tests unitarios para el módulo de preprocesamiento de datos."""
 
 import pandas as pd
-from src.utils.preprocess import clean_list_string, clean_text, preprocess_data
+from ml.utils.preprocess import clean_list_string, clean_text, preprocess_data
 
 
 def test_clean_text_returns_empty_for_non_string_input() -> None:

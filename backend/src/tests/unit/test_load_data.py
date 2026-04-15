@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from src.utils import load_data
+from ml.utils import load_data
 
 
 def test_load_dataset_raises_for_invalid_partition() -> None:

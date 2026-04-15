@@ -5,7 +5,7 @@ de los datos para el entrenamiento del modelo BERT.
 
 import re
 import pandas as pd
-from src.utils.load_data import load_dataset
+from ml.utils.load_data import load_dataset
 
 
 def clean_text(text: str) -> str:
