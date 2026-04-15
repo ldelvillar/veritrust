@@ -1,0 +1,339 @@
+"""Tests unitarios para helpers internos de database.py."""
+
+from datetime import date, datetime, timezone
+
+import pytest
+
+from src.api import database as database_module
+from src.api.database import (
+    DashboardAlertItem,
+    DashboardDomainBreakdownItem,
+    DashboardSourceBreakdownItem,
+    DashboardTrendPoint,
+    HistoryDatabaseError,
+    HistoryRecord,
+)
+
+
+def _reset_env_loader_flag() -> None:
+    if hasattr(database_module._ensure_environment_loaded, "_loaded"):
+        delattr(database_module._ensure_environment_loaded, "_loaded")
+
+
+def test_build_connection_string_returns_database_url(monkeypatch) -> None:
+    _reset_env_loader_flag()
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
+    monkeypatch.setattr(database_module, "load_dotenv", lambda: None)
+
+    conninfo = database_module._build_connection_string()
+
+    assert conninfo == "postgresql://user:pass@localhost:5432/db"
+
+
+def test_build_connection_string_raises_when_database_url_is_missing(
+    monkeypatch,
+) -> None:
+    _reset_env_loader_flag()
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(database_module, "load_dotenv", lambda: None)
+
+    with pytest.raises(HistoryDatabaseError) as exc:
+        database_module._build_connection_string()
+
+    assert "DATABASE_URL" in str(exc.value)
+
+
+def test_ensure_environment_loaded_only_calls_dotenv_once(monkeypatch) -> None:
+    _reset_env_loader_flag()
+    calls = {"count": 0}
+
+    def fake_load_dotenv() -> None:
+        calls["count"] += 1
+
+    monkeypatch.setattr(database_module, "load_dotenv", fake_load_dotenv)
+
+    database_module._ensure_environment_loaded()
+    database_module._ensure_environment_loaded()
+
+    assert calls["count"] == 1
+
+
+def test_build_database_error_appends_configuration_hint() -> None:
+    message = database_module._build_database_error("Error base.")
+
+    assert message.startswith("Error base.")
+    assert "DATABASE_URL" in message
+
+
+def test_normalize_confidence_accepts_valid_numeric_values() -> None:
+    assert database_module._normalize_confidence(0) == 0.0
+    assert database_module._normalize_confidence("1") == 1.0
+    assert database_module._normalize_confidence(0.75) == 0.75
+
+
+def test_normalize_confidence_rejects_non_numeric_values() -> None:
+    with pytest.raises(HistoryDatabaseError) as exc:
+        database_module._normalize_confidence("no-num")
+
+    assert "no es numerico" in str(exc.value)
+
+
+def test_normalize_confidence_rejects_out_of_range_values() -> None:
+    with pytest.raises(HistoryDatabaseError):
+        database_module._normalize_confidence(1.2)
+
+    with pytest.raises(HistoryDatabaseError):
+        database_module._normalize_confidence(-0.01)
+
+
+def test_map_history_record_converts_sql_row_to_dataclass() -> None:
+    row = (
+        123,
+        "user-1",
+        "text",
+        "contenido",
+        None,
+        "falsa",
+        0.81,
+        "explicacion",
+        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    record = database_module._map_history_record(row)
+
+    assert isinstance(record, HistoryRecord)
+    assert record.id == "123"
+    assert record.user_id == "user-1"
+    assert record.confidence == 0.81
+    assert record.created_at.startswith("2026-04-10")
+
+
+def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
+    safe_limit, safe_offset, safe_source_type, safe_score_sort = (
+        database_module._sanitize_history_query_params(
+            limit=500,
+            offset=-10,
+            source_type="audio",
+            score_sort_order="zzz",
+        )
+    )
+
+    assert safe_limit == 100
+    assert safe_offset == 0
+    assert safe_source_type is None
+    assert safe_score_sort == "DESC"
+
+
+def test_sanitize_history_query_params_preserves_valid_values() -> None:
+    safe_limit, safe_offset, safe_source_type, safe_score_sort = (
+        database_module._sanitize_history_query_params(
+            limit=25,
+            offset=5,
+            source_type="url",
+            score_sort_order="asc",
+        )
+    )
+
+    assert safe_limit == 25
+    assert safe_offset == 5
+    assert safe_source_type == "url"
+    assert safe_score_sort == "ASC"
+
+
+def test_build_history_where_clause_with_only_user_id() -> None:
+    where_sql, params = database_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+    )
+
+    assert where_sql == "user_id = %s"
+    assert params == ["user-1"]
+
+
+def test_build_history_where_clause_with_search_filters_and_date() -> None:
+    created_after = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+    where_sql, params = database_module._build_history_where_clause(
+        user_id="user-2",
+        search_query="  covid  ",
+        source_type="text",
+        created_after=created_after,
+    )
+
+    assert "COALESCE(input_text, '') ILIKE %s" in where_sql
+    assert "source_type = %s" in where_sql
+    assert "created_at >= %s" in where_sql
+    assert params == [
+        "user-2",
+        "%covid%",
+        "%covid%",
+        "%covid%",
+        "%covid%",
+        "text",
+        created_after,
+    ]
+
+
+def test_build_history_queries_includes_ordering_and_where() -> None:
+    count_query, list_query = database_module._build_history_queries(
+        "user_id = %s",
+        "ASC",
+    )
+
+    assert "SELECT COUNT(*)" in count_query
+    assert "WHERE user_id = %s" in count_query
+    assert "ORDER BY confidence ASC, created_at DESC" in list_query
+    assert "LIMIT %s OFFSET %s" in list_query
+
+
+def test_sanitize_dashboard_params_clamps_values() -> None:
+    safe_trend_days, safe_alert_limit = database_module._sanitize_dashboard_params(
+        trend_days=1,
+        alert_limit=999,
+    )
+
+    assert safe_trend_days == 7
+    assert safe_alert_limit == 20
+
+
+def test_extract_kpis_values_handles_none_and_row_values() -> None:
+    assert database_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0)
+    assert database_module._extract_kpis_values((10, 0.83, 7, 4, 2)) == (
+        10,
+        0.83,
+        7,
+        4,
+        2,
+    )
+
+
+def test_calculate_reliable_rate_handles_zero_and_rounding() -> None:
+    assert (
+        database_module._calculate_reliable_rate(
+            reliable_total=0,
+            total_analyses=0,
+        )
+        == 0.0
+    )
+    assert (
+        database_module._calculate_reliable_rate(
+            reliable_total=1,
+            total_analyses=3,
+        )
+        == 33.3
+    )
+
+
+def test_calculate_week_over_week_delta_covers_edge_cases() -> None:
+    assert (
+        database_module._calculate_week_over_week_delta(
+            current_week_total=0,
+            previous_week_total=0,
+        )
+        == 0.0
+    )
+    assert (
+        database_module._calculate_week_over_week_delta(
+            current_week_total=5,
+            previous_week_total=0,
+        )
+        == 100.0
+    )
+    assert (
+        database_module._calculate_week_over_week_delta(
+            current_week_total=3,
+            previous_week_total=2,
+        )
+        == 50.0
+    )
+
+
+def test_round_percentage_clamps_and_rounds_values() -> None:
+    assert database_module._round_percentage(None) == 0.0
+    assert database_module._round_percentage(0.1234) == 12.3
+    assert database_module._round_percentage(1.8) == 100.0
+    assert database_module._round_percentage(-0.2) == 0.0
+
+
+def test_extract_domain_returns_normalized_host() -> None:
+    assert database_module._extract_domain("https://Example.COM/path") == "example.com"
+    assert database_module._extract_domain("notaurl") is None
+    assert database_module._extract_domain(None) is None
+
+
+def test_build_trend_points_creates_contiguous_daily_series() -> None:
+    trend_rows = [
+        (date(2026, 4, 1), 2, 0.5),
+        (date(2026, 4, 3), 1, 0.75),
+    ]
+
+    points = database_module._build_trend_points(
+        trend_rows=trend_rows,
+        trend_start_date=date(2026, 4, 1),
+        trend_days=3,
+    )
+
+    assert len(points) == 3
+    assert isinstance(points[0], DashboardTrendPoint)
+    assert points[0].date == "2026-04-01"
+    assert points[0].total == 2
+    assert points[0].average_confidence == 50.0
+    assert points[1].date == "2026-04-02"
+    assert points[1].total == 0
+    assert points[1].average_confidence == 0.0
+    assert points[2].average_confidence == 75.0
+
+
+def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
+    rows = [("url", 3, 0.91), ("text", 1, None)]
+
+    result = database_module._build_source_breakdown(rows)
+
+    assert len(result) == 2
+    assert isinstance(result[0], DashboardSourceBreakdownItem)
+    assert result[0].source_type == "url"
+    assert result[0].total == 3
+    assert result[0].average_confidence == 91.0
+    assert result[1].average_confidence == 0.0
+
+
+def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
+    domain_rows = [
+        ("https://a.com/one", 0.9),
+        ("https://A.com/two", 0.7),
+        ("https://b.com", 0.5),
+        ("notaurl", 0.3),
+        (None, 0.2),
+    ]
+
+    result = database_module._build_domain_breakdown(domain_rows=domain_rows, limit=1)
+
+    assert len(result) == 1
+    assert isinstance(result[0], DashboardDomainBreakdownItem)
+    assert result[0].domain == "a.com"
+    assert result[0].total == 2
+    assert result[0].average_confidence == 80.0
+
+
+def test_build_alerts_maps_rows_to_alert_items() -> None:
+    alert_rows = [
+        (
+            99,
+            "url",
+            None,
+            "https://example.com",
+            "falsa",
+            0.21,
+            datetime(2026, 4, 10, 15, 0, tzinfo=timezone.utc),
+        )
+    ]
+
+    alerts = database_module._build_alerts(alert_rows)
+
+    assert len(alerts) == 1
+    assert isinstance(alerts[0], DashboardAlertItem)
+    assert alerts[0].id == "99"
+    assert alerts[0].source_type == "url"
+    assert alerts[0].confidence == 0.21
+    assert alerts[0].created_at.startswith("2026-04-10")
