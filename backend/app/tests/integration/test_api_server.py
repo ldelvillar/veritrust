@@ -58,8 +58,8 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
         sys.modules, "app.utils.extract_text_from_url", fake_extract_module
     )
 
-    sys.modules.pop("app.api.server", None)
-    server_module = importlib.import_module("app.api.server")
+    sys.modules.pop("app.main", None)
+    server_module = importlib.import_module("app.main")
 
     server_module.app.state.verification_system = fake_graph
     start_calls["count"] += 1
