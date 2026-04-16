@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.agents.main import create_graph
-from src.api.cors import get_cors_config
-from src.utils.start_ollama import start_ollama
-from src.api.router import api_router
+from app.agents.main import create_graph
+from app.api.cors import get_cors_config
+from app.utils.start_ollama import start_ollama
+from app.api.router import api_router
 
 logger = logging.getLogger(__name__)
 

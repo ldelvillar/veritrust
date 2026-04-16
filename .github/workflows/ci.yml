@@ -22,7 +22,7 @@ jobs:
     name: Detect changed areas
     runs-on: ubuntu-latest
     outputs:
-      backend_src: ${{ steps.filter.outputs.backend_src }}
+      backend_app: ${{ steps.filter.outputs.backend_app }}
       backend_ml: ${{ steps.filter.outputs.backend_ml }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
@@ -34,8 +34,8 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            backend_src:
-              - 'backend/src/**'
+            backend_app:
+              - 'backend/app/**'
               - 'backend/requirements.txt'
               - 'backend/pyproject.toml'
               - '.github/workflows/ci.yml'
@@ -49,10 +49,10 @@ jobs:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
 
-  backend_src:
-    name: Backend Src Tests (Python)
+  backend_app:
+    name: Backend App Tests (Python)
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_src == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_app == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,22 +75,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run src tests with coverage
+      - name: Run app tests with coverage
         run: |
           mkdir -p test-results
-          pytest -q src/tests \
+          pytest -q app/tests \
             --junitxml=test-results/pytest.xml \
-            --cov=src \
+            --cov=app \
             --cov-fail-under=80 \
             --cov-report=term-missing \
             --cov-report=xml:test-results/coverage.xml \
             --cov-report=html:test-results/htmlcov
 
-      - name: Upload backend src test artifacts
+      - name: Upload backend app test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-src-test-results
+          name: backend-app-test-results
           path: |
             backend/test-results/pytest.xml
             backend/test-results/coverage.xml

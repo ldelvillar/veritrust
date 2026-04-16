@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.api.schemas import AnalyzeRequest, SourceType
+from app.api.schemas import AnalyzeRequest, SourceType
 
 
 def test_analyze_request_accepts_text_with_default_source_type() -> None:

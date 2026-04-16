@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter
 
-from src.api.routes.analysis import router as analysis_router
-from src.api.routes.dashboard import router as dashboard_router
-from src.api.routes.history import router as history_router
+from app.api.routes.analysis import router as analysis_router
+from app.api.routes.dashboard import router as dashboard_router
+from app.api.routes.history import router as history_router
 
 
 api_router = APIRouter()

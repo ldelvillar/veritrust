@@ -1,9 +1,9 @@
 """Tests de integración para el modelo de detección de noticias falsas."""
 
 import types
-import pytest
 from pathlib import Path
-from src.tools.model_tool import FakeNewsDetectorTool
+import pytest
+from app.tools.model_tool import FakeNewsDetectorTool
 
 
 class _Score:
@@ -41,15 +41,15 @@ def test_run_returns_label_and_confidence_with_mocked_model(
             return types.SimpleNamespace(logits="fake_logits")
 
     monkeypatch.setattr(
-        "src.tools.model_tool.BertTokenizer.from_pretrained",
+        "app.tools.model_tool.BertTokenizer.from_pretrained",
         lambda *args, **kwargs: _FakeTokenizer(),
     )
     monkeypatch.setattr(
-        "src.tools.model_tool.BertForSequenceClassification.from_pretrained",
+        "app.tools.model_tool.BertForSequenceClassification.from_pretrained",
         lambda *args, **kwargs: _FakeModel(),
     )
     monkeypatch.setattr(
-        "src.tools.model_tool.F.softmax",
+        "app.tools.model_tool.F.softmax",
         lambda logits, dim: [[_Score(0.1), _Score(0.9)]],
     )
 
@@ -68,7 +68,7 @@ def test_run_returns_error_when_model_loading_fails(
     monkeypatch.setenv("FAKE_NEWS_MODEL_PATH", str(model_dir))
     monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
     monkeypatch.setattr(
-        "src.tools.model_tool.BertTokenizer.from_pretrained",
+        "app.tools.model_tool.BertTokenizer.from_pretrained",
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("broken tokenizer")),
     )
 

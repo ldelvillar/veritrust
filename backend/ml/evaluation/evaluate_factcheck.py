@@ -7,6 +7,7 @@ con los datos originales para calcular metricas de precision del modelo.
 import os
 import sys
 from time import sleep, time
+
 from pathlib import Path
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -18,8 +19,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.tools.model_tool import FakeNewsDetectorTool
-from src.utils.start_ollama import start_ollama
+from app.tools.model_tool import FakeNewsDetectorTool
+from app.utils.start_ollama import start_ollama
 
 load_dotenv()
 

@@ -2,7 +2,8 @@
 
 import urllib.error
 import pytest
-from src.utils import start_ollama as start_ollama_module
+
+from app.utils import start_ollama as start_ollama_module
 
 
 class _DummyResponse:

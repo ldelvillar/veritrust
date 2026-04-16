@@ -7,7 +7,7 @@ from typing import List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
-from src.prompts.main import EXTRACTOR_PROMPT
+from app.prompts.main import EXTRACTOR_PROMPT
 
 
 class MedicalStatements(BaseModel):

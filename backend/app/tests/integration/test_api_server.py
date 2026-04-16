@@ -3,11 +3,13 @@
 import importlib
 import sys
 import types
+
 from pathlib import Path
 from fastapi.testclient import TestClient
-from src.api import utils as api_utils
-from src.api.database import HistoryDatabaseError
-from src.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
+
+from app.api import utils as api_utils
+from app.api.database import HistoryDatabaseError
+from app.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
 def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
@@ -15,7 +17,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    fake_agents_module = types.ModuleType("src.agents.main")
+    fake_agents_module = types.ModuleType("app.agents.main")
     start_calls = {"count": 0}
 
     class _FakeGraph:
@@ -35,14 +37,14 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     fake_agents_module.create_graph = create_graph
 
-    fake_start_module = types.ModuleType("src.utils.start_ollama")
+    fake_start_module = types.ModuleType("app.utils.start_ollama")
 
     def start_ollama():
         start_calls["count"] += 1
 
     fake_start_module.start_ollama = start_ollama
 
-    fake_extract_module = types.ModuleType("src.utils.extract_text_from_url")
+    fake_extract_module = types.ModuleType("app.utils.extract_text_from_url")
 
     class FakeURLExtractionError(Exception):
         pass
@@ -50,14 +52,14 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     fake_extract_module.URLExtractionError = FakeURLExtractionError
     fake_extract_module.extract_text_from_url = lambda url: "Texto extraído de la URL"
 
-    monkeypatch.setitem(sys.modules, "src.agents.main", fake_agents_module)
-    monkeypatch.setitem(sys.modules, "src.utils.start_ollama", fake_start_module)
+    monkeypatch.setitem(sys.modules, "app.agents.main", fake_agents_module)
+    monkeypatch.setitem(sys.modules, "app.utils.start_ollama", fake_start_module)
     monkeypatch.setitem(
-        sys.modules, "src.utils.extract_text_from_url", fake_extract_module
+        sys.modules, "app.utils.extract_text_from_url", fake_extract_module
     )
 
-    sys.modules.pop("src.api.server", None)
-    server_module = importlib.import_module("src.api.server")
+    sys.modules.pop("app.api.server", None)
+    server_module = importlib.import_module("app.api.server")
 
     server_module.app.state.verification_system = fake_graph
     start_calls["count"] += 1
@@ -121,7 +123,7 @@ def test_analisis_saves_history_only_on_success(monkeypatch):
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        "src.api.routes.analysis.save_successful_analysis",
+        "app.api.routes.analysis.save_successful_analysis",
         fake_save_successful_analysis,
     )
 
@@ -150,7 +152,7 @@ def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        "src.api.routes.analysis.save_successful_analysis",
+        "app.api.routes.analysis.save_successful_analysis",
         fake_save_successful_analysis,
     )
 
@@ -251,7 +253,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         return record
 
     monkeypatch.setattr(
-        "src.api.routes.analysis.get_user_analysis_by_id",
+        "app.api.routes.analysis.get_user_analysis_by_id",
         fake_get_user_analysis_by_id,
     )
 
@@ -269,7 +271,7 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
     client = TestClient(server_module.app)
 
     monkeypatch.setattr(
-        "src.api.routes.analysis.get_user_analysis_by_id",
+        "app.api.routes.analysis.get_user_analysis_by_id",
         lambda **kwargs: None,
     )
 
@@ -297,7 +299,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        "src.api.routes.analysis.get_user_analysis_by_id",
+        "app.api.routes.analysis.get_user_analysis_by_id",
         fake_get_user_analysis_by_id,
     )
 
@@ -437,7 +439,7 @@ def test_historial_returns_user_history(monkeypatch):
         return [types.SimpleNamespace(**row) for row in history_rows], 12
 
     monkeypatch.setattr(
-        "src.api.routes.history.list_user_analysis_history",
+        "app.api.routes.history.list_user_analysis_history",
         fake_list_user_analysis_history,
     )
 
@@ -463,7 +465,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        "src.api.routes.history.list_user_analysis_history",
+        "app.api.routes.history.list_user_analysis_history",
         fake_list_user_analysis_history,
     )
 
@@ -523,7 +525,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
         return summary
 
     monkeypatch.setattr(
-        "src.api.routes.dashboard.get_user_dashboard_summary",
+        "app.api.routes.dashboard.get_user_dashboard_summary",
         fake_get_user_dashboard_summary,
     )
 
@@ -547,7 +549,7 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
-        "src.api.routes.dashboard.get_user_dashboard_summary",
+        "app.api.routes.dashboard.get_user_dashboard_summary",
         fake_get_user_dashboard_summary,
     )
 

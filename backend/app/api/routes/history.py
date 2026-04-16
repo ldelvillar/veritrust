@@ -5,8 +5,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, HTTPException, Depends
 
-from src.api.database import HistoryDatabaseError, list_user_analysis_history
-from src.api.utils import get_current_user
+from app.api.database import HistoryDatabaseError, list_user_analysis_history
+from app.api.utils import get_current_user
 
 
 router = APIRouter(prefix="/history", tags=["Historial"])

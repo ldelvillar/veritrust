@@ -1,4 +1,4 @@
-"""Tests de integración para el grafo completo de agentes definido en src.agents.main."""
+"""Tests de integración para el grafo completo de agentes definido en app.agents.main."""
 
 import importlib
 import sys
@@ -11,25 +11,25 @@ def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl)
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    fake_extractor_module = types.ModuleType("src.agents.extractor")
+    fake_extractor_module = types.ModuleType("app.agents.extractor")
     fake_extractor_module.extractor = extractor_impl
 
-    fake_translator_module = types.ModuleType("src.agents.translator")
+    fake_translator_module = types.ModuleType("app.agents.translator")
     fake_translator_module.translator = translator_impl
 
-    fake_health_module = types.ModuleType("src.agents.health_expert")
+    fake_health_module = types.ModuleType("app.agents.health_expert")
     fake_health_module.health_expert = health_impl
 
-    fake_start_module = types.ModuleType("src.utils.start_ollama")
+    fake_start_module = types.ModuleType("app.utils.start_ollama")
     fake_start_module.start_ollama = lambda: None
 
-    monkeypatch.setitem(sys.modules, "src.agents.extractor", fake_extractor_module)
-    monkeypatch.setitem(sys.modules, "src.agents.translator", fake_translator_module)
-    monkeypatch.setitem(sys.modules, "src.agents.health_expert", fake_health_module)
-    monkeypatch.setitem(sys.modules, "src.utils.start_ollama", fake_start_module)
+    monkeypatch.setitem(sys.modules, "app.agents.extractor", fake_extractor_module)
+    monkeypatch.setitem(sys.modules, "app.agents.translator", fake_translator_module)
+    monkeypatch.setitem(sys.modules, "app.agents.health_expert", fake_health_module)
+    monkeypatch.setitem(sys.modules, "app.utils.start_ollama", fake_start_module)
 
-    sys.modules.pop("src.agents.main", None)
-    return importlib.import_module("src.agents.main")
+    sys.modules.pop("app.agents.main", None)
+    return importlib.import_module("app.agents.main")
 
 
 def _minimal_state():

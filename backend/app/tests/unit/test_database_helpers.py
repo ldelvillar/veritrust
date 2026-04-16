@@ -4,8 +4,8 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from src.api import database as database_module
-from src.api.database import (
+from app.api import database as database_module
+from app.api.database import (
     DashboardAlertItem,
     DashboardDomainBreakdownItem,
     DashboardSourceBreakdownItem,

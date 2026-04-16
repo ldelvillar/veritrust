@@ -6,21 +6,21 @@ import pytest
 
 @pytest.fixture(scope="module")
 def extractor_module():
-    from src.agents import extractor as module
+    from app.agents import extractor as module
 
     return module
 
 
 @pytest.fixture(scope="module")
 def translator_module():
-    from src.agents import translator as module
+    from app.agents import translator as module
 
     return module
 
 
 @pytest.fixture(scope="module")
 def health_module():
-    from src.agents import health_expert as module
+    from app.agents import health_expert as module
 
     return module
 

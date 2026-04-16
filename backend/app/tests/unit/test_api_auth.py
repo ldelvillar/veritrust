@@ -1,8 +1,8 @@
-"""Tests unitarios para la autenticacion JWT en src.api.utils."""
+"""Tests unitarios para la autenticacion JWT en app.api.utils."""
 
 import pytest
 from fastapi import HTTPException
-from src.api import utils as utils_module
+from app.api import utils as utils_module
 
 
 def test_normalize_pem_key_returns_none_for_empty_values():

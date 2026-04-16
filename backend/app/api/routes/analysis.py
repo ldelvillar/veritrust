@@ -4,15 +4,15 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Request
-from src.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
-from src.api.database import (
+from app.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
+from app.api.database import (
     HistoryDatabaseError,
     get_user_analysis_by_id,
     save_successful_analysis,
 )
-from src.api.schemas import AnalyzeRequest
-from src.api.utils import check_rate_limit, get_current_user
-from src.api.messages import (
+from app.api.schemas import AnalyzeRequest
+from app.api.utils import check_rate_limit, get_current_user
+from app.api.messages import (
     ERROR_MEMORY_LIMIT,
     ERROR_CONNECTION,
     ERROR_INTERNAL,

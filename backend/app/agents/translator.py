@@ -5,7 +5,8 @@ traduce al español para que el modelo pueda clasificarlo correctamente.
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
-from src.prompts.main import TRANSLATOR_PROMPT
+
+from app.prompts.main import TRANSLATOR_PROMPT
 
 
 def translator(state: dict) -> dict:

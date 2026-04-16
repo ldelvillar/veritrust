@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from src.api.utils import get_current_user
-from src.api.database import (
+from app.api.utils import get_current_user
+from app.api.database import (
     DashboardSummary,
     HistoryDatabaseError,
     get_user_dashboard_summary,

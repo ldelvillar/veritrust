@@ -4,8 +4,9 @@ el flujo completo para verificar noticias falsas en el ámbito de la salud.
 """
 
 import sys
-from pathlib import Path
 from typing import TypedDict, List
+
+from pathlib import Path
 
 # Asegurar que al ejecutar este archivo como script, se use el código local del repositorio.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -13,10 +14,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from langgraph.graph import StateGraph, START, END
-from src.agents.extractor import extractor
-from src.agents.translator import translator
-from src.agents.health_expert import health_expert
-from src.utils.start_ollama import start_ollama
+from app.agents.extractor import extractor
+from app.agents.translator import translator
+from app.agents.health_expert import health_expert
+from app.utils.start_ollama import start_ollama
 
 
 class AgentState(TypedDict):
