@@ -6,7 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, HTTPException, Depends
 
 from app.api.database import HistoryDatabaseError, list_user_analysis_history
-from app.api.utils import get_current_user
+from app.api.dependencies.get_current_user import get_current_user
 from app.schemas.history import AnalysisHistoryItem, HistoryResponse
 
 

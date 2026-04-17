@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.api import utils as api_utils
+from app.api.dependencies.get_current_user import get_current_user
 from app.api.database import HistoryDatabaseError
 from app.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
@@ -66,7 +67,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     # Evita que el rate limit se acumule entre tests
     api_utils.rate_limit.clear()
-    server_module.app.dependency_overrides[api_utils.get_current_user] = lambda: {
+    server_module.app.dependency_overrides[get_current_user] = lambda: {
         "sub": "test-user"
     }
 
@@ -391,7 +392,7 @@ def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
 def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
-    server_module.app.dependency_overrides.pop(api_utils.get_current_user, None)
+    server_module.app.dependency_overrides.pop(get_current_user, None)
 
     response = client.post("/analysis", json={"text": "Texto"})
 

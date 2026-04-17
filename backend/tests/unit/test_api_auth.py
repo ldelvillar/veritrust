@@ -2,18 +2,18 @@
 
 import pytest
 from fastapi import HTTPException
-from app.api import utils as utils_module
+from app.api.dependencies import get_current_user as get_user_module
 
 
 def test_normalize_pem_key_returns_none_for_empty_values():
-    assert utils_module._normalize_pem_key(None) is None
-    assert utils_module._normalize_pem_key("") is None
+    assert get_user_module._normalize_pem_key(None) is None
+    assert get_user_module._normalize_pem_key("") is None
 
 
 def test_normalize_pem_key_replaces_escaped_newlines():
     raw_key = "-----BEGIN PUBLIC KEY-----\\nabc\\n-----END PUBLIC KEY-----"
 
-    normalized = utils_module._normalize_pem_key(raw_key)
+    normalized = get_user_module._normalize_pem_key(raw_key)
 
     assert "\\n" not in normalized
     assert "\n" in normalized
@@ -29,33 +29,33 @@ def test_get_signing_key_uses_jwks_client_when_available(monkeypatch):
             assert token == "token-123"
             return _FakeSigningKey()
 
-    monkeypatch.setattr(utils_module, "jwks_client", _FakeJwksClient())
-    monkeypatch.setattr(utils_module, "CLERK_PEM_PUBLIC_KEY", None)
+    monkeypatch.setattr(get_user_module, "jwks_client", _FakeJwksClient())
+    monkeypatch.setattr(get_user_module, "CLERK_PEM_PUBLIC_KEY", None)
 
-    signing_key = utils_module._get_signing_key("token-123")
+    signing_key = get_user_module._get_signing_key("token-123")
 
     assert signing_key == "jwks-key"
 
 
 def test_get_signing_key_uses_pem_when_jwks_is_missing(monkeypatch):
-    monkeypatch.setattr(utils_module, "jwks_client", None)
+    monkeypatch.setattr(get_user_module, "jwks_client", None)
     monkeypatch.setattr(
-        utils_module,
+        get_user_module,
         "CLERK_PEM_PUBLIC_KEY",
         "-----BEGIN PUBLIC KEY-----\\nabc\\n-----END PUBLIC KEY-----",
     )
 
-    signing_key = utils_module._get_signing_key("irrelevant-token")
+    signing_key = get_user_module._get_signing_key("irrelevant-token")
 
     assert signing_key == "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----"
 
 
 def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
-    monkeypatch.setattr(utils_module, "jwks_client", None)
-    monkeypatch.setattr(utils_module, "CLERK_PEM_PUBLIC_KEY", None)
+    monkeypatch.setattr(get_user_module, "jwks_client", None)
+    monkeypatch.setattr(get_user_module, "CLERK_PEM_PUBLIC_KEY", None)
 
     with pytest.raises(HTTPException) as exc:
-        utils_module._get_signing_key("irrelevant-token")
+        get_user_module._get_signing_key("irrelevant-token")
 
     assert exc.value.status_code == 500
     assert "Authentication provider is not configured" in exc.value.detail
@@ -63,59 +63,59 @@ def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
 
 def test_get_expected_issuer_uses_explicit_clerk_issuer(monkeypatch):
     monkeypatch.setattr(
-        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+        get_user_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
     )
 
-    issuer = utils_module._get_expected_issuer()
+    issuer = get_user_module._get_expected_issuer()
 
     assert issuer == "https://my-tenant.clerk.accounts.dev"
 
 
 def test_get_expected_issuer_falls_back_to_jwks_url(monkeypatch):
-    monkeypatch.setattr(utils_module, "CLERK_ISSUER", None)
+    monkeypatch.setattr(get_user_module, "CLERK_ISSUER", None)
     monkeypatch.setattr(
-        utils_module,
+        get_user_module,
         "CLERK_JWKS_URL",
         "https://my-tenant.clerk.accounts.dev/.well-known/jwks.json",
     )
 
-    issuer = utils_module._get_expected_issuer()
+    issuer = get_user_module._get_expected_issuer()
 
     assert issuer == "https://my-tenant.clerk.accounts.dev"
 
 
 def test_get_expected_issuer_raises_500_when_not_configured(monkeypatch):
-    monkeypatch.setattr(utils_module, "CLERK_ISSUER", None)
-    monkeypatch.setattr(utils_module, "CLERK_JWKS_URL", None)
+    monkeypatch.setattr(get_user_module, "CLERK_ISSUER", None)
+    monkeypatch.setattr(get_user_module, "CLERK_JWKS_URL", None)
 
     with pytest.raises(HTTPException) as exc:
-        utils_module._get_expected_issuer()
+        get_user_module._get_expected_issuer()
 
     assert exc.value.status_code == 500
     assert "Authentication provider is not fully configured" in exc.value.detail
 
 
 def test_get_expected_audience_parses_single_audience(monkeypatch):
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api")
 
-    audience = utils_module._get_expected_audience()
+    audience = get_user_module._get_expected_audience()
 
     assert audience == "my-api"
 
 
 def test_get_expected_audience_parses_multiple_audiences(monkeypatch):
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api, my-other-api")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api, my-other-api")
 
-    audience = utils_module._get_expected_audience()
+    audience = get_user_module._get_expected_audience()
 
     assert audience == ["my-api", "my-other-api"]
 
 
 def test_get_expected_audience_raises_500_when_not_configured(monkeypatch):
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "")
 
     with pytest.raises(HTTPException) as exc:
-        utils_module._get_expected_audience()
+        get_user_module._get_expected_audience()
 
     assert exc.value.status_code == 500
     assert "Authentication provider is not fully configured" in exc.value.detail
@@ -123,9 +123,9 @@ def test_get_expected_audience_raises_500_when_not_configured(monkeypatch):
 
 def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
     monkeypatch.setattr(
-        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+        get_user_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
     )
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api")
 
     def _fake_decode(token, signing_key, algorithms, audience, issuer, leeway, options):
         assert token == "valid-token"
@@ -137,10 +137,10 @@ def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
         assert options == {"verify_aud": True, "verify_iss": True}
         return {"sub": "user_1", "sid": "session_1"}
 
-    monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
-    monkeypatch.setattr(utils_module.jwt, "decode", _fake_decode)
+    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module.jwt, "decode", _fake_decode)
 
-    payload = utils_module.get_current_user("Bearer valid-token")
+    payload = get_user_module.get_current_user("Bearer valid-token")
 
     assert payload["sub"] == "user_1"
     assert payload["sid"] == "session_1"
@@ -148,7 +148,7 @@ def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
 
 def test_get_current_user_rejects_missing_authorization_header():
     with pytest.raises(HTTPException) as exc:
-        utils_module.get_current_user(None)
+        get_user_module.get_current_user(None)
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Missing Authorization header"
@@ -156,7 +156,7 @@ def test_get_current_user_rejects_missing_authorization_header():
 
 def test_get_current_user_rejects_invalid_auth_header():
     with pytest.raises(HTTPException) as exc:
-        utils_module.get_current_user("Token abc")
+        get_user_module.get_current_user("Token abc")
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid auth header"
@@ -164,18 +164,18 @@ def test_get_current_user_rejects_invalid_auth_header():
 
 def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
     monkeypatch.setattr(
-        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+        get_user_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
     )
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
-    monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api")
+    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
 
     def _raise_expired(*args, **kwargs):
-        raise utils_module.jwt.ExpiredSignatureError("expired")
+        raise get_user_module.jwt.ExpiredSignatureError("expired")
 
-    monkeypatch.setattr(utils_module.jwt, "decode", _raise_expired)
+    monkeypatch.setattr(get_user_module.jwt, "decode", _raise_expired)
 
     with pytest.raises(HTTPException) as exc:
-        utils_module.get_current_user("Bearer expired-token")
+        get_user_module.get_current_user("Bearer expired-token")
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Token expired"
@@ -183,18 +183,18 @@ def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
 
 def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
     monkeypatch.setattr(
-        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+        get_user_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
     )
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
-    monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api")
+    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
 
     def _raise_invalid(*args, **kwargs):
-        raise utils_module.jwt.InvalidTokenError("invalid")
+        raise get_user_module.jwt.InvalidTokenError("invalid")
 
-    monkeypatch.setattr(utils_module.jwt, "decode", _raise_invalid)
+    monkeypatch.setattr(get_user_module.jwt, "decode", _raise_invalid)
 
     with pytest.raises(HTTPException) as exc:
-        utils_module.get_current_user("Bearer invalid-token")
+        get_user_module.get_current_user("Bearer invalid-token")
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid token"
@@ -202,18 +202,18 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
 
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
     monkeypatch.setattr(
-        utils_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
+        get_user_module, "CLERK_ISSUER", "https://my-tenant.clerk.accounts.dev"
     )
-    monkeypatch.setattr(utils_module, "CLERK_AUDIENCE", "my-api")
-    monkeypatch.setattr(utils_module, "_get_signing_key", lambda _: "bad-key")
+    monkeypatch.setattr(get_user_module, "CLERK_AUDIENCE", "my-api")
+    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "bad-key")
 
     def _raise_type_error(*args, **kwargs):
         raise TypeError("Expecting a PEM-formatted key.")
 
-    monkeypatch.setattr(utils_module.jwt, "decode", _raise_type_error)
+    monkeypatch.setattr(get_user_module.jwt, "decode", _raise_type_error)
 
     with pytest.raises(HTTPException) as exc:
-        utils_module.get_current_user("Bearer token")
+        get_user_module.get_current_user("Bearer token")
 
     assert exc.value.status_code == 500
     assert (

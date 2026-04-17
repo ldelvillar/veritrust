@@ -11,7 +11,7 @@ from app.schemas.dashboard import (
     DashboardAlertItem,
 )
 
-from app.api.utils import get_current_user
+from app.api.dependencies.get_current_user import get_current_user
 from app.api.database import (
     DashboardSummary,
     HistoryDatabaseError,
