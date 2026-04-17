@@ -10,7 +10,7 @@ from app.api.database import (
     get_user_analysis_by_id,
     save_successful_analysis,
 )
-from app.api.schemas import AnalyzeRequest
+from app.api.schemas import AnalysisHistoryItem, AnalysisRequest, AnalysisResponse
 from app.api.utils import check_rate_limit, get_current_user
 from app.api.messages import (
     ERROR_MEMORY_LIMIT,
@@ -23,9 +23,9 @@ router = APIRouter(prefix="/analysis", tags=["Analysis"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("")
+@router.post("", response_model=AnalysisResponse)
 def analyze_news(
-    body: AnalyzeRequest,
+    body: AnalysisRequest,
     request: Request,
     user=Depends(get_current_user),
 ):
@@ -69,7 +69,6 @@ def analyze_news(
             return {
                 "status": "error",
                 "message": ERROR_NO_MEDICAL_CLAIMS,
-                "explanations": "",
             }
 
         # Guardar el análisis exitoso en la base de datos
@@ -103,7 +102,7 @@ def analyze_news(
         raise HTTPException(status_code=500, detail=friendly_msg) from e
 
 
-@router.get("/{analysis_id}")
+@router.get("/{analysis_id}", response_model=AnalysisHistoryItem)
 def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
@@ -127,7 +126,14 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Análisis no encontrado.")
 
-    return {
-        "status": "success",
-        "item": record.__dict__,
-    }
+    return AnalysisHistoryItem(
+        analysis_id=record.id,
+        user_id=record.user_id,
+        source_type=record.source_type,
+        input_text=record.input_text,
+        input_url=record.input_url,
+        label=record.label,
+        confidence=record.confidence,
+        explanation=record.explanation,
+        created_at=record.created_at,
+    )

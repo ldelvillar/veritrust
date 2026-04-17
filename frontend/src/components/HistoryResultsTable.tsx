@@ -2,18 +2,10 @@ import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
+import type { paths } from '@/types/api';
 
-export interface HistoryItem {
-  id: string;
-  user_id: string;
-  source_type: 'text' | 'file' | 'url';
-  input_text: string | null;
-  input_url: string | null;
-  label: string;
-  confidence: number | string;
-  explanation: string;
-  created_at: string;
-}
+type HistoryItem =
+  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 
 interface HistoryResultsTableProps {
   history: HistoryItem[];
@@ -157,7 +149,7 @@ export default function HistoryResultsTable({
 
             return (
               <li
-                key={item.id}
+                key={item.analysis_id}
                 className="border-b border-border px-4 py-4 last:border-b-0 md:grid md:grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] md:items-center md:gap-4 md:px-5"
               >
                 <div className="min-w-0">
@@ -196,7 +188,7 @@ export default function HistoryResultsTable({
                 </div>
 
                 <Link
-                  href={`/analisis/${item.id}`}
+                  href={`/analisis/${item.analysis_id}`}
                   className="mt-4 inline-flex w-fit items-center gap-2 text-sm font-bold text-primary md:mt-0 md:justify-self-end"
                 >
                   Ver informe

@@ -5,13 +5,13 @@ import LanguageIcon from '@/assets/Language';
 import Heart from '@/assets/Heart';
 import Robot from '@/assets/Robot';
 import Document from '@/assets/Document';
+import type { paths } from '@/types/api';
+
+type ResultType =
+  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 
 interface ResultProps {
-  result: {
-    label: string;
-    confidence: string | number;
-    explanation: string;
-  };
+  result: ResultType;
 }
 
 function parseScore(confidence: string | number): number {

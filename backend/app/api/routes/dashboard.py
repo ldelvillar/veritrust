@@ -2,6 +2,15 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 
+from app.api.schemas import (
+    DashboardSummaryResponse,
+    DashboardKpis,
+    DashboardTrendPoint,
+    DashboardSourceBreakdownItem,
+    DashboardDomainBreakdownItem,
+    DashboardAlertItem,
+)
+
 from app.api.utils import get_current_user
 from app.api.database import (
     DashboardSummary,
@@ -13,7 +22,7 @@ from app.api.database import (
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=DashboardSummaryResponse)
 def get_dashboard_summary(user=Depends(get_current_user)):
     """Endpoint para obtener métricas agregadas del dashboard del usuario."""
     user_id = user["sub"]
@@ -26,11 +35,17 @@ def get_dashboard_summary(user=Depends(get_current_user)):
             detail="No se pudo recuperar el dashboard.",
         ) from e
 
-    return {
-        "status": "success",
-        "kpis": summary.kpis.__dict__,
-        "trend": [point.__dict__ for point in summary.trend],
-        "source_breakdown": [item.__dict__ for item in summary.source_breakdown],
-        "domain_breakdown": [item.__dict__ for item in summary.domain_breakdown],
-        "alerts": [item.__dict__ for item in summary.alerts],
-    }
+    return DashboardSummaryResponse(
+        status="success",
+        kpis=DashboardKpis(**summary.kpis.__dict__),
+        trend=[DashboardTrendPoint(**point.__dict__) for point in summary.trend],
+        source_breakdown=[
+            DashboardSourceBreakdownItem(**item.__dict__)
+            for item in summary.source_breakdown
+        ],
+        domain_breakdown=[
+            DashboardDomainBreakdownItem(**item.__dict__)
+            for item in summary.domain_breakdown
+        ],
+        alerts=[DashboardAlertItem(**item.__dict__) for item in summary.alerts],
+    )

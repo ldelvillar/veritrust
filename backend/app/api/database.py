@@ -12,7 +12,7 @@ from typing import Any, Optional, Sequence
 from dotenv import load_dotenv
 import psycopg2
 
-from app.api.schemas import AnalyzeRequest
+from app.api.schemas import AnalysisRequest
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +303,7 @@ def save_analysis_history(
 def save_successful_analysis(
     *,
     user_id: str,
-    request: AnalyzeRequest,
+    request: AnalysisRequest,
     label: str,
     confidence: Any,
     explanation: str,

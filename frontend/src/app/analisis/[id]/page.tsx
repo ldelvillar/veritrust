@@ -6,21 +6,18 @@ import { useParams, useRouter } from 'next/navigation';
 import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
-import { AnalysisDetail } from '@/types';
+import type { paths } from '@/types/api';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 
-interface ResultData {
-  label: string;
-  confidence: string | number;
-  explanation: string;
-}
+type AnalysisDetail =
+  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 
 export default function AnalisisPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { getToken } = useAuth();
 
-  const [result, setResult] = useState<ResultData | null>(null);
+  const [result, setResult] = useState<AnalysisDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const lastRequestKey = useRef<string | null>(null);
@@ -54,7 +51,7 @@ export default function AnalisisPage() {
       }
 
       try {
-        const data = await fetchJsonWithAuth<{ item?: AnalysisDetail }>(
+        const data = await fetchJsonWithAuth<AnalysisDetail>(
           getToken,
           `/analysis/${analysisId}`,
           {
@@ -62,17 +59,13 @@ export default function AnalisisPage() {
             errorContextMessage: 'Error al obtener el análisis',
           }
         );
-        if (!data?.item) {
+        if (!data) {
           throw new Error(
             'La respuesta del servidor no contiene un análisis válido.'
           );
         }
 
-        setResult({
-          label: data.item.label,
-          confidence: data.item.confidence,
-          explanation: data.item.explanation,
-        });
+        setResult(data);
       } catch (err) {
         if (err instanceof Error) {
           setError(err.message);

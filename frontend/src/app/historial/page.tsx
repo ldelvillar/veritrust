@@ -7,13 +7,14 @@ import HistoryFilters, {
   ScoreSortOrder,
   SourceTypeFilter,
 } from '@/components/HistoryFilters';
-import HistoryResultsTable, {
-  HistoryItem,
-} from '@/components/HistoryResultsTable';
+import HistoryResultsTable from '@/components/HistoryResultsTable';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
+import type { paths } from '@/types/api';
 
 const PAGE_SIZE = 10;
 
+type HistoryItem =
+  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 interface HistoryResponse {
   items?: HistoryItem[];
   count?: number;

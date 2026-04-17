@@ -216,7 +216,6 @@ def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
     body = response.json()
     assert body["status"] == "error"
     assert body["message"] == ERROR_NO_MEDICAL_CLAIMS
-    assert body["explanations"] == ""
 
 
 def test_analisis_returns_500_on_unexpected_error(monkeypatch):
@@ -261,9 +260,8 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
-    assert body["item"]["id"] == "11111111-1111-1111-1111-111111111111"
-    assert body["item"]["user_id"] == "test-user"
+    assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
+    assert body["user_id"] == "test-user"
 
 
 def test_analisis_detail_returns_404_when_not_found(monkeypatch):

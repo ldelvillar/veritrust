@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+
 import Cloud from '@/assets/Cloud';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
-import { SourceType } from '@/types';
+import type { components } from '@/types/api';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import {
   ERROR_CONNECTION,
@@ -14,17 +15,14 @@ import {
   ERROR_MEMORY_LIMIT,
   ERROR_NO_MEDICAL_CLAIMS,
 } from '@/messages';
+import type { paths } from '@/types/api';
+
+type CreateAnalysisResponse =
+  paths['/analysis']['post']['responses']['200']['content']['application/json'];
 
 interface FormData {
   text: string;
   url: string;
-}
-
-interface CreateAnalysisResponse {
-  analysis_id?: string | null;
-  label: string;
-  confidence: string | number;
-  explanation: string;
 }
 
 export default function Form() {
@@ -34,7 +32,8 @@ export default function Form() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [inputMethod, setInputMethod] = useState<SourceType>('url');
+  const [inputMethod, setInputMethod] =
+    useState<components['schemas']['SourceType']>('url');
   const [formData, setFormData] = useState<FormData>({
     text: '',
     url: '',
@@ -100,7 +99,7 @@ export default function Form() {
     setError(null);
 
     let textContent = '';
-    const finalSourceType: SourceType = inputMethod;
+    const finalSourceType: components['schemas']['SourceType'] = inputMethod;
 
     if (inputMethod === 'file') {
       if (!selectedFile) {

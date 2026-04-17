@@ -3,11 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from app.api.schemas import AnalyzeRequest, SourceType
+from app.api.schemas import AnalysisRequest, SourceType
 
 
 def test_analyze_request_accepts_text_with_default_source_type() -> None:
-    request = AnalyzeRequest(text="Texto clínico")
+    request = AnalysisRequest(text="Texto clínico")
 
     assert request.text == "Texto clínico"
     assert request.url is None
@@ -15,7 +15,7 @@ def test_analyze_request_accepts_text_with_default_source_type() -> None:
 
 
 def test_analyze_request_accepts_text_with_file_source_type() -> None:
-    request = AnalyzeRequest(text="Texto extraído", source_type="file")
+    request = AnalysisRequest(text="Texto extraído", source_type="file")
 
     assert request.text == "Texto extraído"
     assert request.url is None
@@ -23,7 +23,7 @@ def test_analyze_request_accepts_text_with_file_source_type() -> None:
 
 
 def test_analyze_request_accepts_url_with_url_source_type() -> None:
-    request = AnalyzeRequest(
+    request = AnalysisRequest(
         url="https://ejemplo.com/noticia",
         source_type="url",
     )
@@ -35,14 +35,14 @@ def test_analyze_request_accepts_url_with_url_source_type() -> None:
 
 def test_analyze_request_rejects_payload_without_text_or_url() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalyzeRequest(source_type="text")
+        AnalysisRequest(source_type="text")
 
     assert "Debes enviar exactamente uno" in str(exc.value)
 
 
 def test_analyze_request_rejects_payload_with_text_and_url() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalyzeRequest(
+        AnalysisRequest(
             text="Texto",
             url="https://ejemplo.com/noticia",
             source_type="url",
@@ -53,7 +53,7 @@ def test_analyze_request_rejects_payload_with_text_and_url() -> None:
 
 def test_analyze_request_rejects_url_with_non_url_source_type() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalyzeRequest(
+        AnalysisRequest(
             url="https://ejemplo.com/noticia",
             source_type="text",
         )
@@ -63,7 +63,7 @@ def test_analyze_request_rejects_url_with_non_url_source_type() -> None:
 
 def test_analyze_request_rejects_text_with_url_source_type() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalyzeRequest(
+        AnalysisRequest(
             text="Texto",
             source_type="url",
         )
@@ -73,6 +73,6 @@ def test_analyze_request_rejects_text_with_url_source_type() -> None:
 
 def test_analyze_request_rejects_invalid_source_type_value() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalyzeRequest(text="Texto", source_type="audio")
+        AnalysisRequest(text="Texto", source_type="audio")
 
     assert "source_type" in str(exc.value)

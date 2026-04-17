@@ -1,46 +1,20 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
+import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import Warning from '@/assets/Warning';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
+import type { components } from '@/types/api';
 
-interface DashboardKpis {
-  total_analyses: number;
-  reliable_rate: number;
-  average_confidence: number;
-  week_over_week_delta: number;
-}
-
-interface DashboardTrendPoint {
-  date: string;
-  total: number;
-  average_confidence: number;
-}
-
-interface DashboardSourceBreakdownItem {
-  source_type: 'text' | 'file' | 'url' | string;
-  total: number;
-  average_confidence: number;
-}
-
-interface DashboardDomainBreakdownItem {
-  domain: string;
-  total: number;
-  average_confidence: number;
-}
-
-interface DashboardAlertItem {
-  id: string;
-  source_type: 'text' | 'file' | 'url' | string;
-  input_text: string | null;
-  input_url: string | null;
-  label: string;
-  confidence: number;
-  created_at: string;
-}
+type DashboardKpis = components['schemas']['DashboardKpis'];
+type DashboardTrendPoint = components['schemas']['DashboardTrendPoint'];
+type DashboardSourceBreakdownItem =
+  components['schemas']['DashboardSourceBreakdownItem'];
+type DashboardDomainBreakdownItem =
+  components['schemas']['DashboardDomainBreakdownItem'];
+type DashboardAlertItem = components['schemas']['DashboardAlertItem'];
 
 interface DashboardPayload {
   kpis: DashboardKpis;
