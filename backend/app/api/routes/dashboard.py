@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.api.schemas import (
+from app.schemas.dashboard import (
     DashboardSummaryResponse,
     DashboardKpis,
     DashboardTrendPoint,

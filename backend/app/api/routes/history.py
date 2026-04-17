@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 
 from app.api.database import HistoryDatabaseError, list_user_analysis_history
 from app.api.utils import get_current_user
-from app.api.schemas import AnalysisHistoryItem, HistoryResponse
+from app.schemas.history import AnalysisHistoryItem, HistoryResponse
 
 
 router = APIRouter(prefix="/history", tags=["Historial"])

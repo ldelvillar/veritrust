@@ -12,7 +12,7 @@ from typing import Any, Optional, Sequence
 from dotenv import load_dotenv
 import psycopg2
 
-from app.api.schemas import AnalysisRequest
+from app.schemas.analysis import AnalysisRequest
 
 logger = logging.getLogger(__name__)
 

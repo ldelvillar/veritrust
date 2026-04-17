@@ -10,7 +10,8 @@ from app.api.database import (
     get_user_analysis_by_id,
     save_successful_analysis,
 )
-from app.api.schemas import AnalysisHistoryItem, AnalysisRequest, AnalysisResponse
+from app.schemas.analysis import AnalysisRequest, AnalysisResponse
+from app.schemas.history import AnalysisHistoryItem
 from app.api.utils import check_rate_limit, get_current_user
 from app.api.messages import (
     ERROR_MEMORY_LIMIT,
