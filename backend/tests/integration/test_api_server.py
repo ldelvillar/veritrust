@@ -7,7 +7,7 @@ import types
 from pathlib import Path
 from fastapi.testclient import TestClient
 
-from app.api import utils as api_utils
+from app.api.dependencies.check_rate_limit import rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.api.database import HistoryDatabaseError
 from app.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
@@ -66,7 +66,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     start_calls["count"] += 1
 
     # Evita que el rate limit se acumule entre tests
-    api_utils.rate_limit.clear()
+    rate_limit.clear()
     server_module.app.dependency_overrides[get_current_user] = lambda: {
         "sub": "test-user"
     }

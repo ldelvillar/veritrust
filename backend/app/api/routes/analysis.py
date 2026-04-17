@@ -13,7 +13,7 @@ from app.api.database import (
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.history import AnalysisHistoryItem
 from app.api.dependencies.get_current_user import get_current_user
-from app.api.utils import check_rate_limit
+from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.messages import (
     ERROR_MEMORY_LIMIT,
     ERROR_CONNECTION,
@@ -29,12 +29,11 @@ logger = logging.getLogger(__name__)
 def analyze_news(
     body: AnalysisRequest,
     request: Request,
-    user=Depends(get_current_user),
+    user: dict = Depends(check_rate_limit),
 ):
     """Endpoint para analizar una noticia utilizando el sistema multiagente."""
     user_id = user["sub"]
 
-    check_rate_limit(user_id)
     verification_system = getattr(request.app.state, "verification_system", None)
     if verification_system is None:
         raise HTTPException(
