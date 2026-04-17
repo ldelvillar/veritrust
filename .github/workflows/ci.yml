@@ -78,7 +78,7 @@ jobs:
       - name: Run app tests with coverage
         run: |
           mkdir -p test-results
-          pytest -q app/tests \
+          pytest -q tests \
             --junitxml=test-results/pytest.xml \
             --cov=app \
             --cov-fail-under=80 \
