@@ -124,26 +124,3 @@ def health_expert(state: dict) -> dict:
         "confidence": global_confidence,
         "medical_explanation": medical_explanation,
     }
-
-
-if __name__ == "__main__":
-    # Simular el estado que pasaría el agente extractor
-    simulated_state = {
-        "extracted_statements": [
-            "La lejía cura el COVID de forma instantánea según estudios.",
-            "Comer manzanas previene las caries.",
-        ],
-        "translated_statements": [
-            "Bleach cures COVID instantly according to studies.",
-            "Eating apples prevents cavities.",
-        ],
-    }
-
-    explanations = health_expert(simulated_state)
-
-    print("\n" + "=" * 50)
-    print("RESULTADOS FINALES:")
-    print("=" * 50)
-    print(f"Etiqueta global: {explanations['label']}")
-    print(f"Confianza global: {explanations['confidence']:.2f}")
-    print(f"Explicación médica:\n{explanations['medical_explanation']}")

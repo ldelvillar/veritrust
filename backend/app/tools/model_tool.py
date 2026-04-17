@@ -5,6 +5,7 @@ News utilizando un modelo de IA basado en BioBERT.
 
 import logging
 import os
+
 from pathlib import Path
 from typing import Any, Mapping, cast
 import torch
@@ -139,8 +140,3 @@ class FakeNewsDetectorTool(BaseTool):
         except (OSError, ValueError, RuntimeError) as e:
             logger.exception("Error al ejecutar el detector: %s", e)
             return {"label": "error", "confidence": 0.0000}
-
-
-if __name__ == "__main__":
-    tool = FakeNewsDetectorTool()
-    print(tool.run("Bleach cures COVID instantly according to studies."))

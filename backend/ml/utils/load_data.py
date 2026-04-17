@@ -33,14 +33,3 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
     print(f"Cargando datos desde: {data_path}...")
 
     return pd.read_parquet(data_path)
-
-
-# Bloque para probar este script individualmente
-if __name__ == "__main__":
-    try:
-        df = load_dataset()
-        print("Datos cargados exitosamente")
-        print(f"Dimensiones: {df.shape}")
-        print(df.head(2))
-    except (ValueError, FileNotFoundError) as e:
-        print(f"Error al cargar los datos: {e}")

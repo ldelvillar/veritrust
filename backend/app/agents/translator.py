@@ -43,27 +43,4 @@ def translator(state: dict) -> dict:
 
     print("[Agente Traductor] Traducción completada.")
 
-    # Devolver la nueva clave para el estado global
     return {"translated_statements": translated_statements}
-
-
-if __name__ == "__main__":
-    # Simular el estado proveniente del agente extractor
-    simulated_state = {
-        "extracted_statements": [
-            "La lejía cura el COVID de forma instantánea según estudios.",
-            "Comer manzanas previene las caries.",
-        ]
-    }
-
-    new_state = translator(simulated_state)
-
-    print("\n" + "=" * 50)
-    print("RESULTADOS DE TRADUCCIÓN:")
-    print("=" * 50)
-    for original, translated in zip(
-        simulated_state["extracted_statements"],
-        new_state["translated_statements"],
-    ):
-        print(f"ES: {original}")
-        print(f"EN: {translated}\n")

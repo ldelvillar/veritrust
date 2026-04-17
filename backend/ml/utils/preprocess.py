@@ -92,13 +92,3 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     print(f"Distribución: {df['label'].value_counts().to_dict()}")
 
     return df
-
-
-if __name__ == "__main__":
-    try:
-        df_raw = load_dataset()
-        df_clean = preprocess_data(df_raw)
-        print("Ejemplo de datos procesados:")
-        print(df_clean.head())
-    except (ValueError, FileNotFoundError) as e:
-        print(f"Error en la prueba: {e}")

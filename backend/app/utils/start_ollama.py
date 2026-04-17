@@ -45,11 +45,3 @@ def start_ollama() -> None:
         raise OllamaStartupError(
             "Ollama no respondió tras el arranque automático en localhost:11434."
         )
-
-
-if __name__ == "__main__":
-    try:
-        start_ollama()
-        print("Servidor de Ollama arrancado.")
-    except OllamaStartupError as exc:
-        print(f"Error: {exc}")

@@ -4,9 +4,11 @@ de un texto largo para su posterior análisis por parte de un agente experto en 
 """
 
 from typing import List
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
+
 from app.prompts.main import EXTRACTOR_PROMPT
 
 
@@ -56,17 +58,3 @@ def extractor(state: dict) -> dict:
 
     # Devolver la parte del estado que este agente es responsable de actualizar
     return {"extracted_statements": result.statements}
-
-
-if __name__ == "__main__":
-    TEXT = (
-        "Hola a todos en el grupo. Ayer leí en un blog que si tomas agua con limón en ayunas "
-        "y una cucharada de aceite de coco, curas la diabetes tipo 2 en un mes. Además, dicen "
-        "que las vacunas de la gripe te bajan las defensas. ¿Es esto verdad? Saludos."
-    )
-    initial_state = {"input_text": TEXT}
-
-    new_state = extractor(initial_state)
-    print("\nResultado:")
-    for i, statement in enumerate(new_state["extracted_statements"]):
-        print(f"{i+1}. {statement}")
