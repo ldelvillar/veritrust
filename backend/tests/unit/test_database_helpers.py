@@ -5,14 +5,14 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app.api import database as database_module
-from app.api.database import (
+from app.schemas.dashboard import (
     DashboardAlertItem,
     DashboardDomainBreakdownItem,
     DashboardSourceBreakdownItem,
     DashboardTrendPoint,
-    HistoryDatabaseError,
-    HistoryRecord,
 )
+from app.schemas.history import AnalysisHistoryItem
+from app.api.database import HistoryDatabaseError
 
 
 def _reset_env_loader_flag() -> None:
@@ -101,8 +101,8 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
 
     record = database_module._map_history_record(row)
 
-    assert isinstance(record, HistoryRecord)
-    assert record.id == "123"
+    assert isinstance(record, AnalysisHistoryItem)
+    assert record.analysis_id == "123"
     assert record.user_id == "user-1"
     assert record.confidence == 0.81
     assert record.created_at.startswith("2026-04-10")

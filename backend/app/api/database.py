@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 from typing import Any, Optional, Sequence
@@ -13,6 +12,15 @@ from dotenv import load_dotenv
 import psycopg2
 
 from app.schemas.analysis import AnalysisRequest
+from app.schemas.history import AnalysisHistoryItem
+from app.schemas.dashboard import (
+    DashboardKpis,
+    DashboardTrendPoint,
+    DashboardSourceBreakdownItem,
+    DashboardDomainBreakdownItem,
+    DashboardAlertItem,
+    DashboardSummaryResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,82 +32,6 @@ _VALID_SOURCE_TYPES = {"text", "file", "url"}
 
 class HistoryDatabaseError(RuntimeError):
     """Error base para operaciones de persistencia del historial."""
-
-
-@dataclass(frozen=True)
-class HistoryRecord:
-    """Representa una fila de historial de analisis."""
-
-    id: str
-    user_id: str
-    source_type: str
-    input_text: Optional[str]
-    input_url: Optional[str]
-    label: str
-    confidence: float
-    explanation: str
-    created_at: str
-
-
-@dataclass(frozen=True)
-class DashboardKpis:
-    """Resumen principal de métricas para el dashboard."""
-
-    total_analyses: int
-    reliable_rate: float
-    average_confidence: float
-    week_over_week_delta: float
-
-
-@dataclass(frozen=True)
-class DashboardTrendPoint:
-    """Punto de tendencia diaria para el dashboard."""
-
-    date: str
-    total: int
-    average_confidence: float
-
-
-@dataclass(frozen=True)
-class DashboardSourceBreakdownItem:
-    """Distribución de análisis por tipo de fuente."""
-
-    source_type: str
-    total: int
-    average_confidence: float
-
-
-@dataclass(frozen=True)
-class DashboardDomainBreakdownItem:
-    """Distribución de análisis por dominio de URL."""
-
-    domain: str
-    total: int
-    average_confidence: float
-
-
-@dataclass(frozen=True)
-class DashboardAlertItem:
-    """Elemento de alerta para análisis de baja credibilidad."""
-
-    id: str
-    source_type: str
-    input_text: Optional[str]
-    input_url: Optional[str]
-    label: str
-    confidence: float
-    created_at: str
-
-
-@dataclass(frozen=True)
-class DashboardSummary:
-    """Respuesta consolidada para poblar el dashboard inicial."""
-
-    kpis: DashboardKpis
-    trend: list[DashboardTrendPoint]
-    source_breakdown: list[DashboardSourceBreakdownItem]
-    domain_breakdown: list[DashboardDomainBreakdownItem]
-    alerts: list[DashboardAlertItem]
 
 
 def _build_connection_string() -> str:
@@ -149,11 +81,11 @@ def _normalize_confidence(confidence: Any) -> float:
     return value
 
 
-def _map_history_record(row: Sequence[Any]) -> HistoryRecord:
+def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
     """Mapea una fila SQL a un registro de historial tipado."""
 
-    return HistoryRecord(
-        id=str(row[0]),
+    return AnalysisHistoryItem(
+        analysis_id=str(row[0]),
         user_id=str(row[1]),
         source_type=str(row[2]),
         input_text=row[3],
@@ -342,7 +274,7 @@ def list_user_analysis_history(
     source_type: Optional[str] = None,
     created_after: Optional[datetime] = None,
     score_sort_order: str = "desc",
-) -> tuple[list[HistoryRecord], int]:
+) -> tuple[list[AnalysisHistoryItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
 
     conninfo = _build_connection_string()
@@ -384,7 +316,9 @@ def list_user_analysis_history(
     return records, total_count
 
 
-def get_user_analysis_by_id(*, user_id: str, analysis_id: str) -> HistoryRecord | None:
+def get_user_analysis_by_id(
+    *, user_id: str, analysis_id: str
+) -> AnalysisHistoryItem | None:
     """Obtiene un analisis por id para un usuario autenticado."""
 
     conninfo = _build_connection_string()
@@ -588,7 +522,7 @@ def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertIte
 
 def get_user_dashboard_summary(
     *, user_id: str, trend_days: int = 14, alert_limit: int = 5
-) -> DashboardSummary:
+) -> DashboardSummaryResponse:
     """Obtiene métricas agregadas para el dashboard del usuario."""
 
     conninfo = _build_connection_string()
@@ -728,7 +662,8 @@ def get_user_dashboard_summary(
     domain_breakdown = _build_domain_breakdown(domain_rows=domain_rows, limit=5)
     alerts = _build_alerts(alert_rows)
 
-    return DashboardSummary(
+    return DashboardSummaryResponse(
+        status="success",
         kpis=DashboardKpis(
             total_analyses=total_analyses,
             reliable_rate=reliable_rate,
