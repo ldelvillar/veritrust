@@ -12,7 +12,7 @@ from app.schemas.dashboard import (
 )
 
 from app.api.dependencies.get_current_user import get_current_user
-from app.api.database import (
+from app.db.main import (
     HistoryDatabaseError,
     get_user_dashboard_summary,
 )

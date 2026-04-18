@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from app.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
-from app.api.database import (
+from app.db.main import (
     HistoryDatabaseError,
     get_user_analysis_by_id,
     save_successful_analysis,
