@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.main import create_graph
-from app.api.cors import get_cors_config
+from app.core.cors import get_cors_config
 from app.utils.start_ollama import start_ollama
 from app.api.router import api_router
 
