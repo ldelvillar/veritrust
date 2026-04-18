@@ -10,7 +10,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.schemas.history import AnalysisHistoryItem, HistoryResponse
 
 
-router = APIRouter(prefix="/history", tags=["Historial"])
+router = APIRouter()
 
 
 def _get_date_threshold(
@@ -67,6 +67,7 @@ def get_history(
         )
         for record in records
     ]
+
     return {
         "status": "success",
         "items": items,

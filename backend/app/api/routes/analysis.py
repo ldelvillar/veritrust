@@ -21,7 +21,7 @@ from app.core.messages import (
     ERROR_NO_MEDICAL_CLAIMS,
 )
 
-router = APIRouter(prefix="/analysis", tags=["Analysis"])
+router = APIRouter()
 logger = logging.getLogger(__name__)
 
 

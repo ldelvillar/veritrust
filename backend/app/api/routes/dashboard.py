@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 
+from app.api.dependencies.get_current_user import get_current_user
 from app.schemas.dashboard import (
     DashboardSummaryResponse,
     DashboardKpis,
@@ -10,15 +11,13 @@ from app.schemas.dashboard import (
     DashboardDomainBreakdownItem,
     DashboardAlertItem,
 )
-
-from app.api.dependencies.get_current_user import get_current_user
 from app.db.main import (
     HistoryDatabaseError,
     get_user_dashboard_summary,
 )
 
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter()
 
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
