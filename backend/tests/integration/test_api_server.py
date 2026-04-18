@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.api.dependencies.check_rate_limit import rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.main import HistoryDatabaseError
-from app.api.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
+from app.core.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
 def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):

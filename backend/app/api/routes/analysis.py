@@ -14,7 +14,7 @@ from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.history import AnalysisHistoryItem
 from app.api.dependencies.get_current_user import get_current_user
 from app.api.dependencies.check_rate_limit import check_rate_limit
-from app.api.messages import (
+from app.core.messages import (
     ERROR_MEMORY_LIMIT,
     ERROR_CONNECTION,
     ERROR_INTERNAL,
