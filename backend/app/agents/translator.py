@@ -6,10 +6,10 @@ traduce al español para que el modelo pueda clasificarlo correctamente.
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
-from app.prompts.main import TRANSLATOR_PROMPT
+from app.prompts.agents import Prompts
 
 
-def translator(state: dict) -> dict:
+def translator(state: dict, prompts: Prompts) -> dict:
     """
     Recibe las afirmaciones en español, las traduce al inglés clínico
     y las devuelve en el estado para que el modelo BERT pueda procesarlas.
@@ -27,7 +27,7 @@ def translator(state: dict) -> dict:
     llm = ChatOllama(model="translategemma", temperature=0)
 
     # Definir el prompt de sistema
-    system_prompt = SystemMessage(content=TRANSLATOR_PROMPT)
+    system_prompt = SystemMessage(content=prompts.translator.text)
 
     translated_statements = []
 

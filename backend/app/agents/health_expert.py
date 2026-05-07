@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.tools.model_tool import FakeNewsDetectorTool
-from app.prompts.main import HEALTH_EXPERT_PROMPT
+from app.prompts.agents import Prompts
 
 
 @lru_cache(maxsize=8)
@@ -31,7 +31,7 @@ def _get_bert_tool() -> FakeNewsDetectorTool:
     return _build_bert_tool(FakeNewsDetectorTool)
 
 
-def health_expert(state: dict) -> dict:
+def health_expert(state: dict, prompts: Prompts) -> dict:
     """
     Recibe las afirmaciones extraídas, usa el modelo BERT
     para verificarlas y redacta el informe médico con Llama 3.2.
@@ -54,7 +54,7 @@ def health_expert(state: dict) -> dict:
     bert_tool = _get_bert_tool()
 
     # Definir el prompt de sistema
-    system_prompt = SystemMessage(content=HEALTH_EXPERT_PROMPT)
+    system_prompt = SystemMessage(content=prompts.health_expert.text)
 
     total_fake_prob = 0.0
     total_statements = len(translated_statements)

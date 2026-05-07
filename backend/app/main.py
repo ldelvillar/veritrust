@@ -10,6 +10,7 @@ from app.agents.main import create_graph
 from app.core.cors import get_cors_config
 from app.utils.start_ollama import start_ollama
 from app.api.router import api_router
+from app.prompts.agents import load_prompts
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(application: FastAPI):
     """Inicializa recursos de IA durante startup sin side effects en import."""
     application.state.verification_system = None
+    application.state.prompts = None
 
     try:
         start_ollama()
-        application.state.verification_system = create_graph()
+        application.state.prompts = load_prompts()
+        application.state.verification_system = create_graph(application.state.prompts)
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
         logger.exception("No se pudo inicializar el sistema de verificación: %s", exc)
 

@@ -3,13 +3,14 @@ Este módulo define un agente de captura de información que extrae las afirmaci
 de un texto largo para su posterior análisis por parte de un agente experto en salud.
 """
 
+from functools import lru_cache
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
-from app.prompts.main import EXTRACTOR_PROMPT
+from app.prompts.agents import Prompts
 
 
 class MedicalStatements(BaseModel):
@@ -24,26 +25,22 @@ class MedicalStatements(BaseModel):
     )
 
 
-# Configurar el LLM para que devuelva un formato JSON que coincida con la clase Pydantic
-llm = ChatOllama(model="llama3", temperature=0)
-llm = llm.with_structured_output(MedicalStatements)
+@lru_cache(maxsize=1)
+def get_extractor_chain(prompt_text: str):
+    """Devuelve la cadena de extracción configurada y cacheada."""
+    llm = ChatOllama(model="llama3", temperature=0)
+    llm = llm.with_structured_output(MedicalStatements)
 
-# Definir el prompt de sistema
-system_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            EXTRACTOR_PROMPT,
-        ),
-        ("user", "Texto a analizar: {texto}"),
-    ]
-)
-
-# Crear la cadena
-extractor_chain = system_prompt | llm
+    system_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", prompt_text),
+            ("user", "Texto a analizar: {texto}"),
+        ]
+    )
+    return system_prompt | llm
 
 
-def extractor(state: dict) -> dict:
+def extractor(state: dict, prompts: Prompts) -> dict:
     """
     Recibe el estado actual, ejecuta la extracción y devuelve el estado actualizado.
     """
@@ -52,6 +49,7 @@ def extractor(state: dict) -> dict:
     input_text = state.get("input_text", "")
 
     # Ejecutar la cadena
+    extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
     print(f"[Agente Extractor] Se extrajeron {len(result.statements)} afirmaciones.")

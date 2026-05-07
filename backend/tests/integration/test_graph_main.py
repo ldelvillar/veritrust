@@ -5,6 +5,19 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
+from app.prompts.agents import PromptItem, Prompts
+
+
+@pytest.fixture(scope="module")
+def dummy_prompts():
+    return Prompts(
+        extractor=PromptItem(version="v1", text="extractor"),
+        translator=PromptItem(version="v1", text="translator"),
+        health_expert=PromptItem(version="v1", text="health_expert"),
+    )
+
 
 def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl):
     project_root = Path(__file__).resolve().parents[3]
@@ -43,14 +56,14 @@ def _minimal_state():
     }
 
 
-def test_create_graph_returns_compiled_invocable(monkeypatch):
-    def extractor(state):
+def test_create_graph_returns_compiled_invocable(monkeypatch, dummy_prompts):
+    def extractor(state, prompts):
         return {"extracted_statements": ["Claim"]}
 
-    def translator(state):
+    def translator(state, prompts):
         return {"translated_statements": ["Claim"]}
 
-    def health_expert(state):
+    def health_expert(state, prompts):
         return {
             "label": "falsa",
             "confidence": "0.95",
@@ -58,20 +71,22 @@ def test_create_graph_returns_compiled_invocable(monkeypatch):
         }
 
     main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
-    graph = main_module.create_graph()
+    graph = main_module.create_graph(dummy_prompts)
 
     assert hasattr(graph, "invoke")
     assert callable(graph.invoke)
 
 
-def test_graph_invocation_with_min_state_contains_expected_keys(monkeypatch):
-    def extractor(state):
+def test_graph_invocation_with_min_state_contains_expected_keys(
+    monkeypatch, dummy_prompts
+):
+    def extractor(state, prompts):
         return {"extracted_statements": ["A"]}
 
-    def translator(state):
+    def translator(state, prompts):
         return {"translated_statements": ["A"]}
 
-    def health_expert(state):
+    def health_expert(state, prompts):
         return {
             "label": "verdadera",
             "confidence": "0.70",
@@ -79,7 +94,7 @@ def test_graph_invocation_with_min_state_contains_expected_keys(monkeypatch):
         }
 
     main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
-    graph = main_module.create_graph()
+    graph = main_module.create_graph(dummy_prompts)
     result = graph.invoke(_minimal_state())
 
     expected_keys = {
@@ -93,14 +108,16 @@ def test_graph_invocation_with_min_state_contains_expected_keys(monkeypatch):
     assert expected_keys.issubset(result.keys())
 
 
-def test_graph_keeps_contract_when_nodes_return_empty_values(monkeypatch):
-    def extractor(state):
+def test_graph_keeps_contract_when_nodes_return_empty_values(
+    monkeypatch, dummy_prompts
+):
+    def extractor(state, prompts):
         return {"extracted_statements": []}
 
-    def translator(state):
+    def translator(state, prompts):
         return {"translated_statements": []}
 
-    def health_expert(state):
+    def health_expert(state, prompts):
         return {
             "label": "",
             "confidence": "",
@@ -108,7 +125,7 @@ def test_graph_keeps_contract_when_nodes_return_empty_values(monkeypatch):
         }
 
     main_module = _load_main_module(monkeypatch, extractor, translator, health_expert)
-    graph = main_module.create_graph()
+    graph = main_module.create_graph(dummy_prompts)
     result = graph.invoke(_minimal_state())
 
     assert result["input_text"] == "Texto de prueba"

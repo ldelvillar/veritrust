@@ -17,7 +17,6 @@ from langgraph.graph import StateGraph, START, END
 from app.agents.extractor import extractor
 from app.agents.translator import translator
 from app.agents.health_expert import health_expert
-from app.utils.start_ollama import start_ollama
 
 
 class AgentState(TypedDict):
@@ -34,15 +33,15 @@ class AgentState(TypedDict):
     medical_explanation: str
 
 
-def create_graph() -> StateGraph[AgentState]:
+def create_graph(prompts) -> StateGraph[AgentState]:
     """Instancia y configura el flujo de trabajo multiagente."""
     # Inicializar el grafo con el estado definido
     workflow = StateGraph(AgentState)
 
     # Añadir los nodos (los agentes)
-    workflow.add_node("extractor", extractor)
-    workflow.add_node("translator", translator)
-    workflow.add_node("health_expert", health_expert)
+    workflow.add_node("extractor", lambda state: extractor(state, prompts))
+    workflow.add_node("translator", lambda state: translator(state, prompts))
+    workflow.add_node("health_expert", lambda state: health_expert(state, prompts))
 
     # Definir el flujo lógico (las aristas del grafo)
     workflow.add_edge(START, "extractor")

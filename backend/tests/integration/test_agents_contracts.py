@@ -3,6 +3,17 @@
 from types import SimpleNamespace
 import pytest
 
+from app.prompts.agents import PromptItem, Prompts
+
+
+@pytest.fixture(scope="module")
+def dummy_prompts():
+    return Prompts(
+        extractor=PromptItem(version="v1", text="extractor"),
+        translator=PromptItem(version="v1", text="translator"),
+        health_expert=PromptItem(version="v1", text="health_expert"),
+    )
+
 
 @pytest.fixture(scope="module")
 def extractor_module():
@@ -26,7 +37,7 @@ def health_module():
 
 
 def test_extractor_returns_only_expected_field_and_preserves_state(
-    monkeypatch, extractor_module
+    monkeypatch, extractor_module, dummy_prompts
 ):
 
     class _FakeChain:
@@ -34,13 +45,15 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
             assert "texto" in payload
             return SimpleNamespace(statements=["Afirmacion 1"])
 
-    monkeypatch.setattr(extractor_module, "extractor_chain", _FakeChain())
+    monkeypatch.setattr(
+        extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
+    )
 
     state = {
         "input_text": "Texto médico",
         "other_key": "keep-me",
     }
-    update = extractor_module.extractor(state)
+    update = extractor_module.extractor(state, dummy_prompts)
 
     assert set(update.keys()) == {"extracted_statements"}
     merged = {**state, **update}
@@ -49,22 +62,26 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
 
 
 def test_extractor_handles_empty_llm_output_without_exception(
-    monkeypatch, extractor_module
+    monkeypatch, extractor_module, dummy_prompts
 ):
 
     class _FakeChain:
         def invoke(self, payload):
             return SimpleNamespace(statements=[])
 
-    monkeypatch.setattr(extractor_module, "extractor_chain", _FakeChain())
+    monkeypatch.setattr(
+        extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
+    )
 
-    update = extractor_module.extractor({"input_text": "Sin afirmaciones"})
+    update = extractor_module.extractor(
+        {"input_text": "Sin afirmaciones"}, dummy_prompts
+    )
 
     assert update == {"extracted_statements": []}
 
 
 def test_translator_returns_only_expected_field_and_preserves_state(
-    monkeypatch, translator_module
+    monkeypatch, translator_module, dummy_prompts
 ):
 
     class _FakeLLM:
@@ -81,7 +98,7 @@ def test_translator_returns_only_expected_field_and_preserves_state(
         "input_text": "Texto base",
         "other_key": 123,
     }
-    update = translator_module.translator(state)
+    update = translator_module.translator(state, dummy_prompts)
 
     assert set(update.keys()) == {"translated_statements"}
     assert update["translated_statements"] == ["Translated"]
@@ -91,7 +108,7 @@ def test_translator_returns_only_expected_field_and_preserves_state(
 
 
 def test_translator_handles_empty_llm_output_without_exception(
-    monkeypatch, translator_module
+    monkeypatch, translator_module, dummy_prompts
 ):
 
     class _FakeLLM:
@@ -103,13 +120,15 @@ def test_translator_handles_empty_llm_output_without_exception(
 
     monkeypatch.setattr(translator_module, "ChatOllama", _FakeLLM)
 
-    update = translator_module.translator({"extracted_statements": ["A"]})
+    update = translator_module.translator(
+        {"extracted_statements": ["A"]}, dummy_prompts
+    )
 
     assert update == {"translated_statements": [""]}
 
 
 def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
-    monkeypatch, translator_module
+    monkeypatch, translator_module, dummy_prompts
 ):
 
     class _ShouldNotBeCalled:
@@ -118,13 +137,13 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
 
     monkeypatch.setattr(translator_module, "ChatOllama", _ShouldNotBeCalled)
 
-    update = translator_module.translator({"extracted_statements": []})
+    update = translator_module.translator({"extracted_statements": []}, dummy_prompts)
 
     assert update == {"translated_statements": []}
 
 
 def test_health_expert_returns_only_expected_fields_and_preserves_state(
-    monkeypatch, health_module
+    monkeypatch, health_module, dummy_prompts
 ):
 
     class _FakeTool:
@@ -147,7 +166,7 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
         "translated_statements": ["T1"],
         "other_key": "keep-me",
     }
-    update = health_module.health_expert(state)
+    update = health_module.health_expert(state, dummy_prompts)
 
     assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
     merged = {**state, **update}
@@ -156,7 +175,7 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
 
 
 def test_health_expert_handles_empty_llm_output_without_exception(
-    monkeypatch, health_module
+    monkeypatch, health_module, dummy_prompts
 ):
 
     class _FakeTool:
@@ -177,14 +196,17 @@ def test_health_expert_handles_empty_llm_output_without_exception(
         {
             "extracted_statements": ["S1"],
             "translated_statements": ["T1"],
-        }
+        },
+        dummy_prompts,
     )
 
     assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
     assert update["medical_explanation"] == ""
 
 
-def test_health_expert_parses_stringified_tool_output(monkeypatch, health_module):
+def test_health_expert_parses_stringified_tool_output(
+    monkeypatch, health_module, dummy_prompts
+):
 
     class _FakeTool:
         def invoke(self, payload):
@@ -204,7 +226,8 @@ def test_health_expert_parses_stringified_tool_output(monkeypatch, health_module
         {
             "extracted_statements": ["S1"],
             "translated_statements": ["T1"],
-        }
+        },
+        dummy_prompts,
     )
 
     assert update["label"] == "falsa"
@@ -213,7 +236,7 @@ def test_health_expert_parses_stringified_tool_output(monkeypatch, health_module
 
 
 def test_health_expert_raises_value_error_on_invalid_detector_output(
-    monkeypatch, health_module
+    monkeypatch, health_module, dummy_prompts
 ):
 
     class _FakeTool:
@@ -235,7 +258,8 @@ def test_health_expert_raises_value_error_on_invalid_detector_output(
             {
                 "extracted_statements": ["S1"],
                 "translated_statements": ["T1"],
-            }
+            },
+            dummy_prompts,
         )
         raise AssertionError("Se esperaba ValueError por salida inválida")
     except ValueError as exc:
@@ -243,7 +267,7 @@ def test_health_expert_raises_value_error_on_invalid_detector_output(
 
 
 def test_health_expert_raises_value_error_when_detector_missing_keys(
-    monkeypatch, health_module
+    monkeypatch, health_module, dummy_prompts
 ):
 
     class _FakeTool:
@@ -265,7 +289,8 @@ def test_health_expert_raises_value_error_when_detector_missing_keys(
             {
                 "extracted_statements": ["S1"],
                 "translated_statements": ["T1"],
-            }
+            },
+            dummy_prompts,
         )
         raise AssertionError("Se esperaba ValueError por claves faltantes")
     except ValueError as exc:
