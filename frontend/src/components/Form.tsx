@@ -25,6 +25,9 @@ interface FormData {
   url: string;
 }
 
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB — early sanity check before reading
+const MAX_TEXT_CHARS = 10_000; // matches backend StringConstraints max_length
+
 export default function Form() {
   const router = useRouter();
   const { getToken } = useAuth();
@@ -51,17 +54,26 @@ export default function Form() {
     setIsDragging(false);
   };
 
+  const applyFile = (file: File) => {
+    if (file.size > MAX_FILE_BYTES) {
+      setError('El archivo es demasiado grande. El tamaño máximo permitido es 10 MB.');
+      return;
+    }
+    setError(null);
+    setSelectedFile(file);
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setSelectedFile(e.dataTransfer.files[0]);
+      applyFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      applyFile(e.target.files[0]);
     }
   };
 
@@ -111,6 +123,12 @@ export default function Form() {
       } catch (err) {
         console.error('Error al leer el archivo:', err);
         setError('Hubo un error al leer el archivo.');
+        return;
+      }
+      if (textContent.length > MAX_TEXT_CHARS) {
+        setError(
+          `El archivo supera el límite de ${MAX_TEXT_CHARS.toLocaleString()} caracteres. Por favor, acorta el texto.`
+        );
         return;
       }
     } else if (inputMethod === 'url') {
