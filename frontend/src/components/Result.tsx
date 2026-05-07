@@ -1,5 +1,4 @@
 import { MarkdownHooks } from 'react-markdown';
-import Link from 'next/link';
 import Magnifier from '@/assets/Magnifier';
 import LanguageIcon from '@/assets/Language';
 import Heart from '@/assets/Heart';
@@ -196,15 +195,6 @@ export default function Result({ result }: ResultProps) {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="mx-auto mt-4 flex w-fit items-center gap-2">
-        <Link
-          href="/"
-          className="rounded-lg bg-primary px-3 py-2 text-white transition duration-300 hover:bg-primary/90"
-        >
-          Analizar otro texto
-        </Link>
       </div>
     </div>
   );
