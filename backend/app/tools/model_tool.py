@@ -15,7 +15,6 @@ from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
 from transformers import BertTokenizer, BertForSequenceClassification
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -119,7 +118,7 @@ class FakeNewsDetectorTool(BaseTool):
 
             # Procesar texto
             inputs = self._tokenizer(
-                text, return_tensors="pt", truncation=True, padding=True, max_length=128
+                text, return_tensors="pt", truncation=True, padding=True, max_length=512
             )
             model_inputs = self._prepare_inputs_for_model(inputs)
             model_inputs_dict = cast(Mapping[str, Any], model_inputs)
