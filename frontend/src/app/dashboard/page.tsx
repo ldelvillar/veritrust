@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@clerk/nextjs';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import Spinner from '@/assets/Spinner';
 import Warning from '@/assets/Warning';
-import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiQuery } from '@/hooks/useApiQuery';
 import type { components } from '@/types/api';
 
 type DashboardKpis = components['schemas']['DashboardKpis'];
@@ -42,53 +41,21 @@ const formatSignedPercentage = (value: number): string => {
 };
 
 export default function DashboardPage() {
-  const { getToken } = useAuth();
-  const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const fetchDashboard = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError(null);
-
-    try {
-      const data = await fetchJsonWithAuth<DashboardPayload>(
-        getToken,
-        '/dashboard/summary',
-        {
-          method: 'GET',
-        }
-      );
-
-      setDashboard({
-        kpis: data.kpis,
-        trend: Array.isArray(data.trend) ? data.trend : [],
-        source_breakdown: Array.isArray(data.source_breakdown)
-          ? data.source_breakdown
-          : [],
-        domain_breakdown: Array.isArray(data.domain_breakdown)
-          ? data.domain_breakdown
-          : [],
-        alerts: Array.isArray(data.alerts) ? data.alerts : [],
-      });
-    } catch (error) {
-      console.error('Error al obtener datos del dashboard:', error);
-      setDashboard(null);
-      setFetchError('Ha habido un error de comunicación con el servidor.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken]);
+  const {
+    data: dashboard,
+    isLoading,
+    error: fetchError,
+    refetch: fetchDashboard,
+  } = useApiQuery<DashboardPayload>('/dashboard/summary');
 
   useEffect(() => {
     document.title = 'Dashboard | VeriTrust';
-    void fetchDashboard();
-  }, [fetchDashboard]);
+  }, []);
 
   const trendMax = useMemo(() => {
     if (!dashboard?.trend.length) return 1;
     return Math.max(1, ...dashboard.trend.map(point => point.total));
-  }, [dashboard?.trend]);
+  }, [dashboard]);
 
   if (isLoading) {
     return (

@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Result from '@/components/Result';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import type { paths } from '@/types/api';
-import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiQuery } from '@/hooks/useApiQuery';
 
 type AnalysisDetail =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
@@ -15,70 +14,29 @@ type AnalysisDetail =
 export default function AnalisisPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { getToken } = useAuth();
-
-  const [result, setResult] = useState<AnalysisDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const lastRequestKey = useRef<string | null>(null);
 
   const analysisId = params?.id ?? null;
 
   useEffect(() => {
-    document.title = 'Resultado del análisis | VeriTrust';
+    if (!analysisId) router.replace('/');
+  }, [analysisId, router]);
 
+  useEffect(() => {
+    document.title = 'Resultado del análisis | VeriTrust';
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute(
         'content',
         'Resultado del análisis, incluyendo veredicto global, confianza y explicación médica.'
       );
-  }, [loading]);
+  }, []);
 
-  useEffect(() => {
-    const requestKey = analysisId ?? 'create';
-    if (lastRequestKey.current === requestKey) return;
-    lastRequestKey.current = requestKey;
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    const fetchData = async () => {
-      if (!analysisId) {
-        router.replace('/');
-        return;
-      }
-
-      try {
-        const data = await fetchJsonWithAuth<AnalysisDetail>(
-          getToken,
-          `/analysis/${analysisId}`,
-          {
-            method: 'GET',
-            errorContextMessage: 'Error al obtener el análisis',
-          }
-        );
-        if (!data) {
-          throw new Error(
-            'La respuesta del servidor no contiene un análisis válido.'
-          );
-        }
-
-        setResult(data);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Ocurrió un error inesperado al cargar el análisis.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [analysisId, getToken, router]);
+  const path = analysisId ? `/analysis/${analysisId}` : null;
+  const {
+    data: result,
+    isLoading: loading,
+    error,
+  } = useApiQuery<AnalysisDetail>(path);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-12">

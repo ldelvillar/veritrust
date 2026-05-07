@@ -1,14 +1,13 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import HistoryFilters, {
   DateRangeFilter,
   ScoreSortOrder,
   SourceTypeFilter,
 } from '@/components/HistoryFilters';
 import HistoryResultsTable from '@/components/HistoryResultsTable';
-import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiQuery } from '@/hooks/useApiQuery';
 import type { paths } from '@/types/api';
 
 const PAGE_SIZE = 10;
@@ -21,11 +20,6 @@ interface HistoryResponse {
 }
 
 export default function HistorialPage() {
-  const { getToken } = useAuth();
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] =
     useState<SourceTypeFilter>('all');
@@ -34,11 +28,32 @@ export default function HistorialPage() {
   const [scoreSortOrder, setScoreSortOrder] = useState<ScoreSortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const path = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      page_size: String(PAGE_SIZE),
+      source_type: sourceTypeFilter,
+      date_range: dateRangeFilter,
+      score_sort: scoreSortOrder,
+    });
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) params.set('search', trimmedQuery);
+    return `/history?${params.toString()}`;
+  }, [currentPage, dateRangeFilter, scoreSortOrder, searchQuery, sourceTypeFilter]);
 
-  useEffect(() => {
-    setCurrentPage(previousPage => Math.min(previousPage, totalPages));
-  }, [totalPages]);
+  const {
+    data,
+    isLoading,
+    error: fetchError,
+    refetch: fetchHistory,
+  } = useApiQuery<HistoryResponse>(path);
+
+  const rawItems = data?.items;
+  const history: HistoryItem[] = Array.isArray(rawItems) ? rawItems : [];
+  const totalCount =
+    typeof data?.count === 'number' ? data.count : history.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const effectivePage = Math.min(currentPage, totalPages);
 
   useEffect(() => {
     document.title = 'Historial de Análisis | VeriTrust';
@@ -49,57 +64,6 @@ export default function HistorialPage() {
         'Revisa tu historial de análisis realizados en VeriTrust, con detalles de cada análisis y resultados obtenidos.'
       );
   }, []);
-
-  const fetchHistory = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError(null);
-
-    try {
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        page_size: String(PAGE_SIZE),
-        source_type: sourceTypeFilter,
-        date_range: dateRangeFilter,
-        score_sort: scoreSortOrder,
-      });
-
-      const trimmedQuery = searchQuery.trim();
-      if (trimmedQuery) {
-        params.set('search', trimmedQuery);
-      }
-
-      const data = await fetchJsonWithAuth<HistoryResponse>(
-        getToken,
-        `/history?${params.toString()}`,
-        {
-          method: 'GET',
-        }
-      );
-
-      const items = Array.isArray(data.items) ? data.items : [];
-      setHistory(items);
-      setTotalCount(typeof data.count === 'number' ? data.count : items.length);
-    } catch (error) {
-      console.error('Error al obtener el historial de análisis:', error);
-
-      setHistory([]);
-      setTotalCount(0);
-      setFetchError('Ha habido un error de comunicación con el servidor.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    currentPage,
-    dateRangeFilter,
-    getToken,
-    scoreSortOrder,
-    searchQuery,
-    sourceTypeFilter,
-  ]);
-
-  useEffect(() => {
-    void fetchHistory();
-  }, [fetchHistory]);
 
   const handleSearchQueryChange = useCallback((value: string) => {
     setCurrentPage(1);
@@ -163,7 +127,7 @@ export default function HistorialPage() {
       <HistoryResultsTable
         history={history}
         totalCount={totalCount}
-        currentPage={currentPage}
+        currentPage={effectivePage}
         pageSize={PAGE_SIZE}
         isLoading={isLoading}
         errorMessage={fetchError}
