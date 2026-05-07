@@ -5,7 +5,60 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tfg"
 version = "0.1.0"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
+dependencies = [
+    # API
+    "fastapi>=0.135",
+    "uvicorn[standard]>=0.41",
+    "python-multipart>=0.0.22",
+    "python-dotenv>=1.2",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.13",
+    "httpx>=0.28",
+
+    # Auth
+    "PyJWT>=2.12",
+    "cryptography>=46",
+
+    # Database
+    "psycopg2>=2.9",
+
+    # LLM / Agents
+    "langchain>=1.2",
+    "langchain-core>=1.2",
+    "langchain-ollama>=1.0",
+    "langgraph>=1.0",
+    "ollama>=0.6",
+
+    # ML
+    "transformers>=5.2",
+    "torch>=2.10",
+    "accelerate>=1.12",
+    "scikit-learn>=1.8",
+    "numpy>=2.4",
+    "pandas>=3.0",
+    "pyarrow>=23",
+
+    # Web scraping
+    "beautifulsoup4>=4.14",
+    "requests>=2.32",
+
+    # Utilities
+    "PyYAML>=6.0",
+    "orjson>=3.11",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.1",
+    "coverage>=7.13",
+    "black>=26",
+    "pylint>=4",
+    "isort>=8",
+    "matplotlib>=3.10",
+    "seaborn>=0.13",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
