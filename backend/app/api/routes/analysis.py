@@ -128,7 +128,7 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Análisis no encontrado.")
 
     return AnalysisHistoryItem(
-        analysis_id=record.id,
+        analysis_id=record.analysis_id,
         user_id=record.user_id,
         source_type=record.source_type,
         input_text=record.input_text,

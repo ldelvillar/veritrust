@@ -236,7 +236,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     client = TestClient(server_module.app)
 
     record = types.SimpleNamespace(
-        id="11111111-1111-1111-1111-111111111111",
+        analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
         input_text="Texto ejemplo",
@@ -406,7 +406,7 @@ def test_historial_returns_user_history(monkeypatch):
 
     history_rows = [
         {
-            "id": "11111111-1111-1111-1111-111111111111",
+            "analysis_id": "11111111-1111-1111-1111-111111111111",
             "user_id": "test-user",
             "source_type": "text",
             "input_text": "Texto ejemplo",
