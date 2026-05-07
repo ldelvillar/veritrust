@@ -30,7 +30,7 @@ class AgentState(TypedDict):
     extracted_statements: List[str]
     translated_statements: List[str]
     label: str
-    confidence: str
+    confidence: float
     medical_explanation: str
 
 
