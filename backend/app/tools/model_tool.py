@@ -14,6 +14,7 @@ from langchain.tools import BaseTool
 from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
 from transformers import BertTokenizer, BertForSequenceClassification
+from ml.utils.text import clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,9 @@ class FakeNewsDetectorTool(BaseTool):
                     "El detector no pudo inicializar modelo y tokenizador"
                 )
 
-            # Procesar texto
+            # Aplicar el mismo preprocesado que durante el entrenamiento
+            text = clean_text(text)
+
             inputs = self._tokenizer(
                 text, return_tensors="pt", truncation=True, padding=True, max_length=512
             )

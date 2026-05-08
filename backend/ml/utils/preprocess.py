@@ -5,30 +5,7 @@ de los datos para el entrenamiento del modelo BERT.
 
 import re
 import pandas as pd
-from ml.utils.load_data import load_dataset
-
-
-def clean_text(text: str) -> str:
-    """Limpia el texto para el entrenamiento del modelo BERT."""
-    if not isinstance(text, str):
-        return ""
-
-    # Convertir el texto a minúsculas
-    text = text.lower()
-
-    # Quitar URLs
-    text = re.sub(r"http\S+|www\S+|https\S+", "", text, flags=re.MULTILINE)
-
-    # Reemplazar comillas múltiples por una sola comilla
-    text = re.sub(r'"+', '"', text)
-
-    # Normalizar espacios
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # Eliminar comillas al inicio y al final del texto
-    text = text.strip('"').strip()
-
-    return text
+from ml.utils.text import clean_text
 
 
 def clean_list_string(text: str) -> str:
