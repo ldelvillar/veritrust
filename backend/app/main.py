@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.main import create_graph
 from app.core.cors import get_cors_config
-from app.utils.start_ollama import start_ollama
+from app.utils.ollama import ensure_ollama_available
 from app.api.router import api_router
 from app.prompts.agents import load_prompts
 
@@ -22,7 +22,7 @@ async def lifespan(application: FastAPI):
     application.state.prompts = None
 
     try:
-        start_ollama()
+        ensure_ollama_available()
         application.state.prompts = load_prompts()
         prompts = application.state.prompts
         logger.info(

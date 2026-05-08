@@ -38,12 +38,12 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
 
     fake_agents_module.create_graph = create_graph
 
-    fake_start_module = types.ModuleType("app.utils.start_ollama")
+    fake_start_module = types.ModuleType("app.utils.ollama")
 
-    def start_ollama():
+    def ensure_ollama_available():
         start_calls["count"] += 1
 
-    fake_start_module.start_ollama = start_ollama
+    fake_start_module.ensure_ollama_available = ensure_ollama_available
 
     fake_extract_module = types.ModuleType("app.utils.extract_text_from_url")
 
@@ -54,7 +54,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     fake_extract_module.extract_text_from_url = lambda url: "Texto extraído de la URL"
 
     monkeypatch.setitem(sys.modules, "app.agents.main", fake_agents_module)
-    monkeypatch.setitem(sys.modules, "app.utils.start_ollama", fake_start_module)
+    monkeypatch.setitem(sys.modules, "app.utils.ollama", fake_start_module)
     monkeypatch.setitem(
         sys.modules, "app.utils.extract_text_from_url", fake_extract_module
     )

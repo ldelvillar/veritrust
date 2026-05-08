@@ -33,13 +33,13 @@ def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl)
     fake_health_module = types.ModuleType("app.agents.health_expert")
     fake_health_module.health_expert = health_impl
 
-    fake_start_module = types.ModuleType("app.utils.start_ollama")
-    fake_start_module.start_ollama = lambda: None
+    fake_start_module = types.ModuleType("app.utils.ollama")
+    fake_start_module.ensure_ollama_available = lambda: None
 
     monkeypatch.setitem(sys.modules, "app.agents.extractor", fake_extractor_module)
     monkeypatch.setitem(sys.modules, "app.agents.translator", fake_translator_module)
     monkeypatch.setitem(sys.modules, "app.agents.health_expert", fake_health_module)
-    monkeypatch.setitem(sys.modules, "app.utils.start_ollama", fake_start_module)
+    monkeypatch.setitem(sys.modules, "app.utils.ollama", fake_start_module)
 
     sys.modules.pop("app.agents.main", None)
     return importlib.import_module("app.agents.main")

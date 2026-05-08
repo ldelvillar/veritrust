@@ -20,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.tools.model_tool import FakeNewsDetectorTool
-from app.utils.start_ollama import start_ollama
+from app.utils.ollama import ensure_ollama_available
 
 load_dotenv()
 
@@ -248,5 +248,5 @@ if __name__ == "__main__":
         "immune system boost",
         "homeopathy",
     ]
-    start_ollama()
+    ensure_ollama_available()
     evaluate_system(terms)

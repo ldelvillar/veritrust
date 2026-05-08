@@ -1,9 +1,9 @@
-"""Tests unitarios para la función start_ollama."""
+"""Tests unitarios para ensure_ollama_available."""
 
 import urllib.error
 import pytest
 
-from app.utils import start_ollama as start_ollama_module
+from app.utils import ollama as ollama_module
 
 
 class _DummyResponse:
@@ -14,67 +14,48 @@ class _DummyResponse:
         return False
 
 
-def test_start_ollama_does_not_spawn_when_server_is_up(monkeypatch):
-    popen_calls = []
+def test_returns_immediately_when_server_is_up(monkeypatch):
+    sleep_calls = []
 
     monkeypatch.setattr(
-        start_ollama_module.urllib.request,
+        ollama_module.urllib.request,
         "urlopen",
         lambda *args, **kwargs: _DummyResponse(),
     )
-    monkeypatch.setattr(
-        start_ollama_module.subprocess,
-        "Popen",
-        lambda *args, **kwargs: popen_calls.append((args, kwargs)),
-    )
+    monkeypatch.setattr(ollama_module.time, "sleep", lambda s: sleep_calls.append(s))
 
-    start_ollama_module.start_ollama()
+    ollama_module.ensure_ollama_available()
 
-    assert popen_calls == []
+    assert sleep_calls == []
 
 
-def test_start_ollama_spawns_server_when_connection_fails(monkeypatch):
-    popen_calls = []
+def test_retries_until_server_becomes_available(monkeypatch):
     sleep_calls = []
     urlopen_calls = {"count": 0}
 
     def fake_urlopen(*_args, **_kwargs):
         urlopen_calls["count"] += 1
-        if urlopen_calls["count"] == 1:
+        if urlopen_calls["count"] < 3:
             raise urllib.error.URLError("offline")
         return _DummyResponse()
 
-    def fake_popen(*args, **kwargs):
-        popen_calls.append((args, kwargs))
+    monkeypatch.setattr(ollama_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ollama_module.time, "sleep", lambda s: sleep_calls.append(s))
 
-    def fake_sleep(seconds):
-        sleep_calls.append(seconds)
+    ollama_module.ensure_ollama_available()
 
-    monkeypatch.setattr(start_ollama_module.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(start_ollama_module.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(start_ollama_module.time, "sleep", fake_sleep)
-
-    start_ollama_module.start_ollama()
-
-    assert len(popen_calls) == 1
-    args, kwargs = popen_calls[0]
-    assert args[0] == ["ollama", "serve"]
-    assert kwargs["stdout"] == start_ollama_module.subprocess.DEVNULL
-    assert kwargs["stderr"] == start_ollama_module.subprocess.DEVNULL
-    assert sleep_calls == [3]
+    assert urlopen_calls["count"] == 3
+    assert len(sleep_calls) == 2
 
 
-def test_start_ollama_raises_when_binary_is_missing(monkeypatch):
-    def fake_urlopen(*args, **kwargs):
+def test_raises_after_all_retries_fail(monkeypatch):
+    def fake_urlopen(*_args, **_kwargs):
         raise urllib.error.URLError("offline")
 
-    def fake_popen(*args, **kwargs):
-        raise FileNotFoundError("not found")
+    monkeypatch.setattr(ollama_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ollama_module.time, "sleep", lambda _: None)
 
-    monkeypatch.setattr(start_ollama_module.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(start_ollama_module.subprocess, "Popen", fake_popen)
+    with pytest.raises(ollama_module.OllamaStartupError) as exc:
+        ollama_module.ensure_ollama_available()
 
-    with pytest.raises(start_ollama_module.OllamaStartupError) as exc:
-        start_ollama_module.start_ollama()
-
-    assert "No se encuentra 'Ollama'" in str(exc.value)
+    assert "localhost:11434" in str(exc.value)
