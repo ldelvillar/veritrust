@@ -1,5 +1,6 @@
 """Este módulo contiene los prompts de sistema que utilizan los distintos agentes."""
 
+import os
 from pathlib import Path
 from dataclasses import dataclass
 import yaml
@@ -24,9 +25,13 @@ class Prompts:
 
 def load_prompts() -> Prompts:
     """Carga los prompts desde un archivo YAML y los devuelve como una instancia de Prompts."""
-    yaml_path = Path(__file__).parent / "prompts.yaml"
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    default_path = Path(__file__).parent / "prompts.yaml"
+    yaml_path = Path(os.getenv("PROMPT_FILE_PATH", str(default_path)))
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"El archivo de prompts '{yaml_path}' contiene YAML inválido: {exc}") from exc
     return Prompts(
         extractor=PromptItem(**data["extractor"]),
         translator=PromptItem(**data["translator"]),

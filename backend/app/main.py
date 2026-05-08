@@ -24,7 +24,14 @@ async def lifespan(application: FastAPI):
     try:
         start_ollama()
         application.state.prompts = load_prompts()
-        application.state.verification_system = create_graph(application.state.prompts)
+        prompts = application.state.prompts
+        logger.info(
+            "Prompts cargados — extractor: %s, translator: %s, health_expert: %s",
+            prompts.extractor.version,
+            prompts.translator.version,
+            prompts.health_expert.version,
+        )
+        application.state.verification_system = create_graph(prompts)
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
         logger.exception("No se pudo inicializar el sistema de verificación: %s", exc)
 
