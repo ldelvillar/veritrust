@@ -34,7 +34,7 @@ def get_extractor_chain(prompt_text: str):
     system_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", prompt_text),
-            ("user", "Texto a analizar: {texto}"),
+            ("user", "Texto a analizar:\n<<USER_INPUT>>\n{texto}\n<<END>>"),
         ]
     )
     return system_prompt | structured_llm
