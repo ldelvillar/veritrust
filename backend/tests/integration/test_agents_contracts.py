@@ -177,7 +177,7 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
             return SimpleNamespace(content="Informe médico")
 
     monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
     state = {
         "input_text": "Texto base",
@@ -209,7 +209,7 @@ def test_health_expert_handles_empty_llm_output_without_exception(
             return SimpleNamespace(content="")
 
     monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
     update = health_module.health_expert(
         {
@@ -239,7 +239,7 @@ def test_health_expert_parses_stringified_tool_output(
             return SimpleNamespace(content="Informe consolidado")
 
     monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
     update = health_module.health_expert(
         {
@@ -270,7 +270,7 @@ def test_health_expert_raises_value_error_on_invalid_detector_output(
             return SimpleNamespace(content="No debería usarse")
 
     monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
     try:
         health_module.health_expert(
@@ -301,7 +301,7 @@ def test_health_expert_raises_value_error_when_detector_missing_keys(
             return SimpleNamespace(content="No debería usarse")
 
     monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
     try:
         health_module.health_expert(

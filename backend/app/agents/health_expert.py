@@ -31,6 +31,12 @@ def _get_bert_tool() -> FakeNewsDetectorTool:
     return _build_bert_tool(FakeNewsDetectorTool)
 
 
+@lru_cache(maxsize=1)
+def get_health_expert_llm() -> ChatOllama:
+    """Devuelve el LLM del experto en salud configurado y cacheado."""
+    return ChatOllama(model="llama3.2", temperature=0)
+
+
 def health_expert(state: dict, prompts: Prompts) -> dict:
     """
     Recibe las afirmaciones extraídas, usa el modelo BERT
@@ -50,7 +56,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         }
 
     # Instanciar el LLM y la herramienta detectora
-    llm = ChatOllama(model="llama3.2", temperature=0)
+    llm = get_health_expert_llm()
     bert_tool = _get_bert_tool()
 
     # Definir el prompt de sistema
