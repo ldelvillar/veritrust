@@ -1,11 +1,12 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
+import asyncio
 import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.agents.errors import OllamaConnectionError, invoke_graph
+from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
@@ -42,7 +43,7 @@ _GET_ERROR_RESPONSES: dict[int | str, dict] = {
     response_model=AnalysisResponse,
     responses=_POST_ERROR_RESPONSES,
 )
-def analyze_news(
+async def analyze_news(
     body: AnalysisRequest,
     request: Request,
     user: dict = Depends(check_rate_limit),
@@ -58,7 +59,11 @@ def analyze_news(
         )
 
     try:
-        text = extract_text_from_url(str(body.url)) if body.url else body.text
+        text = (
+            await asyncio.to_thread(extract_text_from_url, str(body.url))
+            if body.url
+            else body.text
+        )
     except URLExtractionError as e:
         raise HTTPException(
             status_code=400,
@@ -76,7 +81,7 @@ def analyze_news(
 
     try:
         # Ejecutar el grafo (traduce errores conocidos a tipos del dominio)
-        result = invoke_graph(verification_system, initial_state)
+        result = await ainvoke_graph(verification_system, initial_state)
 
         # Obtener los resultados
         label = result.get("label") or None
@@ -90,7 +95,7 @@ def analyze_news(
             )
 
         # Guardar el análisis exitoso en la base de datos
-        analysis_id = save_successful_analysis(
+        analysis_id = await save_successful_analysis(
             user_id=user_id,
             request=body,
             label=str(label),
@@ -126,7 +131,7 @@ def analyze_news(
     response_model=AnalysisHistoryItem,
     responses=_GET_ERROR_RESPONSES,
 )
-def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
+async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
 
@@ -140,7 +145,7 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         ) from e
 
     try:
-        record = get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
     except HistoryDatabaseError as e:
         raise HTTPException(
             status_code=500,

@@ -21,7 +21,7 @@ dependencies = [
     "cryptography>=46",
 
     # Database
-    "psycopg2>=2.9",
+    "psycopg[binary,pool]>=3.2",
 
     # LLM / Agents
     "langchain>=1.2",
@@ -51,6 +51,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.0",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=7.1",
     "coverage>=7.13",
     "ruff>=0.8",
@@ -58,6 +59,9 @@ dev = [
     "matplotlib>=3.10",
     "seaborn>=0.13",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]

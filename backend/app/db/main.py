@@ -8,8 +8,9 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional, Sequence
 from urllib.parse import urlparse
 
-import psycopg2
+import psycopg
 from dotenv import load_dotenv
+from psycopg_pool import AsyncConnectionPool
 
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.dashboard import (
@@ -57,6 +58,35 @@ def _ensure_environment_loaded() -> None:
 
     load_dotenv()
     setattr(_ensure_environment_loaded, "_loaded", True)
+
+
+_pool: AsyncConnectionPool | None = None
+
+
+async def get_pool() -> AsyncConnectionPool:
+    """Devuelve un pool async compartido, abriéndolo bajo demanda.
+
+    El lifespan de la aplicación llama a este helper al arrancar para pagar el
+    handshake una sola vez; los tests parchean las funciones DB del módulo, por
+    lo que el pool nunca se inicializa durante la suite.
+    """
+
+    global _pool
+    if _pool is None:
+        conninfo = _build_connection_string()
+        pool = AsyncConnectionPool(conninfo, min_size=1, max_size=10, open=False)
+        await pool.open()
+        _pool = pool
+    return _pool
+
+
+async def close_pool() -> None:
+    """Cierra el pool si está abierto. Llamado desde el lifespan."""
+
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
 
 
 def _build_database_error(context_message: str) -> str:
@@ -178,7 +208,7 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
     return count_query, list_query
 
 
-def save_analysis_history(
+async def save_analysis_history(
     *,
     user_id: str,
     source_type: str,
@@ -190,22 +220,20 @@ def save_analysis_history(
 ) -> str:
     """Guarda un analisis exitoso en public.analysis_history."""
 
-    conninfo = _build_connection_string()
+    pool = await get_pool()
     confidence_value = _normalize_confidence(confidence)
 
     query = """
-		INSERT INTO public.analysis_history
-		(user_id, source_type, input_text, input_url, label, confidence, explanation)
+        INSERT INTO public.analysis_history
+        (user_id, source_type, input_text, input_url, label, confidence, explanation)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
-	"""
-
-    inserted_row = None
+    """
 
     try:
-        with psycopg2.connect(conninfo) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
                     query,
                     (
                         user_id,
@@ -217,9 +245,8 @@ def save_analysis_history(
                         explanation,
                     ),
                 )
-                inserted_row = cur.fetchone()
-            conn.commit()
-    except psycopg2.Error as exc:
+                inserted_row = await cur.fetchone()
+    except psycopg.Error as exc:
         raise HistoryDatabaseError(
             _build_database_error("No se pudo guardar el analisis en la base de datos.")
         ) from exc
@@ -230,7 +257,7 @@ def save_analysis_history(
     return str(inserted_row[0])
 
 
-def save_successful_analysis(
+async def save_successful_analysis(
     *,
     user_id: str,
     request: AnalysisRequest,
@@ -249,7 +276,7 @@ def save_successful_analysis(
     input_url = str(request.url) if source_type == "url" and request.url else None
 
     try:
-        return save_analysis_history(
+        return await save_analysis_history(
             user_id=user_id,
             source_type=source_type,
             input_text=input_text,
@@ -258,12 +285,12 @@ def save_successful_analysis(
             confidence=confidence,
             explanation=explanation,
         )
-    except (HistoryDatabaseError, psycopg2.Error) as exc:
+    except (HistoryDatabaseError, psycopg.Error) as exc:
         logger.exception("No se pudo guardar el historial de analisis: %s", exc)
         return None
 
 
-def list_user_analysis_history(
+async def list_user_analysis_history(
     *,
     user_id: str,
     limit: int = 20,
@@ -275,7 +302,7 @@ def list_user_analysis_history(
 ) -> tuple[list[AnalysisHistoryItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
 
-    conninfo = _build_connection_string()
+    pool = await get_pool()
 
     safe_limit, safe_offset, safe_source_type, safe_score_sort = (
         _sanitize_history_query_params(
@@ -294,15 +321,18 @@ def list_user_analysis_history(
     count_query, list_query = _build_history_queries(where_sql, safe_score_sort)
 
     try:
-        with psycopg2.connect(conninfo) as conn:
-            with conn.cursor() as cur:
-                cur.execute(count_query, tuple(where_params))
-                count_row = cur.fetchone()
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # count_query/list_query are str from .format() — pyright
+                # cannot trace them back to LiteralString, but the dynamic
+                # components (where_sql, safe_score_sort) are sanitized.
+                await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                cur.execute(list_query, (*where_params, safe_limit, safe_offset))
-                rows = cur.fetchall()
-    except psycopg2.Error as exc:
+                await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
+                rows = await cur.fetchall()
+    except psycopg.Error as exc:
         raise HistoryDatabaseError(
             _build_database_error(
                 "No se pudo consultar el historial en la base de datos."
@@ -314,35 +344,35 @@ def list_user_analysis_history(
     return records, total_count
 
 
-def get_user_analysis_by_id(
+async def get_user_analysis_by_id(
     *, user_id: str, analysis_id: str
 ) -> AnalysisHistoryItem | None:
     """Obtiene un analisis por id para un usuario autenticado."""
 
-    conninfo = _build_connection_string()
+    pool = await get_pool()
 
     query = """
-		SELECT
-			id,
-			user_id,
-			source_type,
-			input_text,
-			input_url,
-			label,
-			confidence,
-			explanation,
-			created_at
-		FROM public.analysis_history
-		WHERE user_id = %s AND id = %s
-		LIMIT 1
-	"""
+        SELECT
+            id,
+            user_id,
+            source_type,
+            input_text,
+            input_url,
+            label,
+            confidence,
+            explanation,
+            created_at
+        FROM public.analysis_history
+        WHERE user_id = %s AND id = %s
+        LIMIT 1
+    """
 
     try:
-        with psycopg2.connect(conninfo) as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, (user_id, analysis_id))
-                row = cur.fetchone()
-    except psycopg2.Error as exc:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
         raise HistoryDatabaseError(
             _build_database_error(
                 "No se pudo consultar el análisis en la base de datos."
@@ -518,12 +548,12 @@ def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertIte
     ]
 
 
-def get_user_dashboard_summary(
+async def get_user_dashboard_summary(
     *, user_id: str, trend_days: int = 14, alert_limit: int = 5
 ) -> DashboardSummaryResponse:
     """Obtiene métricas agregadas para el dashboard del usuario."""
 
-    conninfo = _build_connection_string()
+    pool = await get_pool()
     safe_trend_days, safe_alert_limit = _sanitize_dashboard_params(
         trend_days=trend_days,
         alert_limit=alert_limit,
@@ -613,23 +643,23 @@ def get_user_dashboard_summary(
     )
 
     try:
-        with psycopg2.connect(conninfo) as conn:
-            with conn.cursor() as cur:
-                cur.execute(kpis_query, (user_id,))
-                kpi_row = cur.fetchone()
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(kpis_query, (user_id,))
+                kpi_row = await cur.fetchone()
 
-                cur.execute(trend_query, (user_id, trend_start_date))
-                trend_rows = cur.fetchall()
+                await cur.execute(trend_query, (user_id, trend_start_date))
+                trend_rows = await cur.fetchall()
 
-                cur.execute(source_query, (user_id,))
-                source_rows = cur.fetchall()
+                await cur.execute(source_query, (user_id,))
+                source_rows = await cur.fetchall()
 
-                cur.execute(domain_query, (user_id,))
-                domain_rows = cur.fetchall()
+                await cur.execute(domain_query, (user_id,))
+                domain_rows = await cur.fetchall()
 
-                cur.execute(alerts_query, (user_id, safe_alert_limit))
-                alert_rows = cur.fetchall()
-    except psycopg2.Error as exc:
+                await cur.execute(alerts_query, (user_id, safe_alert_limit))
+                alert_rows = await cur.fetchall()
+    except psycopg.Error as exc:
         raise HistoryDatabaseError(
             _build_database_error(
                 "No se pudo consultar el resumen del dashboard en la base de datos."

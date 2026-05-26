@@ -30,7 +30,7 @@ def _get_date_threshold(
 
 
 @router.get("", response_model=HistoryResponse, responses=_GET_HISTORY_ERROR_RESPONSES)
-def get_history(
+async def get_history(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, max_length=200),
@@ -44,7 +44,7 @@ def get_history(
     offset = (page - 1) * page_size
 
     try:
-        records, total_count = list_user_analysis_history(
+        records, total_count = await list_user_analysis_history(
             user_id=user_id,
             limit=page_size,
             offset=offset,

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.agents.main import create_graph
 from app.api.router import api_router
 from app.core.cors import get_cors_config
+from app.db.main import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.utils.ollama import ensure_ollama_available
 
@@ -32,10 +33,13 @@ async def lifespan(application: FastAPI):
             prompts.health_expert.version,
         )
         application.state.verification_system = create_graph(prompts)
+        await get_pool()
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
         logger.exception("No se pudo inicializar el sistema de verificación: %s", exc)
 
     yield
+
+    await close_pool()
 
 
 app = FastAPI(lifespan=lifespan)

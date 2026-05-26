@@ -24,12 +24,12 @@ _GET_SUMMARY_ERROR_RESPONSES: dict[int | str, dict] = {
     response_model=DashboardSummaryResponse,
     responses=_GET_SUMMARY_ERROR_RESPONSES,
 )
-def get_dashboard_summary(user=Depends(get_current_user)):
+async def get_dashboard_summary(user=Depends(get_current_user)):
     """Endpoint para obtener métricas agregadas del dashboard del usuario."""
     user_id = user["sub"]
 
     try:
-        return get_user_dashboard_summary(user_id=user_id)
+        return await get_user_dashboard_summary(user_id=user_id)
     except HistoryDatabaseError as e:
         raise HTTPException(
             status_code=500,

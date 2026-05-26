@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 @router.get("/healthz")
-def healthz(request: Request):
+async def healthz(request: Request):
     """Devuelve 503 si el grafo multiagente no se inicializó correctamente."""
     if getattr(request.app.state, "verification_system", None) is None:
         raise HTTPException(status_code=503, detail="Service not ready")

@@ -20,13 +20,16 @@ class OllamaConnectionError(AgentError):
     """No se pudo conectar al servidor de Ollama."""
 
 
-def invoke_graph(graph, state: dict) -> dict:
-    """Ejecuta el grafo y traduce excepciones de conexión a errores tipados.
+async def ainvoke_graph(graph, state: dict) -> dict:
+    """Ejecuta el grafo de forma asíncrona y traduce excepciones de conexión.
+
+    LangGraph despacha los nodos síncronos a un threadpool internamente, por
+    lo que mantener los agentes en ``def`` no bloquea el event loop.
 
     - ``ConnectionError`` / ``httpx.ConnectError`` → ``OllamaConnectionError``
     - Resto de excepciones se propagan sin tocar.
     """
     try:
-        return graph.invoke(state)
+        return await graph.ainvoke(state)
     except (ConnectionError, httpx.ConnectError) as e:
         raise OllamaConnectionError(str(e)) from e

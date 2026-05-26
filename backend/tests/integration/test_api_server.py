@@ -24,7 +24,7 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
         def __init__(self):
             self.invocations = []
 
-        def invoke(self, state):
+        async def ainvoke(self, state):
             self.invocations.append(state)
             if invoke_error is not None:
                 raise invoke_error
@@ -104,6 +104,14 @@ def test_analisis_returns_success_payload(monkeypatch):
     )
     client = TestClient(server_module.app)
 
+    async def fake_save_successful_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.save_successful_analysis",
+        fake_save_successful_analysis,
+    )
+
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 200
@@ -127,7 +135,7 @@ def test_analisis_saves_history_only_on_success(monkeypatch):
 
     calls = []
 
-    def fake_save_successful_analysis(**kwargs):
+    async def fake_save_successful_analysis(**kwargs):
         calls.append(kwargs)
         return "11111111-1111-1111-1111-111111111111"
 
@@ -156,7 +164,7 @@ def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
 
     calls = []
 
-    def fake_save_successful_analysis(**kwargs):
+    async def fake_save_successful_analysis(**kwargs):
         calls.append(kwargs)
         return "11111111-1111-1111-1111-111111111111"
 
@@ -182,6 +190,14 @@ def test_analisis_returns_success_with_url(monkeypatch):
         monkeypatch, invoke_result=result
     )
     client = TestClient(server_module.app)
+
+    async def fake_save_successful_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.save_successful_analysis",
+        fake_save_successful_analysis,
+    )
 
     response = client.post(
         "/analysis",
@@ -279,7 +295,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         created_at="2026-04-10T12:00:00+00:00",
     )
 
-    def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
         assert user_id == "test-user"
         assert analysis_id == "11111111-1111-1111-1111-111111111111"
         return record
@@ -301,9 +317,12 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
+    async def fake_returns_none(**kwargs):
+        return None
+
     monkeypatch.setattr(
         "app.api.routes.analysis.get_user_analysis_by_id",
-        lambda **kwargs: None,
+        fake_returns_none,
     )
 
     response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
@@ -326,7 +345,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
@@ -450,7 +469,7 @@ def test_historial_returns_user_history(monkeypatch):
         }
     ]
 
-    def fake_list_user_analysis_history(
+    async def fake_list_user_analysis_history(
         *,
         user_id,
         limit,
@@ -492,7 +511,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    def fake_list_user_analysis_history(**kwargs):
+    async def fake_list_user_analysis_history(**kwargs):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(
@@ -552,7 +571,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
         ],
     )
 
-    def fake_get_user_dashboard_summary(*, user_id):
+    async def fake_get_user_dashboard_summary(*, user_id):
         assert user_id == "test-user"
         return summary
 
@@ -577,7 +596,7 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    def fake_get_user_dashboard_summary(*, user_id):
+    async def fake_get_user_dashboard_summary(*, user_id):
         raise HistoryDatabaseError("db down")
 
     monkeypatch.setattr(

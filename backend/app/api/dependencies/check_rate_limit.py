@@ -10,7 +10,7 @@ from app.api.dependencies.get_current_user import get_current_user
 rate_limit: defaultdict[str, list[float]] = defaultdict(list)
 
 
-def check_rate_limit(user: dict = Depends(get_current_user)) -> dict:
+async def check_rate_limit(user: dict = Depends(get_current_user)) -> dict:
     """Dependencia que verifica el rate limit del usuario autenticado."""
     user_id = user["sub"]
     if not user_id:
