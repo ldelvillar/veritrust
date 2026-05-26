@@ -5,23 +5,11 @@ import { useEffect, useMemo } from 'react';
 import Spinner from '@/assets/Spinner';
 import Warning from '@/assets/Warning';
 import { useApiQuery } from '@/hooks/useApiQuery';
-import type { components } from '@/types/api';
+import type { paths } from '@/types/api';
 
-type DashboardKpis = components['schemas']['DashboardKpis'];
-type DashboardTrendPoint = components['schemas']['DashboardTrendPoint'];
-type DashboardSourceBreakdownItem =
-  components['schemas']['DashboardSourceBreakdownItem'];
-type DashboardDomainBreakdownItem =
-  components['schemas']['DashboardDomainBreakdownItem'];
-type DashboardAlertItem = components['schemas']['DashboardAlertItem'];
-
-interface DashboardPayload {
-  kpis: DashboardKpis;
-  trend: DashboardTrendPoint[];
-  source_breakdown: DashboardSourceBreakdownItem[];
-  domain_breakdown: DashboardDomainBreakdownItem[];
-  alerts: DashboardAlertItem[];
-}
+type DashboardPayload =
+  paths['/dashboard/summary']['get']['responses']['200']['content']['application/json'];
+type DashboardAlertItem = DashboardPayload['alerts'][number];
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   text: 'Texto pegado',
