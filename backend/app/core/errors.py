@@ -6,11 +6,6 @@ from app.schemas.errors import ErrorCode, ErrorDetail
 
 
 _MESSAGES: dict[ErrorCode, str] = {
-    ErrorCode.MEMORY_LIMIT: (
-        "Los servidores están al límite de su capacidad en este momento. "
-        "Por favor, inténtalo de nuevo más tarde. Si el problema persiste, "
-        "contacta al soporte técnico para que pueda escalar el problema."
-    ),
     ErrorCode.CONNECTION: (
         "Los servidores están en mantenimiento o no responden. "
         "Por favor, inténtalo de nuevo más tarde. Si el problema persiste, "

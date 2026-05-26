@@ -8,7 +8,6 @@ from pydantic import BaseModel
 class ErrorCode(str, Enum):
     """Códigos estables que el frontend puede usar para identificar errores."""
 
-    MEMORY_LIMIT = "MEMORY_LIMIT"
     CONNECTION = "CONNECTION"
     INTERNAL = "INTERNAL"
     NO_MEDICAL_CLAIMS = "NO_MEDICAL_CLAIMS"

@@ -16,6 +16,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.core.errors import make_error_detail
+from app.agents.errors import OllamaConnectionError, invoke_graph
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -73,8 +74,8 @@ def analyze_news(
     }
 
     try:
-        # Ejecutar el grafo
-        result = verification_system.invoke(initial_state)
+        # Ejecutar el grafo (traduce errores conocidos a tipos del dominio)
+        result = invoke_graph(verification_system, initial_state)
 
         # Obtener los resultados
         label = result.get("label") or None
@@ -105,21 +106,17 @@ def analyze_news(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        error_msg = str(e).lower()
-        logger.exception("Error al analizar la noticia: %s", error_msg)
-
-        # Traducir errores del sistema a códigos para el usuario
-        if "model requires more system memory" in error_msg:
-            code = ErrorCode.MEMORY_LIMIT
-        elif "connection refused" in error_msg or "connect call failed" in error_msg:
-            code = ErrorCode.CONNECTION
-        else:
-            code = ErrorCode.INTERNAL
-
+    except OllamaConnectionError as e:
+        logger.exception("No se pudo conectar al servidor de Ollama")
         raise HTTPException(
             status_code=500,
-            detail=make_error_detail(code),
+            detail=make_error_detail(ErrorCode.CONNECTION),
+        ) from e
+    except Exception as e:
+        logger.exception("Error inesperado al analizar la noticia")
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.INTERNAL),
         ) from e
 
 

@@ -228,6 +228,32 @@ def test_analisis_returns_500_on_unexpected_error(monkeypatch):
     assert response.json()["detail"]["code"] == "INTERNAL"
 
 
+def test_analisis_returns_connection_error_when_ollama_unreachable(monkeypatch):
+    server_module, _, _ = _load_server_module(
+        monkeypatch, invoke_error=ConnectionError("connect call failed")
+    )
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis", json={"text": "Texto"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "CONNECTION"
+
+
+def test_analisis_returns_internal_on_ollama_response_error(monkeypatch):
+    import ollama
+
+    server_module, _, _ = _load_server_module(
+        monkeypatch, invoke_error=ollama.ResponseError("model not found", 404)
+    )
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis", json={"text": "Texto"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "INTERNAL"
+
+
 def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
