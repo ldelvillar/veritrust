@@ -8,8 +8,15 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from app.db.main import HistoryDatabaseError, list_user_analysis_history
 from app.api.dependencies.get_current_user import get_current_user
 from app.schemas.history import AnalysisHistoryItem, HistoryResponse
+from app.schemas.errors import ErrorCode, ErrorResponse
+from app.core.errors import make_error_detail
 
 router = APIRouter()
+
+
+_GET_HISTORY_ERROR_RESPONSES: dict[int | str, dict] = {
+    500: {"model": ErrorResponse},
+}
 
 
 def _get_date_threshold(
@@ -22,7 +29,7 @@ def _get_date_threshold(
     return datetime.now(timezone.utc) - timedelta(days=days)
 
 
-@router.get("", response_model=HistoryResponse)
+@router.get("", response_model=HistoryResponse, responses=_GET_HISTORY_ERROR_RESPONSES)
 def get_history(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -49,7 +56,7 @@ def get_history(
     except HistoryDatabaseError as e:
         raise HTTPException(
             status_code=500,
-            detail="No se pudo recuperar el historial de análisis.",
+            detail=make_error_detail(ErrorCode.HISTORY_FETCH_FAILED),
         ) from e
 
     items = [

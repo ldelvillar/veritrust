@@ -468,7 +468,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     response = client.get("/history")
 
     assert response.status_code == 500
-    assert "No se pudo recuperar el historial" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "HISTORY_FETCH_FAILED"
 
 
 def test_dashboard_summary_returns_summary(monkeypatch):
@@ -476,6 +476,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     client = TestClient(server_module.app)
 
     summary = types.SimpleNamespace(
+        status="success",
         kpis=types.SimpleNamespace(
             total_analyses=23,
             reliable_rate=61.5,
@@ -552,4 +553,4 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     response = client.get("/dashboard/summary")
 
     assert response.status_code == 500
-    assert "No se pudo recuperar el dashboard" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "DASHBOARD_FETCH_FAILED"

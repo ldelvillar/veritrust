@@ -254,7 +254,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "MEMORY_LIMIT" | "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED";
+        ErrorCode: "MEMORY_LIMIT" | "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -474,6 +474,15 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     get_history_history_get: {
@@ -510,6 +519,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

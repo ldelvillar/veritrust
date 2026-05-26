@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from app.api.dependencies.get_current_user import get_current_user
 from app.schemas.dashboard import DashboardSummaryResponse
+from app.schemas.errors import ErrorCode, ErrorResponse
+from app.core.errors import make_error_detail
 
 from app.db.main import (
     HistoryDatabaseError,
@@ -13,7 +15,16 @@ from app.db.main import (
 router = APIRouter()
 
 
-@router.get("/summary", response_model=DashboardSummaryResponse)
+_GET_SUMMARY_ERROR_RESPONSES: dict[int | str, dict] = {
+    500: {"model": ErrorResponse},
+}
+
+
+@router.get(
+    "/summary",
+    response_model=DashboardSummaryResponse,
+    responses=_GET_SUMMARY_ERROR_RESPONSES,
+)
 def get_dashboard_summary(user=Depends(get_current_user)):
     """Endpoint para obtener métricas agregadas del dashboard del usuario."""
     user_id = user["sub"]
@@ -23,5 +34,5 @@ def get_dashboard_summary(user=Depends(get_current_user)):
     except HistoryDatabaseError as e:
         raise HTTPException(
             status_code=500,
-            detail="No se pudo recuperar el dashboard.",
+            detail=make_error_detail(ErrorCode.DASHBOARD_FETCH_FAILED),
         ) from e
