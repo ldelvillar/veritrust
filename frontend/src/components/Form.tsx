@@ -8,13 +8,8 @@ import Cloud from '@/assets/Cloud';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import type { components } from '@/types/api';
-import { fetchJsonWithAuth } from '@/lib/apiClient';
-import {
-  ERROR_CONNECTION,
-  ERROR_INTERNAL,
-  ERROR_MEMORY_LIMIT,
-  ERROR_NO_MEDICAL_CLAIMS,
-} from '@/messages';
+import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { ERROR_INTERNAL } from '@/messages';
 import type { paths } from '@/types/api';
 
 type CreateAnalysisResponse =
@@ -167,17 +162,7 @@ export default function Form() {
         throw new Error('No se generó un ID de análisis válido.');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (
-        ![
-          ERROR_CONNECTION,
-          ERROR_MEMORY_LIMIT,
-          ERROR_INTERNAL,
-          ERROR_NO_MEDICAL_CLAIMS,
-        ].includes(message)
-      ) {
-        setError(ERROR_INTERNAL);
-      } else if (err instanceof Error) {
+      if (err instanceof ApiError && err.code) {
         setError(err.message);
       } else {
         setError(ERROR_INTERNAL);

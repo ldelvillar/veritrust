@@ -14,18 +14,32 @@ from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.history import AnalysisHistoryItem
 from app.api.dependencies.get_current_user import get_current_user
 from app.api.dependencies.check_rate_limit import check_rate_limit
-from app.core.messages import (
-    ERROR_MEMORY_LIMIT,
-    ERROR_CONNECTION,
-    ERROR_INTERNAL,
-    ERROR_NO_MEDICAL_CLAIMS,
-)
+from app.schemas.errors import ErrorCode, ErrorResponse
+from app.core.errors import make_error_detail
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("", response_model=AnalysisResponse)
+_POST_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    422: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+    503: {"model": ErrorResponse},
+}
+
+_GET_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+}
+
+
+@router.post(
+    "",
+    response_model=AnalysisResponse,
+    responses=_POST_ERROR_RESPONSES,
+)
 def analyze_news(
     body: AnalysisRequest,
     request: Request,
@@ -38,13 +52,16 @@ def analyze_news(
     if verification_system is None:
         raise HTTPException(
             status_code=503,
-            detail="El servicio de análisis no está disponible temporalmente.",
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
         )
 
     try:
         text = extract_text_from_url(str(body.url)) if body.url else body.text
     except URLExtractionError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.URL_EXTRACTION, str(e)),
+        ) from e
 
     initial_state = {
         "input_text": text,
@@ -67,10 +84,10 @@ def analyze_news(
         )
 
         if not explanation:
-            return {
-                "status": "error",
-                "message": ERROR_NO_MEDICAL_CLAIMS,
-            }
+            raise HTTPException(
+                status_code=422,
+                detail=make_error_detail(ErrorCode.NO_MEDICAL_CLAIMS),
+            )
 
         # Guardar el análisis exitoso en la base de datos
         analysis_id = save_successful_analysis(
@@ -88,22 +105,31 @@ def analyze_news(
             "confidence": confidence,
             "explanation": explanation,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = str(e).lower()
         logger.exception("Error al analizar la noticia: %s", error_msg)
 
-        # Traducir errores a mensajes para el usuario
+        # Traducir errores del sistema a códigos para el usuario
         if "model requires more system memory" in error_msg:
-            friendly_msg = ERROR_MEMORY_LIMIT
+            code = ErrorCode.MEMORY_LIMIT
         elif "connection refused" in error_msg or "connect call failed" in error_msg:
-            friendly_msg = ERROR_CONNECTION
+            code = ErrorCode.CONNECTION
         else:
-            friendly_msg = ERROR_INTERNAL
+            code = ErrorCode.INTERNAL
 
-        raise HTTPException(status_code=500, detail=friendly_msg) from e
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(code),
+        ) from e
 
 
-@router.get("/{analysis_id}", response_model=AnalysisHistoryItem)
+@router.get(
+    "/{analysis_id}",
+    response_model=AnalysisHistoryItem,
+    responses=_GET_ERROR_RESPONSES,
+)
 def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
@@ -113,7 +139,8 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         UUID(analysis_id)
     except ValueError as e:
         raise HTTPException(
-            status_code=400, detail="El id de análisis no es válido."
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
         ) from e
 
     try:
@@ -121,11 +148,14 @@ def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     except HistoryDatabaseError as e:
         raise HTTPException(
             status_code=500,
-            detail="No se pudo recuperar el análisis.",
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
         ) from e
 
     if not record:
-        raise HTTPException(status_code=404, detail="Análisis no encontrado.")
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
 
     return AnalysisHistoryItem(
         analysis_id=record.analysis_id,

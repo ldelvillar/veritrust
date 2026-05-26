@@ -249,6 +249,31 @@ export interface components {
             /** Average Confidence */
             average_confidence: number;
         };
+        /**
+         * ErrorCode
+         * @description Códigos estables que el frontend puede usar para identificar errores.
+         * @enum {string}
+         */
+        ErrorCode: "MEMORY_LIMIT" | "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED";
+        /**
+         * ErrorDetail
+         * @description Forma del campo `detail` que se envía en HTTPException.
+         */
+        ErrorDetail: {
+            code: components["schemas"]["ErrorCode"];
+            /** Message */
+            message: string;
+        };
+        /**
+         * ErrorResponse
+         * @description Cuerpo completo de un error: {"detail": ErrorDetail}.
+         *
+         *     Se usa en el parámetro ``responses`` de las rutas para documentar el
+         *     contrato de errores en OpenAPI y, vía openapi-typescript, en el frontend.
+         */
+        ErrorResponse: {
+            detail: components["schemas"]["ErrorDetail"];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -322,13 +347,40 @@ export interface operations {
                     "application/json": components["schemas"]["AnalysisResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -355,6 +407,24 @@ export interface operations {
                     "application/json": components["schemas"]["AnalysisHistoryItem"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -362,6 +432,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

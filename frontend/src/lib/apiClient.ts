@@ -14,6 +14,18 @@ interface AuthRequestOptions extends Omit<RequestInit, 'headers' | 'body'> {
   errorContextMessage?: string;
 }
 
+export class ApiError extends Error {
+  readonly code: string | null;
+  readonly status: number;
+
+  constructor(message: string, code: string | null, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function buildApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) {
     return path;
@@ -23,9 +35,27 @@ function buildApiUrl(path: string): string {
   return `${CONFIG.API_URL}${normalizedPath}`;
 }
 
-function getErrorDetailMessage(detail: unknown): string | null {
+interface ParsedErrorDetail {
+  message: string | null;
+  code: string | null;
+}
+
+function parseErrorDetail(detail: unknown): ParsedErrorDetail {
   if (typeof detail === 'string') {
-    return detail;
+    return { message: detail, code: null };
+  }
+
+  if (
+    typeof detail === 'object' &&
+    detail !== null &&
+    !Array.isArray(detail)
+  ) {
+    const obj = detail as Record<string, unknown>;
+    const code = typeof obj.code === 'string' ? obj.code : null;
+    const message = typeof obj.message === 'string' ? obj.message : null;
+    if (code !== null || message !== null) {
+      return { message, code };
+    }
   }
 
   if (Array.isArray(detail) && detail.length > 0) {
@@ -36,11 +66,11 @@ function getErrorDetailMessage(detail: unknown): string | null {
       'msg' in first &&
       typeof first.msg === 'string'
     ) {
-      return first.msg;
+      return { message: first.msg, code: null };
     }
   }
 
-  return null;
+  return { message: null, code: null };
 }
 
 export async function fetchJsonWithAuth<TResponse>(
@@ -80,11 +110,13 @@ export async function fetchJsonWithAuth<TResponse>(
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    const detailMessage = getErrorDetailMessage(
+    const { message, code } = parseErrorDetail(
       (payload as { detail?: unknown }).detail
     );
-    throw new Error(
-      detailMessage ?? `Status ${response.status}: ${errorContextMessage}`
+    throw new ApiError(
+      message ?? `Status ${response.status}: ${errorContextMessage}`,
+      code,
+      response.status
     );
   }
 

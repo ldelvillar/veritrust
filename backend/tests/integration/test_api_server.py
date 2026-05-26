@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from app.api.dependencies.check_rate_limit import rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.main import HistoryDatabaseError
-from app.core.messages import ERROR_INTERNAL, ERROR_NO_MEDICAL_CLAIMS
 
 
 def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
@@ -159,8 +158,8 @@ def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
 
     response = client.post("/analysis", json={"text": "Texto sin claim"})
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "error"
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "NO_MEDICAL_CLAIMS"
     assert calls == []
 
 
@@ -213,10 +212,8 @@ def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
 
     response = client.post("/analysis", json={"text": "Texto sin claim"})
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "error"
-    assert body["message"] == ERROR_NO_MEDICAL_CLAIMS
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "NO_MEDICAL_CLAIMS"
 
 
 def test_analisis_returns_500_on_unexpected_error(monkeypatch):
@@ -228,7 +225,7 @@ def test_analisis_returns_500_on_unexpected_error(monkeypatch):
     response = client.post("/analysis", json={"text": "Texto"})
 
     assert response.status_code == 500
-    assert response.json()["detail"] == ERROR_INTERNAL
+    assert response.json()["detail"]["code"] == "INTERNAL"
 
 
 def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
@@ -277,7 +274,7 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
     response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Análisis no encontrado."
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
 
 
 def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
@@ -287,7 +284,7 @@ def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
     response = client.get("/analysis/not-a-uuid")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "El id de análisis no es válido."
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
 
 
 def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
@@ -305,7 +302,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 500
-    assert "No se pudo recuperar el análisis" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
