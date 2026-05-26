@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+
 from ml.utils import load_data
 
 

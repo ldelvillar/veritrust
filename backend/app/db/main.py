@@ -5,22 +5,22 @@ from __future__ import annotations
 import logging
 import os
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlparse
 from typing import Any, Optional, Sequence
+from urllib.parse import urlparse
 
-from dotenv import load_dotenv
 import psycopg2
+from dotenv import load_dotenv
 
 from app.schemas.analysis import AnalysisRequest
-from app.schemas.history import AnalysisHistoryItem
 from app.schemas.dashboard import (
-    DashboardKpis,
-    DashboardTrendPoint,
-    DashboardSourceBreakdownItem,
-    DashboardDomainBreakdownItem,
     DashboardAlertItem,
+    DashboardDomainBreakdownItem,
+    DashboardKpis,
+    DashboardSourceBreakdownItem,
     DashboardSummaryResponse,
+    DashboardTrendPoint,
 )
+from app.schemas.history import AnalysisHistoryItem
 
 logger = logging.getLogger(__name__)
 

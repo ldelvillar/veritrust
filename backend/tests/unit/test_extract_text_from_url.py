@@ -1,6 +1,10 @@
+import socket
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from app.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
+import requests
+
+from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 
 
 # --- _validate_public_url edge cases ---
@@ -17,9 +21,6 @@ def test_no_hostname():
 def test_localhost():
     with pytest.raises(URLExtractionError, match="URLs locales"):
         extract_text_from_url("http://localhost")
-
-
-import socket
 
 
 @patch("socket.getaddrinfo", side_effect=socket.gaierror)
@@ -42,9 +43,6 @@ def test_too_many_redirects(mock_get, mock_validate):
     mock_get.return_value.headers = {"Location": "/redir"}
     with pytest.raises(URLExtractionError, match="Demasiadas redirecciones"):
         extract_text_from_url("http://redirect.com")
-
-
-import requests
 
 
 @patch("app.utils.extract_text_from_url._validate_public_url")

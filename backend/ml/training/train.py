@@ -7,15 +7,15 @@ import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
     BatchEncoding,
-    EvalPrediction,
-    BertTokenizer,
     BertForSequenceClassification,
+    BertTokenizer,
+    EvalPrediction,
     Trainer,
     TrainingArguments,
 )
+
 from ml.utils.load_data import load_dataset
 from ml.utils.preprocess import preprocess_data
-
 
 # Configuración e hiperparámetros
 MODEL_NAME = "dmis-lab/biobert-v1.1"
@@ -49,7 +49,7 @@ class PubHealthDataset(torch.utils.data.Dataset):
 def compute_metrics(pred: EvalPrediction) -> dict:
     """Calcula métricas de evaluación: Precisión, Recall, F1 y Accuracy."""
     labels = pred.label_ids
-    preds = pred.predictions.argmax(-1)
+    preds = pred.predictions.argmax(-1)  # type: ignore[union-attr]
 
     precision, recall, f1, _ = precision_recall_fscore_support(
         labels, preds, average="binary"
@@ -97,7 +97,7 @@ def run_training() -> None:
     print(f"Inicializando modelo. Usando dispositivo: {DEVICE}")
 
     model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
-    model.to(DEVICE)
+    model.to(DEVICE)  # type: ignore[arg-type]
 
     # Argumentos de entrenamiento
     training_args = TrainingArguments(

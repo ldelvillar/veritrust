@@ -2,6 +2,7 @@
 
 from enum import Enum
 from typing import Annotated, Optional
+
 from pydantic import BaseModel, HttpUrl, StringConstraints, model_validator
 
 

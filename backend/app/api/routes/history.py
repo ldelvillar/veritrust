@@ -3,13 +3,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.db.main import HistoryDatabaseError, list_user_analysis_history
 from app.api.dependencies.get_current_user import get_current_user
-from app.schemas.history import AnalysisHistoryItem, HistoryResponse
-from app.schemas.errors import ErrorCode, ErrorResponse
 from app.core.errors import make_error_detail
+from app.db.main import HistoryDatabaseError, list_user_analysis_history
+from app.schemas.errors import ErrorCode, ErrorResponse
+from app.schemas.history import AnalysisHistoryItem, HistoryResponse
 
 router = APIRouter()
 

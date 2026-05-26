@@ -4,7 +4,6 @@ from typing import Any
 
 from app.schemas.errors import ErrorCode, ErrorDetail
 
-
 _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CONNECTION: (
         "Los servidores están en mantenimiento o no responden. "
@@ -33,9 +32,7 @@ _MESSAGES: dict[ErrorCode, str] = {
 }
 
 
-def make_error_detail(
-    code: ErrorCode, message: str | None = None
-) -> dict[str, Any]:
+def make_error_detail(code: ErrorCode, message: str | None = None) -> dict[str, Any]:
     """Construye un detail estructurado (dict JSON-ready) para HTTPException.
 
     Usa el mensaje canónico del código salvo que se pase uno explícito.
@@ -43,6 +40,6 @@ def make_error_detail(
     que no sabe encodear instancias de Pydantic. El schema sigue siendo
     ``ErrorDetail`` (lo usamos como fuente de validación y para OpenAPI).
     """
-    return ErrorDetail(
-        code=code, message=message or _MESSAGES[code]
-    ).model_dump(mode="json")
+    return ErrorDetail(code=code, message=message or _MESSAGES[code]).model_dump(
+        mode="json"
+    )

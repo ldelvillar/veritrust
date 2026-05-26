@@ -1,16 +1,15 @@
 """Este módulo contiene los endpoints relacionados con el dashboard del usuario."""
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies.get_current_user import get_current_user
-from app.schemas.dashboard import DashboardSummaryResponse
-from app.schemas.errors import ErrorCode, ErrorResponse
 from app.core.errors import make_error_detail
-
 from app.db.main import (
     HistoryDatabaseError,
     get_user_dashboard_summary,
 )
+from app.schemas.dashboard import DashboardSummaryResponse
+from app.schemas.errors import ErrorCode, ErrorResponse
 
 router = APIRouter()
 

@@ -6,13 +6,13 @@ con los datos originales para calcular metricas de precision del modelo.
 
 import os
 import sys
+from pathlib import Path
 from time import sleep, time
 
-from pathlib import Path
+from dotenv import load_dotenv
+from google.auth.credentials import AnonymousCredentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.auth.credentials import AnonymousCredentials
-from dotenv import load_dotenv
 
 # Asegurar que al ejecutar este archivo como script, se use el código local del repositorio.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

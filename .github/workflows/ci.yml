@@ -73,6 +73,15 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Lint (ruff)
+        run: uv run ruff check app ml tests
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check app ml tests
+
+      - name: Type check (mypy)
+        run: uv run mypy
+
       - name: Run app tests with coverage
         run: |
           mkdir -p test-results
@@ -115,6 +124,15 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check app ml tests
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check app ml tests
+
+      - name: Type check (mypy)
+        run: uv run mypy
 
       - name: Run ml tests with coverage
         run: |

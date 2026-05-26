@@ -1,8 +1,10 @@
 """Tests unitarios para el modulo de entrenamiento del modelo."""
 
 from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
+
 from ml.training import train as train_module
 
 

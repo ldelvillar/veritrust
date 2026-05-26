@@ -6,8 +6,8 @@ IA sobre una afirmación médica y lo explica al paciente utilizando terminolog�
 import ast
 import sys
 from functools import lru_cache
-
 from pathlib import Path
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
@@ -16,8 +16,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.tools.model_tool import FakeNewsDetectorTool
 from app.prompts.agents import Prompts
+from app.tools.model_tool import FakeNewsDetectorTool
 
 
 @lru_cache(maxsize=8)

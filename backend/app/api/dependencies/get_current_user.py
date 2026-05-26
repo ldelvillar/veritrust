@@ -6,9 +6,9 @@ del token de autenticación en el header Authorization.
 import os
 
 import jwt
-from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import Header, HTTPException
+from jwt import PyJWKClient
 
 load_dotenv()
 

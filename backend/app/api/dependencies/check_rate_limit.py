@@ -2,11 +2,12 @@
 
 import time
 from collections import defaultdict
+
 from fastapi import Depends, HTTPException
 
 from app.api.dependencies.get_current_user import get_current_user
 
-rate_limit = defaultdict(list)
+rate_limit: defaultdict[str, list[float]] = defaultdict(list)
 
 
 def check_rate_limit(user: dict = Depends(get_current_user)) -> dict:

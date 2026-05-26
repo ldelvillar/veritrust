@@ -7,10 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.main import create_graph
-from app.core.cors import get_cors_config
-from app.utils.ollama import ensure_ollama_available
 from app.api.router import api_router
+from app.core.cors import get_cors_config
 from app.prompts.agents import load_prompts
+from app.utils.ollama import ensure_ollama_available
 
 logger = logging.getLogger(__name__)
 

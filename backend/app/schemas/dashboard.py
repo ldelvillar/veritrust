@@ -1,6 +1,7 @@
 """Este módulo define los esquemas de datos relacionados con el dashboard del usuario."""
 
 from typing import Optional
+
 from pydantic import BaseModel
 
 

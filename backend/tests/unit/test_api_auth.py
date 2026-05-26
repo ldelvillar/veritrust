@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi import HTTPException
+
 from app.api.dependencies import get_current_user as get_user_module
 
 

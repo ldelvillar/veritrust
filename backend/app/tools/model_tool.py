@@ -5,15 +5,16 @@ News utilizando un modelo de IA basado en BioBERT.
 
 import logging
 import os
-
 from pathlib import Path
 from typing import Any, Mapping, cast
+
 import torch
 import torch.nn.functional as F
 from langchain.tools import BaseTool
 from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
-from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import BertForSequenceClassification, BertTokenizer
+
 from ml.utils.text import clean_text
 
 logger = logging.getLogger(__name__)

@@ -4,6 +4,7 @@ particiones (train, test, validation) desde archivos Parquet.
 """
 
 import os
+
 import pandas as pd
 
 # Definir la ruta relativa al proyecto

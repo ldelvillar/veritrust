@@ -1,6 +1,7 @@
 """Tests de contrato para agentes individuales con mocks de LLM y herramienta BERT."""
 
 from types import SimpleNamespace
+
 import pytest
 
 from app.prompts.agents import PromptItem, Prompts

@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app.db import main as database_module
+from app.db.main import HistoryDatabaseError
 from app.schemas.dashboard import (
     DashboardAlertItem,
     DashboardDomainBreakdownItem,
@@ -12,7 +13,6 @@ from app.schemas.dashboard import (
     DashboardTrendPoint,
 )
 from app.schemas.history import AnalysisHistoryItem
-from app.db.main import HistoryDatabaseError
 
 
 def _reset_env_loader_flag() -> None:

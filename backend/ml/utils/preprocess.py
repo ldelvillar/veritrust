@@ -4,7 +4,9 @@ de los datos para el entrenamiento del modelo BERT.
 """
 
 import re
+
 import pandas as pd
+
 from ml.utils.text import clean_text
 
 

@@ -29,7 +29,7 @@ class TranslatedStatements(BaseModel):
 def get_translator_chain(prompt_text: str):
     """Devuelve la cadena de traducción configurada y cacheada."""
     llm = ChatOllama(model="translategemma", temperature=0)
-    llm = llm.with_structured_output(TranslatedStatements)
+    structured_llm = llm.with_structured_output(TranslatedStatements)
 
     system_prompt = ChatPromptTemplate.from_messages(
         [
@@ -37,7 +37,7 @@ def get_translator_chain(prompt_text: str):
             ("user", "Afirmaciones a traducir (numeradas):\n{statements}"),
         ]
     )
-    return system_prompt | llm
+    return system_prompt | structured_llm
 
 
 def translator(state: dict, prompts: Prompts) -> dict:

@@ -1,6 +1,7 @@
 """Tests unitarios para ensure_ollama_available."""
 
 import urllib.error
+
 import pytest
 
 from app.utils import ollama as ollama_module

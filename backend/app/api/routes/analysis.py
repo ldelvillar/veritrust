@@ -3,20 +3,21 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, Request
-from app.utils.extract_text_from_url import extract_text_from_url, URLExtractionError
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.agents.errors import OllamaConnectionError, invoke_graph
+from app.api.dependencies.check_rate_limit import check_rate_limit
+from app.api.dependencies.get_current_user import get_current_user
+from app.core.errors import make_error_detail
 from app.db.main import (
     HistoryDatabaseError,
     get_user_analysis_by_id,
     save_successful_analysis,
 )
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
-from app.schemas.history import AnalysisHistoryItem
-from app.api.dependencies.get_current_user import get_current_user
-from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.schemas.errors import ErrorCode, ErrorResponse
-from app.core.errors import make_error_detail
-from app.agents.errors import OllamaConnectionError, invoke_graph
+from app.schemas.history import AnalysisHistoryItem
+from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def analyze_news(
             detail=make_error_detail(ErrorCode.URL_EXTRACTION, str(e)),
         ) from e
 
-    initial_state = {
+    initial_state: dict[str, object] = {
         "input_text": text,
         "extracted_statements": [],
         "translated_statements": [],

@@ -29,7 +29,7 @@ class MedicalStatements(BaseModel):
 def get_extractor_chain(prompt_text: str):
     """Devuelve la cadena de extracción configurada y cacheada."""
     llm = ChatOllama(model="llama3", temperature=0)
-    llm = llm.with_structured_output(MedicalStatements)
+    structured_llm = llm.with_structured_output(MedicalStatements)
 
     system_prompt = ChatPromptTemplate.from_messages(
         [
@@ -37,7 +37,7 @@ def get_extractor_chain(prompt_text: str):
             ("user", "Texto a analizar: {texto}"),
         ]
     )
-    return system_prompt | llm
+    return system_prompt | structured_llm
 
 
 def extractor(state: dict, prompts: Prompts) -> dict:

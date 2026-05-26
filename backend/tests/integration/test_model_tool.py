@@ -2,7 +2,9 @@
 
 import types
 from pathlib import Path
+
 import pytest
+
 from app.tools.model_tool import FakeNewsDetectorTool
 
 

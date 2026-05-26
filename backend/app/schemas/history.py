@@ -3,6 +3,7 @@ Este módulo define los esquemas de datos relacionados con el historial de anál
 """
 
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 
