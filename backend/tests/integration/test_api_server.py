@@ -73,15 +73,24 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
     return server_module, fake_graph, start_calls
 
 
-def test_root_endpoint_returns_service_status(monkeypatch):
-    server_module, _, start_calls = _load_server_module(monkeypatch)
+def test_healthz_returns_ready_when_graph_is_initialized(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    response = client.get("/")
+    response = client.get("/healthz")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "online"
-    assert start_calls["count"] == 1
+    assert response.json() == {"status": "ready"}
+
+
+def test_healthz_returns_503_when_graph_failed_to_initialize(monkeypatch):
+    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module.app.state.verification_system = None
+    client = TestClient(server_module.app)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 503
 
 
 def test_analisis_returns_success_payload(monkeypatch):

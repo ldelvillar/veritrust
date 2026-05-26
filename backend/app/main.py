@@ -46,9 +46,3 @@ app.add_middleware(
     **cors_config,
 )
 app.include_router(api_router)
-
-
-@app.get("/")
-def read_root():
-    """Endpoint de prueba para verificar que el servidor está funcionando."""
-    return {"status": "online", "service": "API de Verificacion Medica"}
