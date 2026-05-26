@@ -84,14 +84,14 @@ def test_translator_returns_only_expected_field_and_preserves_state(
     monkeypatch, translator_module, dummy_prompts
 ):
 
-    class _FakeLLM:
-        def __init__(self, *args, **kwargs):
-            pass
+    class _FakeChain:
+        def invoke(self, payload):
+            assert "statements" in payload
+            return SimpleNamespace(translations=["Translated"])
 
-        def invoke(self, messages):
-            return SimpleNamespace(content="Translated")
-
-    monkeypatch.setattr(translator_module, "ChatOllama", _FakeLLM)
+    monkeypatch.setattr(
+        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+    )
 
     state = {
         "extracted_statements": ["Afirmación original"],
@@ -107,35 +107,54 @@ def test_translator_returns_only_expected_field_and_preserves_state(
     assert merged["other_key"] == 123
 
 
-def test_translator_handles_empty_llm_output_without_exception(
+def test_translator_pads_when_llm_returns_fewer_translations(
     monkeypatch, translator_module, dummy_prompts
 ):
 
-    class _FakeLLM:
-        def __init__(self, *args, **kwargs):
-            pass
+    class _FakeChain:
+        def invoke(self, payload):
+            return SimpleNamespace(translations=["only-first"])
 
-        def invoke(self, messages):
-            return SimpleNamespace(content="   ")
-
-    monkeypatch.setattr(translator_module, "ChatOllama", _FakeLLM)
-
-    update = translator_module.translator(
-        {"extracted_statements": ["A"]}, dummy_prompts
+    monkeypatch.setattr(
+        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
     )
 
-    assert update == {"translated_statements": [""]}
+    update = translator_module.translator(
+        {"extracted_statements": ["A", "B"]}, dummy_prompts
+    )
+
+    assert update == {"translated_statements": ["only-first", ""]}
+
+
+def test_translator_truncates_when_llm_returns_extra_translations(
+    monkeypatch, translator_module, dummy_prompts
+):
+
+    class _FakeChain:
+        def invoke(self, payload):
+            return SimpleNamespace(translations=["t1", "t2", "extra"])
+
+    monkeypatch.setattr(
+        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+    )
+
+    update = translator_module.translator(
+        {"extracted_statements": ["A", "B"]}, dummy_prompts
+    )
+
+    assert update == {"translated_statements": ["t1", "t2"]}
 
 
 def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
     monkeypatch, translator_module, dummy_prompts
 ):
 
-    class _ShouldNotBeCalled:
-        def __init__(self, *args, **kwargs):
-            raise AssertionError("ChatOllama no debe instanciarse sin afirmaciones")
+    def _should_not_be_called(prompt_text):
+        raise AssertionError("get_translator_chain no debe llamarse sin afirmaciones")
 
-    monkeypatch.setattr(translator_module, "ChatOllama", _ShouldNotBeCalled)
+    monkeypatch.setattr(
+        translator_module, "get_translator_chain", _should_not_be_called
+    )
 
     update = translator_module.translator({"extracted_statements": []}, dummy_prompts)
 
