@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlparse
 from typing import Any, Optional, Sequence
 
@@ -173,9 +173,7 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
         LIMIT %s OFFSET %s
-    """.format(
-        where_sql=where_sql, safe_score_sort=safe_score_sort
-    )
+    """.format(where_sql=where_sql, safe_score_sort=safe_score_sort)
 
     return count_query, list_query
 
@@ -610,7 +608,9 @@ def get_user_dashboard_summary(
         LIMIT %s
     """
 
-    trend_start_date = datetime.utcnow().date() - timedelta(days=safe_trend_days - 1)
+    trend_start_date = datetime.now(timezone.utc).date() - timedelta(
+        days=safe_trend_days - 1
+    )
 
     try:
         with psycopg2.connect(conninfo) as conn:
