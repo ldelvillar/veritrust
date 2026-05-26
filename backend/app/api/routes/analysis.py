@@ -77,11 +77,9 @@ def analyze_news(
         result = verification_system.invoke(initial_state)
 
         # Obtener los resultados
-        label = result.get("label", "Indefinida")
-        confidence = result.get("confidence", "Indefinida")
-        explanation = result.get(
-            "medical_explanation", "No se pudo obtener la explicación médica."
-        )
+        label = result.get("label") or None
+        confidence = result.get("confidence") or None
+        explanation = result.get("medical_explanation") or None
 
         if not explanation:
             raise HTTPException(
