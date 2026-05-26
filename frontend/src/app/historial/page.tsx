@@ -13,7 +13,7 @@ import type { paths } from '@/types/api';
 const PAGE_SIZE = 10;
 
 type HistoryItem =
-  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
+  paths['/history']['get']['responses']['200']['content']['application/json']['items'][number];
 interface HistoryResponse {
   items?: HistoryItem[];
   count?: number;
