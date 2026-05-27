@@ -56,7 +56,7 @@ export default function AnalisisPage() {
             <h2 className="mb-2 text-2xl font-bold text-gray-800">
               No se pudo cargar el análisis
             </h2>
-            <p className="text-base text-gray-600">{error}</p>
+            <p className="text-base text-gray-600">{error.message}</p>
           </div>
           <button
             onClick={() => router.replace('/historial')}

@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { useCallback } from 'react';
 import useSWR from 'swr';
-import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
 
 export function useApiQuery<T>(path: string | null) {
   const { getToken } = useAuth();
@@ -15,15 +15,13 @@ export function useApiQuery<T>(path: string | null) {
     await mutate();
   }, [mutate]);
 
+  const normalizedError: ApiError | Error | null =
+    error instanceof Error ? error : error ? new Error('Error desconocido.') : null;
+
   return {
     data: data ?? null,
     isLoading,
-    error:
-      error instanceof Error
-        ? error.message
-        : error
-          ? 'Error desconocido.'
-          : null,
+    error: normalizedError,
     refetch,
   };
 }

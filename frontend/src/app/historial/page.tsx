@@ -130,7 +130,7 @@ export default function HistorialPage() {
         currentPage={effectivePage}
         pageSize={PAGE_SIZE}
         isLoading={isLoading}
-        errorMessage={fetchError}
+        errorMessage={fetchError?.message ?? null}
         onRetry={fetchHistory}
         onPageChange={handlePageChange}
       />

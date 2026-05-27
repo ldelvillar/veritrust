@@ -67,7 +67,7 @@ export default function DashboardPage() {
                 No se pudo cargar el dashboard
               </p>
               <p className="mt-1 text-sm font-medium text-red-600">
-                {fetchError ?? 'Error desconocido.'}
+                {fetchError?.message ?? 'Error desconocido.'}
               </p>
               <button
                 type="button"
