@@ -11,7 +11,8 @@ VeriTrust is an AI-powered medical misinformation detection system. Users submit
 ### Backend (run from `backend/`)
 
 ```bash
-uv sync --frozen                                             # Install dependencies
+uv sync --frozen                                             # Install serving/API deps + app tests (excludes the ml stack)
+uv sync --frozen --extra ml                                  # Add the ml stack (pandas, pyarrow, scikit-learn, accelerate, matplotlib, seaborn) — needed for ml/ and its tests
 uv run python -m app.main                                    # Start API server (http://localhost:8000)
 uv run pytest tests --cov=app --cov-fail-under=80            # Run app tests (80% coverage required)
 uv run pytest ml/tests --cov=ml --cov-fail-under=80          # Run ML tests (80% coverage required)

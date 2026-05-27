@@ -2729,7 +2729,6 @@ name = "tfg"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "accelerate" },
     { name = "beautifulsoup4" },
     { name = "cryptography" },
     { name = "fastapi" },
@@ -2741,9 +2740,7 @@ dependencies = [
     { name = "numpy" },
     { name = "ollama" },
     { name = "orjson" },
-    { name = "pandas" },
     { name = "psycopg", extra = ["binary", "pool"] },
-    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -2751,27 +2748,34 @@ dependencies = [
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "requests" },
-    { name = "scikit-learn" },
     { name = "torch" },
     { name = "transformers" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
+[package.optional-dependencies]
+ml = [
+    { name = "accelerate" },
+    { name = "matplotlib" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "scikit-learn" },
+    { name = "seaborn" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "matplotlib" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
-    { name = "seaborn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = ">=1.12" },
+    { name = "accelerate", marker = "extra == 'ml'", specifier = ">=1.12" },
     { name = "beautifulsoup4", specifier = ">=4.14" },
     { name = "cryptography", specifier = ">=46" },
     { name = "fastapi", specifier = ">=0.135" },
@@ -2780,12 +2784,13 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=1.2" },
     { name = "langchain-ollama", specifier = ">=1.0" },
     { name = "langgraph", specifier = ">=1.0" },
+    { name = "matplotlib", marker = "extra == 'ml'", specifier = ">=3.10" },
     { name = "numpy", specifier = ">=2.4" },
     { name = "ollama", specifier = ">=0.6" },
     { name = "orjson", specifier = ">=3.11" },
-    { name = "pandas", specifier = ">=3.0" },
+    { name = "pandas", marker = "extra == 'ml'", specifier = ">=3.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
-    { name = "pyarrow", specifier = ">=23" },
+    { name = "pyarrow", marker = "extra == 'ml'", specifier = ">=23" },
     { name = "pydantic", specifier = ">=2.12" },
     { name = "pydantic-settings", specifier = ">=2.13" },
     { name = "pyjwt", specifier = ">=2.12" },
@@ -2793,22 +2798,22 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.32" },
-    { name = "scikit-learn", specifier = ">=1.8" },
+    { name = "scikit-learn", marker = "extra == 'ml'", specifier = ">=1.8" },
+    { name = "seaborn", marker = "extra == 'ml'", specifier = ">=0.13" },
     { name = "torch", specifier = ">=2.10" },
     { name = "transformers", specifier = ">=5.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.41" },
 ]
+provides-extras = ["ml"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.13" },
-    { name = "matplotlib", specifier = ">=3.10" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pytest", specifier = ">=9.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "ruff", specifier = ">=0.8" },
-    { name = "seaborn", specifier = ">=0.13" },
 ]
 
 [[package]]
