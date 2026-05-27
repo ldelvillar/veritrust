@@ -26,7 +26,7 @@ export class ApiError extends Error {
   }
 }
 
-function buildApiUrl(path: string): string {
+export function buildApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) {
     return path;
   }
@@ -35,12 +35,12 @@ function buildApiUrl(path: string): string {
   return `${CONFIG.API_URL}${normalizedPath}`;
 }
 
-interface ParsedErrorDetail {
+export interface ParsedErrorDetail {
   message: string | null;
   code: string | null;
 }
 
-function parseErrorDetail(detail: unknown): ParsedErrorDetail {
+export function parseErrorDetail(detail: unknown): ParsedErrorDetail {
   if (typeof detail === 'string') {
     return { message: detail, code: null };
   }

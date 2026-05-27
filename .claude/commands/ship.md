@@ -43,8 +43,16 @@ If lint or type-check errors are not auto-fixable, fix them manually before proc
 
 ```bash
 pnpm lint        # ESLint — fix auto-fixable issues
+pnpm test        # Vitest — must pass
 pnpm build       # Production build + type-check — must pass
 ```
+
+If tests fail:
+
+- Diagnose the failure.
+- Fix it if the cause is clear and the fix is small and safe.
+- Re-run tests to confirm.
+- If the fix is non-trivial or risky, stop and explain what's broken before touching anything.
 
 If the build fails due to type errors, fix them. If lint errors are not auto-fixable, fix them manually.
 
