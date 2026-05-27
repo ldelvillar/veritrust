@@ -2,6 +2,8 @@
 
 import re
 
+MAX_SEQUENCE_LENGTH = 128
+
 
 def clean_text(text: str) -> str:
     """Limpia el texto para el entrenamiento del modelo BERT."""

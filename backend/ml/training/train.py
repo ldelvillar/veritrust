@@ -18,13 +18,14 @@ from transformers import (
 
 from ml.utils.load_data import load_dataset
 from ml.utils.preprocess import preprocess_data
+from ml.utils.text import MAX_SEQUENCE_LENGTH
 
 logger = logging.getLogger(__name__)
 
 # Configuración e hiperparámetros
 MODEL_NAME = "dmis-lab/biobert-v1.1"
 OUTPUT_DIR = "./models/bert_classifier"
-MAX_LENGTH = 128
+MAX_LENGTH = MAX_SEQUENCE_LENGTH
 BATCH_SIZE = 16
 EPOCHS = 3
 LEARNING_RATE = 2e-5

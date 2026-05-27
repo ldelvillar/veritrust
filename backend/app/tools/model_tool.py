@@ -15,7 +15,7 @@ from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
 from transformers import BertForSequenceClassification, BertTokenizer
 
-from ml.utils.text import clean_text
+from ml.utils.text import MAX_SEQUENCE_LENGTH, clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,11 @@ class FakeNewsDetectorTool(BaseTool):
             text = clean_text(text)
 
             inputs = self._tokenizer(
-                text, return_tensors="pt", truncation=True, padding=True, max_length=512
+                text,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,
+                max_length=MAX_SEQUENCE_LENGTH,
             )
             model_inputs = self._prepare_inputs_for_model(inputs)
             model_inputs_dict = cast(Mapping[str, Any], model_inputs)
