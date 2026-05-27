@@ -241,6 +241,29 @@ def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
     assert response.json()["detail"]["code"] == "NO_MEDICAL_CLAIMS"
 
 
+def test_analisis_returns_save_failed_when_persistence_fails(monkeypatch):
+    result = {
+        "label": "falsa",
+        "confidence": 0.92,
+        "medical_explanation": "No hay evidencia clínica sólida.",
+    }
+    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
+    client = TestClient(server_module.app)
+
+    async def fake_save_successful_analysis(**kwargs):
+        raise HistoryDatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.save_successful_analysis",
+        fake_save_successful_analysis,
+    )
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
+
+
 def test_analisis_returns_500_on_unexpected_error(monkeypatch):
     server_module, _, _ = _load_server_module(
         monkeypatch, invoke_error=RuntimeError("graph failed")

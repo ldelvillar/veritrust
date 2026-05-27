@@ -84,7 +84,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/": {
+    "/healthz": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,10 +92,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Root
-         * @description Endpoint de prueba para verificar que el servidor está funcionando.
+         * Healthz
+         * @description Devuelve 503 si el grafo multiagente no se inicializó correctamente.
          */
-        get: operations["read_root__get"];
+        get: operations["healthz_healthz_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -254,7 +254,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -532,7 +532,7 @@ export interface operations {
             };
         };
     };
-    read_root__get: {
+    healthz_healthz_get: {
         parameters: {
             query?: never;
             header?: never;

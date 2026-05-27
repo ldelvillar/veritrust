@@ -112,6 +112,12 @@ async def analyze_news(
         }
     except HTTPException:
         raise
+    except HistoryDatabaseError as e:
+        logger.exception("No se pudo guardar el análisis")
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
+        ) from e
     except OllamaConnectionError as e:
         logger.exception("No se pudo conectar al servidor de Ollama")
         raise HTTPException(

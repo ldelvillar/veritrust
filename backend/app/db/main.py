@@ -250,30 +250,28 @@ async def save_successful_analysis(
     label: str,
     confidence: Any,
     explanation: str,
-) -> str | None:
+) -> str:
     """
-    Persistencia de analisis exitoso.
-    Devuelve el id del analisis si se guardo correctamente y None en caso de error.
-    El objetivo es no romper la respuesta de analisis por fallos temporales de BD.
+    Persistencia de analisis exitoso. Devuelve el id del analisis guardado.
+
+    Propaga ``HistoryDatabaseError`` si la persistencia falla: un analisis que no
+    se puede guardar no es recuperable por el cliente (la respuesta navega por id),
+    asi que la ruta lo traduce a un error explicito en lugar de fingir exito.
     """
 
     source_type = request.source_type.value
     input_text = request.text if source_type in {"text", "file"} else None
     input_url = str(request.url) if source_type == "url" and request.url else None
 
-    try:
-        return await save_analysis_history(
-            user_id=user_id,
-            source_type=source_type,
-            input_text=input_text,
-            input_url=input_url,
-            label=label,
-            confidence=confidence,
-            explanation=explanation,
-        )
-    except (HistoryDatabaseError, psycopg.Error) as exc:
-        logger.exception("No se pudo guardar el historial de analisis: %s", exc)
-        return None
+    return await save_analysis_history(
+        user_id=user_id,
+        source_type=source_type,
+        input_text=input_text,
+        input_url=input_url,
+        label=label,
+        confidence=confidence,
+        explanation=explanation,
+    )
 
 
 async def list_user_analysis_history(

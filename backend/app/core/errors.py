@@ -18,6 +18,10 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.NO_MEDICAL_CLAIMS: (
         "No se detectaron afirmaciones medicas verificables en el texto."
     ),
+    ErrorCode.ANALYSIS_SAVE_FAILED: (
+        "El análisis se completó pero no se pudo guardar. "
+        "Por favor, inténtalo de nuevo en unos momentos."
+    ),
     ErrorCode.SERVICE_UNAVAILABLE: (
         "El servicio de análisis no está disponible temporalmente."
     ),
@@ -33,12 +37,9 @@ _MESSAGES: dict[ErrorCode, str] = {
 
 
 def make_error_detail(code: ErrorCode, message: str | None = None) -> dict[str, Any]:
-    """Construye un detail estructurado (dict JSON-ready) para HTTPException.
-
+    """
+    Construye un detail estructurado (dict JSON-ready) para HTTPException.
     Usa el mensaje canónico del código salvo que se pase uno explícito.
-    Devolvemos dict porque Starlette serializa el detail con ``json.dumps``,
-    que no sabe encodear instancias de Pydantic. El schema sigue siendo
-    ``ErrorDetail`` (lo usamos como fuente de validación y para OpenAPI).
     """
     return ErrorDetail(code=code, message=message or _MESSAGES[code]).model_dump(
         mode="json"
