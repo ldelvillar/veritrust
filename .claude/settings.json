@@ -1,0 +1,21 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$data = $input | ConvertFrom-Json; $f = $data.tool_input.file_path; if ($f -match '\\.py$') { Push-Location 'c:/Users/ldelv/tfg/backend'; uv run ruff format $f 2>$null; Pop-Location } elseif ($f -match '\\.(ts|tsx|js|jsx)$') { Push-Location 'c:/Users/ldelv/tfg/frontend'; pnpm exec prettier --write $f 2>$null; Pop-Location }",
+            "shell": "powershell",
+            "statusMessage": "Formatting..."
+          }
+        ]
+      }
+    ]
+  }
+}
