@@ -224,6 +224,29 @@ def test_health_expert_handles_empty_llm_output_without_exception(
     assert update["medical_explanation"] == ""
 
 
+def test_health_expert_returns_empty_explanation_when_no_statements(
+    monkeypatch, health_module, dummy_prompts
+):
+    def _fail_if_called(*args, **kwargs):
+        raise AssertionError(
+            "No deben invocarse LLM ni detector sin afirmaciones que evaluar"
+        )
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _fail_if_called)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", _fail_if_called)
+
+    update = health_module.health_expert(
+        {"extracted_statements": [], "translated_statements": []},
+        dummy_prompts,
+    )
+
+    # Explicación vacía es el centinela que la ruta traduce a NO_MEDICAL_CLAIMS.
+    assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
+    assert update["medical_explanation"] == ""
+    assert update["label"] == ""
+    assert update["confidence"] == 0.0
+
+
 def test_health_expert_parses_stringified_tool_output(
     monkeypatch, health_module, dummy_prompts
 ):

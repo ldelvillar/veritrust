@@ -48,11 +48,13 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     extracted_statements = state.get("extracted_statements", [])
     translated_statements = state.get("translated_statements", [])
 
-    # Terminar la ejecución si la lista de afirmaciones está vacía
+    # Sin afirmaciones médicas: devolver explicación vacía para que la ruta
+    # responda NO_MEDICAL_CLAIMS en lugar de persistir un análisis inválido.
     if not extracted_statements or not translated_statements:
         return {
-            "global_confidence": "Indeterminado",
-            "medical_explanation": "No se detectaron afirmaciones médicas para evaluar.",
+            "label": "",
+            "confidence": 0.0,
+            "medical_explanation": "",
         }
 
     # Instanciar el LLM y la herramienta detectora
