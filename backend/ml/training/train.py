@@ -3,6 +3,8 @@ Este módulo contiene las funciones necesarias para entrenar
 el modelo BERT para detectar noticias falsas en salud pública.
 """
 
+import logging
+
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
@@ -16,6 +18,8 @@ from transformers import (
 
 from ml.utils.load_data import load_dataset
 from ml.utils.preprocess import preprocess_data
+
+logger = logging.getLogger(__name__)
 
 # Configuración e hiperparámetros
 MODEL_NAME = "dmis-lab/biobert-v1.1"
@@ -68,8 +72,8 @@ def run_training() -> None:
     raw_val = load_dataset("validation")
     val_df = preprocess_data(raw_val)
 
-    print(f"Datos de entrenamiento: {len(train_df)}")
-    print(f"Datos de validación: {len(val_df)}")
+    logger.info("Datos de entrenamiento: %d", len(train_df))
+    logger.info("Datos de validación: %d", len(val_df))
 
     # Extraer listas
     train_texts = train_df["text"].tolist()
@@ -79,7 +83,7 @@ def run_training() -> None:
     val_labels = val_df["label"].tolist()
 
     # Tokenización
-    print(f"Tokenizando con {MODEL_NAME}")
+    logger.info("Tokenizando con %s", MODEL_NAME)
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
 
     train_encodings = tokenizer(
@@ -94,7 +98,7 @@ def run_training() -> None:
     val_dataset = PubHealthDataset(val_encodings, val_labels)
 
     # Configuración del modelo
-    print(f"Inicializando modelo. Usando dispositivo: {DEVICE}")
+    logger.info("Inicializando modelo. Usando dispositivo: %s", DEVICE)
 
     model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
     model.to(DEVICE)  # type: ignore[arg-type]
@@ -117,7 +121,7 @@ def run_training() -> None:
     )
 
     # Entrenar el modelo
-    print("Entrenando el modelo...")
+    logger.info("Entrenando el modelo...")
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -129,20 +133,23 @@ def run_training() -> None:
     trainer.train()
 
     # Evaular el modelo en el conjunto de validación
-    print("Evaluando en el conjunto de validación...")
+    logger.info("Evaluando en el conjunto de validación...")
     eval_results = trainer.evaluate()
-    print(f"Resultados finales: {eval_results}")
+    logger.info("Resultados finales: %s", eval_results)
 
     # Guardar el modelo final y el tokenizador para su uso posterior en los agentes
     model.save_pretrained(OUTPUT_DIR)
     tokenizer.save_pretrained(OUTPUT_DIR)
-    print(f"Modelo guardado en {OUTPUT_DIR}")
+    logger.info("Modelo guardado en %s", OUTPUT_DIR)
 
-    print("Entrenamiento finalizado con éxito")
+    logger.info("Entrenamiento finalizado con éxito")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     try:
         run_training()
-    except Exception as e:
-        print(f"Error en el entrenamiento: {e}")
+    except Exception:
+        logger.exception("Error en el entrenamiento")

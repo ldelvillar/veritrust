@@ -3,11 +3,14 @@ Este módulo se encarga de la limpieza y preparación
 de los datos para el entrenamiento del modelo BERT.
 """
 
+import logging
 import re
 
 import pandas as pd
 
 from ml.utils.text import clean_text
+
+logger = logging.getLogger(__name__)
 
 
 def clean_list_string(text: str) -> str:
@@ -31,8 +34,8 @@ def clean_list_string(text: str) -> str:
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """Función principal para procesar los datos para el entrenamiento del modelo BERT."""
-    print("Iniciando preprocesado...")
-    print(f"Filas inciales: {len(df)}")
+    logger.info("Iniciando preprocesado...")
+    logger.info("Filas iniciales: %d", len(df))
 
     # Eliminar columnas innecesarias
     df = df.drop(columns=["claim_id", "subjects"], errors="ignore")
@@ -67,7 +70,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     df["fact_checkers"] = df["fact_checkers"].apply(clean_list_string)
     df["sources"] = df["sources"].apply(clean_list_string)
 
-    print(f"Filas tras el preprocesado: {len(df)}")
-    print(f"Distribución: {df['label'].value_counts().to_dict()}")
+    logger.info("Filas tras el preprocesado: %d", len(df))
+    logger.info("Distribución: %s", df["label"].value_counts().to_dict())
 
     return df

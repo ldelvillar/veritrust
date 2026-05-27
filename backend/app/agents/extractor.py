@@ -3,6 +3,7 @@ Este módulo define un agente de captura de información que extrae las afirmaci
 de un texto largo para su posterior análisis por parte de un agente experto en salud.
 """
 
+import logging
 from functools import lru_cache
 from typing import List
 
@@ -11,6 +12,8 @@ from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
 from app.prompts.agents import Prompts
+
+logger = logging.getLogger(__name__)
 
 
 class MedicalStatements(BaseModel):
@@ -44,7 +47,7 @@ def extractor(state: dict, prompts: Prompts) -> dict:
     """
     Recibe el estado actual, ejecuta la extracción y devuelve el estado actualizado.
     """
-    print("[Agente Extractor] Analizando el texto en busca de afirmaciones médicas...")
+    logger.info("[Extractor] Analizando el texto en busca de afirmaciones médicas")
 
     input_text = state.get("input_text", "")
 
@@ -52,7 +55,7 @@ def extractor(state: dict, prompts: Prompts) -> dict:
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
-    print(f"[Agente Extractor] Se extrajeron {len(result.statements)} afirmaciones.")
+    logger.info("[Extractor] Se extrajeron %d afirmaciones", len(result.statements))
 
     # Devolver la parte del estado que este agente es responsable de actualizar
     return {"extracted_statements": result.statements}

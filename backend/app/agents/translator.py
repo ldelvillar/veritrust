@@ -3,6 +3,7 @@ Este módulo define un agente traductor que toma una lista de afirmaciones en
 español y devuelve sus traducciones al inglés clínico en una única llamada al LLM.
 """
 
+import logging
 from functools import lru_cache
 from typing import List
 
@@ -11,6 +12,8 @@ from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
 from app.prompts.agents import Prompts
+
+logger = logging.getLogger(__name__)
 
 
 class TranslatedStatements(BaseModel):
@@ -45,7 +48,7 @@ def translator(state: dict, prompts: Prompts) -> dict:
     Recibe las afirmaciones en español y las traduce al inglés clínico
     en una única llamada al LLM, preservando orden y cardinalidad.
     """
-    print("[Agente Traductor] Traduciendo afirmaciones al inglés...")
+    logger.info("[Traductor] Traduciendo afirmaciones al inglés")
 
     original_statements = state.get("extracted_statements", [])
 
@@ -64,8 +67,8 @@ def translator(state: dict, prompts: Prompts) -> dict:
     elif len(translations) > len(original_statements):
         translations = translations[: len(original_statements)]
 
-    print(
-        f"[Agente Traductor] Traducción completada ({len(translations)} afirmaciones)."
+    logger.info(
+        "[Traductor] Traducción completada (%d afirmaciones)", len(translations)
     )
 
     return {"translated_statements": translations}

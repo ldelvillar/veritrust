@@ -3,9 +3,12 @@ Este módulo contiene la función para cargar los datos de las distintas
 particiones (train, test, validation) desde archivos Parquet.
 """
 
+import logging
 import os
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Definir la ruta relativa al proyecto
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,6 +34,6 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"No se encontró el archivo en: {data_path}.")
 
-    print(f"Cargando datos desde: {data_path}...")
+    logger.info("Cargando datos desde: %s", data_path)
 
     return pd.read_parquet(data_path)

@@ -4,6 +4,7 @@ el sistema multiagente para evaluarlas una por una, comparando los resultados
 con los datos originales para calcular metricas de precision del modelo.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -21,6 +22,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.tools.model_tool import FakeNewsDetectorTool
 from app.utils.ollama import ensure_ollama_available
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -110,10 +113,12 @@ def extract_api_data(search_term: str) -> list:
 
         return statements_list
 
-    except HttpError as error:
-        print(f"Error de infraestructura al conectar con Google: {error}")
+    except HttpError:
+        logger.exception("Error de infraestructura al conectar con Google")
         if len(statements_list) > 0:
-            print("Se han preservado datos recuperados hasta el corte de conexion.")
+            logger.info(
+                "Se han preservado datos recuperados hasta el corte de conexion"
+            )
 
         return statements_list
 
@@ -127,7 +132,7 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
     start_time = time()
     total_facts = []
 
-    print("Iniciando extraccion de verificaciones...")
+    logger.info("Iniciando extraccion de verificaciones...")
     for term in search_terms:
         total_facts.extend(extract_api_data(term))
         # Pausar ejecucion para evitar bloqueo por limite de cuota de API
@@ -135,7 +140,7 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
 
     total_analyzed = len(total_facts)
     if total_analyzed == 0:
-        print("Ausencia de datos para analizar.")
+        logger.warning("Ausencia de datos para analizar.")
         return {
             "accuracy": 0.0,
             "precision": 0.0,
@@ -146,7 +151,7 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
     tp = fp = tn = fn = 0
     bert_tool = FakeNewsDetectorTool()
 
-    print("Iniciando inferencia sobre muestras recuperadas...")
+    logger.info("Iniciando inferencia sobre muestras recuperadas...")
 
     for fact in total_facts:
         text = fact["text"]
@@ -154,7 +159,7 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
 
         # Ejecutar inferencia local
         result = bert_tool.invoke({"text": text})
-        print(result)
+        logger.debug("Resultado del detector: %s", result)
         system_label = result.get("label", "")
 
         # Actualizar matriz de confusion
@@ -183,14 +188,14 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
 
     execution_time = time() - start_time
 
-    print("\nResultados finales:")
-    print(f"Muestras procesadas: {tp + tn + fp + fn}")
-    print(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
-    print(f"Accuracy: {accuracy:.2f}")
-    print(f"Precision: {precision:.2f}")
-    print(f"Recall: {recall:.2f}")
-    print(f"F1-score: {f1:.2f}")
-    print(f"Tiempo de ejecución: {execution_time:.2f} segundos")
+    logger.info("Resultados finales:")
+    logger.info("Muestras procesadas: %d", tp + tn + fp + fn)
+    logger.info("TP: %d, TN: %d, FP: %d, FN: %d", tp, tn, fp, fn)
+    logger.info("Accuracy: %.2f", accuracy)
+    logger.info("Precision: %.2f", precision)
+    logger.info("Recall: %.2f", recall)
+    logger.info("F1-score: %.2f", f1)
+    logger.info("Tiempo de ejecución: %.2f segundos", execution_time)
 
     return {
         "accuracy": accuracy,
@@ -201,6 +206,9 @@ def evaluate_system(search_terms: list[str]) -> dict[str, float]:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     terms = [
         # Vacunas y Enfermedades Infecciosas
         "vaccine",

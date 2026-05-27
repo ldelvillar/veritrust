@@ -4,6 +4,7 @@ IA sobre una afirmación médica y lo explica al paciente utilizando terminolog�
 """
 
 import ast
+import logging
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.prompts.agents import Prompts
 from app.tools.model_tool import FakeNewsDetectorTool
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=8)
@@ -42,7 +45,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     Recibe las afirmaciones extraídas, usa el modelo BERT
     para verificarlas y redacta el informe médico con Llama 3.2.
     """
-    print("[Agente Experto] Evaluando afirmaciones y redactando informes médicos...")
+    logger.info("[Experto] Evaluando afirmaciones y redactando informe médico")
 
     # Recuperar la lista de afirmaciones extraídas y traducidas
     extracted_statements = state.get("extracted_statements", [])
@@ -70,7 +73,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
 
     # Iterar sobre cada afirmación para analizarla individualmente
     for original, translated in zip(extracted_statements, translated_statements):
-        print("Analizando afirmación con BERT...")
+        logger.debug("[Experto] Analizando afirmación con BERT")
 
         # Obtener el resultado del modelo
         result = bert_tool.invoke({"text": translated})
@@ -91,7 +94,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         ):
             raise ValueError(f"Salida inesperada del detector: {result}")
 
-        print(f"Resultado del modelo para la afirmación: {result}")
+        logger.debug("[Experto] Resultado del modelo para la afirmación: %s", result)
         label, confidence = result["label"], result["confidence"]
 
         # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global
@@ -120,12 +123,12 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         )
     )
 
-    print("Generando explicación médica...")
+    logger.info("[Experto] Generando explicación médica")
 
     # Invocar al LLM para generar la explicación médica basada en el resultado del modelo
     medical_explanation = llm.invoke([system_prompt, expert_message]).content
 
-    print("[Agente Experto] Todos los informes generados.")
+    logger.info("[Experto] Informe médico generado")
 
     return {
         "label": global_label,
