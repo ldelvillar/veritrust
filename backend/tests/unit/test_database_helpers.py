@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
+from app.core.config import Settings
 from app.db import main as database_module
 from app.db.main import HistoryDatabaseError
 from app.schemas.dashboard import (
@@ -15,15 +16,14 @@ from app.schemas.dashboard import (
 from app.schemas.history import AnalysisHistoryItem
 
 
-def _reset_env_loader_flag() -> None:
-    if hasattr(database_module._ensure_environment_loaded, "_loaded"):
-        delattr(database_module._ensure_environment_loaded, "_loaded")
+def _use_database_url(monkeypatch, database_url: str) -> None:
+    """Hace que _build_connection_string lea una configuración controlada."""
+    settings = Settings(_env_file=None, database_url=database_url)  # type: ignore[call-arg]
+    monkeypatch.setattr(database_module, "get_settings", lambda: settings)
 
 
 def test_build_connection_string_returns_database_url(monkeypatch) -> None:
-    _reset_env_loader_flag()
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
-    monkeypatch.setattr(database_module, "load_dotenv", lambda: None)
+    _use_database_url(monkeypatch, "postgresql://user:pass@localhost:5432/db")
 
     conninfo = database_module._build_connection_string()
 
@@ -33,29 +33,12 @@ def test_build_connection_string_returns_database_url(monkeypatch) -> None:
 def test_build_connection_string_raises_when_database_url_is_missing(
     monkeypatch,
 ) -> None:
-    _reset_env_loader_flag()
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(database_module, "load_dotenv", lambda: None)
+    _use_database_url(monkeypatch, "")
 
     with pytest.raises(HistoryDatabaseError) as exc:
         database_module._build_connection_string()
 
     assert "DATABASE_URL" in str(exc.value)
-
-
-def test_ensure_environment_loaded_only_calls_dotenv_once(monkeypatch) -> None:
-    _reset_env_loader_flag()
-    calls = {"count": 0}
-
-    def fake_load_dotenv() -> None:
-        calls["count"] += 1
-
-    monkeypatch.setattr(database_module, "load_dotenv", fake_load_dotenv)
-
-    database_module._ensure_environment_loaded()
-    database_module._ensure_environment_loaded()
-
-    assert calls["count"] == 1
 
 
 def test_build_database_error_appends_configuration_hint() -> None:

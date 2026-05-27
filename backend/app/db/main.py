@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional, Sequence
 from urllib.parse import urlparse
 
 import psycopg
-from dotenv import load_dotenv
 from psycopg_pool import AsyncConnectionPool
 
+from app.core.config import get_settings
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.dashboard import (
     DashboardAlertItem,
@@ -36,28 +35,15 @@ class HistoryDatabaseError(RuntimeError):
 
 
 def _build_connection_string() -> str:
-    """Obtiene la cadena de conexion desde la variable DATABASE_URL."""
+    """Obtiene la cadena de conexion desde la configuracion central."""
 
-    _ensure_environment_loaded()
-
-    db_url = os.getenv("DATABASE_URL")
+    db_url = get_settings().database_url
     if not db_url:
         raise HistoryDatabaseError(
             "No se encontro la variable de entorno DATABASE_URL."
         )
 
     return db_url
-
-
-def _ensure_environment_loaded() -> None:
-    """Carga variables de entorno una única vez y evita side effects al importar."""
-
-    already_loaded = getattr(_ensure_environment_loaded, "_loaded", False)
-    if already_loaded:
-        return
-
-    load_dotenv()
-    setattr(_ensure_environment_loaded, "_loaded", True)
 
 
 _pool: AsyncConnectionPool | None = None

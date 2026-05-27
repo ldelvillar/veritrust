@@ -57,6 +57,7 @@ User (browser)
 - **`app/agents/`** — LangGraph orchestration in `main.py`; individual agents in `extractor.py`, `translator.py`, `health_expert.py`; typed pipeline errors and `invoke_graph` helper in `errors.py`
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`)
 - **`app/db/main.py`** — Raw psycopg2 queries; no ORM
+- **`app/core/config.py`** — Centralised `Settings` (pydantic-settings) for all service config (DB, Clerk, CORS); cached `get_settings()` accessor and `validate_runtime()` startup check
 - **`app/schemas/errors.py`** — `ErrorCode` enum + `ErrorDetail`/`ErrorResponse` Pydantic models (the wire contract; exported to frontend via OpenAPI)
 - **`app/core/errors.py`** — Spanish messages keyed by `ErrorCode` + `make_error_detail()` factory used by every route's `HTTPException`
 - **`ml/`** — Standalone BioBERT training and evaluation; separate test suite
@@ -70,6 +71,7 @@ User (browser)
 
 ## Key Conventions
 
+- **Centralised config** — all env-derived service config (DB, Clerk, CORS) flows through the `Settings` model in `app/core/config.py`, accessed via the cached `get_settings()`. Don't read env vars (`os.getenv`/`load_dotenv`) ad hoc in feature code; add a field to `Settings` instead. Required vars are validated once at startup via `get_settings().validate_runtime()` in the lifespan (a missing/invalid value is a startup failure surfaced via `/healthz` 503, not a per-request 500). `Settings` construction is side-effect-free, so importing modules never requires a populated environment.
 - **Agent prompts** live in `backend/app/prompts/prompts.yaml`, not in Python code.
 - **TypeScript API types** are generated from the backend's OpenAPI spec — run `pnpm generate:api-types` after changing schemas.
 - **No ORM** — database access uses raw psycopg3 async SQL in `app/db/main.py`, served by a module-level `AsyncConnectionPool` opened in lifespan startup and closed on shutdown.
