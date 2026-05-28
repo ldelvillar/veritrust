@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = ""
     cors_allow_credentials: bool = True
 
+    # Ollama
+    ollama_base_url: str = "http://localhost:11434"
+
     # Autenticación
     clerk_pem_public_key: str | None = None
     clerk_jwks_url: str | None = None

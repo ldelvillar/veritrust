@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.core.config import get_settings
 from app.prompts.agents import Prompts
 from app.tools.model_tool import FakeNewsDetectorTool
 
@@ -37,7 +38,9 @@ def _get_bert_tool() -> FakeNewsDetectorTool:
 @lru_cache(maxsize=1)
 def get_health_expert_llm() -> ChatOllama:
     """Devuelve el LLM del experto en salud configurado y cacheado."""
-    return ChatOllama(model="llama3.2", temperature=0)
+    return ChatOllama(
+        model="llama3.2", temperature=0, base_url=get_settings().ollama_base_url
+    )
 
 
 def health_expert(state: dict, prompts: Prompts) -> dict:

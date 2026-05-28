@@ -30,14 +30,23 @@ frontend/
 
 ## Onboarding
 
-### 1. Clone
+### Quick start — Docker (recommended)
 
 ```bash
-git clone <repo-url> veritrust
-cd veritrust
+cp .env.example .env             # fill in Clerk values
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+docker compose up --build
+docker compose exec ollama ollama pull llama3
+docker compose exec ollama ollama pull llama3.2
+docker compose exec ollama ollama pull translategemma
 ```
 
-### 2. Configure environment
+Frontend at `http://localhost:3000`, backend at `http://localhost:8000`. The BioBERT weights under `backend/models/bert_classifier/` are mounted into the backend container read-only.
+
+### Local development (without Docker)
+
+#### 1. Configure environment
 
 Copy the example env files and fill in real values:
 
@@ -46,10 +55,10 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-Backend needs at minimum: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CORS_ALLOWED_ORIGINS`.
+Backend needs at minimum: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `OLLAMA_BASE_URL`.
 Frontend needs: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`.
 
-### 3. Backend
+#### 2. Backend
 
 ```bash
 cd backend
@@ -58,7 +67,7 @@ uv sync --frozen --extra ml     # add the ML stack (only if training/evaluating)
 uv run python -m app.main       # http://localhost:8000
 ```
 
-### 4. Frontend
+#### 3. Frontend
 
 ```bash
 cd frontend
@@ -66,7 +75,7 @@ pnpm install
 pnpm dev                        # http://localhost:3000
 ```
 
-### 5. Pull the Ollama models
+#### 4. Pull the Ollama models
 
 ```bash
 ollama pull llama3
@@ -74,7 +83,7 @@ ollama pull llama3.2
 ollama pull translategemma
 ```
 
-### 6. BioBERT model
+#### 5. BioBERT model
 
 The detector loads weights from `backend/models/bert_classifier/`. Either copy a pre-trained checkpoint there or run the training pipeline:
 

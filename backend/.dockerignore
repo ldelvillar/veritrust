@@ -1,0 +1,26 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+test-results
+
+# Out of image — these belong to training or are mounted at runtime
+data
+models
+results
+logs
+ml/notebooks
+
+tests
+
+.env
+.env.*
+!.env.example
+.git
+.gitignore

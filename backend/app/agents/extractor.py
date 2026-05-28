@@ -11,6 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
+from app.core.config import get_settings
 from app.prompts.agents import Prompts
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,9 @@ class MedicalStatements(BaseModel):
 @lru_cache(maxsize=1)
 def get_extractor_chain(prompt_text: str):
     """Devuelve la cadena de extracción configurada y cacheada."""
-    llm = ChatOllama(model="llama3", temperature=0)
+    llm = ChatOllama(
+        model="llama3", temperature=0, base_url=get_settings().ollama_base_url
+    )
     structured_llm = llm.with_structured_output(MedicalStatements)
 
     system_prompt = ChatPromptTemplate.from_messages(
