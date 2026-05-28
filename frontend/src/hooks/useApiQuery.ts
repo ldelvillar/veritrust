@@ -3,12 +3,20 @@ import { useCallback } from 'react';
 import useSWR from 'swr';
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
 
-export function useApiQuery<T>(path: string | null) {
+interface UseApiQueryOptions<T> {
+  fallbackData?: T;
+}
+
+export function useApiQuery<T>(
+  path: string | null,
+  options: UseApiQueryOptions<T> = {}
+) {
   const { getToken } = useAuth();
 
   const { data, error, isLoading, mutate } = useSWR<T>(
     path,
-    (key: string) => fetchJsonWithAuth<T>(getToken, key, { method: 'GET' })
+    (key: string) => fetchJsonWithAuth<T>(getToken, key, { method: 'GET' }),
+    { fallbackData: options.fallbackData }
   );
 
   const refetch = useCallback(async () => {
@@ -16,7 +24,11 @@ export function useApiQuery<T>(path: string | null) {
   }, [mutate]);
 
   const normalizedError: ApiError | Error | null =
-    error instanceof Error ? error : error ? new Error('Error desconocido.') : null;
+    error instanceof Error
+      ? error
+      : error
+        ? new Error('Error desconocido.')
+        : null;
 
   return {
     data: data ?? null,
