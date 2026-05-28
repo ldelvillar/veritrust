@@ -9,7 +9,6 @@ import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import type { components } from '@/types/api';
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
-import { ERROR_INTERNAL } from '@/messages';
 import type { paths } from '@/types/api';
 
 type CreateAnalysisResponse =
@@ -51,7 +50,9 @@ export default function Form() {
 
   const applyFile = (file: File) => {
     if (file.size > MAX_FILE_BYTES) {
-      setError('El archivo es demasiado grande. El tamaño máximo permitido es 10 MB.');
+      setError(
+        'El archivo es demasiado grande. El tamaño máximo permitido es 10 MB.'
+      );
       return;
     }
     setError(null);
@@ -162,10 +163,12 @@ export default function Form() {
         throw new Error('No se generó un ID de análisis válido.');
       }
     } catch (err) {
-      if (err instanceof ApiError && err.code) {
+      if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError(ERROR_INTERNAL);
+        setError(
+          'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.'
+        );
       }
     } finally {
       setIsLoading(false);
