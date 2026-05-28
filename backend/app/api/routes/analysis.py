@@ -26,13 +26,16 @@ logger = logging.getLogger(__name__)
 
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
 }
 
 _GET_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }

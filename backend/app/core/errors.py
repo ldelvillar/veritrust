@@ -33,6 +33,12 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.ANALYSIS_FETCH_FAILED: "No se pudo recuperar el análisis.",
     ErrorCode.HISTORY_FETCH_FAILED: "No se pudo recuperar el historial de análisis.",
     ErrorCode.DASHBOARD_FETCH_FAILED: "No se pudo recuperar el dashboard.",
+    ErrorCode.RATE_LIMIT: (
+        "Has superado el límite de peticiones. Intenta de nuevo en un minuto."
+    ),
+    ErrorCode.UNAUTHENTICATED: "Falta la cabecera de autenticación.",
+    ErrorCode.INVALID_TOKEN: "El token de autenticación no es válido.",
+    ErrorCode.EXPIRED_TOKEN: "El token de autenticación ha expirado.",
 }
 
 

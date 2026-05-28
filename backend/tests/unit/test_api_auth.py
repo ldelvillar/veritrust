@@ -155,7 +155,7 @@ def test_get_current_user_rejects_missing_authorization_header():
         get_user_module.get_current_user(None)
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Missing Authorization header"
+    assert exc.value.detail["code"] == "UNAUTHENTICATED"
 
 
 def test_get_current_user_rejects_invalid_auth_header():
@@ -163,7 +163,7 @@ def test_get_current_user_rejects_invalid_auth_header():
         get_user_module.get_current_user("Token abc")
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid auth header"
+    assert exc.value.detail["code"] == "INVALID_TOKEN"
 
 
 def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
@@ -183,7 +183,7 @@ def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
         get_user_module.get_current_user("Bearer expired-token")
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Token expired"
+    assert exc.value.detail["code"] == "EXPIRED_TOKEN"
 
 
 def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
@@ -203,7 +203,7 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
         get_user_module.get_current_user("Bearer invalid-token")
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid token"
+    assert exc.value.detail["code"] == "INVALID_TOKEN"
 
 
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):

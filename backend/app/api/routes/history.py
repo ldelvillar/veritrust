@@ -15,6 +15,7 @@ router = APIRouter()
 
 
 _GET_HISTORY_ERROR_RESPONSES: dict[int | str, dict] = {
+    401: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
 

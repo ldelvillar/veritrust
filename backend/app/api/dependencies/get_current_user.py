@@ -10,6 +10,8 @@ from fastapi import Header, HTTPException
 from jwt import PyJWKClient
 
 from app.core.config import get_settings
+from app.core.errors import make_error_detail
+from app.schemas.errors import ErrorCode
 
 
 @lru_cache(maxsize=1)
@@ -72,10 +74,16 @@ def _get_expected_audience() -> str | list[str]:
 def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
     """Dependencia para obtener el usuario actual a partir del token de autenticación."""
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.UNAUTHENTICATED),
+        )
 
     if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid auth header")
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
+        )
 
     token = authorization.replace("Bearer ", "")
 
@@ -92,11 +100,17 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
         )
 
     except jwt.ExpiredSignatureError as e:
-        raise HTTPException(status_code=401, detail="Token expired") from e
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.EXPIRED_TOKEN),
+        ) from e
     except (TypeError, ValueError) as e:
         raise HTTPException(
             status_code=500,
             detail="Authentication provider is configured with an invalid key.",
         ) from e
     except jwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail="Invalid token") from e
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
+        ) from e

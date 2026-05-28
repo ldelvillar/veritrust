@@ -471,7 +471,7 @@ def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
     response = client.post("/analysis", json={"text": "Texto"})
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Missing Authorization header"
+    assert response.json()["detail"]["code"] == "UNAUTHENTICATED"
 
 
 def test_historial_returns_user_history(monkeypatch):
