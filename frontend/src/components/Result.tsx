@@ -13,12 +13,6 @@ interface ResultProps {
   result: ResultType;
 }
 
-function parseScore(confidence: string | number): number {
-  const n = parseFloat(String(confidence));
-  if (isNaN(n)) return 0;
-  return Math.round(n <= 1 ? n * 100 : n);
-}
-
 function getVerdictInfo(label: string): {
   text: string;
   description: string;
@@ -119,7 +113,7 @@ const AGENTS = [
 ];
 
 export default function Result({ result }: ResultProps) {
-  const score = parseScore(result.confidence);
+  const score = Math.round(result.confidence * 100);
   const verdict = getVerdictInfo(result.label);
 
   return (
