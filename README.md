@@ -4,10 +4,14 @@ AI-powered medical misinformation detector. Users submit text or a URL; a LangGr
 
 ## Stack
 
-- **Backend** — FastAPI, LangGraph, Ollama, Transformers (BioBERT), psycopg3
+- **Backend** — FastAPI (web) + arq worker, LangGraph, Ollama, Transformers (BioBERT), psycopg3
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind v4
-- **Data** — PostgreSQL (Supabase)
+- **Data** — PostgreSQL (Supabase), Redis (arq job queue)
 - **ML** — BioBERT fine-tuned on PUBHEALTH
+
+Analysis is asynchronous: `POST /analysis` returns immediately with a `pending`
+id, an arq worker runs the pipeline, and the frontend polls `GET /analysis/{id}`
+until the verdict is ready.
 
 ## Repository layout
 
@@ -26,6 +30,7 @@ frontend/
 - Node.js 22+ and `pnpm` 9+
 - [Ollama](https://ollama.com/) running locally on `:11434` with the models `llama3`, `llama3.2`, and `translategemma` pulled
 - A PostgreSQL database (Supabase works out of the box)
+- A Redis instance on `:6379` (job queue for the analysis worker)
 - A [Clerk](https://clerk.com/) application for auth
 
 ## Onboarding
@@ -55,16 +60,17 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-Backend needs at minimum: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `OLLAMA_BASE_URL`.
+Backend needs at minimum: `DATABASE_URL`, `REDIS_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `OLLAMA_BASE_URL`.
 Frontend needs: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`.
 
 #### 2. Backend
 
 ```bash
 cd backend
-uv sync --frozen                # install serving + api deps
-uv sync --frozen --extra ml     # add the ML stack (only if training/evaluating)
-uv run python -m app.main       # http://localhost:8000
+uv sync --frozen                      # install serving + api deps
+uv sync --frozen --extra ml           # add the ML stack (only if training/evaluating)
+uv run python -m app.main             # web API at http://localhost:8000
+uv run arq app.worker.WorkerSettings  # analysis worker (separate terminal; needs Redis + Ollama)
 ```
 
 #### 3. Frontend
@@ -116,7 +122,7 @@ pnpm generate:api-types         # regenerate src/types/api.d.ts (backend must be
 ## Notes
 
 - After changing a backend Pydantic schema, regenerate the frontend types with `pnpm generate:api-types`. Never edit `frontend/src/types/api.d.ts` by hand.
-- The database has no migration tooling yet — schema changes are applied directly in Supabase.
+- The database has no migration framework yet — fresh databases get their shape from `backend/db/init.sql`; existing databases (e.g. Supabase) apply the numbered scripts in `backend/db/migrations/` by hand. The async-analysis change ships `0001_async_analysis_status.sql`.
 
 ## License
 

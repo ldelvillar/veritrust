@@ -70,6 +70,8 @@ async def get_history(
             label=record.label,
             confidence=record.confidence,
             explanation=record.explanation,
+            status=record.status,
+            error_code=record.error_code,
             created_at=record.created_at,
         )
         for record in records

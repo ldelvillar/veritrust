@@ -80,6 +80,8 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         0.81,
         "explicacion",
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "done",
+        None,
     )
 
     record = database_module._map_history_record(row)
@@ -88,7 +90,32 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert record.analysis_id == "123"
     assert record.user_id == "user-1"
     assert record.confidence == 0.81
+    assert record.status == "done"
+    assert record.error_code is None
     assert record.created_at.startswith("2026-04-10")
+
+
+def test_map_history_record_handles_pending_row_with_null_results() -> None:
+    row = (
+        123,
+        "user-1",
+        "text",
+        "contenido",
+        None,
+        None,
+        None,
+        None,
+        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "pending",
+        None,
+    )
+
+    record = database_module._map_history_record(row)
+
+    assert record.status == "pending"
+    assert record.label is None
+    assert record.confidence is None
+    assert record.explanation is None
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
@@ -131,7 +158,7 @@ def test_build_history_where_clause_with_only_user_id() -> None:
         created_after=None,
     )
 
-    assert where_sql == "user_id = %s"
+    assert where_sql == "user_id = %s AND status = 'done'"
     assert params == ["user-1"]
 
 

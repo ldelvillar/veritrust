@@ -43,7 +43,7 @@ const getTypeLabel = (sourceType: HistoryItem['source_type']): string => {
   return 'Texto';
 };
 
-const getScore = (confidence: number | string): number => {
+const getScore = (confidence: number | string | null | undefined): number => {
   const parsed = Number(confidence);
   if (Number.isNaN(parsed)) return 0;
 

@@ -4,6 +4,8 @@ import LanguageIcon from '@/assets/Language';
 import Heart from '@/assets/Heart';
 import Robot from '@/assets/Robot';
 import Document from '@/assets/Document';
+import Spinner from '@/assets/Spinner';
+import WarningIcon from '@/assets/Warning';
 import type { paths } from '@/types/api';
 
 type ResultType =
@@ -11,6 +13,48 @@ type ResultType =
 
 interface ResultProps {
   result: ResultType;
+}
+
+const FAILURE_MESSAGES: Record<string, string> = {
+  NO_MEDICAL_CLAIMS:
+    'No se detectaron afirmaciones médicas verificables en el contenido proporcionado.',
+  URL_EXTRACTION:
+    'No se pudo extraer el contenido de la URL. Comprueba que el enlace sea válido y accesible.',
+  CONNECTION:
+    'No se pudo conectar con el motor de análisis. Inténtalo de nuevo en unos minutos.',
+  INTERNAL:
+    'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
+};
+
+function PendingView() {
+  return (
+    <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+      <Spinner className="size-10 animate-spin text-primary" />
+      <h3 className="text-xl font-bold text-slate-900">
+        Analizando contenido…
+      </h3>
+      <p className="max-w-md text-sm leading-relaxed text-slate-500">
+        Los agentes están extrayendo, traduciendo y evaluando las afirmaciones
+        médicas. Esto puede tardar unos instantes; la página se actualizará
+        automáticamente.
+      </p>
+    </div>
+  );
+}
+
+function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
+  const message =
+    (errorCode && FAILURE_MESSAGES[errorCode]) ?? FAILURE_MESSAGES.INTERNAL;
+
+  return (
+    <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-xl border border-red-100 bg-red-50 p-10 text-center shadow-sm">
+      <WarningIcon className="size-10 text-red-500" />
+      <h3 className="text-xl font-bold text-red-700">
+        No se pudo completar el análisis
+      </h3>
+      <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
+    </div>
+  );
 }
 
 function getVerdictInfo(label: string): {
@@ -113,8 +157,16 @@ const AGENTS = [
 ];
 
 export default function Result({ result }: ResultProps) {
-  const score = Math.round(result.confidence * 100);
-  const verdict = getVerdictInfo(result.label);
+  if (result.status === 'pending') {
+    return <PendingView />;
+  }
+
+  if (result.status === 'failed') {
+    return <FailedView errorCode={result.error_code} />;
+  }
+
+  const score = Math.round((result.confidence ?? 0) * 100);
+  const verdict = getVerdictInfo(result.label ?? '');
 
   return (
     <div className="flex w-full max-w-6xl flex-col gap-6 lg:items-start">

@@ -8,16 +8,23 @@ from pydantic import BaseModel
 
 
 class AnalysisHistoryItem(BaseModel):
-    """Modelo de datos para un ítem del historial de análisis."""
+    """Modelo de datos para un ítem del historial de análisis.
+
+    Las columnas de resultado son ``None`` mientras ``status == "pending"`` y se
+    rellenan cuando el worker termina; en ``status == "failed"`` ``error_code``
+    lleva el código de error estable del contrato.
+    """
 
     analysis_id: str
     user_id: str
     source_type: str
     input_text: Optional[str] = None
     input_url: Optional[str] = None
-    label: str
-    confidence: float
-    explanation: str
+    label: Optional[str] = None
+    confidence: Optional[float] = None
+    explanation: Optional[str] = None
+    status: str = "done"
+    error_code: Optional[str] = None
     created_at: str
 
 

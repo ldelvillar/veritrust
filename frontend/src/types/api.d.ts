@@ -15,7 +15,12 @@ export interface paths {
         put?: never;
         /**
          * Analyze News
-         * @description Endpoint para analizar una noticia utilizando el sistema multiagente.
+         * @description Encola el análisis de una noticia y devuelve su id en estado ``pending``.
+         *
+         *     El pipeline multiagente (extracción de URL incluida) es lento, así que no se
+         *     ejecuta dentro del request: se reserva una fila ``pending`` y se encola un
+         *     trabajo en arq que el worker procesa. El cliente navega al detalle y hace
+         *     polling de ``GET /analysis/{id}`` hasta que ``status`` deja de ser ``pending``.
          */
         post: operations["analyze_news_analysis_post"];
         delete?: never;
@@ -93,7 +98,7 @@ export interface paths {
         };
         /**
          * Healthz
-         * @description Devuelve 503 si el grafo multiagente no se inicializó correctamente.
+         * @description Devuelve 503 si el proceso web no pudo abrir la cola de trabajos.
          */
         get: operations["healthz_healthz_get"];
         put?: never;
@@ -111,6 +116,10 @@ export interface components {
         /**
          * AnalysisHistoryItem
          * @description Modelo de datos para un ítem del historial de análisis.
+         *
+         *     Las columnas de resultado son ``None`` mientras ``status == "pending"`` y se
+         *     rellenan cuando el worker termina; en ``status == "failed"`` ``error_code``
+         *     lleva el código de error estable del contrato.
          */
         AnalysisHistoryItem: {
             /** Analysis Id */
@@ -124,11 +133,18 @@ export interface components {
             /** Input Url */
             input_url?: string | null;
             /** Label */
-            label: string;
+            label?: string | null;
             /** Confidence */
-            confidence: number;
+            confidence?: number | null;
             /** Explanation */
-            explanation: string;
+            explanation?: string | null;
+            /**
+             * Status
+             * @default done
+             */
+            status: string;
+            /** Error Code */
+            error_code?: string | null;
             /** Created At */
             created_at: string;
         };
@@ -345,15 +361,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */

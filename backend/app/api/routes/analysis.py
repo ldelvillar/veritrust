@@ -1,31 +1,27 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
-import asyncio
 import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
 from app.db.main import (
     HistoryDatabaseError,
+    create_pending_analysis,
     get_user_analysis_by_id,
-    save_successful_analysis,
 )
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem
-from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
-    400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
     429: {"model": ErrorResponse},
@@ -51,88 +47,40 @@ async def analyze_news(
     request: Request,
     user: dict = Depends(check_rate_limit),
 ):
-    """Endpoint para analizar una noticia utilizando el sistema multiagente."""
+    """Encola el análisis de una noticia y devuelve su id en estado ``pending``.
+
+    El pipeline multiagente (extracción de URL incluida) es lento, así que no se
+    ejecuta dentro del request: se reserva una fila ``pending`` y se encola un
+    trabajo en arq que el worker procesa. El cliente navega al detalle y hace
+    polling de ``GET /analysis/{id}`` hasta que ``status`` deja de ser ``pending``.
+    """
     user_id = user["sub"]
 
-    verification_system = getattr(request.app.state, "verification_system", None)
-    if verification_system is None:
+    arq_pool = getattr(request.app.state, "arq_pool", None)
+    if arq_pool is None:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
         )
 
     try:
-        text = (
-            await asyncio.to_thread(extract_text_from_url, str(body.url))
-            if body.url
-            else body.text
-        )
-    except URLExtractionError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.URL_EXTRACTION, str(e)),
-        ) from e
-
-    initial_state: dict[str, object] = {
-        "input_text": text,
-        "extracted_statements": [],
-        "translated_statements": [],
-        "label": "",
-        "confidence": 0.0,
-        "medical_explanation": "",
-    }
-
-    try:
-        # Ejecutar el grafo (traduce errores conocidos a tipos del dominio)
-        result = await ainvoke_graph(verification_system, initial_state)
-
-        # Obtener los resultados
-        label = result.get("label") or None
-        confidence = result.get("confidence") or None
-        explanation = result.get("medical_explanation") or None
-
-        if not explanation:
-            raise HTTPException(
-                status_code=422,
-                detail=make_error_detail(ErrorCode.NO_MEDICAL_CLAIMS),
-            )
-
-        # Guardar el análisis exitoso en la base de datos
-        analysis_id = await save_successful_analysis(
-            user_id=user_id,
-            request=body,
-            label=str(label),
-            confidence=confidence,
-            explanation=str(explanation),
-        )
-
-        return {
-            "status": "success",
-            "analysis_id": analysis_id,
-            "label": label,
-            "confidence": confidence,
-            "explanation": explanation,
-        }
-    except HTTPException:
-        raise
+        analysis_id = await create_pending_analysis(user_id=user_id, request=body)
     except HistoryDatabaseError as e:
-        logger.exception("No se pudo guardar el análisis")
+        logger.exception("No se pudo crear el análisis pendiente")
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
         ) from e
-    except OllamaConnectionError as e:
-        logger.exception("No se pudo conectar al servidor de Ollama")
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.CONNECTION),
-        ) from e
-    except Exception as e:
-        logger.exception("Error inesperado al analizar la noticia")
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.INTERNAL),
-        ) from e
+
+    await arq_pool.enqueue_job(
+        "run_analysis",
+        analysis_id,
+        body.source_type.value,
+        body.text,
+        str(body.url) if body.url else None,
+    )
+
+    return {"status": "pending", "analysis_id": analysis_id}
 
 
 @router.get(
@@ -176,5 +124,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         label=record.label,
         confidence=record.confidence,
         explanation=record.explanation,
+        status=record.status,
+        error_code=record.error_code,
         created_at=record.created_at,
     )

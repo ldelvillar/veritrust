@@ -3,17 +3,16 @@
 import logging
 from contextlib import asynccontextmanager
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.agents.main import create_graph
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.cors import get_cors_config
 from app.core.logging import configure_logging
 from app.db.main import close_pool, get_pool
-from app.prompts.agents import load_prompts
-from app.utils.ollama import ensure_ollama_available
 
 configure_logging()
 
@@ -22,28 +21,29 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Inicializa recursos de IA durante startup sin side effects en import."""
-    application.state.verification_system = None
-    application.state.prompts = None
+    """Inicializa los recursos del proceso web sin side effects en import.
+
+    El proceso web solo encola trabajos; el pipeline multiagente vive en el
+    worker de arq (``app.worker``). Aquí solo se abren el pool de Redis (para
+    encolar) y el de base de datos.
+    """
+    application.state.arq_pool = None
 
     try:
-        get_settings().validate_runtime()
-        ensure_ollama_available()
-        application.state.prompts = load_prompts()
-        prompts = application.state.prompts
-        logger.info(
-            "Prompts cargados — extractor: %s, translator: %s, health_expert: %s",
-            prompts.extractor.version,
-            prompts.translator.version,
-            prompts.health_expert.version,
-        )
-        application.state.verification_system = create_graph(prompts)
+        settings = get_settings()
+        settings.validate_runtime()
         await get_pool()
+        application.state.arq_pool = await create_pool(
+            RedisSettings.from_dsn(settings.redis_url)
+        )
+        logger.info("Proceso web listo: pool de Redis y de base de datos abiertos")
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
-        logger.exception("No se pudo inicializar el sistema de verificación: %s", exc)
+        logger.exception("No se pudo inicializar el proceso web: %s", exc)
 
     yield
 
+    if application.state.arq_pool is not None:
+        await application.state.arq_pool.close()
     await close_pool()
 
 

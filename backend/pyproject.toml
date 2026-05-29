@@ -15,30 +15,26 @@ dependencies = [
     "pydantic>=2.12",
     "pydantic-settings>=2.13",
     "httpx>=0.28",
-
     # Auth
     "PyJWT>=2.12",
     "cryptography>=46",
-
     # Database
     "psycopg[binary,pool]>=3.2",
-
+    # Background job queue
+    "arq>=0.26",
     # LLM / Agents
     "langchain>=1.2",
     "langchain-core>=1.2",
     "langchain-ollama>=1.0",
     "langgraph>=1.0",
     "ollama>=0.6",
-
     # ML inference (serving runs BERT; numpy is their runtime dep)
     "transformers>=5.2",
     "torch>=2.10",
     "numpy>=2.4",
-
     # Web scraping
     "beautifulsoup4>=4.14",
     "requests>=2.32",
-
     # Utilities
     "PyYAML>=6.0",
     "orjson>=3.11",

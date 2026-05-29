@@ -5,6 +5,7 @@ import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
 
 interface UseApiQueryOptions<T> {
   fallbackData?: T;
+  refreshInterval?: number | ((latestData: T | undefined) => number);
 }
 
 export function useApiQuery<T>(
@@ -16,7 +17,10 @@ export function useApiQuery<T>(
   const { data, error, isLoading, mutate } = useSWR<T>(
     path,
     (key: string) => fetchJsonWithAuth<T>(getToken, key, { method: 'GET' }),
-    { fallbackData: options.fallbackData }
+    {
+      fallbackData: options.fallbackData,
+      refreshInterval: options.refreshInterval,
+    }
   );
 
   const refetch = useCallback(async () => {

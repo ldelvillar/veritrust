@@ -18,6 +18,9 @@ export default function AnalisisClient({
 }: AnalisisClientProps) {
   const { data } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
     fallbackData: initialData,
+    // El worker procesa el análisis en segundo plano: hacemos polling cada 2s
+    // mientras siga 'pending' y paramos en cuanto termina ('done' o 'failed').
+    refreshInterval: latest => (latest?.status === 'pending' ? 2000 : 0),
   });
   return <Result result={data ?? initialData} />;
 }

@@ -9,10 +9,14 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     source_type  TEXT NOT NULL CHECK (source_type IN ('text', 'file', 'url')),
     input_text   TEXT,
     input_url    TEXT,
-    label        TEXT NOT NULL,
-    confidence   DOUBLE PRECISION NOT NULL
-                 CHECK (confidence >= 0.0 AND confidence <= 1.0),
-    explanation  TEXT NOT NULL,
+    -- Result columns are NULL while status = 'pending' (filled in by the worker).
+    label        TEXT,
+    confidence   DOUBLE PRECISION
+                 CHECK (confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)),
+    explanation  TEXT,
+    status       TEXT NOT NULL DEFAULT 'done'
+                 CHECK (status IN ('pending', 'done', 'failed')),
+    error_code   TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

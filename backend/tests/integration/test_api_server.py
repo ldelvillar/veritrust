@@ -1,4 +1,9 @@
-"""Tests de integración para la API server, verificando endpoints y manejo de errores."""
+"""Tests de integración para la API server, verificando endpoints y manejo de errores.
+
+``POST /analysis`` ahora solo crea una fila ``pending`` y encola un trabajo en
+arq; el pipeline multiagente se prueba en ``test_worker.py``. Aquí se verifica el
+contrato HTTP: validación, encolado y lectura del detalle.
+"""
 
 import importlib
 import sys
@@ -12,57 +17,30 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.db.main import HistoryDatabaseError
 
 
-def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
+class _FakeArqPool:
+    """Pool de arq de mentira que registra los trabajos encolados."""
+
+    def __init__(self):
+        self.jobs = []
+
+    async def enqueue_job(self, *args):
+        self.jobs.append(args)
+
+    async def close(self):
+        pass
+
+
+def _load_server_module(monkeypatch):
     project_root = Path(__file__).resolve().parents[3]
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    fake_agents_module = types.ModuleType("app.agents.main")
-    start_calls = {"count": 0}
-
-    class _FakeGraph:
-        def __init__(self):
-            self.invocations = []
-
-        async def ainvoke(self, state):
-            self.invocations.append(state)
-            if invoke_error is not None:
-                raise invoke_error
-            return invoke_result if invoke_result is not None else {}
-
-    fake_graph = _FakeGraph()
-
-    def create_graph():
-        return fake_graph
-
-    fake_agents_module.create_graph = create_graph
-
-    fake_start_module = types.ModuleType("app.utils.ollama")
-
-    def ensure_ollama_available():
-        start_calls["count"] += 1
-
-    fake_start_module.ensure_ollama_available = ensure_ollama_available
-
-    fake_extract_module = types.ModuleType("app.utils.extract_text_from_url")
-
-    class FakeURLExtractionError(Exception):
-        pass
-
-    fake_extract_module.URLExtractionError = FakeURLExtractionError
-    fake_extract_module.extract_text_from_url = lambda url: "Texto extraído de la URL"
-
-    monkeypatch.setitem(sys.modules, "app.agents.main", fake_agents_module)
-    monkeypatch.setitem(sys.modules, "app.utils.ollama", fake_start_module)
-    monkeypatch.setitem(
-        sys.modules, "app.utils.extract_text_from_url", fake_extract_module
-    )
-
     sys.modules.pop("app.main", None)
     server_module = importlib.import_module("app.main")
 
-    server_module.app.state.verification_system = fake_graph
-    start_calls["count"] += 1
+    # TestClient(app) no ejecuta el lifespan, así que inyectamos el pool a mano.
+    fake_pool = _FakeArqPool()
+    server_module.app.state.arq_pool = fake_pool
 
     # Evita que el rate limit se acumule entre tests
     rate_limit.clear()
@@ -70,11 +48,11 @@ def _load_server_module(monkeypatch, invoke_result=None, invoke_error=None):
         "sub": "test-user"
     }
 
-    return server_module, fake_graph, start_calls
+    return server_module, fake_pool
 
 
-def test_healthz_returns_ready_when_graph_is_initialized(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+def test_healthz_returns_ready_when_pool_is_initialized(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.get("/healthz")
@@ -83,9 +61,9 @@ def test_healthz_returns_ready_when_graph_is_initialized(monkeypatch):
     assert response.json() == {"status": "ready"}
 
 
-def test_healthz_returns_503_when_graph_failed_to_initialize(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
-    server_module.app.state.verification_system = None
+def test_healthz_returns_503_when_pool_failed_to_initialize(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.arq_pool = None
     client = TestClient(server_module.app)
 
     response = client.get("/healthz")
@@ -93,110 +71,46 @@ def test_healthz_returns_503_when_graph_failed_to_initialize(monkeypatch):
     assert response.status_code == 503
 
 
-def test_analisis_returns_success_payload(monkeypatch):
-    result = {
-        "label": "falsa",
-        "confidence": 0.92,
-        "medical_explanation": "No hay evidencia clínica sólida.",
-    }
-    server_module, fake_graph, _ = _load_server_module(
-        monkeypatch, invoke_result=result
-    )
+def test_analisis_enqueues_job_and_returns_pending(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_save_successful_analysis(**kwargs):
+    async def fake_create_pending_analysis(**kwargs):
+        assert kwargs["user_id"] == "test-user"
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        "app.api.routes.analysis.save_successful_analysis",
-        fake_save_successful_analysis,
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
     )
 
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
-    assert "analysis_id" in body
-    assert body["label"] == "falsa"
-    assert body["confidence"] == 0.92
-    assert "explanation" in body
-    assert fake_graph.invocations[0]["input_text"] == "Bleach cures COVID"
+    assert body["status"] == "pending"
+    assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
+
+    # Se encoló run_analysis con el id, el tipo de fuente y el texto.
+    assert len(fake_pool.jobs) == 1
+    job = fake_pool.jobs[0]
+    assert job[0] == "run_analysis"
+    assert job[1] == "11111111-1111-1111-1111-111111111111"
+    assert job[2] == "text"
+    assert job[3] == "Bleach cures COVID"
+    assert job[4] is None
 
 
-def test_analisis_saves_history_only_on_success(monkeypatch):
-    result = {
-        "label": "falsa",
-        "confidence": 0.92,
-        "medical_explanation": "No hay evidencia clínica sólida.",
-    }
-    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
+def test_analisis_enqueues_url_job(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    calls = []
-
-    async def fake_save_successful_analysis(**kwargs):
-        calls.append(kwargs)
+    async def fake_create_pending_analysis(**kwargs):
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        "app.api.routes.analysis.save_successful_analysis",
-        fake_save_successful_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert response.json()["analysis_id"] == "11111111-1111-1111-1111-111111111111"
-    assert len(calls) == 1
-    assert calls[0]["user_id"] == "test-user"
-
-
-def test_analisis_does_not_save_history_when_explanation_is_empty(monkeypatch):
-    result = {
-        "label": "verdadera",
-        "confidence": 0.6,
-        "medical_explanation": "",
-    }
-    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
-    client = TestClient(server_module.app)
-
-    calls = []
-
-    async def fake_save_successful_analysis(**kwargs):
-        calls.append(kwargs)
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.save_successful_analysis",
-        fake_save_successful_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Texto sin claim"})
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "NO_MEDICAL_CLAIMS"
-    assert calls == []
-
-
-def test_analisis_returns_success_with_url(monkeypatch):
-    result = {
-        "label": "verdadera",
-        "confidence": 0.85,
-        "medical_explanation": "El texto extraído contiene información correcta.",
-    }
-    server_module, fake_graph, _ = _load_server_module(
-        monkeypatch, invoke_result=result
-    )
-    client = TestClient(server_module.app)
-
-    async def fake_save_successful_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.save_successful_analysis",
-        fake_save_successful_analysis,
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
     )
 
     response = client.post(
@@ -205,16 +119,45 @@ def test_analisis_returns_success_with_url(monkeypatch):
     )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "success"
-    assert body["label"] == "verdadera"
-    assert body["confidence"] == 0.85
-    assert "explanation" in body
-    assert fake_graph.invocations[0]["input_text"] == "Texto extraído de la URL"
+    assert response.json()["status"] == "pending"
+    job = fake_pool.jobs[0]
+    assert job[2] == "url"
+    assert job[3] is None
+    assert job[4] == "https://ejemplo.com/noticia"
+
+
+def test_analisis_returns_503_when_pool_unavailable(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.arq_pool = None
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_analisis_returns_save_failed_when_pending_insert_fails(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        raise HistoryDatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
+    assert fake_pool.jobs == []
 
 
 def test_analisis_rejects_invalid_url(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -224,86 +167,11 @@ def test_analisis_rejects_invalid_url(monkeypatch):
 
     # Pydantic HttpUrl validation should fail with 422
     assert response.status_code == 422
-
-
-def test_analisis_returns_warning_when_explanation_is_empty(monkeypatch):
-    result = {
-        "label": "verdadera",
-        "confidence": 0.6,
-        "medical_explanation": "",
-    }
-    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={"text": "Texto sin claim"})
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "NO_MEDICAL_CLAIMS"
-
-
-def test_analisis_returns_save_failed_when_persistence_fails(monkeypatch):
-    result = {
-        "label": "falsa",
-        "confidence": 0.92,
-        "medical_explanation": "No hay evidencia clínica sólida.",
-    }
-    server_module, _, _ = _load_server_module(monkeypatch, invoke_result=result)
-    client = TestClient(server_module.app)
-
-    async def fake_save_successful_analysis(**kwargs):
-        raise HistoryDatabaseError("db down")
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.save_successful_analysis",
-        fake_save_successful_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
-
-
-def test_analisis_returns_500_on_unexpected_error(monkeypatch):
-    server_module, _, _ = _load_server_module(
-        monkeypatch, invoke_error=RuntimeError("graph failed")
-    )
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={"text": "Texto"})
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "INTERNAL"
-
-
-def test_analisis_returns_connection_error_when_ollama_unreachable(monkeypatch):
-    server_module, _, _ = _load_server_module(
-        monkeypatch, invoke_error=ConnectionError("connect call failed")
-    )
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={"text": "Texto"})
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "CONNECTION"
-
-
-def test_analisis_returns_internal_on_ollama_response_error(monkeypatch):
-    import ollama
-
-    server_module, _, _ = _load_server_module(
-        monkeypatch, invoke_error=ollama.ResponseError("model not found", 404)
-    )
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={"text": "Texto"})
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "INTERNAL"
+    assert fake_pool.jobs == []
 
 
 def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     record = types.SimpleNamespace(
@@ -315,6 +183,8 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         label="falsa",
         confidence=0.88,
         explanation="Explicación de ejemplo",
+        status="done",
+        error_code=None,
         created_at="2026-04-10T12:00:00+00:00",
     )
 
@@ -334,10 +204,80 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     body = response.json()
     assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
     assert body["user_id"] == "test-user"
+    assert body["status"] == "done"
+
+
+def test_analisis_detail_returns_pending_status(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    record = types.SimpleNamespace(
+        analysis_id="11111111-1111-1111-1111-111111111111",
+        user_id="test-user",
+        source_type="text",
+        input_text="Texto ejemplo",
+        input_url=None,
+        label=None,
+        confidence=None,
+        explanation=None,
+        status="pending",
+        error_code=None,
+        created_at="2026-04-10T12:00:00+00:00",
+    )
+
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+        return record
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_user_analysis_by_id",
+        fake_get_user_analysis_by_id,
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["label"] is None
+    assert body["confidence"] is None
+
+
+def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    record = types.SimpleNamespace(
+        analysis_id="11111111-1111-1111-1111-111111111111",
+        user_id="test-user",
+        source_type="text",
+        input_text="Texto sin claim",
+        input_url=None,
+        label=None,
+        confidence=None,
+        explanation=None,
+        status="failed",
+        error_code="NO_MEDICAL_CLAIMS",
+        created_at="2026-04-10T12:00:00+00:00",
+    )
+
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+        return record
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_user_analysis_by_id",
+        fake_get_user_analysis_by_id,
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "NO_MEDICAL_CLAIMS"
 
 
 def test_analisis_detail_returns_404_when_not_found(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     async def fake_returns_none(**kwargs):
@@ -355,7 +295,7 @@ def test_analisis_detail_returns_404_when_not_found(monkeypatch):
 
 
 def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.get("/analysis/not-a-uuid")
@@ -365,7 +305,7 @@ def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
 
 
 def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -383,17 +323,17 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post("/analysis", json={})
 
     assert response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -405,11 +345,11 @@ def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -421,11 +361,11 @@ def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -437,11 +377,11 @@ def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     empty_response = client.post("/analysis", json={"text": ""})
@@ -449,22 +389,22 @@ def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
 
     assert empty_response.status_code == 422
     assert whitespace_response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
-    server_module, fake_graph, _ = _load_server_module(monkeypatch)
+    server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     very_long_text = "a" * 10001
     response = client.post("/analysis", json={"text": very_long_text})
 
     assert response.status_code == 422
-    assert fake_graph.invocations == []
+    assert fake_pool.jobs == []
 
 
 def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
     server_module.app.dependency_overrides.pop(get_current_user, None)
 
@@ -475,7 +415,7 @@ def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
 
 
 def test_historial_returns_user_history(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     history_rows = [
@@ -488,6 +428,8 @@ def test_historial_returns_user_history(monkeypatch):
             "label": "falsa",
             "confidence": 0.88,
             "explanation": "Explicación de ejemplo",
+            "status": "done",
+            "error_code": None,
             "created_at": "2026-04-10T12:00:00+00:00",
         }
     ]
@@ -531,7 +473,7 @@ def test_historial_returns_user_history(monkeypatch):
 
 
 def test_historial_returns_500_when_database_fails(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     async def fake_list_user_analysis_history(**kwargs):
@@ -549,7 +491,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
 
 
 def test_dashboard_summary_returns_summary(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     summary = types.SimpleNamespace(
@@ -616,7 +558,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
 
 
 def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
-    server_module, _, _ = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     async def fake_get_user_dashboard_summary(*, user_id):

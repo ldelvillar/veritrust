@@ -98,7 +98,11 @@ def _normalize_confidence(confidence: Any) -> float:
 
 
 def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
-    """Mapea una fila SQL a un registro de historial tipado."""
+    """Mapea una fila SQL a un registro de historial tipado.
+
+    Las columnas de resultado (label/confidence/explanation) son NULL mientras
+    el análisis está ``pending`` y se rellenan cuando el worker termina.
+    """
 
     return AnalysisHistoryItem(
         analysis_id=str(row[0]),
@@ -106,10 +110,12 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         source_type=str(row[2]),
         input_text=row[3],
         input_url=row[4],
-        label=str(row[5]),
-        confidence=float(row[6]),
-        explanation=str(row[7]),
+        label=str(row[5]) if row[5] is not None else None,
+        confidence=float(row[6]) if row[6] is not None else None,
+        explanation=str(row[7]) if row[7] is not None else None,
         created_at=str(row[8]),
+        status=str(row[9]),
+        error_code=row[10],
     )
 
 
@@ -138,7 +144,7 @@ def _build_history_where_clause(
 ) -> tuple[str, list[Any]]:
     """Construye cláusula WHERE y parámetros para historial paginado."""
 
-    where_clauses = ["user_id = %s"]
+    where_clauses = ["user_id = %s", "status = 'done'"]
     where_params: list[Any] = [user_id]
 
     normalized_search = (search_query or "").strip()
@@ -184,7 +190,9 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
             label,
             confidence,
             explanation,
-            created_at
+            created_at,
+            status,
+            error_code
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
@@ -194,43 +202,36 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
     return count_query, list_query
 
 
-async def save_analysis_history(
+async def create_pending_analysis(
     *,
     user_id: str,
-    source_type: str,
-    input_text: Optional[str],
-    input_url: Optional[str],
-    label: str,
-    confidence: Any,
-    explanation: str,
+    request: AnalysisRequest,
 ) -> str:
-    """Guarda un analisis exitoso en public.analysis_history."""
+    """Inserta un análisis en estado ``pending`` y devuelve su id.
+
+    La ruta llama a esto de forma síncrona para reservar un id antes de encolar
+    el trabajo en arq; el worker rellena el resultado más tarde. Propaga
+    ``HistoryDatabaseError`` si la inserción falla (sin id no se puede encolar
+    nada ni navegar al detalle).
+    """
 
     pool = await get_pool()
-    confidence_value = _normalize_confidence(confidence)
+
+    source_type = request.source_type.value
+    input_text = request.text if source_type in {"text", "file"} else None
+    input_url = str(request.url) if source_type == "url" and request.url else None
 
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, input_text, input_url, label, confidence, explanation)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        (user_id, source_type, input_text, input_url, status)
+        VALUES (%s, %s, %s, %s, 'pending')
         RETURNING id
     """
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    query,
-                    (
-                        user_id,
-                        source_type,
-                        input_text,
-                        input_url,
-                        label,
-                        confidence_value,
-                        explanation,
-                    ),
-                )
+                await cur.execute(query, (user_id, source_type, input_text, input_url))
                 inserted_row = await cur.fetchone()
     except psycopg.Error as exc:
         raise HistoryDatabaseError(
@@ -243,35 +244,61 @@ async def save_analysis_history(
     return str(inserted_row[0])
 
 
-async def save_successful_analysis(
+async def complete_analysis(
     *,
-    user_id: str,
-    request: AnalysisRequest,
+    analysis_id: str,
     label: str,
     confidence: Any,
     explanation: str,
-) -> str:
+) -> None:
+    """Marca un análisis pendiente como ``done`` con su resultado. Usado por el worker."""
+
+    pool = await get_pool()
+    confidence_value = _normalize_confidence(confidence)
+
+    query = """
+        UPDATE public.analysis_history
+        SET label = %s,
+            confidence = %s,
+            explanation = %s,
+            status = 'done',
+            error_code = NULL
+        WHERE id = %s
     """
-    Persistencia de analisis exitoso. Devuelve el id del analisis guardado.
 
-    Propaga ``HistoryDatabaseError`` si la persistencia falla: un analisis que no
-    se puede guardar no es recuperable por el cliente (la respuesta navega por id),
-    asi que la ruta lo traduce a un error explicito en lugar de fingir exito.
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    query, (label, confidence_value, explanation, analysis_id)
+                )
+    except psycopg.Error as exc:
+        raise HistoryDatabaseError(
+            _build_database_error("No se pudo guardar el analisis en la base de datos.")
+        ) from exc
+
+
+async def fail_analysis(*, analysis_id: str, error_code: str) -> None:
+    """Marca un análisis pendiente como ``failed`` con un código de error estable."""
+
+    pool = await get_pool()
+
+    query = """
+        UPDATE public.analysis_history
+        SET status = 'failed', error_code = %s
+        WHERE id = %s
     """
 
-    source_type = request.source_type.value
-    input_text = request.text if source_type in {"text", "file"} else None
-    input_url = str(request.url) if source_type == "url" and request.url else None
-
-    return await save_analysis_history(
-        user_id=user_id,
-        source_type=source_type,
-        input_text=input_text,
-        input_url=input_url,
-        label=label,
-        confidence=confidence,
-        explanation=explanation,
-    )
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (error_code, analysis_id))
+    except psycopg.Error as exc:
+        raise HistoryDatabaseError(
+            _build_database_error(
+                "No se pudo actualizar el analisis en la base de datos."
+            )
+        ) from exc
 
 
 async def list_user_analysis_history(
@@ -345,7 +372,9 @@ async def get_user_analysis_by_id(
             label,
             confidence,
             explanation,
-            created_at
+            created_at,
+            status,
+            error_code
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -571,7 +600,7 @@ async def get_user_dashboard_summary(
                 END
             ) AS previous_week_total
         FROM public.analysis_history
-        WHERE user_id = %s
+        WHERE user_id = %s AND status = 'done'
     """
 
     trend_query = """
@@ -581,6 +610,7 @@ async def get_user_dashboard_summary(
             AVG(confidence) AS average_confidence
         FROM public.analysis_history
         WHERE user_id = %s
+          AND status = 'done'
           AND created_at >= %s
         GROUP BY day
         ORDER BY day ASC
@@ -592,7 +622,7 @@ async def get_user_dashboard_summary(
             COUNT(*) AS total,
             AVG(confidence) AS average_confidence
         FROM public.analysis_history
-        WHERE user_id = %s
+        WHERE user_id = %s AND status = 'done'
         GROUP BY source_type
         ORDER BY total DESC
     """
@@ -603,6 +633,7 @@ async def get_user_dashboard_summary(
             confidence
         FROM public.analysis_history
         WHERE user_id = %s
+          AND status = 'done'
           AND input_url IS NOT NULL
     """
 
@@ -617,6 +648,7 @@ async def get_user_dashboard_summary(
             created_at
         FROM public.analysis_history
         WHERE user_id = %s
+          AND status = 'done'
           AND confidence <= 0.35
         ORDER BY created_at DESC
         LIMIT %s

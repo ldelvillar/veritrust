@@ -25,25 +25,58 @@ services:
     ports:
       - "11434:11434"
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build:
       context: ./backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD:-veritrust}@postgres:5432/${POSTGRES_DB:-veritrust}
-      OLLAMA_BASE_URL: http://ollama:11434
-      FAKE_NEWS_MODEL_PATH: /app/models/bert_classifier
+      REDIS_URL: redis://redis:6379
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       CORS_ALLOW_CREDENTIALS: "true"
       CLERK_JWKS_URL: ${CLERK_JWKS_URL}
       CLERK_ISSUER: ${CLERK_ISSUER}
       CLERK_AUDIENCE: ${CLERK_AUDIENCE}
-    volumes:
-      - ./backend/models/bert_classifier:/app/models/bert_classifier:ro
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: ["arq", "app.worker.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD:-veritrust}@postgres:5432/${POSTGRES_DB:-veritrust}
+      OLLAMA_BASE_URL: http://ollama:11434
+      REDIS_URL: redis://redis:6379
+      FAKE_NEWS_MODEL_PATH: /app/models/bert_classifier
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL}
+      CLERK_ISSUER: ${CLERK_ISSUER}
+      CLERK_AUDIENCE: ${CLERK_AUDIENCE}
+    volumes:
+      - ./backend/models/bert_classifier:/app/models/bert_classifier:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       ollama:
         condition: service_started
@@ -66,3 +99,4 @@ services:
 volumes:
   postgres_data:
   ollama_data:
+  redis_data:

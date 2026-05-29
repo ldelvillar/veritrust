@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
 
+    # Redis / cola de trabajos (arq)
+    redis_url: str = "redis://localhost:6379"
+
     # Autenticación
     clerk_pem_public_key: str | None = None
     clerk_jwks_url: str | None = None

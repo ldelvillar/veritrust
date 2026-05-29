@@ -14,6 +14,7 @@ VeriTrust is an AI-powered medical misinformation detection system. Users submit
 uv sync --frozen                                             # Install serving/API deps + app tests (excludes the ml stack)
 uv sync --frozen --extra ml                                  # Add the ml stack (pandas, pyarrow, scikit-learn, accelerate, matplotlib, seaborn) — needed for ml/ and its tests
 uv run python -m app.main                                    # Start API server (http://localhost:8000)
+uv run arq app.worker.WorkerSettings                         # Start the analysis worker (needs Redis + Ollama)
 uv run pytest tests --cov=app --cov-fail-under=80            # Run app tests (80% coverage required)
 uv run pytest ml/tests --cov=ml --cov-fail-under=80          # Run ML tests (80% coverage required)
 uv run pytest tests/test_foo.py -k "test_name"               # Run a single test
@@ -36,25 +37,34 @@ pnpm generate:api-types         # Regenerate src/types/api.d.ts from OpenAPI (ba
 
 ### Request Flow
 
+The multi-agent pipeline is slow (3 sequential Ollama calls + BERT), so it runs
+**out of the request** in an arq worker. The web process only enqueues; the
+client polls the detail endpoint until the row leaves `pending`.
+
 ```text
+Web process (FastAPI)                          Worker process (arq, app/worker.py)
+─────────────────────                          ───────────────────────────────────
 User (browser)
   → Clerk JWT auth
-  → POST /analysis (FastAPI)
-  → URL text extraction if needed (BeautifulSoup)
-  → LangGraph pipeline:
-      Extractor agent  (llama3 via Ollama)        → extracts medical claims (single structured-output call)
-      Translator agent (translategemma via Ollama) → translates ALL claims in a single batched call
-      Health Expert    (llama3.2 via Ollama)       → labels (via BioBERT tool) + explains
-  → Save to PostgreSQL (Supabase)
-  → Return {analysis_id, label, confidence, explanation}
+  → POST /analysis
+  → INSERT 'pending' row (returns analysis_id)
+  → enqueue run_analysis on Redis ─────────────→ run_analysis(analysis_id, …)
+  → Return {status: "pending", analysis_id}        → URL text extraction if needed (BeautifulSoup)
+                                                    → LangGraph pipeline:
+GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)        → claims
+  every 2s while status == "pending")              ·  Translator  (translategemma) → EN, batched
+  → returns status + (when done) label/            ·  Health Expert (llama3.2)     → label (BioBERT) + explanation
+     confidence/explanation, or error_code         → UPDATE row → 'done' (results) or 'failed' (error_code)
+     when status == "failed"
 ```
 
 ### Backend (`backend/`)
 
-- **`app/main.py`** — FastAPI lifespan management (starts Ollama, initialises DB)
-- **`app/api/routes/`** — `analysis.py`, `dashboard.py`, `history.py` (each declares `responses=` for OpenAPI error contract)
+- **`app/main.py`** — Web-process lifespan: opens the DB pool and the arq Redis pool (for enqueuing). The graph lives in the worker, not here.
+- **`app/worker.py`** — arq worker (`arq app.worker.WorkerSettings`): builds the graph at startup and runs `run_analysis`, translating pipeline errors into a `failed` row + stable `error_code`.
+- **`app/api/routes/`** — `analysis.py` (POST enqueues a pending row; GET returns status/results), `dashboard.py`, `history.py` (each declares `responses=` for OpenAPI error contract)
 - **`app/api/dependencies/`** — Clerk JWT validation (`get_current_user.py`), rate limiting (`check_rate_limit.py`)
-- **`app/agents/`** — LangGraph orchestration in `main.py`; individual agents in `extractor.py`, `translator.py`, `health_expert.py`; typed pipeline errors and `invoke_graph` helper in `errors.py`
+- **`app/agents/`** — LangGraph orchestration in `main.py`; individual agents in `extractor.py`, `translator.py`, `health_expert.py`; typed pipeline errors and `ainvoke_graph` helper in `errors.py`
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`)
 - **`app/db/main.py`** — Raw psycopg2 queries; no ORM
 - **`app/core/config.py`** — Centralised `Settings` (pydantic-settings) for all service config (DB, Clerk, CORS); cached `get_settings()` accessor and `validate_runtime()` startup check
