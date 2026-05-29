@@ -2,8 +2,8 @@
 --
 -- POST /analysis now inserts a 'pending' row and returns immediately; an arq
 -- worker fills in the result and flips the row to 'done' (or 'failed' with an
--- error_code). Apply this once to an existing database (e.g. Supabase) that was
--- created before the status column existed. Fresh databases get the final shape
+-- error_code). Apply this once to an existing database that was created before
+-- the status column existed. Fresh databases get the final shape
 -- from db/init.sql and do not need this file.
 
 ALTER TABLE public.analysis_history

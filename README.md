@@ -6,7 +6,7 @@ AI-powered medical misinformation detector. Users submit text or a URL; a LangGr
 
 - **Backend** — FastAPI (web) + arq worker, LangGraph, Ollama, Transformers (BioBERT), psycopg3
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind v4
-- **Data** — PostgreSQL (Supabase), Redis (arq job queue)
+- **Data** — PostgreSQL, Redis (arq job queue)
 - **ML** — BioBERT fine-tuned on PUBHEALTH
 
 Analysis is asynchronous: `POST /analysis` returns immediately with a `pending`
@@ -29,7 +29,7 @@ frontend/
 - Python 3.11+ and [`uv`](https://docs.astral.sh/uv/)
 - Node.js 22+ and `pnpm` 9+
 - [Ollama](https://ollama.com/) running locally on `:11434` with the models `llama3`, `llama3.2`, and `translategemma` pulled
-- A PostgreSQL database (Supabase works out of the box)
+- A PostgreSQL database (the Docker Compose stack provides one)
 - A Redis instance on `:6379` (job queue for the analysis worker)
 - A [Clerk](https://clerk.com/) application for auth
 
@@ -122,7 +122,7 @@ pnpm generate:api-types         # regenerate src/types/api.d.ts (backend must be
 ## Notes
 
 - After changing a backend Pydantic schema, regenerate the frontend types with `pnpm generate:api-types`. Never edit `frontend/src/types/api.d.ts` by hand.
-- The database has no migration framework yet — fresh databases get their shape from `backend/db/init.sql`; existing databases (e.g. Supabase) apply the numbered scripts in `backend/db/migrations/` by hand. The async-analysis change ships `0001_async_analysis_status.sql`.
+- The database has no migration framework yet — fresh databases get their shape from `backend/db/init.sql`; existing databases apply the numbered scripts in `backend/db/migrations/` by hand. The async-analysis change ships `0001_async_analysis_status.sql`.
 
 ## License
 

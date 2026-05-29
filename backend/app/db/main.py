@@ -25,7 +25,7 @@ from app.schemas.history import AnalysisHistoryItem
 logger = logging.getLogger(__name__)
 
 _DATABASE_CONFIGURATION_HINT = (
-    "Revisa DATABASE_URL y, si usas Supabase, prueba el host del pooler IPv4."
+    "Revisa DATABASE_URL y que el servicio de PostgreSQL esté accesible."
 )
 _VALID_SOURCE_TYPES = {"text", "file", "url"}
 
