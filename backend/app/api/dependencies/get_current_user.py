@@ -17,7 +17,7 @@ from app.schemas.errors import ErrorCode
 @lru_cache(maxsize=1)
 def _get_jwks_client(jwks_url: str) -> PyJWKClient:
     """Devuelve un cliente JWKS cacheado por URL."""
-    return PyJWKClient(jwks_url)
+    return PyJWKClient(jwks_url, cache_keys=True, lifespan=600)
 
 
 def _get_signing_key(token: str) -> str:
