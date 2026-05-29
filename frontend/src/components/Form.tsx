@@ -1,18 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
 
 import Cloud from '@/assets/Cloud';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
 import type { components } from '@/types/api';
-import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
-import type { paths } from '@/types/api';
-
-type CreateAnalysisResponse =
-  paths['/analysis']['post']['responses']['200']['content']['application/json'];
 
 interface FormData {
   text: string;
@@ -23,11 +17,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB — early sanity check before 
 const MAX_TEXT_CHARS = 10_000; // matches backend StringConstraints max_length
 
 export default function Form() {
-  const router = useRouter();
-  const { getToken } = useAuth();
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { submit, isLoading, error, setError } = useAnalysisSubmission();
 
   const [inputMethod, setInputMethod] =
     useState<components['schemas']['SourceType']>('url');
@@ -145,34 +135,7 @@ export default function Form() {
         ? { url: formData.url, source_type: 'url' as const }
         : { text: textContent, source_type: finalSourceType };
 
-    setIsLoading(true);
-
-    try {
-      const data = await fetchJsonWithAuth<CreateAnalysisResponse>(
-        getToken,
-        '/analysis',
-        {
-          method: 'POST',
-          body: requestBody,
-        }
-      );
-
-      if (data.analysis_id) {
-        router.push(`/analisis/${data.analysis_id}`);
-      } else {
-        throw new Error('No se generó un ID de análisis válido.');
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError(
-          'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.'
-        );
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    await submit(requestBody);
   };
 
   return (
