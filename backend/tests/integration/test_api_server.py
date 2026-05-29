@@ -10,9 +10,10 @@ import sys
 import types
 from pathlib import Path
 
+import fakeredis
 from fastapi.testclient import TestClient
+from redis.exceptions import RedisError
 
-from app.api.dependencies.check_rate_limit import rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.main import HistoryDatabaseError
 
@@ -30,6 +31,17 @@ class _FakeArqPool:
         pass
 
 
+class _LoopSafeFakeRedis:
+    """Redis de mentira resistente al cambio de event loop del TestClient."""
+
+    def __init__(self):
+        self._server = fakeredis.FakeServer()
+
+    def pipeline(self, *args, **kwargs):
+        client = fakeredis.aioredis.FakeRedis(server=self._server)
+        return client.pipeline(*args, **kwargs)
+
+
 def _load_server_module(monkeypatch):
     project_root = Path(__file__).resolve().parents[3]
     if str(project_root) not in sys.path:
@@ -42,8 +54,8 @@ def _load_server_module(monkeypatch):
     fake_pool = _FakeArqPool()
     server_module.app.state.arq_pool = fake_pool
 
-    # Evita que el rate limit se acumule entre tests
-    rate_limit.clear()
+    # Redis de mentira fresco por test: el rate limit no se acumula entre tests.
+    server_module.app.state.redis = _LoopSafeFakeRedis()
     server_module.app.dependency_overrides[get_current_user] = lambda: {
         "sub": "test-user"
     }
@@ -135,6 +147,54 @@ def test_analisis_returns_503_when_pool_unavailable(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_analisis_returns_429_when_rate_limit_exceeded(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+
+    # El límite por defecto es 5 peticiones por ventana: las 5 primeras pasan.
+    for _ in range(5):
+        ok = client.post("/analysis", json={"text": "Bleach cures COVID"})
+        assert ok.status_code == 200
+
+    blocked = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert blocked.status_code == 429
+    assert blocked.json()["detail"]["code"] == "RATE_LIMIT"
+
+
+def test_analisis_allows_request_when_redis_unavailable(monkeypatch):
+    """Fail-open: un fallo de Redis no debe bloquear la petición."""
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenRedis:
+        def pipeline(self, *args, **kwargs):
+            raise RedisError("redis down")
+
+    server_module.app.state.redis = _BrokenRedis()
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
 
 
 def test_analisis_returns_save_failed_when_pending_insert_fails(monkeypatch):

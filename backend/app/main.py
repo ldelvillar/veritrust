@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import redis.asyncio as aioredis
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import FastAPI
@@ -21,13 +22,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Inicializa los recursos del proceso web sin side effects en import.
-
-    El proceso web solo encola trabajos; el pipeline multiagente vive en el
-    worker de arq (``app.worker``). Aquí solo se abren el pool de Redis (para
-    encolar) y el de base de datos.
-    """
+    """Inicializa los recursos del proceso web."""
     application.state.arq_pool = None
+    application.state.redis = None
 
     try:
         settings = get_settings()
@@ -36,6 +33,7 @@ async def lifespan(application: FastAPI):
         application.state.arq_pool = await create_pool(
             RedisSettings.from_dsn(settings.redis_url)
         )
+        application.state.redis = aioredis.from_url(settings.redis_url)
         logger.info("Proceso web listo: pool de Redis y de base de datos abiertos")
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
         logger.exception("No se pudo inicializar el proceso web: %s", exc)
@@ -44,6 +42,8 @@ async def lifespan(application: FastAPI):
 
     if application.state.arq_pool is not None:
         await application.state.arq_pool.close()
+    if application.state.redis is not None:
+        await application.state.redis.aclose()
     await close_pool()
 
 

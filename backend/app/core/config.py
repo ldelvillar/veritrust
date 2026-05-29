@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 
+    # Rate limiting (POST /analysis, por usuario)
+    rate_limit_max_requests: int = 5
+    rate_limit_window_seconds: int = 60
+
     # Autenticación
     clerk_pem_public_key: str | None = None
     clerk_jwks_url: str | None = None
