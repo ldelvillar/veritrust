@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$data = $input | ConvertFrom-Json; $f = $data.tool_input.file_path; if ($f -match '\\.py$') { Push-Location 'c:/Users/ldelv/tfg/backend'; uv run ruff format $f 2>$null; Pop-Location } elseif ($f -match '\\.(ts|tsx|js|jsx)$') { Push-Location 'c:/Users/ldelv/tfg/frontend'; pnpm exec prettier --write $f 2>$null; Pop-Location }",
+            "command": "$data = $input | ConvertFrom-Json; $f = $data.tool_input.file_path; if ($f -match '\\.py$') { Push-Location \"$env:CLAUDE_PROJECT_DIR/backend\"; uv run ruff format $f 2>$null; Pop-Location } elseif ($f -match '\\.(ts|tsx|js|jsx)$') { Push-Location \"$env:CLAUDE_PROJECT_DIR/frontend\"; pnpm exec prettier --write $f 2>$null; Pop-Location }",
             "shell": "powershell",
             "statusMessage": "Formatting..."
           }
