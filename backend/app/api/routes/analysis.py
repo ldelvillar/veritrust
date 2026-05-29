@@ -78,7 +78,7 @@ async def analyze_news(
         "extracted_statements": [],
         "translated_statements": [],
         "label": "",
-        "confidence": "",
+        "confidence": 0.0,
         "medical_explanation": "",
     }
 
