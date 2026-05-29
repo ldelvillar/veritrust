@@ -2,22 +2,15 @@ import 'server-only';
 
 import { auth } from '@clerk/nextjs/server';
 
+import { serverEnv } from '@/env/server';
 import { ApiError, parseErrorDetail } from '@/lib/apiClient';
 
 const TOKEN_TEMPLATE = 'veritrust-api';
 
-function getServerApiBaseUrl(): string {
-  return (
-    process.env.INTERNAL_API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://127.0.0.1:8000'
-  );
-}
-
 function buildServerUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const normalized = path.startsWith('/') ? path : `/${path}`;
-  return `${getServerApiBaseUrl()}${normalized}`;
+  return `${serverEnv.apiUrl}${normalized}`;
 }
 
 export async function fetchJsonServer<T>(path: string): Promise<T> {

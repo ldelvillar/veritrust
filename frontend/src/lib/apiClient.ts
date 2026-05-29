@@ -1,4 +1,4 @@
-import { CONFIG } from '@/config';
+import { clientEnv } from '@/env/client';
 
 export type GetTokenFn = (options?: {
   template?: string;
@@ -32,7 +32,7 @@ export function buildApiUrl(path: string): string {
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${CONFIG.API_URL}${normalizedPath}`;
+  return `${clientEnv.apiUrl}${normalizedPath}`;
 }
 
 export interface ParsedErrorDetail {
@@ -45,11 +45,7 @@ export function parseErrorDetail(detail: unknown): ParsedErrorDetail {
     return { message: detail, code: null };
   }
 
-  if (
-    typeof detail === 'object' &&
-    detail !== null &&
-    !Array.isArray(detail)
-  ) {
+  if (typeof detail === 'object' && detail !== null && !Array.isArray(detail)) {
     const obj = detail as Record<string, unknown>;
     const code = typeof obj.code === 'string' ? obj.code : null;
     const message = typeof obj.message === 'string' ? obj.message : null;

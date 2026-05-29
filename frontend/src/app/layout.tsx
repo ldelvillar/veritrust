@@ -3,6 +3,8 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { Onest } from 'next/font/google';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { clientEnv } from '@/env/client';
+import '@/env/server';
 import '@/styles/globals.css';
 
 const onest = Onest({
@@ -26,7 +28,7 @@ export default function RootLayout({
       <body
         className={`${onest.className} relative flex min-h-screen flex-col bg-gray-50 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,216,255,0.5),rgba(255,255,255,0.9))] antialiased`}
       >
-        <ClerkProvider>
+        <ClerkProvider publishableKey={clientEnv.clerkPublishableKey}>
           <Header />
           <main className="flex flex-1 flex-col">{children}</main>
           <Footer />
