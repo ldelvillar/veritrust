@@ -97,3 +97,6 @@ User (browser)
 ## Environment Variables
 
 See `.env.example` in each package for required variables.
+
+- **Backend** — read env only through the `Settings` model in `app/core/config.py` (cached via `get_settings()`). Required vars are checked once at startup by `validate_runtime()` in the lifespan; missing values surface as `/healthz` 503.
+- **Frontend** — read env only through `clientEnv` (`src/env/client.ts`, `NEXT_PUBLIC_*`) or `serverEnv` (`src/env/server.ts`, `'server-only'`). Both throw at module load when required vars are missing in production; the root layout imports both so the check runs during `next build`.
