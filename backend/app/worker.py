@@ -94,7 +94,7 @@ async def run_analysis(
 
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
-    get_settings().validate_runtime()
+    get_settings().validate_runtime(require_cors=False)
     ensure_ollama_available()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)

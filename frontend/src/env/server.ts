@@ -23,5 +23,7 @@ if (!apiUrl) {
 
 export const serverEnv = {
   apiUrl,
-  clerkSecretKey: prodRequired('CLERK_SECRET_KEY', ''),
+  get clerkSecretKey() {
+    return prodRequired('CLERK_SECRET_KEY', '');
+  },
 };

@@ -81,8 +81,12 @@ class Settings(BaseSettings):
         audiences = [aud.strip() for aud in raw.split(",") if aud.strip()]
         return audiences if len(audiences) > 1 else audiences[0]
 
-    def validate_runtime(self) -> None:
-        """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
+    def validate_runtime(self, *, require_cors: bool = True) -> None:
+        """Valida la configuración obligatoria. Invocado en el startup del lifespan.
+
+        ``require_cors`` solo aplica al proceso web; el worker no sirve HTTP y no
+        tiene configuración de CORS, así que la omite.
+        """
         missing: list[str] = []
 
         if not self.database_url.strip():
@@ -94,7 +98,8 @@ class Settings(BaseSettings):
         if self.expected_audience() is None:
             missing.append("CLERK_AUDIENCE")
         if (
-            self.environment.strip().lower() != "development"
+            require_cors
+            and self.environment.strip().lower() != "development"
             and not self.cors_origins()
         ):
             missing.append("CORS_ALLOWED_ORIGINS")
@@ -104,7 +109,7 @@ class Settings(BaseSettings):
                 "Faltan variables de entorno obligatorias: " + ", ".join(missing)
             )
 
-        if self.cors_allow_credentials and "*" in self.cors_origins():
+        if require_cors and self.cors_allow_credentials and "*" in self.cors_origins():
             raise SettingsValidationError(
                 "CORS_ALLOWED_ORIGINS no puede contener '*' cuando "
                 "allow_credentials=True"

@@ -1,5 +1,8 @@
-function prodRequired(name: string, devFallback: string): string {
-  const value = process.env[name];
+function prodRequired(
+  name: string,
+  value: string | undefined,
+  devFallback: string
+): string {
   if (value) return value;
   if (process.env.NODE_ENV !== 'production') return devFallback;
   throw new Error(
@@ -8,6 +11,14 @@ function prodRequired(name: string, devFallback: string): string {
 }
 
 export const clientEnv = {
-  apiUrl: prodRequired('NEXT_PUBLIC_API_URL', 'http://127.0.0.1:8000'),
-  clerkPublishableKey: prodRequired('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', ''),
+  apiUrl: prodRequired(
+    'NEXT_PUBLIC_API_URL',
+    process.env.NEXT_PUBLIC_API_URL,
+    'http://127.0.0.1:8000'
+  ),
+  clerkPublishableKey: prodRequired(
+    'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    ''
+  ),
 };
