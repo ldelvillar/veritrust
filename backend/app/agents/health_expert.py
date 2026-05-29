@@ -3,7 +3,6 @@ Este módulo define un agente experto en salud que interpreta el análisis técn
 IA sobre una afirmación médica y lo explica al paciente utilizando terminología médica rigurosa.
 """
 
-import ast
 import logging
 import sys
 from functools import lru_cache
@@ -74,22 +73,11 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     total_statements = len(translated_statements)
     all_statements = ""
 
-    # Iterar sobre cada afirmación para analizarla individualmente
-    for original, translated in zip(extracted_statements, translated_statements):
-        logger.debug("[Experto] Analizando afirmación con BERT")
+    # Clasificar todas las afirmaciones en una sola pasada por BERT
+    logger.debug("[Experto] Analizando %d afirmaciones con BERT", total_statements)
+    results = bert_tool.predict_batch(translated_statements)
 
-        # Obtener el resultado del modelo
-        result = bert_tool.invoke({"text": translated})
-
-        # LangChain puede serializar salidas no-string de herramientas a texto.
-        if isinstance(result, str):
-            try:
-                parsed = ast.literal_eval(result)
-                if isinstance(parsed, dict):
-                    result = parsed
-            except (SyntaxError, ValueError):
-                pass
-
+    for original, result in zip(extracted_statements, results):
         if (
             not isinstance(result, dict)
             or "label" not in result
@@ -97,7 +85,6 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         ):
             raise ValueError(f"Salida inesperada del detector: {result}")
 
-        logger.debug("[Experto] Resultado del modelo para la afirmación: %s", result)
         label, confidence = result["label"], result["confidence"]
 
         # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global

@@ -167,8 +167,8 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
 ):
 
     class _FakeTool:
-        def invoke(self, payload):
-            return {"label": "verdadera", "confidence": 0.9}
+        def predict_batch(self, texts):
+            return [{"label": "verdadera", "confidence": 0.9} for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -199,8 +199,8 @@ def test_health_expert_handles_empty_llm_output_without_exception(
 ):
 
     class _FakeTool:
-        def invoke(self, payload):
-            return {"label": "falsa", "confidence": 0.6}
+        def predict_batch(self, texts):
+            return [{"label": "falsa", "confidence": 0.6} for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -247,44 +247,13 @@ def test_health_expert_returns_empty_explanation_when_no_statements(
     assert update["confidence"] == 0.0
 
 
-def test_health_expert_parses_stringified_tool_output(
-    monkeypatch, health_module, dummy_prompts
-):
-
-    class _FakeTool:
-        def invoke(self, payload):
-            return "{'label': 'falsa', 'confidence': 0.8}"
-
-    class _FakeLLM:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def invoke(self, messages):
-            return SimpleNamespace(content="Informe consolidado")
-
-    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
-    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
-
-    update = health_module.health_expert(
-        {
-            "extracted_statements": ["S1"],
-            "translated_statements": ["T1"],
-        },
-        dummy_prompts,
-    )
-
-    assert update["label"] == "falsa"
-    assert 0.0 <= update["confidence"] <= 1.0
-    assert update["medical_explanation"] == "Informe consolidado"
-
-
 def test_health_expert_raises_value_error_on_invalid_detector_output(
     monkeypatch, health_module, dummy_prompts
 ):
 
     class _FakeTool:
-        def invoke(self, payload):
-            return "not-a-dict"
+        def predict_batch(self, texts):
+            return ["not-a-dict" for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -314,8 +283,8 @@ def test_health_expert_raises_value_error_when_detector_missing_keys(
 ):
 
     class _FakeTool:
-        def invoke(self, payload):
-            return {"label": "falsa"}
+        def predict_batch(self, texts):
+            return [{"label": "falsa"} for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):

@@ -6,7 +6,7 @@ News utilizando un modelo de IA basado en BioBERT.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Mapping, TypedDict, cast
 
 import torch
 import torch.nn.functional as F
@@ -26,6 +26,13 @@ class DetectorInput(BaseModel):
     text: str = Field(
         description="El texto de la noticia médica o de salud a analizar."
     )
+
+
+class DetectorResult(TypedDict):
+    """Resultado de una clasificación: etiqueta y confianza."""
+
+    label: str
+    confidence: float
 
 
 class FakeNewsDetectorTool(BaseTool):
@@ -109,20 +116,22 @@ class FakeNewsDetectorTool(BaseTool):
 
         return candidate
 
-    def _run(self, *args: Any, **kwargs: Any) -> dict[str, str | float]:
+    def predict_batch(self, texts: list[str]) -> list[DetectorResult]:
+        """Clasifica varias afirmaciones en una sola pasada por el modelo."""
+        if not texts:
+            return []
+
         try:
-            text = self._extract_text_arg(*args, **kwargs)
             self._ensure_model_loaded()
             if self._tokenizer is None or self._model is None:
                 raise RuntimeError(
                     "El detector no pudo inicializar modelo y tokenizador"
                 )
 
-            # Aplicar el mismo preprocesado que durante el entrenamiento
-            text = clean_text(text)
+            cleaned = [clean_text(t) for t in texts]
 
             inputs = self._tokenizer(
-                text,
+                cleaned,
                 return_tensors="pt",
                 truncation=True,
                 padding=True,
@@ -136,14 +145,20 @@ class FakeNewsDetectorTool(BaseTool):
                 probs = F.softmax(logits, dim=1)
 
             # 0=verdadera, 1=falsa
-            real_prob = probs[0][0].item()
-            fake_prob = probs[0][1].item()
+            results: list[DetectorResult] = []
+            for row in probs:
+                real_prob = row[0].item()
+                fake_prob = row[1].item()
+                label = "falsa" if fake_prob > real_prob else "verdadera"
+                confidence = max(fake_prob, real_prob)
+                results.append({"label": label, "confidence": round(confidence, 4)})
 
-            label = "falsa" if fake_prob > real_prob else "verdadera"
-            confidence = max(fake_prob, real_prob)
-
-            return {"label": label, "confidence": round(confidence, 4)}
+            return results
 
         except (OSError, ValueError, RuntimeError) as e:
             logger.exception("Error al ejecutar el detector: %s", e)
-            return {"label": "error", "confidence": 0.0000}
+            return [{"label": "error", "confidence": 0.0000} for _ in texts]
+
+    def _run(self, *args: Any, **kwargs: Any) -> DetectorResult:
+        text = self._extract_text_arg(*args, **kwargs)
+        return self.predict_batch([text])[0]
