@@ -41,6 +41,10 @@ class _LoopSafeFakeRedis:
         client = fakeredis.aioredis.FakeRedis(server=self._server)
         return client.pipeline(*args, **kwargs)
 
+    async def ping(self):
+        client = fakeredis.aioredis.FakeRedis(server=self._server)
+        return await client.ping()
+
 
 def _load_server_module(monkeypatch):
     project_root = Path(__file__).resolve().parents[3]
@@ -63,8 +67,14 @@ def _load_server_module(monkeypatch):
     return server_module, fake_pool
 
 
-def test_healthz_returns_ready_when_pool_is_initialized(monkeypatch):
+async def _ok_database():
+    return None
+
+
+def test_healthz_returns_ready_when_dependencies_respond(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
+    # La BD real no está disponible en tests; sondeamos solo Redis (fake).
+    monkeypatch.setattr("app.api.routes.health._check_database", _ok_database)
     client = TestClient(server_module.app)
 
     response = client.get("/healthz")
@@ -76,6 +86,35 @@ def test_healthz_returns_ready_when_pool_is_initialized(monkeypatch):
 def test_healthz_returns_503_when_pool_failed_to_initialize(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     server_module.app.state.arq_pool = None
+    client = TestClient(server_module.app)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 503
+
+
+def test_healthz_returns_503_when_database_is_down(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    async def fail_database():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr("app.api.routes.health._check_database", fail_database)
+    client = TestClient(server_module.app)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 503
+
+
+def test_healthz_returns_503_when_redis_is_down(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    monkeypatch.setattr("app.api.routes.health._check_database", _ok_database)
+
+    async def fail_redis(_redis):
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr("app.api.routes.health._check_redis", fail_redis)
     client = TestClient(server_module.app)
 
     response = client.get("/healthz")
