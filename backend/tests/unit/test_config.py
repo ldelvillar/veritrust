@@ -21,6 +21,15 @@ def _make_settings(**overrides) -> Settings:
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
 
 
+def test_analysis_queue_defaults_keep_reaper_above_job_timeout():
+    settings = _make_settings()
+
+    assert settings.analysis_job_timeout_seconds == 600
+    assert settings.analysis_stale_after_seconds == 900
+    # El reaper nunca debe correr a una fila viva: su umbral excede al job_timeout.
+    assert settings.analysis_stale_after_seconds > settings.analysis_job_timeout_seconds
+
+
 def test_normalize_pem_key_returns_none_for_empty_values():
     assert _normalize_pem_key(None) is None
     assert _normalize_pem_key("") is None

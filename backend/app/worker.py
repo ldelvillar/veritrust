@@ -10,7 +10,7 @@ encolado sobrevive a reinicios del servidor web.
 import asyncio
 import logging
 
-from arq import run_worker
+from arq import cron, run_worker
 from arq.connections import RedisSettings
 
 from app.agents.errors import (
@@ -22,7 +22,11 @@ from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.history import complete_analysis, fail_analysis
+from app.db.history import (
+    complete_analysis,
+    fail_analysis,
+    fail_stale_pending_analyses,
+)
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
@@ -100,6 +104,20 @@ async def run_analysis(
         )
 
 
+async def reap_stale_analyses(ctx: dict) -> None:
+    """Cron: marca como ``failed`` los análisis ``pending`` atascados.
+
+    Red de seguridad para filas cuyo worker murió a mitad o cuyo trabajo expiró
+    sin actualizar la fila, que de otro modo quedarían ``pending`` para siempre.
+    """
+    count = await fail_stale_pending_analyses(
+        older_than_seconds=get_settings().analysis_stale_after_seconds,
+        error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+    )
+    if count:
+        logger.warning("[Worker] Reaper marcó %d análisis atascados como failed", count)
+
+
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
     get_settings().validate_runtime(require_cors=False)
@@ -120,8 +138,10 @@ class WorkerSettings:
     """Configuración del worker de arq."""
 
     functions = [run_analysis]
+    cron_jobs = [cron(reap_stale_analyses, second=0)]  # ~una vez por minuto
     on_startup = startup
     on_shutdown = shutdown
+    job_timeout = get_settings().analysis_job_timeout_seconds
 
 
 def main() -> None:

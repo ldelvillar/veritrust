@@ -144,6 +144,25 @@ async def test_run_analysis_fails_with_internal_on_bert_error(monkeypatch):
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]
 
 
+async def test_reap_stale_analyses_fails_pending_rows_past_threshold(monkeypatch):
+    calls = []
+
+    async def fake_fail_stale(**kwargs):
+        calls.append(kwargs)
+        return 3
+
+    monkeypatch.setattr(worker, "fail_stale_pending_analyses", fake_fail_stale)
+
+    await worker.reap_stale_analyses({})
+
+    assert len(calls) == 1
+    assert calls[0]["error_code"] == "SERVICE_UNAVAILABLE"
+    assert (
+        calls[0]["older_than_seconds"]
+        == worker.get_settings().analysis_stale_after_seconds
+    )
+
+
 async def test_run_analysis_fails_with_internal_on_unexpected_error(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
 

@@ -22,6 +22,8 @@ const FAILURE_MESSAGES: Record<string, string> = {
     'No se pudo extraer el contenido de la URL. Comprueba que el enlace sea válido y accesible.',
   CONNECTION:
     'No se pudo conectar con el motor de análisis. Inténtalo de nuevo en unos minutos.',
+  SERVICE_UNAVAILABLE:
+    'El servicio de análisis no estaba disponible y no se pudo procesar la noticia. Inténtalo de nuevo.',
   INTERNAL:
     'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
 };

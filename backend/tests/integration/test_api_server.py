@@ -177,6 +177,46 @@ def test_analisis_enqueues_url_job(monkeypatch):
     assert job[4] == "https://ejemplo.com/noticia"
 
 
+def test_analisis_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenArqPool(_FakeArqPool):
+        async def enqueue_job(self, *args):
+            raise RedisError("redis down")
+
+    server_module.app.state.arq_pool = _BrokenArqPool()
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    failed = []
+
+    async def fake_fail_analysis(**kwargs):
+        failed.append(kwargs)
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.analysis.fail_analysis",
+        fake_fail_analysis,
+    )
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+    # La fila pendiente se recicla a failed para que el cliente deje de hacer polling.
+    assert failed == [
+        {
+            "analysis_id": "11111111-1111-1111-1111-111111111111",
+            "error_code": "SERVICE_UNAVAILABLE",
+        }
+    ]
+
+
 def test_analisis_returns_503_when_pool_unavailable(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     server_module.app.state.arq_pool = None

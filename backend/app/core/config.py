@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 
+    # Cola de análisis (arq)
+    analysis_job_timeout_seconds: int = 600  # 10 min: cota dura del pipeline
+    analysis_stale_after_seconds: int = 900  # 15 min: umbral del reaper (> timeout)
+
     # Rate limiting (POST /analysis, por usuario)
     rate_limit_max_requests: int = 5
     rate_limit_window_seconds: int = 60

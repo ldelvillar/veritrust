@@ -4,11 +4,16 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from redis.exceptions import RedisError
 
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
-from app.db.history import create_pending_analysis, get_user_analysis_by_id
+from app.db.history import (
+    create_pending_analysis,
+    fail_analysis,
+    get_user_analysis_by_id,
+)
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
@@ -69,13 +74,31 @@ async def analyze_news(
             detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
         ) from e
 
-    await arq_pool.enqueue_job(
-        "run_analysis",
-        analysis_id,
-        body.source_type.value,
-        body.text,
-        str(body.url) if body.url else None,
-    )
+    try:
+        await arq_pool.enqueue_job(
+            "run_analysis",
+            analysis_id,
+            body.source_type.value,
+            body.text,
+            str(body.url) if body.url else None,
+        )
+    except (OSError, RedisError) as e:
+        # Sin encolado no hay quien procese la fila: la marcamos failed para que
+        # no quede pending indefinidamente y el cliente deje de hacer polling.
+        logger.exception("No se pudo encolar el análisis %s", analysis_id)
+        try:
+            await fail_analysis(
+                analysis_id=analysis_id,
+                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+            )
+        except DatabaseError:
+            logger.exception(
+                "No se pudo marcar como failed el análisis %s", analysis_id
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
 
     return {"status": "pending", "analysis_id": analysis_id}
 
