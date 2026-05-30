@@ -82,6 +82,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 ## Key Conventions
 
 - **Centralised config** — all env-derived service config (DB, Clerk, CORS) flows through the `Settings` model in `app/core/config.py`, accessed via the cached `get_settings()`. Don't read env vars (`os.getenv`/`load_dotenv`) ad hoc in feature code; add a field to `Settings` instead. Required vars are validated once at startup via `get_settings().validate_runtime()` in the lifespan (a missing/invalid value is a startup failure surfaced via `/healthz` 503, not a per-request 500). `Settings` construction is side-effect-free, so importing modules never requires a populated environment.
+- **Comments & docstrings** — keep them short. Comments explain *what*, in one line; don't embed architectural decisions, business-logic rationale, or trade-off discussion in code (those belong here or in the PR). Class and method docstrings are a single plain sentence describing what it does — no multi-paragraph explanations.
 - **Agent prompts** live in `backend/app/prompts/prompts.yaml`, not in Python code.
 - **TypeScript API types** are generated from the backend's OpenAPI spec — run `pnpm generate:api-types` after changing schemas.
 - **No ORM** — database access uses raw psycopg3 async SQL in `app/db/main.py`, served by a module-level `AsyncConnectionPool` opened in lifespan startup and closed on shutdown.
