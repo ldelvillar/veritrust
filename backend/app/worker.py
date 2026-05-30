@@ -12,7 +12,11 @@ import logging
 
 from arq.connections import RedisSettings
 
-from app.agents.errors import OllamaConnectionError, ainvoke_graph
+from app.agents.errors import (
+    BertInferenceError,
+    OllamaConnectionError,
+    ainvoke_graph,
+)
 from app.agents.main import create_graph
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -33,11 +37,7 @@ async def run_analysis(
     text: str | None,
     url: str | None,
 ) -> None:
-    """Ejecuta el pipeline para un análisis pendiente y persiste el resultado.
-
-    No relanza errores del dominio: los traduce a ``status = 'failed'`` con un
-    ``error_code`` estable para que el frontend los muestre al hacer polling.
-    """
+    """Ejecuta el pipeline para un análisis pendiente y persiste el resultado."""
     logger.info("[Worker] Procesando análisis %s", analysis_id)
 
     try:
@@ -85,6 +85,11 @@ async def run_analysis(
         await fail_analysis(
             analysis_id=analysis_id, error_code=ErrorCode.CONNECTION.value
         )
+    except BertInferenceError:
+        logger.exception("[Worker] Fallo del detector BERT para %s", analysis_id)
+        await fail_analysis(
+            analysis_id=analysis_id, error_code=ErrorCode.INTERNAL.value
+        )
     except Exception:
         logger.exception("[Worker] Error inesperado analizando %s", analysis_id)
         await fail_analysis(
@@ -102,7 +107,7 @@ async def startup(ctx: dict) -> None:
     logger.info("[Worker] Listo para procesar análisis")
 
 
-async def shutdown(ctx: dict) -> None:
+async def shutdown() -> None:
     """Cierra el pool de base de datos al parar el worker."""
     await close_pool()
 

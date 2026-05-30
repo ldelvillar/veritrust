@@ -1,13 +1,4 @@
-"""Errores tipados del pipeline de agentes y traducción desde la capa de transporte.
-
-Concentra en un único punto la traducción de excepciones de la capa de
-transporte (httpx / cliente de Ollama) a tipos del dominio, de modo que las
-capas superiores despachen por **tipo** en lugar de hacer matching de cadenas
-sobre ``str(exc)``.
-
-Solo se traducen errores con un discriminador estable (tipo de excepción).
-El resto se propagan sin tocar y se mapean a ``INTERNAL`` en la ruta.
-"""
+"""Errores tipados del pipeline de agentes y traducción desde la capa de transporte."""
 
 import httpx
 
@@ -20,15 +11,12 @@ class OllamaConnectionError(AgentError):
     """No se pudo conectar al servidor de Ollama."""
 
 
+class BertInferenceError(AgentError):
+    """Falló la carga o la inferencia del modelo BERT clasificador."""
+
+
 async def ainvoke_graph(graph, state: dict) -> dict:
-    """Ejecuta el grafo de forma asíncrona y traduce excepciones de conexión.
-
-    LangGraph despacha los nodos síncronos a un threadpool internamente, por
-    lo que mantener los agentes en ``def`` no bloquea el event loop.
-
-    - ``ConnectionError`` / ``httpx.ConnectError`` → ``OllamaConnectionError``
-    - Resto de excepciones se propagan sin tocar.
-    """
+    """Ejecuta el grafo de forma asíncrona y traduce excepciones de conexión."""
     try:
         return await graph.ainvoke(state)
     except (ConnectionError, httpx.ConnectError) as e:

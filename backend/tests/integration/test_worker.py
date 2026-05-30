@@ -1,7 +1,7 @@
 """Tests del worker de arq: ejecuta el pipeline y traduce errores a estado failed."""
 
 import app.worker as worker
-from app.agents.errors import OllamaConnectionError
+from app.agents.errors import BertInferenceError, OllamaConnectionError
 from app.utils.extract_text_from_url import URLExtractionError
 
 ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
@@ -126,6 +126,22 @@ async def test_run_analysis_fails_with_connection_on_ollama_error(monkeypatch):
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
+
+
+async def test_run_analysis_fails_with_internal_on_bert_error(monkeypatch):
+    """Un fallo del detector BERT acaba en 'failed', no en un veredicto falso."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def fake_ainvoke(graph, state):
+        raise BertInferenceError("modelo no disponible")
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert completed == []
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]
 
 
 async def test_run_analysis_fails_with_internal_on_unexpected_error(monkeypatch):

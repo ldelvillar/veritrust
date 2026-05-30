@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from app.agents.errors import BertInferenceError
 from app.tools.model_tool import FakeNewsDetectorTool
 
 
@@ -63,7 +64,7 @@ def test_run_returns_label_and_confidence_with_mocked_model(
     assert 0.0 <= out["confidence"] <= 1.0
 
 
-def test_run_returns_error_when_model_loading_fails(
+def test_run_raises_bert_inference_error_when_model_loading_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model_dir = Path("C:/tmp/model")
@@ -75,9 +76,11 @@ def test_run_returns_error_when_model_loading_fails(
     )
 
     tool = FakeNewsDetectorTool()
-    out = tool._run("Texto de prueba")
 
-    assert out == {"label": "error", "confidence": 0.0}
+    # Un fallo de carga del modelo no debe degradar a una etiqueta inventada:
+    # se propaga como error tipado para que el análisis acabe en 'failed'.
+    with pytest.raises(BertInferenceError):
+        tool._run("Texto de prueba")
 
 
 def test_resolve_model_path_raises_when_no_candidates_exist(

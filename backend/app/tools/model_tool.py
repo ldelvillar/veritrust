@@ -15,6 +15,7 @@ from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
 from transformers import BertForSequenceClassification, BertTokenizer
 
+from app.agents.errors import BertInferenceError
 from ml.utils.text import MAX_SEQUENCE_LENGTH, clean_text
 
 logger = logging.getLogger(__name__)
@@ -156,8 +157,11 @@ class FakeNewsDetectorTool(BaseTool):
             return results
 
         except (OSError, ValueError, RuntimeError) as e:
+            # Un fallo de carga/inferencia se propaga como error tipado
             logger.exception("Error al ejecutar el detector: %s", e)
-            return [{"label": "error", "confidence": 0.0000} for _ in texts]
+            raise BertInferenceError(
+                "El detector BERT no pudo clasificar el texto"
+            ) from e
 
     def _run(self, *args: Any, **kwargs: Any) -> DetectorResult:
         text = self._extract_text_arg(*args, **kwargs)
