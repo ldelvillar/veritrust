@@ -23,13 +23,13 @@ def _load_eval_module(monkeypatch):
 
     fake_google_credentials.AnonymousCredentials = _AnonymousCredentials
 
-    fake_dotenv = types.ModuleType("dotenv")
-    fake_dotenv.load_dotenv = lambda: None
-
     monkeypatch.setitem(sys.modules, "googleapiclient.discovery", fake_discovery)
     monkeypatch.setitem(sys.modules, "googleapiclient.errors", fake_errors)
     monkeypatch.setitem(sys.modules, "google.auth.credentials", fake_google_credentials)
-    monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
+
+    import dotenv
+
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: None)
 
     sys.modules.pop("ml.evaluation.evaluate_factcheck", None)
     return importlib.import_module("ml.evaluation.evaluate_factcheck")
