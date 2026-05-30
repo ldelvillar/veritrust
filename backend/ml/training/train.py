@@ -14,6 +14,7 @@ from transformers import (
     EvalPrediction,
     Trainer,
     TrainingArguments,
+    set_seed,
 )
 
 from ml.utils.load_data import load_dataset
@@ -29,6 +30,7 @@ MAX_LENGTH = MAX_SEQUENCE_LENGTH
 BATCH_SIZE = 16
 EPOCHS = 3
 LEARNING_RATE = 2e-5
+SEED = 42  # Semilla fija para entrenamientos reproducibles
 
 # Detectar si hay una GPU disponible y usarla, sino usar CPU
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -66,6 +68,9 @@ def compute_metrics(pred: EvalPrediction) -> dict:
 
 def run_training() -> None:
     """Función principal para ejecutar el entrenamiento del modelo BERT."""
+    # Fijar semillas (Python, NumPy, PyTorch) para reproducibilidad
+    set_seed(SEED)
+
     # Cargar y preprocesar los datos de entrenamiento y validación
     raw_train = load_dataset()
     train_df = preprocess_data(raw_train)
@@ -119,6 +124,8 @@ def run_training() -> None:
         load_best_model_at_end=True,  # Quedarse con el mejor modelo al final
         metric_for_best_model="f1",  # Optimizar para F1-Score
         save_total_limit=2,  # No llenar el disco duro, guardar solo los 2 últimos
+        seed=SEED,  # Semilla del Trainer (init de pesos, optimizador)
+        data_seed=SEED,  # Semilla del muestreo/shuffle de datos
     )
 
     # Entrenar el modelo

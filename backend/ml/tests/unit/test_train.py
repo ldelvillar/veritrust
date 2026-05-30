@@ -87,7 +87,16 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
         "from_pretrained",
         lambda *args, **kwargs: fake_model,
     )
-    monkeypatch.setattr(train_module, "TrainingArguments", lambda **kwargs: kwargs)
+    seed_calls = []
+    monkeypatch.setattr(train_module, "set_seed", seed_calls.append)
+
+    captured_args: dict = {}
+
+    def _fake_training_args(**kwargs):
+        captured_args.update(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(train_module, "TrainingArguments", _fake_training_args)
 
     calls = {"train": 0, "evaluate": 0}
 
@@ -108,3 +117,7 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
 
     assert calls["train"] == 1
     assert calls["evaluate"] == 1
+    # Entrenamiento reproducible: semilla fijada y propagada al Trainer.
+    assert seed_calls == [train_module.SEED]
+    assert captured_args["seed"] == train_module.SEED
+    assert captured_args["data_seed"] == train_module.SEED
