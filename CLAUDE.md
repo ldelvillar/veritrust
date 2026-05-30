@@ -66,7 +66,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 - **`app/api/dependencies/`** — Clerk JWT validation (`get_current_user.py`), rate limiting (`check_rate_limit.py`)
 - **`app/agents/`** — LangGraph orchestration in `main.py`; individual agents in `extractor.py`, `translator.py`, `health_expert.py`; typed pipeline errors and `ainvoke_graph` helper in `errors.py`
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`)
-- **`app/db/main.py`** — Raw psycopg2 queries; no ORM
+- **`app/db/`** — Raw psycopg3 async queries; no ORM. Split by concern: `pool.py` (shared `AsyncConnectionPool` + `DatabaseError`), `history.py` (analysis CRUD + pagination), `dashboard.py` (aggregated metrics)
 - **`app/core/config.py`** — Centralised `Settings` (pydantic-settings) for all service config (DB, Clerk, CORS); cached `get_settings()` accessor and `validate_runtime()` startup check
 - **`app/schemas/errors.py`** — `ErrorCode` enum + `ErrorDetail`/`ErrorResponse` Pydantic models (the wire contract; exported to frontend via OpenAPI)
 - **`app/core/errors.py`** — Spanish messages keyed by `ErrorCode` + `make_error_detail()` factory used by every route's `HTTPException`
@@ -85,7 +85,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 - **Comments & docstrings** — keep them short. Comments explain *what*, in one line; don't embed architectural decisions, business-logic rationale, or trade-off discussion in code (those belong here or in the PR). Class and method docstrings are a single plain sentence describing what it does — no multi-paragraph explanations.
 - **Agent prompts** live in `backend/app/prompts/prompts.yaml`, not in Python code.
 - **TypeScript API types** are generated from the backend's OpenAPI spec — run `pnpm generate:api-types` after changing schemas.
-- **No ORM** — database access uses raw psycopg3 async SQL in `app/db/main.py`, served by a module-level `AsyncConnectionPool` opened in lifespan startup and closed on shutdown.
+- **No ORM** — database access uses raw psycopg3 async SQL under `app/db/` (`history.py`, `dashboard.py`), served by a module-level `AsyncConnectionPool` in `app/db/pool.py`, opened in lifespan startup and closed on shutdown.
 - **Async end-to-end** — all routes, dependencies, and DB functions are `async def`. The LangGraph pipeline is invoked via `await graph.ainvoke(...)` (helper `ainvoke_graph` in `app/agents/errors.py`); individual agent nodes stay sync `def` since LangGraph dispatches them to its own threadpool. URL extraction (`extract_text_from_url`) stays sync and is called from the route via `await asyncio.to_thread(...)`.
 - **80% test coverage** is enforced in CI for both `app` and `ml` modules.
 - **pnpm** (not npm/yarn) for frontend; **uv** (not pip) for backend.

@@ -1,12 +1,14 @@
-"""Tests unitarios para helpers internos de database.py."""
+"""Tests unitarios para helpers internos de la capa de persistencia (db/)."""
 
 from datetime import date, datetime, timezone
 
 import pytest
 
 from app.core.config import Settings
-from app.db import main as database_module
-from app.db.main import HistoryDatabaseError
+from app.db import dashboard as dashboard_module
+from app.db import history as history_module
+from app.db import pool as pool_module
+from app.db.pool import DatabaseError
 from app.schemas.dashboard import (
     DashboardAlertItem,
     DashboardDomainBreakdownItem,
@@ -19,13 +21,13 @@ from app.schemas.history import AnalysisHistoryItem
 def _use_database_url(monkeypatch, database_url: str) -> None:
     """Hace que _build_connection_string lea una configuración controlada."""
     settings = Settings(_env_file=None, database_url=database_url)  # type: ignore[call-arg]
-    monkeypatch.setattr(database_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(pool_module, "get_settings", lambda: settings)
 
 
 def test_build_connection_string_returns_database_url(monkeypatch) -> None:
     _use_database_url(monkeypatch, "postgresql://user:pass@localhost:5432/db")
 
-    conninfo = database_module._build_connection_string()
+    conninfo = pool_module._build_connection_string()
 
     assert conninfo == "postgresql://user:pass@localhost:5432/db"
 
@@ -35,38 +37,38 @@ def test_build_connection_string_raises_when_database_url_is_missing(
 ) -> None:
     _use_database_url(monkeypatch, "")
 
-    with pytest.raises(HistoryDatabaseError) as exc:
-        database_module._build_connection_string()
+    with pytest.raises(DatabaseError) as exc:
+        pool_module._build_connection_string()
 
     assert "DATABASE_URL" in str(exc.value)
 
 
 def test_build_database_error_appends_configuration_hint() -> None:
-    message = database_module._build_database_error("Error base.")
+    message = pool_module._build_database_error("Error base.")
 
     assert message.startswith("Error base.")
     assert "DATABASE_URL" in message
 
 
 def test_normalize_confidence_accepts_valid_numeric_values() -> None:
-    assert database_module._normalize_confidence(0) == 0.0
-    assert database_module._normalize_confidence("1") == 1.0
-    assert database_module._normalize_confidence(0.75) == 0.75
+    assert history_module._normalize_confidence(0) == 0.0
+    assert history_module._normalize_confidence("1") == 1.0
+    assert history_module._normalize_confidence(0.75) == 0.75
 
 
 def test_normalize_confidence_rejects_non_numeric_values() -> None:
-    with pytest.raises(HistoryDatabaseError) as exc:
-        database_module._normalize_confidence("no-num")
+    with pytest.raises(DatabaseError) as exc:
+        history_module._normalize_confidence("no-num")
 
     assert "no es numerico" in str(exc.value)
 
 
 def test_normalize_confidence_rejects_out_of_range_values() -> None:
-    with pytest.raises(HistoryDatabaseError):
-        database_module._normalize_confidence(1.2)
+    with pytest.raises(DatabaseError):
+        history_module._normalize_confidence(1.2)
 
-    with pytest.raises(HistoryDatabaseError):
-        database_module._normalize_confidence(-0.01)
+    with pytest.raises(DatabaseError):
+        history_module._normalize_confidence(-0.01)
 
 
 def test_map_history_record_converts_sql_row_to_dataclass() -> None:
@@ -84,7 +86,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         None,
     )
 
-    record = database_module._map_history_record(row)
+    record = history_module._map_history_record(row)
 
     assert isinstance(record, AnalysisHistoryItem)
     assert record.analysis_id == "123"
@@ -110,7 +112,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         None,
     )
 
-    record = database_module._map_history_record(row)
+    record = history_module._map_history_record(row)
 
     assert record.status == "pending"
     assert record.label is None
@@ -120,7 +122,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
     safe_limit, safe_offset, safe_source_type, safe_score_sort = (
-        database_module._sanitize_history_query_params(
+        history_module._sanitize_history_query_params(
             limit=500,
             offset=-10,
             source_type="audio",
@@ -136,7 +138,7 @@ def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
 
 def test_sanitize_history_query_params_preserves_valid_values() -> None:
     safe_limit, safe_offset, safe_source_type, safe_score_sort = (
-        database_module._sanitize_history_query_params(
+        history_module._sanitize_history_query_params(
             limit=25,
             offset=5,
             source_type="url",
@@ -151,7 +153,7 @@ def test_sanitize_history_query_params_preserves_valid_values() -> None:
 
 
 def test_build_history_where_clause_with_only_user_id() -> None:
-    where_sql, params = database_module._build_history_where_clause(
+    where_sql, params = history_module._build_history_where_clause(
         user_id="user-1",
         search_query=None,
         source_type=None,
@@ -164,7 +166,7 @@ def test_build_history_where_clause_with_only_user_id() -> None:
 
 def test_build_history_where_clause_with_search_filters_and_date() -> None:
     created_after = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
-    where_sql, params = database_module._build_history_where_clause(
+    where_sql, params = history_module._build_history_where_clause(
         user_id="user-2",
         search_query="  covid  ",
         source_type="text",
@@ -186,7 +188,7 @@ def test_build_history_where_clause_with_search_filters_and_date() -> None:
 
 
 def test_build_history_queries_includes_ordering_and_where() -> None:
-    count_query, list_query = database_module._build_history_queries(
+    count_query, list_query = history_module._build_history_queries(
         "user_id = %s",
         "ASC",
     )
@@ -198,7 +200,7 @@ def test_build_history_queries_includes_ordering_and_where() -> None:
 
 
 def test_sanitize_dashboard_params_clamps_values() -> None:
-    safe_trend_days, safe_alert_limit = database_module._sanitize_dashboard_params(
+    safe_trend_days, safe_alert_limit = dashboard_module._sanitize_dashboard_params(
         trend_days=1,
         alert_limit=999,
     )
@@ -208,8 +210,8 @@ def test_sanitize_dashboard_params_clamps_values() -> None:
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:
-    assert database_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0)
-    assert database_module._extract_kpis_values((10, 0.83, 7, 4, 2)) == (
+    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0)
+    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2)) == (
         10,
         0.83,
         7,
@@ -220,14 +222,14 @@ def test_extract_kpis_values_handles_none_and_row_values() -> None:
 
 def test_calculate_reliable_rate_handles_zero_and_rounding() -> None:
     assert (
-        database_module._calculate_reliable_rate(
+        dashboard_module._calculate_reliable_rate(
             reliable_total=0,
             total_analyses=0,
         )
         == 0.0
     )
     assert (
-        database_module._calculate_reliable_rate(
+        dashboard_module._calculate_reliable_rate(
             reliable_total=1,
             total_analyses=3,
         )
@@ -237,21 +239,21 @@ def test_calculate_reliable_rate_handles_zero_and_rounding() -> None:
 
 def test_calculate_week_over_week_delta_covers_edge_cases() -> None:
     assert (
-        database_module._calculate_week_over_week_delta(
+        dashboard_module._calculate_week_over_week_delta(
             current_week_total=0,
             previous_week_total=0,
         )
         == 0.0
     )
     assert (
-        database_module._calculate_week_over_week_delta(
+        dashboard_module._calculate_week_over_week_delta(
             current_week_total=5,
             previous_week_total=0,
         )
         == 100.0
     )
     assert (
-        database_module._calculate_week_over_week_delta(
+        dashboard_module._calculate_week_over_week_delta(
             current_week_total=3,
             previous_week_total=2,
         )
@@ -260,16 +262,16 @@ def test_calculate_week_over_week_delta_covers_edge_cases() -> None:
 
 
 def test_round_percentage_clamps_and_rounds_values() -> None:
-    assert database_module._round_percentage(None) == 0.0
-    assert database_module._round_percentage(0.1234) == 12.3
-    assert database_module._round_percentage(1.8) == 100.0
-    assert database_module._round_percentage(-0.2) == 0.0
+    assert dashboard_module._round_percentage(None) == 0.0
+    assert dashboard_module._round_percentage(0.1234) == 12.3
+    assert dashboard_module._round_percentage(1.8) == 100.0
+    assert dashboard_module._round_percentage(-0.2) == 0.0
 
 
 def test_extract_domain_returns_normalized_host() -> None:
-    assert database_module._extract_domain("https://Example.COM/path") == "example.com"
-    assert database_module._extract_domain("notaurl") is None
-    assert database_module._extract_domain(None) is None
+    assert dashboard_module._extract_domain("https://Example.COM/path") == "example.com"
+    assert dashboard_module._extract_domain("notaurl") is None
+    assert dashboard_module._extract_domain(None) is None
 
 
 def test_build_trend_points_creates_contiguous_daily_series() -> None:
@@ -278,7 +280,7 @@ def test_build_trend_points_creates_contiguous_daily_series() -> None:
         (date(2026, 4, 3), 1, 0.75),
     ]
 
-    points = database_module._build_trend_points(
+    points = dashboard_module._build_trend_points(
         trend_rows=trend_rows,
         trend_start_date=date(2026, 4, 1),
         trend_days=3,
@@ -298,7 +300,7 @@ def test_build_trend_points_creates_contiguous_daily_series() -> None:
 def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
     rows = [("url", 3, 0.91), ("text", 1, None)]
 
-    result = database_module._build_source_breakdown(rows)
+    result = dashboard_module._build_source_breakdown(rows)
 
     assert len(result) == 2
     assert isinstance(result[0], DashboardSourceBreakdownItem)
@@ -317,7 +319,7 @@ def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
         (None, 0.2),
     ]
 
-    result = database_module._build_domain_breakdown(domain_rows=domain_rows, limit=1)
+    result = dashboard_module._build_domain_breakdown(domain_rows=domain_rows, limit=1)
 
     assert len(result) == 1
     assert isinstance(result[0], DashboardDomainBreakdownItem)
@@ -339,7 +341,7 @@ def test_build_alerts_maps_rows_to_alert_items() -> None:
         )
     ]
 
-    alerts = database_module._build_alerts(alert_rows)
+    alerts = dashboard_module._build_alerts(alert_rows)
 
     assert len(alerts) == 1
     assert isinstance(alerts[0], DashboardAlertItem)

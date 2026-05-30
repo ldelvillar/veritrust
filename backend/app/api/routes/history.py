@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
-from app.db.main import HistoryDatabaseError, list_user_analysis_history
+from app.db.history import list_user_analysis_history
+from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem, HistoryResponse
 
@@ -54,7 +55,7 @@ async def get_history(
             created_after=_get_date_threshold(date_range),
             score_sort_order=score_sort,
         )
-    except HistoryDatabaseError as e:
+    except DatabaseError as e:
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.HISTORY_FETCH_FAILED),

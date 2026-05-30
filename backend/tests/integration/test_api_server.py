@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
 from app.api.dependencies.get_current_user import get_current_user
-from app.db.main import HistoryDatabaseError
+from app.db.pool import DatabaseError
 
 
 class _FakeArqPool:
@@ -241,7 +241,7 @@ def test_analisis_returns_save_failed_when_pending_insert_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_create_pending_analysis(**kwargs):
-        raise HistoryDatabaseError("db down")
+        raise DatabaseError("db down")
 
     monkeypatch.setattr(
         "app.api.routes.analysis.create_pending_analysis",
@@ -408,7 +408,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
-        raise HistoryDatabaseError("db down")
+        raise DatabaseError("db down")
 
     monkeypatch.setattr(
         "app.api.routes.analysis.get_user_analysis_by_id",
@@ -576,7 +576,7 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_list_user_analysis_history(**kwargs):
-        raise HistoryDatabaseError("db down")
+        raise DatabaseError("db down")
 
     monkeypatch.setattr(
         "app.api.routes.history.list_user_analysis_history",
@@ -661,7 +661,7 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_get_user_dashboard_summary(*, user_id):
-        raise HistoryDatabaseError("db down")
+        raise DatabaseError("db down")
 
     monkeypatch.setattr(
         "app.api.routes.dashboard.get_user_dashboard_summary",

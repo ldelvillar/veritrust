@@ -21,7 +21,8 @@ from app.agents.errors import (
 from app.agents.main import create_graph
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.main import close_pool, complete_analysis, fail_analysis, get_pool
+from app.db.history import complete_analysis, fail_analysis
+from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url

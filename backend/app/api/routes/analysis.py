@@ -8,11 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
-from app.db.main import (
-    HistoryDatabaseError,
-    create_pending_analysis,
-    get_user_analysis_by_id,
-)
+from app.db.history import create_pending_analysis, get_user_analysis_by_id
+from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem
@@ -65,7 +62,7 @@ async def analyze_news(
 
     try:
         analysis_id = await create_pending_analysis(user_id=user_id, request=body)
-    except HistoryDatabaseError as e:
+    except DatabaseError as e:
         logger.exception("No se pudo crear el análisis pendiente")
         raise HTTPException(
             status_code=500,
@@ -103,7 +100,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
 
     try:
         record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
-    except HistoryDatabaseError as e:
+    except DatabaseError as e:
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),

@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
-from app.db.main import get_pool
+from app.db.pool import get_pool
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

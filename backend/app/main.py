@@ -13,7 +13,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.cors import get_cors_config
 from app.core.logging import configure_logging
-from app.db.main import close_pool, get_pool
+from app.db.pool import close_pool, get_pool
 
 configure_logging()
 
