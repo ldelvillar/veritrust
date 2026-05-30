@@ -12,6 +12,15 @@ Analyze the staged changes and write a conventional commit message for the VeriT
 
 ## Commit Message Format
 
+For a simple, short, or single-concern change, write a **title only** — no body, no bullets:
+
+```text
+<type>(<scope>): <short description>
+```
+
+Only add a body when the title genuinely can't carry the substance (multiple
+non-obvious changes, or context the diff won't reveal):
+
 ```text
 <type>(<scope>): <short description>
 
@@ -20,10 +29,10 @@ Analyze the staged changes and write a conventional commit message for the VeriT
 - <bullet 3>
 ```
 
-The body is optional — only add it when the title can't carry the substance.
 When you do add a body, use **short bullet points** (≤3, each a single line).
 Do **not** write prose paragraphs explaining motivation at length; the title
-names the intent, the bullets name what changed.
+names the intent, the bullets name what changed. When in doubt, prefer a
+title-only commit.
 
 **Types:**
 
