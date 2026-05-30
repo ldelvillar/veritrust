@@ -1,15 +1,16 @@
 """Worker de arq que ejecuta el pipeline multiagente fuera del request HTTP.
 
 La ruta ``POST /analysis`` solo inserta una fila ``pending`` y encola un trabajo;
-este proceso (arrancado con ``arq app.worker.WorkerSettings``) ejecuta la
-extracción de URL, el grafo de LangGraph y la inferencia BERT, y actualiza la
-fila a ``done`` o ``failed``. Al vivir en un proceso aparte respaldado por Redis,
-un análisis encolado sobrevive a reinicios del servidor web.
+este proceso (arrancado con ``python -m app.worker``) ejecuta la extracción de
+URL, el grafo de LangGraph y la inferencia BERT, y actualiza la fila a ``done``
+o ``failed``. Al vivir en un proceso aparte respaldado por Redis, un análisis
+encolado sobrevive a reinicios del servidor web.
 """
 
 import asyncio
 import logging
 
+from arq import run_worker
 from arq.connections import RedisSettings
 
 from app.agents.errors import (
@@ -113,9 +114,18 @@ async def shutdown() -> None:
 
 
 class WorkerSettings:
-    """Configuración del worker de arq (entrypoint: ``arq app.worker.WorkerSettings``)."""
+    """Configuración del worker de arq."""
 
     functions = [run_analysis]
     on_startup = startup
     on_shutdown = shutdown
+
+
+def main() -> None:
+    """Entrypoint del worker (``python -m app.worker``)."""
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
+    run_worker(WorkerSettings, redis_settings=redis_settings)  # type: ignore[arg-type]
+
+
+if __name__ == "__main__":
+    main()

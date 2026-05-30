@@ -70,7 +70,7 @@ cd backend
 uv sync --frozen                      # install serving + api deps
 uv sync --frozen --extra ml           # add the ML stack (only if training/evaluating)
 uv run python -m app.main             # web API at http://localhost:8000
-uv run arq app.worker.WorkerSettings  # analysis worker (separate terminal; needs Redis + Ollama)
+uv run python -m app.worker           # analysis worker (separate terminal; needs Redis + Ollama)
 ```
 
 #### 3. Frontend

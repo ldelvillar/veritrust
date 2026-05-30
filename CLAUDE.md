@@ -14,7 +14,7 @@ VeriTrust is an AI-powered medical misinformation detection system. Users submit
 uv sync --frozen                                             # Install serving/API deps + app tests (excludes the ml stack)
 uv sync --frozen --extra ml                                  # Add the ml stack (pandas, pyarrow, scikit-learn, accelerate, matplotlib, seaborn) — needed for ml/ and its tests
 uv run python -m app.main                                    # Start API server (http://localhost:8000)
-uv run arq app.worker.WorkerSettings                         # Start the analysis worker (needs Redis + Ollama)
+uv run python -m app.worker                                  # Start the analysis worker (needs Redis + Ollama)
 uv run pytest tests --cov=app --cov-fail-under=80            # Run app tests (80% coverage required)
 uv run pytest ml/tests --cov=ml --cov-fail-under=80          # Run ML tests (80% coverage required)
 uv run pytest tests/test_foo.py -k "test_name"               # Run a single test
@@ -61,7 +61,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 ### Backend (`backend/`)
 
 - **`app/main.py`** — Web-process lifespan: opens the DB pool and the arq Redis pool (for enqueuing). The graph lives in the worker, not here.
-- **`app/worker.py`** — arq worker (`arq app.worker.WorkerSettings`): builds the graph at startup and runs `run_analysis`, translating pipeline errors into a `failed` row + stable `error_code`.
+- **`app/worker.py`** — arq worker (`python -m app.worker`): builds the graph at startup and runs `run_analysis`, translating pipeline errors into a `failed` row + stable `error_code`.
 - **`app/api/routes/`** — `analysis.py` (POST enqueues a pending row; GET returns status/results), `dashboard.py`, `history.py` (each declares `responses=` for OpenAPI error contract)
 - **`app/api/dependencies/`** — Clerk JWT validation (`get_current_user.py`), rate limiting (`check_rate_limit.py`)
 - **`app/agents/`** — LangGraph orchestration in `main.py`; individual agents in `extractor.py`, `translator.py`, `health_expert.py`; typed pipeline errors and `ainvoke_graph` helper in `errors.py`
