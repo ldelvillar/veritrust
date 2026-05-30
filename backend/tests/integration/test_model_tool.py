@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.agents.errors import BertInferenceError
+from app.core.config import Settings
 from app.tools.model_tool import FakeNewsDetectorTool
 
 
@@ -17,12 +18,18 @@ class _Score:
         return self._value
 
 
-def test_resolve_model_path_uses_env_var_when_available(
+def _patch_model_path(monkeypatch: pytest.MonkeyPatch, model_path: str | None) -> None:
+    """Inyecta una configuración con la ruta del modelo deseada."""
+    settings = Settings(_env_file=None, fake_news_model_path=model_path)  # type: ignore[call-arg]
+    monkeypatch.setattr("app.tools.model_tool.get_settings", lambda: settings)
+
+
+def test_resolve_model_path_uses_configured_path_when_available(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     model_dir = tmp_path / "bert_classifier"
     model_dir.mkdir()
-    monkeypatch.setenv("FAKE_NEWS_MODEL_PATH", str(model_dir))
+    _patch_model_path(monkeypatch, str(model_dir))
 
     tool = FakeNewsDetectorTool()
     assert tool.model_path == str(model_dir.resolve())
@@ -31,8 +38,7 @@ def test_resolve_model_path_uses_env_var_when_available(
 def test_run_returns_label_and_confidence_with_mocked_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    model_dir = Path("C:/tmp/model")
-    monkeypatch.setenv("FAKE_NEWS_MODEL_PATH", str(model_dir))
+    _patch_model_path(monkeypatch, "C:/tmp/model")
     monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
 
     class _FakeTokenizer:
@@ -67,8 +73,7 @@ def test_run_returns_label_and_confidence_with_mocked_model(
 def test_run_raises_bert_inference_error_when_model_loading_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    model_dir = Path("C:/tmp/model")
-    monkeypatch.setenv("FAKE_NEWS_MODEL_PATH", str(model_dir))
+    _patch_model_path(monkeypatch, "C:/tmp/model")
     monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
     monkeypatch.setattr(
         "app.tools.model_tool.BertTokenizer.from_pretrained",
@@ -86,8 +91,25 @@ def test_run_raises_bert_inference_error_when_model_loading_fails(
 def test_resolve_model_path_raises_when_no_candidates_exist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("FAKE_NEWS_MODEL_PATH", raising=False)
+    _patch_model_path(monkeypatch, None)
     monkeypatch.setattr("pathlib.Path.exists", lambda self: False)
 
     with pytest.raises(FileNotFoundError, match="No se encontro el modelo"):
         FakeNewsDetectorTool()
+
+
+def test_ensure_bert_detector_ready_fails_fast_without_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El warm-up del worker falla pronto si no hay modelo local resoluble."""
+    from app.agents import health_expert
+
+    # El detector se cachea por clase; limpiamos para forzar la resolución.
+    health_expert._build_bert_tool.cache_clear()
+    _patch_model_path(monkeypatch, None)
+    monkeypatch.setattr("pathlib.Path.exists", lambda self: False)
+
+    with pytest.raises(FileNotFoundError, match="No se encontro el modelo"):
+        health_expert.ensure_bert_detector_ready()
+
+    health_expert._build_bert_tool.cache_clear()

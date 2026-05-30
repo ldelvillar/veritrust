@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
 
+    # Modelo BERT detector (ruta local; si no se define, se autodetecta)
+    fake_news_model_path: str | None = None
+
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 

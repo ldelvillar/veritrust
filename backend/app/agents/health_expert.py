@@ -43,6 +43,11 @@ def _get_bert_tool() -> FakeNewsDetectorTool:
     return _build_bert_tool(FakeNewsDetectorTool)
 
 
+def ensure_bert_detector_ready() -> None:
+    """Resuelve y cachea el detector BERT; falla pronto si no hay modelo local."""
+    _get_bert_tool()
+
+
 @lru_cache(maxsize=1)
 def get_health_expert_llm() -> ChatOllama:
     """Devuelve el LLM del experto en salud configurado y cacheado."""

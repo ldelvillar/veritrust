@@ -4,7 +4,6 @@ News utilizando un modelo de IA basado en BioBERT.
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Mapping, TypedDict, cast
 
@@ -16,6 +15,7 @@ from pydantic import BaseModel, Field
 from transformers import BertForSequenceClassification, BertTokenizer
 
 from app.agents.errors import BertInferenceError
+from app.core.config import get_settings
 from ml.utils.text import MAX_SEQUENCE_LENGTH, clean_text
 
 logger = logging.getLogger(__name__)
@@ -85,9 +85,9 @@ class FakeNewsDetectorTool(BaseTool):
     @staticmethod
     def _resolve_model_path() -> str:
         """Resuelve una ruta local valida para el modelo en distintos entornos."""
-        env_path = os.getenv("FAKE_NEWS_MODEL_PATH")
-        if env_path and Path(env_path).exists():
-            return str(Path(env_path).resolve())
+        configured_path = get_settings().fake_news_model_path
+        if configured_path and Path(configured_path).exists():
+            return str(Path(configured_path).resolve())
 
         current_file = Path(__file__).resolve()
         candidates = [

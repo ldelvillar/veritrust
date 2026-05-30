@@ -18,6 +18,7 @@ from app.agents.errors import (
     OllamaConnectionError,
     ainvoke_graph,
 )
+from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -103,6 +104,7 @@ async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
     get_settings().validate_runtime(require_cors=False)
     ensure_ollama_available()
+    ensure_bert_detector_ready()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)
     await get_pool()
