@@ -447,12 +447,87 @@ export default function Home() {
               aportó cada uno.
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
+          {/* pipeline flow */}
+          <div
+            role="presentation"
+            className="mx-auto mb-7.5 flex max-w-190 items-center"
+          >
+            <span className="inline-flex items-center gap-2.25 rounded-full border border-[#e8e6f4] bg-white px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-[#33344c] shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4.25 text-primary"
+              >
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                <path d="M14 3v5h5" />
+              </svg>
+              Entrada
+            </span>
+            <span
+              aria-hidden="true"
+              className="relative mx-[-1px] h-0.5 flex-1 bg-[linear-gradient(90deg,#dcd9ee_60%,transparent_0)] bg-size-[10px_2px] bg-repeat-x after:absolute after:top-1/2 after:right-[-1px] after:size-0 after:-translate-y-1/2 after:border-y-[5px] after:border-l-[7px] after:border-y-transparent after:border-l-[#dcd9ee] after:content-['']"
+            />
+            <span className="inline-flex items-center gap-2.25 rounded-full border border-[#bfe8d4] bg-[#def4ea] px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-[#0e8e5b] shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4.25"
+              >
+                <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Veredicto
+            </span>
+          </div>
+
+          <div className="relative grid gap-6.5 md:grid-cols-3">
+            {/* connector nodes (desktop) */}
+            <span
+              aria-hidden="true"
+              className="absolute top-16 left-[calc(33.333%-17px)] z-3 hidden size-8.5 place-items-center rounded-full border border-[#e8e6f4] bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] md:grid"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6356e6"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4"
+              >
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
+            <span
+              aria-hidden="true"
+              className="absolute top-16 left-[calc(66.666%-17px)] z-3 hidden size-8.5 place-items-center rounded-full border border-[#e8e6f4] bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] md:grid"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6356e6"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4"
+              >
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
+
             {[
               {
                 n: '01',
-                bg: '#eeebfc',
-                fg: '#6356e6',
+                accent: '#6356e6',
+                accentSoft: '#eeebfc',
                 title: 'Extractor de información',
                 body: 'Lee el contenido y aísla cada afirmación médica, las cifras y las fuentes citadas, sin perder el contexto.',
                 chips: ['Afirmaciones', 'Cifras', 'Referencias'],
@@ -462,8 +537,8 @@ export default function Home() {
               },
               {
                 n: '02',
-                bg: '#e4f1fc',
-                fg: '#2c97e8',
+                accent: '#2c97e8',
+                accentSoft: '#e4f1fc',
                 title: 'Traductor',
                 body: 'Normaliza el idioma y estandariza la terminología clínica para que cada afirmación se contraste sobre una base común.',
                 chips: ['Idioma', 'Terminología', 'Normalización'],
@@ -476,8 +551,8 @@ export default function Home() {
               },
               {
                 n: '03',
-                bg: '#def4ea',
-                fg: '#13b877',
+                accent: '#13b877',
+                accentSoft: '#def4ea',
                 title: 'Experto en salud',
                 body: 'Contrasta cada afirmación con el consenso médico y las fuentes de referencia, y calcula la puntuación de credibilidad.',
                 chips: ['Consenso', 'Fuentes', 'Puntuación'],
@@ -486,38 +561,43 @@ export default function Home() {
             ].map(step => (
               <article
                 key={step.n}
-                className="relative rounded-[20px] border border-[#e8e6f4] bg-white px-7 py-7.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
+                style={
+                  {
+                    '--accent': step.accent,
+                    '--accent-soft': step.accentSoft,
+                  } as React.CSSProperties
+                }
+                className="relative overflow-hidden rounded-[20px] border border-[#e8e6f4] bg-white px-7 pt-7.5 pb-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-[var(--accent)] before:content-[''] after:pointer-events-none after:absolute after:-top-10 after:-right-10 after:size-37.5 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-70 after:content-[''] hover:-translate-y-[5px] hover:border-[var(--accent-soft)] hover:shadow-[0_24px_60px_rgba(60,50,140,0.18)]"
               >
-                <span className="absolute top-6 right-6.5 text-[15px] font-bold text-[#9698b1]">
-                  {step.n}
-                </span>
-                <div
-                  className="mb-5 grid size-14 place-items-center rounded-[15px]"
-                  style={{ background: step.bg, color: step.fg }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.9}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-6.75"
-                  >
-                    {step.icon}
-                  </svg>
+                <div className="relative z-2 mb-5 flex items-center justify-between">
+                  <div className="grid size-14.5 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_8px_18px_color-mix(in_srgb,var(--accent)_22%,transparent)]">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.9}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-7"
+                    >
+                      {step.icon}
+                    </svg>
+                  </div>
+                  <span className="grid size-10.5 place-items-center rounded-full border-2 border-[var(--accent-soft)] bg-white text-[15px] font-bold text-[var(--accent)]">
+                    {step.n}
+                  </span>
                 </div>
-                <h3 className="mb-2.5 text-xl font-semibold text-[#15162c]">
+                <h3 className="relative z-2 mb-2.5 text-xl font-semibold text-[#15162c]">
                   {step.title}
                 </h3>
-                <p className="text-[14.5px] leading-relaxed text-[#6f7090]">
+                <p className="relative z-2 text-[14.5px] leading-relaxed text-[#6f7090]">
                   {step.body}
                 </p>
-                <div className="mt-4 flex flex-wrap gap-1.75">
+                <div className="relative z-2 mt-4.5 flex flex-wrap gap-1.75">
                   {step.chips.map(chip => (
                     <span
                       key={chip}
-                      className="rounded-[7px] border border-[#e8e6f4] bg-[#faf9fe] px-2.5 py-1.25 text-[11.5px] font-bold text-[#33344c]"
+                      className="rounded-lg border border-[#e8e6f4] bg-[#faf9fe] px-2.75 py-1.5 text-[11.5px] font-bold text-[#33344c]"
                     >
                       {chip}
                     </span>
