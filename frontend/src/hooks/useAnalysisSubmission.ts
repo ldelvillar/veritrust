@@ -36,7 +36,7 @@ export function useAnalysisSubmission() {
           throw new Error(NO_ID_ERROR);
         }
 
-        router.push(`/analisis/${data.analysis_id}`);
+        router.push(`/app/analisis/${data.analysis_id}`);
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message);

@@ -188,7 +188,7 @@ export default function HistoryResultsTable({
                 </div>
 
                 <Link
-                  href={`/analisis/${item.analysis_id}`}
+                  href={`/app/analisis/${item.analysis_id}`}
                   className="mt-4 inline-flex w-fit items-center gap-2 text-sm font-bold text-primary md:mt-0 md:justify-self-end"
                 >
                   Ver informe

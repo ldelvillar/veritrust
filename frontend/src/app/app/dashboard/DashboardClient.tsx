@@ -53,7 +53,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           </p>
         </div>
         <Link
-          href="/historial"
+          href="/app/historial"
           className="inline-flex items-center rounded-xl border border-primary/20 bg-primary/8 px-4 py-2 text-sm font-bold text-primary"
         >
           Ver historial completo
@@ -237,7 +237,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     })}
                   </p>
                   <Link
-                    href={`/analisis/${item.id}`}
+                    href={`/app/analisis/${item.id}`}
                     className="mt-2 inline-flex text-xs font-bold text-red-700 hover:underline"
                   >
                     Ver informe

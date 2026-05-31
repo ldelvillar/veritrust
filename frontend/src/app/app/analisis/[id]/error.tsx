@@ -33,7 +33,7 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
             Reintentar
           </button>
           <button
-            onClick={() => router.replace('/historial')}
+            onClick={() => router.replace('/app/historial')}
             className="rounded-xl bg-slate-50 px-6 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus:ring-4 focus:ring-slate-100 focus:outline-none"
           >
             Volver al historial

@@ -20,18 +20,18 @@ export default function AyudaPage() {
 
       <div className="mt-10 grid gap-4 md:grid-cols-3">
         <Link
-          href="/"
+          href="/app/analisis"
           className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
         >
           <h2 className="text-lg font-bold text-gray-900">Nuevo analisis</h2>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            Ve a la pagina principal para pegar texto, subir archivo o analizar
-            una URL.
+            Abre el analizador para pegar texto, subir archivo o analizar una
+            URL.
           </p>
         </Link>
 
         <Link
-          href="/historial"
+          href="/app/historial"
           className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
         >
           <h2 className="text-lg font-bold text-gray-900">Historial</h2>
@@ -42,7 +42,7 @@ export default function AyudaPage() {
         </Link>
 
         <Link
-          href="/dashboard"
+          href="/app/dashboard"
           className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
         >
           <h2 className="text-lg font-bold text-gray-900">Dashboard</h2>
