@@ -98,7 +98,8 @@ export interface paths {
         };
         /**
          * Healthz
-         * @description Devuelve 503 si el proceso web no pudo abrir la cola de trabajos.
+         * @description Comprueba que todos los servicios están activos. Devuelve
+         *     503 salvo que la cola, la base de datos y Redis respondan.
          */
         get: operations["healthz_healthz_get"];
         put?: never;
