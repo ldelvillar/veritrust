@@ -6,10 +6,47 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from requests.utils import select_proxy
+
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+)
 
 
 class URLExtractionError(Exception):
     """Excepción lanzada cuando ocurre un error al extraer el texto de la URL."""
+
+
+class _PinnedIPAdapter(HTTPAdapter):
+    """Conecta a un IP ya validado, preservando Host y SNI/certificado del host real."""
+
+    def __init__(self, host: str, ip: str, **kwargs):
+        self._host = host.lower()
+        self._ip = ip
+        super().__init__(**kwargs)
+
+    def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
+        # Con proxy la resolución la hace el proxy; no tiene sentido fijar la IP.
+        if select_proxy(request.url, proxies):
+            return super().get_connection_with_tls_context(
+                request, verify, proxies, cert
+            )
+
+        host_params, pool_kwargs = self.build_connection_pool_key_attributes(
+            request, verify, cert
+        )
+        if host_params["host"].lower() == self._host:
+            host_params["host"] = self._ip
+            if host_params["scheme"] == "https":
+                # La verificación TLS sigue usando el host real, no la IP.
+                pool_kwargs["server_hostname"] = self._host
+                pool_kwargs["assert_hostname"] = self._host
+
+        return self.poolmanager.connection_from_host(
+            **host_params, pool_kwargs=pool_kwargs
+        )
 
 
 def _is_public_ip(ip_str: str) -> bool:
@@ -25,8 +62,8 @@ def _is_public_ip(ip_str: str) -> bool:
     )
 
 
-def _validate_public_url(url: str) -> None:
-    """Valida que la URL no apunte a destinos locales o redes internas."""
+def _resolve_public_host(url: str) -> tuple[str, str]:
+    """Valida la URL y devuelve ``(host, ip_pública)`` para fijar la conexión."""
     parsed = urlparse(url)
 
     if parsed.scheme not in {"http", "https"}:
@@ -41,14 +78,15 @@ def _validate_public_url(url: str) -> None:
             "No se permite extraer contenido desde URLs locales o de red interna"
         )
 
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
-        addrinfo = socket.getaddrinfo(host, parsed.port or 80, type=socket.SOCK_STREAM)
+        addrinfo = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise URLExtractionError(f"No se pudo resolver el host de la URL: {e}") from e
 
-    resolved_ips = {
+    resolved_ips = [
         str(entry[4][0]) for entry in addrinfo if isinstance(entry[4][0], str)
-    }
+    ]
     if not resolved_ips:
         raise URLExtractionError("No se pudo resolver ninguna IP para el host indicado")
 
@@ -57,29 +95,38 @@ def _validate_public_url(url: str) -> None:
             "No se permite extraer contenido desde URLs locales o de red interna"
         )
 
+    return host, resolved_ips[0]
+
+
+def _build_pinned_session(host: str, ip: str) -> requests.Session:
+    """Crea una sesión que conecta a ``ip`` para cualquier petición a ``host``."""
+    session = requests.Session()
+    adapter = _PinnedIPAdapter(host, ip)
+    session.mount(f"http://{host}", adapter)
+    session.mount(f"https://{host}", adapter)
+    return session
+
 
 def extract_text_from_url(url: str) -> str:
     """Extrae el texto de una página web dada su URL."""
-    _validate_public_url(url)
+    current_url = url
+    max_redirects = 5
+    response = None
 
     try:
-        # Añadir un User-Agent general
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-
-        current_url = url
-        max_redirects = 5
-
         for _ in range(max_redirects + 1):
-            _validate_public_url(current_url)
-            response = requests.get(
-                current_url,
-                headers=headers,
-                timeout=10,
-                allow_redirects=False,
-            )
+            # Validar y resolver en el mismo paso; la conexión se fija a esta IP.
+            host, pinned_ip = _resolve_public_host(current_url)
+            parsed = urlparse(current_url)
+            host_header = f"{host}:{parsed.port}" if parsed.port else host
+
+            with _build_pinned_session(host, pinned_ip) as session:
+                response = session.get(
+                    current_url,
+                    headers={"User-Agent": _USER_AGENT, "Host": host_header},
+                    timeout=10,
+                    allow_redirects=False,
+                )
 
             if 300 <= response.status_code < 400:
                 location = response.headers.get("Location")
