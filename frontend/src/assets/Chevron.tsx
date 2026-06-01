@@ -13,7 +13,7 @@ export default function Chevron(props: SVGProps<SVGSVGElement>) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
-        d="M19 9l-7 7-7-7"
+        d="M6 9l6 6 6-6"
       />
     </svg>
   );
