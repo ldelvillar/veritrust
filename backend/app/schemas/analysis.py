@@ -5,6 +5,8 @@ from typing import Annotated, Optional
 
 from pydantic import BaseModel, HttpUrl, StringConstraints, model_validator
 
+MAX_INPUT_TEXT_LENGTH = 10_000
+
 
 class SourceType(str, Enum):
     """Tipos de fuentes de entrada para el análisis."""
@@ -20,7 +22,11 @@ class AnalysisRequest(BaseModel):
     text: Optional[
         Annotated[
             str,
-            StringConstraints(strip_whitespace=True, min_length=1, max_length=10000),
+            StringConstraints(
+                strip_whitespace=True,
+                min_length=1,
+                max_length=MAX_INPUT_TEXT_LENGTH,
+            ),
         ]
     ] = None
     url: Optional[HttpUrl] = None

@@ -6,7 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
+from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
+from app.utils.extract_text_from_url import (
+    MAX_DOWNLOAD_BYTES,
+    URLExtractionError,
+    _read_capped_body,
+    extract_text_from_url,
+)
 
 
 # --- _resolve_public_host edge cases ---
@@ -109,7 +115,7 @@ def test_non_200_status_raises(mock_get, mock_resolve):
 def test_no_text_extracted(mock_get, mock_resolve):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.text = "<html><head></head><body></body></html>"
+    mock_resp.iter_content.return_value = [b"<html><head></head><body></body></html>"]
     mock_resp.raise_for_status.return_value = None
     mock_get.return_value = mock_resp
     with pytest.raises(URLExtractionError, match="No se pudo extraer texto"):
@@ -122,16 +128,57 @@ def test_no_text_extracted(mock_get, mock_resolve):
 )
 @patch("requests.Session.get")
 def test_successful_extraction(mock_get, mock_resolve):
-    html = """
-    <html><body><h1>Title</h1><script>var x=1;</script><p>Content</p></body></html>
-    """
+    html = (
+        b"<html><body><h1>Title</h1><script>var x=1;</script>"
+        b"<p>Content</p></body></html>"
+    )
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.text = html
+    mock_resp.iter_content.return_value = [html]
     mock_resp.raise_for_status.return_value = None
     mock_get.return_value = mock_resp
     text = extract_text_from_url("http://ok.com")
     assert "Title" in text and "Content" in text and "script" not in text
+
+
+@patch(
+    "app.utils.extract_text_from_url._resolve_public_host",
+    return_value=("big.com", "1.2.3.4"),
+)
+@patch("requests.Session.get")
+def test_extracted_text_is_truncated(mock_get, mock_resolve):
+    # Una página enorme no puede convertirse en un prompt sin límite.
+    body = "a" * (MAX_INPUT_TEXT_LENGTH * 3)
+    html = f"<html><body><p>{body}</p></body></html>".encode()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.iter_content.return_value = [html]
+    mock_resp.raise_for_status.return_value = None
+    mock_get.return_value = mock_resp
+
+    text = extract_text_from_url("http://big.com")
+
+    assert len(text) == MAX_INPUT_TEXT_LENGTH
+
+
+def test_read_capped_body_stops_at_limit():
+    """Un cuerpo gigante (o infinito) se corta en MAX_DOWNLOAD_BYTES."""
+    produced = {"n": 0}
+
+    def _endless(chunk_size=8192):
+        chunk = b"x" * 8192
+        while True:
+            produced["n"] += len(chunk)
+            yield chunk
+
+    mock_resp = MagicMock()
+    mock_resp.iter_content.side_effect = _endless
+
+    body = _read_capped_body(mock_resp)
+
+    assert len(body) == MAX_DOWNLOAD_BYTES
+    # Deja de leer en cuanto alcanza el tope (a lo sumo un chunk de margen).
+    assert produced["n"] <= MAX_DOWNLOAD_BYTES + 8192
 
 
 # --- DNS-rebinding / IP-pinning regression ---
