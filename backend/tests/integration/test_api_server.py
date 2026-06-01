@@ -251,8 +251,8 @@ def test_analisis_returns_429_when_rate_limit_exceeded(monkeypatch):
     assert blocked.json()["detail"]["code"] == "RATE_LIMIT"
 
 
-def test_analisis_allows_request_when_redis_unavailable(monkeypatch):
-    """Fail-open: un fallo de Redis no debe bloquear la petición."""
+def test_analisis_returns_503_when_redis_errors(monkeypatch):
+    """Fail-closed: si Redis falla no podemos limitar, así que se rechaza."""
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenRedis:
@@ -272,8 +272,28 @@ def test_analisis_allows_request_when_redis_unavailable(monkeypatch):
 
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "pending"
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_analisis_returns_503_when_redis_unavailable(monkeypatch):
+    """Fail-closed: sin Redis configurado no se permite encolar el pipeline caro."""
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.redis = None
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
 
 
 def test_analisis_returns_save_failed_when_pending_insert_fails(monkeypatch):

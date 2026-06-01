@@ -29,9 +29,13 @@ async def check_rate_limit(
 
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
-        # Fail-open: el rate limiting no es crítico; no bloqueamos al usuario.
-        logger.warning("Redis no disponible; se omite el rate limit")
-        return user
+        # Fail-closed: este endpoint encola un pipeline caro (3 LLM + BERT). Sin
+        # Redis no hay control de abuso, así que rechazamos en vez de dejar pasar.
+        logger.warning("Redis no disponible; se rechaza el análisis (fail-closed)")
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        )
 
     settings = get_settings()
     window = settings.rate_limit_window_seconds
@@ -58,8 +62,12 @@ async def check_rate_limit(
             pipe.zadd(key, {f"{now}:{uuid4().hex}": now})
             pipe.expire(key, window)
             await pipe.execute()
-    except (RedisError, OSError):
-        # Fail-open ante cualquier problema de transporte con Redis.
-        logger.warning("Fallo de Redis en el rate limit; se deja pasar", exc_info=True)
+    except (RedisError, OSError) as exc:
+        # Fail-closed: si no podemos contabilizar la petición, no la dejamos pasar.
+        logger.warning("Fallo de Redis en el rate limit; se rechaza", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from exc
 
     return user
