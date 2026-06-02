@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import Magnifier from '@/assets/Magnifier';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import type { paths } from '@/types/api';
 
@@ -40,6 +41,31 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     if (!dashboard.trend.length) return 1;
     return Math.max(1, ...dashboard.trend.map(point => point.total));
   }, [dashboard]);
+
+  if (dashboard.kpis.total_analyses === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center py-12">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Magnifier className="size-7" />
+          </div>
+          <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-900">
+            Empieza tu primer análisis
+          </h1>
+          <p className="mt-2 text-sm font-medium text-slate-500">
+            Tu panel se llenará con métricas, tendencias y alertas en cuanto
+            verifiques tu primer contenido médico.
+          </p>
+          <Link
+            href="/app/analisis"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none"
+          >
+            Analizar contenido
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
