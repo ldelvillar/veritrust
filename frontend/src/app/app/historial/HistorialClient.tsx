@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import HistoryFilters, {
   DateRangeFilter,
@@ -26,6 +26,7 @@ interface HistorialClientProps {
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] =
     useState<SourceTypeFilter>('all');
   const [dateRangeFilter, setDateRangeFilter] =
@@ -37,6 +38,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   const { getToken } = useAuth();
 
+  // Evita refrescar en cada pulsación
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
   const path = useMemo(() => {
     const params = new URLSearchParams({
       page: String(currentPage),
@@ -45,14 +55,14 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       date_range: dateRangeFilter,
       score_sort: scoreSortOrder,
     });
-    const trimmedQuery = searchQuery.trim();
+    const trimmedQuery = debouncedSearch.trim();
     if (trimmedQuery) params.set('search', trimmedQuery);
     return `/history?${params.toString()}`;
   }, [
     currentPage,
     dateRangeFilter,
     scoreSortOrder,
-    searchQuery,
+    debouncedSearch,
     sourceTypeFilter,
   ]);
 
@@ -62,10 +72,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       date_range: dateRangeFilter,
       score_sort: scoreSortOrder,
     });
-    const trimmedQuery = searchQuery.trim();
+    const trimmedQuery = debouncedSearch.trim();
     if (trimmedQuery) params.set('search', trimmedQuery);
     return `/history/export?${params.toString()}`;
-  }, [dateRangeFilter, scoreSortOrder, searchQuery, sourceTypeFilter]);
+  }, [dateRangeFilter, scoreSortOrder, debouncedSearch, sourceTypeFilter]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -108,7 +118,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const effectivePage = Math.min(currentPage, totalPages);
 
   const handleSearchQueryChange = useCallback((value: string) => {
-    setCurrentPage(1);
     setSearchQuery(value);
   }, []);
 
