@@ -1,9 +1,9 @@
 'use client';
 
-import { Show, SignInButton } from '@clerk/nextjs';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Show, SignInButton } from '@clerk/nextjs';
+import Logo from '@/assets/Logo';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
@@ -57,12 +57,7 @@ export default function Header() {
           className="flex items-center gap-2.5"
           onClick={closeMenu}
         >
-          <Image
-            src="/images/logo.webp"
-            alt="Logo de VeriTrust"
-            width={28}
-            height={28}
-          />
+          <Logo className="h-6 w-auto" />
           <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
             VeriTrust
           </span>
@@ -127,12 +122,7 @@ export default function Header() {
               className="flex items-center gap-2.5"
               onClick={closeMenu}
             >
-              <Image
-                src="/images/logo.webp"
-                alt="Logo de VeriTrust"
-                width={28}
-                height={28}
-              />
+              <Logo className="h-6 w-auto" />
               <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
                 VeriTrust
               </span>

@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import Logo from '@/assets/Logo';
 
 const columns = [
   {
@@ -44,12 +44,7 @@ export default function Footer() {
         <div className="mb-12 grid gap-10 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/images/logo.webp"
-                alt="Logo de VeriTrust"
-                width={20}
-                height={20}
-              />
+              <Logo className="h-6 w-auto" />
               <span className="text-lg font-semibold text-white">
                 VeriTrust
               </span>
