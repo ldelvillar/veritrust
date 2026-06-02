@@ -86,6 +86,7 @@ ignore = ["E501"]  # line length is enforced by the formatter
 "app/agents/main.py" = ["E402"]
 "app/agents/health_expert.py" = ["E402"]
 "ml/evaluation/evaluate_factcheck.py" = ["E402"]
+"ml/evaluation/evaluate_pipeline.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"
