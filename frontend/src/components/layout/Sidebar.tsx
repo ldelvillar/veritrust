@@ -1,11 +1,11 @@
 'use client';
 
 import { Show, SignInButton, UserButton, useUser } from '@clerk/nextjs';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SidebarIcon from '@/assets/Sidebar';
+import Logo from '@/assets/Logo';
 
 type IconProps = { className?: string };
 
@@ -107,13 +107,7 @@ function Brand({
         title="Expandir menú"
         className="group relative mx-auto mt-1 mb-5.5 flex size-10 items-center justify-center rounded-xl transition hover:bg-[#f4f2fd]"
       >
-        <Image
-          src="/images/logo.webp"
-          alt="Logo de VeriTrust"
-          width={30}
-          height={30}
-          className="transition-opacity group-hover:opacity-0"
-        />
+        <Logo className="h-6 w-auto transition-opacity group-hover:opacity-0" />
         <div className="absolute inset-0 flex items-center justify-center text-xl text-[#33344c] opacity-0 transition-opacity group-hover:opacity-100">
           <SidebarIcon />
         </div>
@@ -128,12 +122,7 @@ function Brand({
         onClick={onNavigate}
         className="flex items-center gap-3"
       >
-        <Image
-          src="/images/logo.webp"
-          alt="Logo de VeriTrust"
-          width={30}
-          height={30}
-        />
+        <Logo className="h-6 w-auto" />
         <span className="leading-tight">
           <span className="block text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
             VeriTrust
@@ -341,12 +330,7 @@ export default function Sidebar() {
           </svg>
         </button>
         <Link href="/app/dashboard" className="flex items-center gap-2">
-          <Image
-            src="/images/logo.webp"
-            alt="Logo de VeriTrust"
-            width={24}
-            height={24}
-          />
+          <Logo className="h-6 w-auto" />
           <span className="text-base font-bold tracking-[-0.02em] text-[#15162c]">
             VeriTrust
           </span>
