@@ -89,6 +89,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/history/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export History
+         * @description Exporta todo el historial filtrado del usuario como un fichero CSV.
+         */
+        get: operations["export_history_history_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -148,6 +168,11 @@ export interface components {
             error_code?: string | null;
             /** Created At */
             created_at: string;
+            /**
+             * Credibility
+             * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
+             */
+            readonly credibility: number | null;
         };
         /**
          * AnalysisRequest
@@ -198,6 +223,11 @@ export interface components {
             confidence: number;
             /** Created At */
             created_at: string;
+            /**
+             * Credibility
+             * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
+             */
+            readonly credibility: number | null;
         };
         /**
          * DashboardDomainBreakdownItem
@@ -554,6 +584,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_history_history_export_get: {
+        parameters: {
+            query?: {
+                search?: string | null;
+                source_type?: "all" | "text" | "file" | "url";
+                date_range?: "all" | "7d" | "30d" | "90d";
+                score_sort?: "desc" | "asc";
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Historial en formato CSV. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "text/csv": unknown;
                 };
             };
             /** @description Unauthorized */

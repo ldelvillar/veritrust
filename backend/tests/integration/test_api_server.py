@@ -716,6 +716,80 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     assert body["alerts"][0]["label"] == "falsa"
 
 
+def test_historial_export_returns_csv(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    records = [
+        types.SimpleNamespace(
+            source_type="url",
+            input_text=None,
+            input_url="https://ejemplo.com/nota",
+            label="falsa",
+            confidence=0.88,
+            credibility=12,
+            created_at="2026-04-10T12:00:00+00:00",
+        ),
+        types.SimpleNamespace(
+            source_type="text",
+            input_text="Una afirmación médica",
+            input_url=None,
+            label="verdadera",
+            confidence=0.9,
+            credibility=90,
+            created_at="2026-04-11T08:30:00+00:00",
+        ),
+    ]
+
+    async def fake_export_user_analysis_history(
+        *, user_id, search_query, source_type, created_after, score_sort_order
+    ):
+        assert user_id == "test-user"
+        assert search_query == "vacuna"
+        assert source_type == "url"
+        assert created_after is not None
+        assert score_sort_order == "asc"
+        return records
+
+    monkeypatch.setattr(
+        "app.api.routes.history.export_user_analysis_history",
+        fake_export_user_analysis_history,
+    )
+
+    response = client.get(
+        "/history/export?search=vacuna&source_type=url&date_range=30d&score_sort=asc"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+    assert "historial-veritrust.csv" in response.headers["content-disposition"]
+
+    body = response.content.decode("utf-8-sig")
+    lines = body.strip().splitlines()
+    assert lines[0] == "Fecha,Tipo,Entrada,Veredicto,Credibilidad"
+    assert "https://ejemplo.com/nota,Falsa,12" in lines[1]
+    assert "Una afirmación médica,Verdadera,90" in lines[2]
+
+
+def test_historial_export_returns_500_when_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_export_user_analysis_history(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.history.export_user_analysis_history",
+        fake_export_user_analysis_history,
+    )
+
+    response = client.get("/history/export")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "HISTORY_FETCH_FAILED"
+
+
 def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)

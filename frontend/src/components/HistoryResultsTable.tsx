@@ -43,14 +43,6 @@ const getTypeLabel = (sourceType: HistoryItem['source_type']): string => {
   return 'Texto';
 };
 
-const getScore = (confidence: number | string | null | undefined): number => {
-  const parsed = Number(confidence);
-  if (Number.isNaN(parsed)) return 0;
-
-  const normalized = parsed <= 1 ? parsed * 100 : parsed;
-  return Math.max(0, Math.min(100, Math.round(normalized)));
-};
-
 const getScoreColor = (score: number): string => {
   if (score >= 70) return 'bg-emerald-500';
   if (score >= 40) return 'bg-amber-500';
@@ -144,7 +136,7 @@ export default function HistoryResultsTable({
       ) : (
         <ul>
           {history.map(item => {
-            const score = getScore(item.confidence);
+            const score = item.credibility ?? 0;
             const scoreColor = getScoreColor(score);
 
             return (

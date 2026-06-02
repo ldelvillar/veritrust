@@ -266,7 +266,10 @@ async def get_user_dashboard_summary(
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
-          AND confidence <= 0.35
+          AND (
+              LOWER(COALESCE(label, '')) LIKE 'fals%%'
+              OR LOWER(COALESCE(label, '')) LIKE 'fake%%'
+          )
         ORDER BY created_at DESC
         LIMIT %s
     """

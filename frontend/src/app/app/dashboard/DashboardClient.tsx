@@ -228,7 +228,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     {getAlertTitle(item)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-red-600">
-                    Credibilidad: {Math.round(item.confidence * 100)}% ·{' '}
+                    Credibilidad: {item.credibility ?? 0}% ·{' '}
                     {new Date(item.created_at).toLocaleString('es-ES', {
                       month: 'short',
                       day: 'numeric',

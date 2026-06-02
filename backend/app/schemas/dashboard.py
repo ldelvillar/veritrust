@@ -2,7 +2,9 @@
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
+from app.core.credibility import compute_credibility
 
 
 class DashboardKpis(BaseModel):
@@ -48,6 +50,12 @@ class DashboardAlertItem(BaseModel):
     label: str
     confidence: float
     created_at: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def credibility(self) -> Optional[int]:
+        """Credibilidad [0, 100] derivada del veredicto y la confianza."""
+        return compute_credibility(self.label, self.confidence)
 
 
 class DashboardSummaryResponse(BaseModel):

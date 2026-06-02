@@ -298,6 +298,67 @@ async def list_user_analysis_history(
     return records, total_count
 
 
+_EXPORT_MAX_ROWS = 10_000
+
+
+async def export_user_analysis_history(
+    *,
+    user_id: str,
+    search_query: Optional[str] = None,
+    source_type: Optional[str] = None,
+    created_after: Optional[datetime] = None,
+    score_sort_order: str = "desc",
+) -> list[AnalysisHistoryItem]:
+    """Lista todo el historial filtrado del usuario para exportarlo (sin paginar)."""
+    pool = await get_pool()
+
+    _, _, safe_source_type, safe_score_sort = _sanitize_history_query_params(
+        limit=1,
+        offset=0,
+        source_type=source_type,
+        score_sort_order=score_sort_order,
+    )
+    where_sql, where_params = _build_history_where_clause(
+        user_id=user_id,
+        search_query=search_query,
+        source_type=safe_source_type,
+        created_after=created_after,
+    )
+
+    export_query = """
+        SELECT
+            id,
+            user_id,
+            source_type,
+            input_text,
+            input_url,
+            label,
+            confidence,
+            explanation,
+            created_at,
+            status,
+            error_code
+        FROM public.analysis_history
+        WHERE {where_sql}
+        ORDER BY confidence {safe_score_sort}, created_at DESC
+        LIMIT %s
+    """.format(where_sql=where_sql, safe_score_sort=safe_score_sort)
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                rows = await cur.fetchall()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo exportar el historial en la base de datos."
+            )
+        ) from exc
+
+    return [_map_history_record(row) for row in rows]
+
+
 async def get_user_analysis_by_id(
     *, user_id: str, analysis_id: str
 ) -> AnalysisHistoryItem | None:

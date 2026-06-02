@@ -1,6 +1,8 @@
 'use client';
 
+import { useAuth } from '@clerk/nextjs';
 import { useCallback, useMemo, useState } from 'react';
+import Spinner from '@/assets/Spinner';
 import HistoryFilters, {
   DateRangeFilter,
   ScoreSortOrder,
@@ -8,6 +10,7 @@ import HistoryFilters, {
 } from '@/components/HistoryFilters';
 import HistoryResultsTable from '@/components/HistoryResultsTable';
 import { useApiQuery } from '@/hooks/useApiQuery';
+import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
 
 const PAGE_SIZE = 10;
@@ -29,6 +32,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     useState<DateRangeFilter>('all');
   const [scoreSortOrder, setScoreSortOrder] = useState<ScoreSortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const { getToken } = useAuth();
 
   const path = useMemo(() => {
     const params = new URLSearchParams({
@@ -48,6 +55,41 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     searchQuery,
     sourceTypeFilter,
   ]);
+
+  const exportPath = useMemo(() => {
+    const params = new URLSearchParams({
+      source_type: sourceTypeFilter,
+      date_range: dateRangeFilter,
+      score_sort: scoreSortOrder,
+    });
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) params.set('search', trimmedQuery);
+    return `/history/export?${params.toString()}`;
+  }, [dateRangeFilter, scoreSortOrder, searchQuery, sourceTypeFilter]);
+
+  const handleExport = useCallback(async () => {
+    setExportError(null);
+    setIsExporting(true);
+    try {
+      const blob = await fetchBlobWithAuth(getToken, exportPath);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'historial-veritrust.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudo exportar el historial. Inténtalo de nuevo.'
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }, [exportPath, getToken]);
 
   const {
     data,
@@ -104,13 +146,27 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary"
-        >
-          <span aria-hidden>↓</span>
-          Exportar todo
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting || totalCount === 0}
+            aria-busy={isExporting}
+            className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isExporting ? (
+              <Spinner className="size-4 animate-spin text-primary" />
+            ) : (
+              <span aria-hidden>↓</span>
+            )}
+            {isExporting ? 'Exportando…' : 'Exportar todo'}
+          </button>
+          {exportError ? (
+            <p role="alert" className="text-xs font-semibold text-red-600">
+              {exportError}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <HistoryFilters

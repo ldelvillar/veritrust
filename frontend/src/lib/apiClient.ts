@@ -118,3 +118,38 @@ export async function fetchJsonWithAuth<TResponse>(
 
   return (await response.json()) as TResponse;
 }
+
+export async function fetchBlobWithAuth(
+  getToken: GetTokenFn,
+  path: string,
+  options: { tokenTemplate?: string; errorContextMessage?: string } = {}
+): Promise<Blob> {
+  const {
+    tokenTemplate = TOKEN_TEMPLATE,
+    errorContextMessage = 'Error al conectar con el servidor',
+  } = options;
+
+  const token = await getToken({ template: tokenTemplate });
+  if (!token) {
+    throw new Error(AUTH_TOKEN_ERROR);
+  }
+
+  const response = await fetch(buildApiUrl(path), {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const { message, code } = parseErrorDetail(
+      (payload as { detail?: unknown }).detail
+    );
+    throw new ApiError(
+      message ?? `Status ${response.status}: ${errorContextMessage}`,
+      code,
+      response.status
+    );
+  }
+
+  return await response.blob();
+}

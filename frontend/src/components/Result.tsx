@@ -6,6 +6,7 @@ import Robot from '@/assets/Robot';
 import Document from '@/assets/Document';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import { classifyVerdict } from '@/lib/credibility';
 import type { paths } from '@/types/api';
 
 type ResultType =
@@ -64,24 +65,27 @@ function getVerdictInfo(label: string): {
   description: string;
   textColor: string;
   bgColor: string;
+  gaugeColor: string;
 } {
-  const l = label.toLowerCase();
-  if (l.includes('verdadera') || l.includes('real') || l.includes('true')) {
+  const verdict = classifyVerdict(label);
+  if (verdict === 'real') {
     return {
       text: 'Noticia verdadera',
       description:
         'El contenido muestra alta consistencia factual con fuentes médicas reputadas y bajos indicadores de información errónea.',
       textColor: 'text-emerald-700',
       bgColor: 'bg-emerald-100',
+      gaugeColor: '#10b981',
     };
   }
-  if (l.includes('falsa') || l.includes('fake') || l.includes('false')) {
+  if (verdict === 'fake') {
     return {
       text: 'Noticia falsa',
       description:
         'El contenido contiene afirmaciones que contradicen o no pueden ser verificadas con fuentes médicas reconocidas.',
       textColor: 'text-red-700',
       bgColor: 'bg-red-100',
+      gaugeColor: '#ef4444',
     };
   }
   return {
@@ -90,10 +94,11 @@ function getVerdictInfo(label: string): {
       'No se ha podido determinar con certeza la veracidad del contenido. Se recomienda consultar fuentes adicionales.',
     textColor: 'text-yellow-700',
     bgColor: 'bg-yellow-100',
+    gaugeColor: '#f59e0b',
   };
 }
 
-function CredibilityGauge({ score }: { score: number }) {
+function CredibilityGauge({ score, color }: { score: number; color: string }) {
   const r = 70;
   const cx = 96;
   const cy = 96;
@@ -120,7 +125,7 @@ function CredibilityGauge({ score }: { score: number }) {
             cy={cy}
             r={r}
             fill="none"
-            stroke="var(--color-primary)"
+            stroke={color}
             strokeWidth="16"
             strokeLinecap="round"
             strokeDasharray={`${progressArc} ${circumference}`}
@@ -167,7 +172,7 @@ export default function Result({ result }: ResultProps) {
     return <FailedView errorCode={result.error_code} />;
   }
 
-  const score = Math.round((result.confidence ?? 0) * 100);
+  const score = result.credibility ?? 0;
   const verdict = getVerdictInfo(result.label ?? '');
 
   return (
@@ -180,7 +185,7 @@ export default function Result({ result }: ResultProps) {
           </h3>
 
           <div className="flex justify-center">
-            <CredibilityGauge score={score} />
+            <CredibilityGauge score={score} color={verdict.gaugeColor} />
           </div>
 
           <div
