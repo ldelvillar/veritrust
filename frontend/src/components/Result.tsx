@@ -4,8 +4,8 @@ import LanguageIcon from '@/assets/Language';
 import Heart from '@/assets/Heart';
 import Robot from '@/assets/Robot';
 import Document from '@/assets/Document';
-import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import PendingAnalysis from '@/components/PendingAnalysis';
 import { classifyVerdict } from '@/lib/credibility';
 import type { paths } from '@/types/api';
 
@@ -28,22 +28,6 @@ const FAILURE_MESSAGES: Record<string, string> = {
   INTERNAL:
     'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
 };
-
-function PendingView() {
-  return (
-    <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-      <Spinner className="size-10 animate-spin text-primary" />
-      <h3 className="text-xl font-bold text-slate-900">
-        Analizando contenido…
-      </h3>
-      <p className="max-w-md text-sm leading-relaxed text-slate-500">
-        Los agentes están extrayendo, traduciendo y evaluando las afirmaciones
-        médicas. Esto puede tardar unos instantes; la página se actualizará
-        automáticamente.
-      </p>
-    </div>
-  );
-}
 
 function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
   const message =
@@ -165,7 +149,7 @@ const AGENTS = [
 
 export default function Result({ result }: ResultProps) {
   if (result.status === 'pending') {
-    return <PendingView />;
+    return <PendingAnalysis createdAt={result.created_at} />;
   }
 
   if (result.status === 'failed') {
