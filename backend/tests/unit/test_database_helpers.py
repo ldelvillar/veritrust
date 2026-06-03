@@ -84,6 +84,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "done",
         None,
+        [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
     )
 
     record = history_module._map_history_record(row)
@@ -95,6 +96,8 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert record.status == "done"
     assert record.error_code is None
     assert record.created_at.startswith("2026-04-10")
+    assert record.claims is not None
+    assert record.claims[0].label == "falsa"
 
 
 def test_map_history_record_handles_pending_row_with_null_results() -> None:
@@ -110,6 +113,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "pending",
         None,
+        None,
     )
 
     record = history_module._map_history_record(row)
@@ -118,6 +122,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.label is None
     assert record.confidence is None
     assert record.explanation is None
+    assert record.claims is None
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:

@@ -32,6 +32,7 @@ class AgentState(TypedDict):
     label: str
     confidence: float
     medical_explanation: str
+    claims: List[dict]
 
 
 def create_graph(prompts) -> CompiledStateGraph:

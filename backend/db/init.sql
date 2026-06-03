@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     confidence   DOUBLE PRECISION
                  CHECK (confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)),
     explanation  TEXT,
+    -- Per-claim BERT verdicts ([{text, label, confidence}, ...]); NULL while pending.
+    claims       JSONB,
     status       TEXT NOT NULL DEFAULT 'done'
                  CHECK (status IN ('pending', 'done', 'failed')),
     error_code   TEXT,

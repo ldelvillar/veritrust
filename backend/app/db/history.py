@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Optional, Sequence
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest
@@ -44,6 +45,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         created_at=str(row[8]),
         status=str(row[9]),
         error_code=row[10],
+        claims=row[11],
     )
 
 
@@ -117,7 +119,8 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
             explanation,
             created_at,
             status,
-            error_code
+            error_code,
+            claims
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
@@ -168,6 +171,7 @@ async def complete_analysis(
     label: str,
     confidence: Any,
     explanation: str,
+    claims: Optional[list[dict]] = None,
 ) -> None:
     """Marca un análisis pendiente como ``done`` con su resultado."""
     pool = await get_pool()
@@ -178,6 +182,7 @@ async def complete_analysis(
         SET label = %s,
             confidence = %s,
             explanation = %s,
+            claims = %s,
             status = 'done',
             error_code = NULL
         WHERE id = %s
@@ -187,7 +192,14 @@ async def complete_analysis(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    query, (label, confidence_value, explanation, analysis_id)
+                    query,
+                    (
+                        label,
+                        confidence_value,
+                        explanation,
+                        Jsonb(claims) if claims else None,
+                        analysis_id,
+                    ),
                 )
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -337,7 +349,8 @@ async def export_user_analysis_history(
             explanation,
             created_at,
             status,
-            error_code
+            error_code,
+            claims
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
@@ -377,7 +390,8 @@ async def get_user_analysis_by_id(
             explanation,
             created_at,
             status,
-            error_code
+            error_code,
+            claims
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1

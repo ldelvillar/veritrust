@@ -71,6 +71,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
             "label": "",
             "confidence": 0.0,
             "medical_explanation": "",
+            "claims": [],
         }
 
     # Instanciar el LLM y la herramienta detectora
@@ -83,6 +84,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     total_fake_prob = 0.0
     total_statements = len(translated_statements)
     all_statements = ""
+    claims: list[dict] = []
 
     # Clasificar todas las afirmaciones en una sola pasada por BERT
     logger.debug("[Experto] Analizando %d afirmaciones con BERT", total_statements)
@@ -104,6 +106,9 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
 
         safe_original = _neutralize_delimiters(str(original))
         all_statements += f"- Afirmacion: '{safe_original}'\n"
+
+        # Veredicto por afirmación para el desglose del informe.
+        claims.append({"text": safe_original, "label": label, "confidence": confidence})
 
     # Calcular la media global
     fake_avg = total_fake_prob / total_statements
@@ -139,4 +144,5 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         "label": global_label,
         "confidence": global_confidence,
         "medical_explanation": medical_explanation,
+        "claims": claims,
     }

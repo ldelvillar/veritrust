@@ -9,6 +9,14 @@ from pydantic import BaseModel, computed_field
 from app.core.credibility import compute_credibility
 
 
+class ClaimItem(BaseModel):
+    """Veredicto de una afirmación concreta dentro de un análisis."""
+
+    text: str
+    label: str
+    confidence: float
+
+
 class AnalysisHistoryItem(BaseModel):
     """Modelo de datos para un ítem del historial de análisis.
 
@@ -28,6 +36,7 @@ class AnalysisHistoryItem(BaseModel):
     status: str = "done"
     error_code: Optional[str] = None
     created_at: str
+    claims: Optional[List[ClaimItem]] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

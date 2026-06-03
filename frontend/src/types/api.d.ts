@@ -172,6 +172,8 @@ export interface components {
             error_code?: string | null;
             /** Created At */
             created_at: string;
+            /** Claims */
+            claims?: components["schemas"]["ClaimItem"][] | null;
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -207,6 +209,18 @@ export interface components {
             confidence?: number | null;
             /** Explanation */
             explanation?: string | null;
+        };
+        /**
+         * ClaimItem
+         * @description Veredicto de una afirmación concreta dentro de un análisis.
+         */
+        ClaimItem: {
+            /** Text */
+            text: string;
+            /** Label */
+            label: string;
+            /** Confidence */
+            confidence: number;
         };
         /**
          * DashboardAlertItem

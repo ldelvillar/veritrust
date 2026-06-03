@@ -46,6 +46,31 @@ async def test_run_analysis_completes_on_success(monkeypatch):
     assert completed[0]["confidence"] == 0.92
 
 
+async def test_run_analysis_forwards_per_claim_verdicts(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+
+    claims = [
+        {"text": "S1", "label": "verdadera", "confidence": 0.88},
+        {"text": "S2", "label": "falsa", "confidence": 0.91},
+    ]
+
+    async def fake_ainvoke(graph, state):
+        return {
+            "label": "falsa",
+            "confidence": 0.7,
+            "medical_explanation": "Informe.",
+            "claims": claims,
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert failed == []
+    assert completed[0]["claims"] == claims
+
+
 async def test_run_analysis_fails_with_no_medical_claims_on_empty_explanation(
     monkeypatch,
 ):

@@ -49,23 +49,23 @@ export default function AnalisisClient({
     setConfirmOpen(false);
   };
 
+  const deleteButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setDeleteError(null);
+        setConfirmOpen(true);
+      }}
+      className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none"
+    >
+      <Trash className="size-4" />
+      Eliminar
+    </button>
+  );
+
   return (
     <>
-      <div className="flex w-full max-w-2xl justify-end">
-        <button
-          type="button"
-          onClick={() => {
-            setDeleteError(null);
-            setConfirmOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none"
-        >
-          <Trash className="size-4" />
-          Eliminar
-        </button>
-      </div>
-
-      <Result result={data ?? initialData} />
+      <Result result={data ?? initialData} headerActions={deleteButton} />
 
       <ConfirmDialog
         open={confirmOpen}

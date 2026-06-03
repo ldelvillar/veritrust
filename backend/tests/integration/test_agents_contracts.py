@@ -188,7 +188,13 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
     }
     update = health_module.health_expert(state, dummy_prompts)
 
-    assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
+    assert set(update.keys()) == {
+        "label",
+        "confidence",
+        "medical_explanation",
+        "claims",
+    }
+    assert update["claims"] == [{"text": "S1", "label": "verdadera", "confidence": 0.9}]
     merged = {**state, **update}
     assert merged["input_text"] == "Texto base"
     assert merged["other_key"] == "keep-me"
@@ -253,8 +259,14 @@ def test_health_expert_handles_empty_llm_output_without_exception(
         dummy_prompts,
     )
 
-    assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
+    assert set(update.keys()) == {
+        "label",
+        "confidence",
+        "medical_explanation",
+        "claims",
+    }
     assert update["medical_explanation"] == ""
+    assert update["claims"] == [{"text": "S1", "label": "falsa", "confidence": 0.6}]
 
 
 def test_health_expert_returns_empty_explanation_when_no_statements(
@@ -274,10 +286,16 @@ def test_health_expert_returns_empty_explanation_when_no_statements(
     )
 
     # Explicación vacía es el centinela que la ruta traduce a NO_MEDICAL_CLAIMS.
-    assert set(update.keys()) == {"label", "confidence", "medical_explanation"}
+    assert set(update.keys()) == {
+        "label",
+        "confidence",
+        "medical_explanation",
+        "claims",
+    }
     assert update["medical_explanation"] == ""
     assert update["label"] == ""
     assert update["confidence"] == 0.0
+    assert update["claims"] == []
 
 
 def test_health_expert_raises_value_error_on_invalid_detector_output(
