@@ -120,13 +120,10 @@ function Brand({
       <Link
         href="/app/analisis"
         onClick={onNavigate}
-        className="flex items-center gap-3"
+        className="flex items-center"
       >
-        <Logo className="h-6 w-auto" />
-        <span className="leading-tight">
-          <span className="block text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
-            VeriTrust
-          </span>
+        <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
+          VeriTrust
         </span>
       </Link>
       {onCollapse && (
