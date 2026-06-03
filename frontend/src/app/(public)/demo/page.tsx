@@ -3,12 +3,12 @@ import type { Metadata } from 'next';
 import DemoForm from '@/components/DemoForm';
 
 export const metadata: Metadata = {
-  title: 'Solicitar demo · VeriTrust — Detector de noticias falsas de salud',
+  title: 'Solicitar demo | VeriTrust',
   description:
     'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
   openGraph: {
     type: 'website',
-    title: 'Solicitar demo · VeriTrust',
+    title: 'Solicitar demo | VeriTrust',
     description:
       'Descubre cómo VeriTrust verifica afirmaciones médicas con un sistema multiagente de IA. Pide tu demo personalizada.',
     locale: 'es_ES',

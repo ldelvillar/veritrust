@@ -4,12 +4,12 @@ import ContactForm from '@/components/ContactForm';
 import { CONFIG } from '@/config';
 
 export const metadata: Metadata = {
-  title: 'Contacto · VeriTrust — Detector de noticias falsas de salud',
+  title: 'Contacto | VeriTrust',
   description:
     'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de noticias falsas de salud con IA.',
   openGraph: {
     type: 'website',
-    title: 'Contacto · VeriTrust',
+    title: 'Contacto | VeriTrust',
     description:
       'Habla con el equipo de VeriTrust: soporte, ventas, prensa y alianzas.',
     locale: 'es_ES',
