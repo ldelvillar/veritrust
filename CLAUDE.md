@@ -82,7 +82,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 ## Key Conventions
 
 - **Centralised config** — all env-derived service config (DB, Clerk, CORS) flows through the `Settings` model in `app/core/config.py`, accessed via the cached `get_settings()`. Don't read env vars (`os.getenv`/`load_dotenv`) ad hoc in feature code; add a field to `Settings` instead. Required vars are validated once at startup via `get_settings().validate_runtime()` in the lifespan (a missing/invalid value is a startup failure surfaced via `/healthz` 503, not a per-request 500). `Settings` construction is side-effect-free, so importing modules never requires a populated environment.
-- **Comments & docstrings** — keep them short. Comments explain *what*, in one line; don't embed architectural decisions, business-logic rationale, or trade-off discussion in code (those belong here or in the PR). Class and method docstrings are a single plain sentence describing what it does — no multi-paragraph explanations.
+- **Comments & docstrings** — keep them short. Comments explain _what_, in one line; don't embed architectural decisions, business-logic rationale, or trade-off discussion in code (those belong here or in the PR). Class and method docstrings are a single plain sentence describing what it does — no multi-paragraph explanations.
 - **Agent prompts** live in `backend/app/prompts/prompts.yaml`, not in Python code.
 - **TypeScript API types** are generated from the backend's OpenAPI spec — run `pnpm generate:api-types` after changing schemas.
 - **No ORM** — database access uses raw psycopg3 async SQL under `app/db/` (`history.py`, `dashboard.py`), served by a module-level `AsyncConnectionPool` in `app/db/pool.py`, opened in lifespan startup and closed on shutdown.
@@ -99,6 +99,20 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor   (llama3)     
 - Run `uv run ruff check app ml tests`, `uv run ruff format --check app ml tests`, and `uv run mypy` before pushing — CI enforces all three
 - Never edit `frontend/src/types/api.d.ts` by hand (generated file)
 - Run `pnpm generate:api-types` after any schema change
+
+## Shell Command Conventions
+
+Always run commands from the **repo root** using the patterns below. Never `cd` into a subdirectory.
+
+- **Backend Python tools:** `uv run --directory backend <tool> <args>`
+  - Lint: `uv run --directory backend ruff check app ml tests`
+  - Format check: `uv run --directory backend ruff format --check app ml tests`
+  - Type check: `uv run --directory backend mypy`
+  - Tests: `uv run --directory backend pytest tests --cov=app --cov-fail-under=80 -q`
+- **Frontend scripts:** `pnpm --dir frontend <script>` (e.g. `pnpm --dir frontend lint`, `pnpm --dir frontend build`)
+- **Both at once:** chain with `&&` in a single command, still from root
+
+Do not use `cd backend && uv run ...`, `Push-Location`, `pnpm --dir backend`, or `pnpm --dir` — use the forms above consistently.
 
 ## Security
 

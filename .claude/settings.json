@@ -3,6 +3,20 @@
     "commit": "",
     "pr": ""
   },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --dir frontend lint *)",
+      "Bash(pnpm --dir frontend build *)",
+      "Bash(pnpm --dir frontend test *)",
+      "Bash(pnpm --dir frontend generate:api-types)",
+      "Bash(pnpm --dir frontend tsc *)",
+      "Bash(uv run --directory backend uvicorn app.main:app --reload *)",
+      "Bash(uv run --directory backend ruff check *)",
+      "Bash(uv run --directory backend ruff format *)",
+      "Bash(uv run --directory backend mypy *)",
+      "Bash(uv run --directory backend pytest *)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
