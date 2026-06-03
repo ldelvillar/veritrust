@@ -481,6 +481,74 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
 
 
+def test_delete_analisis_returns_200_when_deleted(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_user_analysis(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        assert analysis_id == "11111111-1111-1111-1111-111111111111"
+        return True
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.delete_user_analysis",
+        fake_delete_user_analysis,
+    )
+
+    response = client.delete("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "deleted"
+    assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
+
+
+def test_delete_analisis_returns_404_when_not_found(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_returns_false(**kwargs):
+        return False
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.delete_user_analysis",
+        fake_returns_false,
+    )
+
+    response = client.delete("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+
+
+def test_delete_analisis_returns_400_when_id_is_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.delete("/analysis/not-a-uuid")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_delete_analisis_returns_500_when_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_user_analysis(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.delete_user_analysis",
+        fake_delete_user_analysis,
+    )
+
+    response = client.delete("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_DELETE_FAILED"
+
+
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
     server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)

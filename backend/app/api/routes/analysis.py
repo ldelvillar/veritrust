@@ -11,6 +11,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.core.errors import make_error_detail
 from app.db.history import (
     create_pending_analysis,
+    delete_user_analysis,
     fail_analysis,
     get_user_analysis_by_id,
 )
@@ -32,6 +33,13 @@ _POST_ERROR_RESPONSES: dict[int | str, dict] = {
 }
 
 _GET_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+}
+
+_DELETE_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
@@ -148,3 +156,38 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         error_code=record.error_code,
         created_at=record.created_at,
     )
+
+
+@router.delete(
+    "/{analysis_id}",
+    response_model=AnalysisResponse,
+    responses=_DELETE_ERROR_RESPONSES,
+)
+async def delete_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
+    """Elimina un análisis del usuario autenticado."""
+    user_id = user["sub"]
+
+    try:
+        # Validación rápida para evitar consultas con ids inválidos.
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        deleted = await delete_user_analysis(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_DELETE_FAILED),
+        ) from e
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    return {"status": "deleted", "analysis_id": analysis_id}

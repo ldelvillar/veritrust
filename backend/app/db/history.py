@@ -399,3 +399,22 @@ async def get_user_analysis_by_id(
         return None
 
     return _map_history_record(row)
+
+
+async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
+    """Elimina un análisis propio del usuario. Devuelve True si borró una fila."""
+    pool = await get_pool()
+
+    query = "DELETE FROM public.analysis_history WHERE user_id = %s AND id = %s"
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                return cur.rowcount > 0
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo eliminar el análisis en la base de datos."
+            )
+        ) from exc

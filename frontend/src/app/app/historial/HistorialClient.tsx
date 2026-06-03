@@ -9,7 +9,9 @@ import HistoryFilters, {
   SourceTypeFilter,
 } from '@/components/HistoryFilters';
 import HistoryResultsTable from '@/components/HistoryResultsTable';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useApiQuery } from '@/hooks/useApiQuery';
+import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
 
@@ -35,8 +37,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null);
 
   const { getToken } = useAuth();
+  const {
+    remove: deleteAnalysis,
+    isDeleting,
+    error: deleteError,
+    setError: setDeleteError,
+  } = useAnalysisDeletion();
 
   // Evita refrescar en cada pulsación
   useEffect(() => {
@@ -143,6 +152,41 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setCurrentPage(Math.max(1, page));
   }, []);
 
+  const handleDeleteRequest = useCallback(
+    (item: HistoryItem) => {
+      setDeleteError(null);
+      setPendingDelete(item);
+    },
+    [setDeleteError]
+  );
+
+  const handleDeleteCancel = useCallback(() => {
+    if (isDeleting) return;
+    setDeleteError(null);
+    setPendingDelete(null);
+  }, [isDeleting, setDeleteError]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!pendingDelete) return;
+    // history.length se evalúa antes del refetch: refleja la página actual.
+    const wasLastOnPage = history.length === 1;
+    const success = await deleteAnalysis(pendingDelete.analysis_id);
+    if (!success) return;
+    setPendingDelete(null);
+    if (wasLastOnPage && currentPage > 1) {
+      // Cambiar de página dispara el refetch de SWR automáticamente.
+      setCurrentPage(page => page - 1);
+    } else {
+      await fetchHistory();
+    }
+  }, [
+    pendingDelete,
+    history.length,
+    deleteAnalysis,
+    currentPage,
+    fetchHistory,
+  ]);
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -198,6 +242,19 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         errorMessage={fetchError?.message ?? null}
         onRetry={fetchHistory}
         onPageChange={handlePageChange}
+        onDelete={handleDeleteRequest}
+        deletingId={isDeleting ? (pendingDelete?.analysis_id ?? null) : null}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="¿Eliminar este análisis?"
+        description="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        isConfirming={isDeleting}
+        errorMessage={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
       />
     </>
   );

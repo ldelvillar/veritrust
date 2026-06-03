@@ -31,6 +31,7 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.INVALID_ANALYSIS_ID: "El id de análisis no es válido.",
     ErrorCode.ANALYSIS_NOT_FOUND: "Análisis no encontrado.",
     ErrorCode.ANALYSIS_FETCH_FAILED: "No se pudo recuperar el análisis.",
+    ErrorCode.ANALYSIS_DELETE_FAILED: "No se pudo eliminar el análisis.",
     ErrorCode.HISTORY_FETCH_FAILED: "No se pudo recuperar el historial de análisis.",
     ErrorCode.DASHBOARD_FETCH_FAILED: "No se pudo recuperar el dashboard.",
     ErrorCode.RATE_LIMIT: (

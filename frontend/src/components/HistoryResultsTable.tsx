@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
+import Trash from '@/assets/Trash';
 import type { paths } from '@/types/api';
 
 type HistoryItem =
@@ -16,6 +17,8 @@ interface HistoryResultsTableProps {
   errorMessage?: string | null;
   onRetry?: () => void;
   onPageChange: (page: number) => void;
+  onDelete: (item: HistoryItem) => void;
+  deletingId?: string | null;
 }
 
 const getTitle = (item: HistoryItem): string => {
@@ -78,6 +81,8 @@ export default function HistoryResultsTable({
   errorMessage,
   onRetry,
   onPageChange,
+  onDelete,
+  deletingId,
 }: HistoryResultsTableProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
@@ -179,13 +184,28 @@ export default function HistoryResultsTable({
                   </span>
                 </div>
 
-                <Link
-                  href={`/app/analisis/${item.analysis_id}`}
-                  className="mt-4 inline-flex w-fit items-center gap-2 text-sm font-bold text-primary md:mt-0 md:justify-self-end"
-                >
-                  Ver informe
-                  <Arrow className="size-4 rotate-270 text-primary" />
-                </Link>
+                <div className="mt-4 flex items-center gap-3 md:mt-0 md:justify-self-end">
+                  <Link
+                    href={`/app/analisis/${item.analysis_id}`}
+                    className="inline-flex w-fit items-center gap-2 text-sm font-bold text-primary"
+                  >
+                    Ver informe
+                    <Arrow className="size-4 rotate-270 text-primary" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(item)}
+                    disabled={deletingId === item.analysis_id}
+                    aria-label="Eliminar análisis"
+                    className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingId === item.analysis_id ? (
+                      <Spinner className="size-4 animate-spin text-red-500" />
+                    ) : (
+                      <Trash className="size-4" />
+                    )}
+                  </button>
+                </div>
               </li>
             );
           })}
