@@ -50,12 +50,12 @@ export const faqEntries = [
     a: (
       <>
         VeriTrust alcanza un <strong>88% de precisión</strong>, medido sobre más
-        de 15.000 análisis verificados. Cada veredicto incluye sus fuentes para
+        de 10.000 análisis verificados. Cada veredicto incluye sus fuentes para
         que puedas comprobarlo por ti mismo.
       </>
     ),
     plain:
-      'VeriTrust alcanza un 88% de precisión medido sobre más de 15.000 análisis verificados.',
+      'VeriTrust alcanza un 88% de precisión medido sobre más de 10.000 análisis verificados.',
     open: false,
   },
   {

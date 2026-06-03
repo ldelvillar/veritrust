@@ -79,7 +79,7 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
           <span className="tabular-nums" aria-hidden="true">
             {formatElapsed(elapsed)}
           </span>{' '}
-          · Suele tardar ~30–60 s
+          · Suele tardar 2 min
         </p>
       </div>
 
