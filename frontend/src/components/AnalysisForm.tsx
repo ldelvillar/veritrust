@@ -309,10 +309,10 @@ export default function AnalysisForm() {
               </p>
             )}
             <p className="mt-1.5 text-[13px] text-[#7e7f99]">
-              El extractor leerá el texto del documento.
+              Solo archivos de texto plano (.txt o .md).
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              {['PDF', 'DOCX', 'TXT', 'PNG', 'JPG'].map(t => (
+              {['TXT', 'MD'].map(t => (
                 <span
                   key={t}
                   className="rounded-lg border border-[#e8e6f4] bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-[#7e7f99]"
