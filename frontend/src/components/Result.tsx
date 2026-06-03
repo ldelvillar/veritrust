@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { MarkdownHooks } from 'react-markdown';
 import Magnifier from '@/assets/Magnifier';
 import LanguageIcon from '@/assets/Language';
@@ -40,6 +41,12 @@ function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
         No se pudo completar el análisis
       </h3>
       <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
+      <Link
+        href="/app/analisis"
+        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none"
+      >
+        Analizar otro contenido
+      </Link>
     </div>
   );
 }
