@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { CONFIG } from '@/config';
+
 export const metadata: Metadata = {
   title: 'Ayuda | VeriTrust',
   description:
-    'Centro de ayuda de VeriTrust con guia de uso, preguntas frecuentes y soporte.',
+    'Centro de ayuda de VeriTrust con guía de uso, preguntas frecuentes y soporte.',
 };
 
 export default function AyudaPage() {
@@ -14,7 +16,7 @@ export default function AyudaPage() {
         Centro de ayuda
       </h1>
       <p className="mt-4 max-w-3xl text-base leading-7 text-gray-600 md:text-lg">
-        Encuentra respuestas rapidas para usar VeriTrust: como analizar
+        Encuentra respuestas rápidas para usar VeriTrust: cómo analizar
         contenido, interpretar resultados y gestionar tu historial.
       </p>
 
@@ -23,7 +25,7 @@ export default function AyudaPage() {
           href="/app/analisis"
           className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
         >
-          <h2 className="text-lg font-bold text-gray-900">Nuevo analisis</h2>
+          <h2 className="text-lg font-bold text-gray-900">Nuevo análisis</h2>
           <p className="mt-2 text-sm leading-6 text-gray-600">
             Abre el analizador para pegar texto, subir archivo o analizar una
             URL.
@@ -36,8 +38,8 @@ export default function AyudaPage() {
         >
           <h2 className="text-lg font-bold text-gray-900">Historial</h2>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            Filtra por tipo, fecha, puntuacion o busqueda para localizar
-            analisis anteriores.
+            Filtra por tipo, fecha, puntuación o búsqueda para localizar
+            análisis anteriores.
           </p>
         </Link>
 
@@ -61,33 +63,33 @@ export default function AyudaPage() {
           <div className="mt-5 space-y-4">
             <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <h3 className="text-base font-bold text-gray-900">
-                Como interpreto la puntuacion de credibilidad?
+                ¿Cómo interpreto la puntuación de credibilidad?
               </h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                La puntuacion va de 0 a 100. Cuanto mas alta es, mayor confianza
+                La puntuación va de 0 a 100. Cuanto más alta es, mayor confianza
                 ofrece el sistema en la credibilidad del contenido analizado.
-                Aun asi, siempre conviene contrastar con fuentes confiables.
+                Aun así, siempre conviene contrastar con fuentes confiables.
               </p>
             </article>
 
             <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <h3 className="text-base font-bold text-gray-900">
-                Por que no veo resultados en el historial?
+                ¿Por qué no veo resultados en el historial?
               </h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Revisa los filtros activos de busqueda, tipo o rango de fechas.
-                Si no coinciden con tus registros, la tabla puede aparecer vacia
-                aunque tengas analisis guardados.
+                Revisa los filtros activos de búsqueda, tipo o rango de fechas.
+                Si no coinciden con tus registros, la tabla puede aparecer vacía
+                aunque tengas análisis guardados.
               </p>
             </article>
 
             <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <h3 className="text-base font-bold text-gray-900">
-                Puedo usar el resultado como diagnostico medico?
+                ¿Puedo usar el resultado como diagnóstico médico?
               </h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
                 No. VeriTrust es una herramienta de apoyo para detectar posible
-                desinformacion. No sustituye el criterio de profesionales
+                desinformación. No sustituye el criterio de profesionales
                 sanitarios ni de fuentes oficiales.
               </p>
             </article>
@@ -99,12 +101,12 @@ export default function AyudaPage() {
             Contacto y soporte
           </h2>
           <p className="mt-3 text-sm leading-6 text-gray-600 md:text-base">
-            Si tienes dudas tecnicas, errores recurrentes o sugerencias para
+            Si tienes dudas técnicas, errores recurrentes o sugerencias para
             mejorar la plataforma, puedes escribirnos y te responderemos lo
             antes posible.
           </p>
           <a
-            href="mailto:lucasvillarv@gmail.com"
+            href={`mailto:${CONFIG.email}`}
             className="mt-4 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-primary/90"
           >
             Contactar por correo
