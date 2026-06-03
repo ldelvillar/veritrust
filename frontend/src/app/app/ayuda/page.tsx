@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import { CONFIG } from '@/config';
+
+import HelpArticleCatalog from './_components/HelpArticleCatalog';
+import HelpCategories from './_components/HelpCategories';
+import HelpContactStrip from './_components/HelpContactStrip';
+import HelpFaqSection from './_components/HelpFaqSection';
+import HelpHero from './_components/HelpHero';
+import HelpSteps from './_components/HelpSteps';
+import { ARTICLES, CATEGORIES, FAQ, POPULAR, STEPS } from './helpContent';
 
 export const metadata: Metadata = {
   title: 'Ayuda | VeriTrust',
@@ -11,108 +18,13 @@ export const metadata: Metadata = {
 
 export default function AyudaPage() {
   return (
-    <section className="animate-fade-in mx-auto w-full max-w-5xl px-4 py-12 md:py-16">
-      <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 md:text-5xl">
-        Centro de ayuda
-      </h1>
-      <p className="mt-4 max-w-3xl text-base leading-7 text-gray-600 md:text-lg">
-        Encuentra respuestas rápidas para usar VeriTrust: cómo analizar
-        contenido, interpretar resultados y gestionar tu historial.
-      </p>
-
-      <div className="mt-10 grid gap-4 md:grid-cols-3">
-        <Link
-          href="/app/analisis"
-          className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
-        >
-          <h2 className="text-lg font-bold text-gray-900">Nuevo análisis</h2>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Abre el analizador para pegar texto, subir archivo o analizar una
-            URL.
-          </p>
-        </Link>
-
-        <Link
-          href="/app/historial"
-          className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
-        >
-          <h2 className="text-lg font-bold text-gray-900">Historial</h2>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Filtra por tipo, fecha, puntuación o búsqueda para localizar
-            análisis anteriores.
-          </p>
-        </Link>
-
-        <Link
-          href="/app/dashboard"
-          className="rounded-2xl border border-border bg-white p-5 shadow-sm transition duration-200 hover:border-primary/40"
-        >
-          <h2 className="text-lg font-bold text-gray-900">Dashboard</h2>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Revisa un resumen general de actividad y rendimiento de tus
-            verificaciones.
-          </p>
-        </Link>
-      </div>
-
-      <div className="mt-12 space-y-8">
-        <section>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Preguntas frecuentes
-          </h2>
-          <div className="mt-5 space-y-4">
-            <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900">
-                ¿Cómo interpreto la puntuación de credibilidad?
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                La puntuación va de 0 a 100. Cuanto más alta es, mayor confianza
-                ofrece el sistema en la credibilidad del contenido analizado.
-                Aun así, siempre conviene contrastar con fuentes confiables.
-              </p>
-            </article>
-
-            <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900">
-                ¿Por qué no veo resultados en el historial?
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                Revisa los filtros activos de búsqueda, tipo o rango de fechas.
-                Si no coinciden con tus registros, la tabla puede aparecer vacía
-                aunque tengas análisis guardados.
-              </p>
-            </article>
-
-            <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900">
-                ¿Puedo usar el resultado como diagnóstico médico?
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                No. VeriTrust es una herramienta de apoyo para detectar posible
-                desinformación. No sustituye el criterio de profesionales
-                sanitarios ni de fuentes oficiales.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Contacto y soporte
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-gray-600 md:text-base">
-            Si tienes dudas técnicas, errores recurrentes o sugerencias para
-            mejorar la plataforma, puedes escribirnos y te responderemos lo
-            antes posible.
-          </p>
-          <a
-            href={`mailto:${CONFIG.email}`}
-            className="mt-4 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-primary/90"
-          >
-            Contactar por correo
-          </a>
-        </section>
-      </div>
-    </section>
+    <div className="mx-auto w-full max-w-270 px-4 py-8 md:px-8 md:py-10">
+      <HelpHero articles={ARTICLES} faq={FAQ} popular={POPULAR} />
+      <HelpCategories articles={ARTICLES} categories={CATEGORIES} />
+      <HelpArticleCatalog articles={ARTICLES} categories={CATEGORIES} />
+      <HelpSteps steps={STEPS} />
+      <HelpFaqSection faq={FAQ} />
+      <HelpContactStrip email={CONFIG.email} />
+    </div>
   );
 }
