@@ -7,6 +7,7 @@ import { MarkdownHooks } from 'react-markdown';
 import Check from '@/assets/Check';
 import Chevron from '@/assets/Chevron';
 import Cross from '@/assets/Cross';
+import DownloadIcon from '@/assets/Download';
 import ListIcon from '@/assets/List';
 import MedicalCross from '@/assets/MedicalCross';
 import ShieldIcon from '@/assets/Shield';
@@ -584,24 +585,6 @@ function Disclaimer() {
 
 const SOFT_BUTTON =
   'inline-flex items-center justify-center gap-2 rounded-xl border border-[#dcd9ee] bg-white px-4 py-2.5 text-sm font-semibold text-[#33344c] transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3v12" />
-      <path d="m7 11 5 5 5-5" />
-      <path d="M5 20h14" />
-    </svg>
-  );
-}
 
 // Cabecera/pie con marca que solo aparecen al imprimir (PDF), no en pantalla.
 function PrintHeader({ createdAt }: { createdAt: string }) {

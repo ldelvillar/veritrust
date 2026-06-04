@@ -3,6 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
+import DownloadIcon from '@/assets/Download';
 import HistoryFilters, {
   DateRangeFilter,
   ScoreSortOrder,
@@ -210,7 +211,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             {isExporting ? (
               <Spinner className="size-4 animate-spin text-primary" />
             ) : (
-              <span aria-hidden>↓</span>
+              <DownloadIcon className="size-4" aria-hidden />
             )}
             {isExporting ? 'Exportando…' : 'Exportar todo'}
           </button>
