@@ -375,8 +375,8 @@ export interface components {
             source?: string | null;
             /** Year */
             year?: string | null;
-            /** Statement */
-            statement?: string | null;
+            /** Statements */
+            statements?: string[] | null;
         };
         /**
          * SourceType

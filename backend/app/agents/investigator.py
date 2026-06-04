@@ -1,10 +1,4 @@
-"""Agente investigador: recupera evidencia biomédica de Europe PMC.
-
-Se ejecuta entre el traductor y el experto en salud. Por cada afirmación traducida
-al inglés consulta Europe PMC, adjunta las fuentes encontradas al estado y calcula
-la ``evidence_coverage`` que el experto usa para ajustar la confianza del veredicto.
-La recuperación es no crítica: si Europe PMC falla, el análisis continúa sin fuentes.
-"""
+"""Agente investigador: recupera evidencia biomédica de Europe PMC."""
 
 import logging
 
@@ -18,17 +12,18 @@ EVIDENCE_RESULTS_PER_STATEMENT = 3
 EVIDENCE_MAX_SOURCES = 8
 
 
-def _dedupe_sources(sources: list[dict]) -> list[dict]:
-    """Elimina fuentes repetidas conservando el orden, deduplicando por URL."""
-    seen: set[str] = set()
-    unique: list[dict] = []
-    for source in sources:
-        key = source["url"]
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(source)
-    return unique
+def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
+    """Funde fuentes repetidas por URL, acumulando las afirmaciones que respaldan."""
+    by_url: dict[str, dict] = {}
+    for hit, statement in hits:
+        url = hit["url"]
+        source = by_url.get(url)
+        if source is None:
+            source = {**hit, "statements": []}
+            by_url[url] = source
+        if statement and statement not in source["statements"]:
+            source["statements"].append(statement)
+    return list(by_url.values())
 
 
 def investigator(state: dict) -> dict:
@@ -45,7 +40,7 @@ def investigator(state: dict) -> dict:
         :EVIDENCE_MAX_STATEMENTS
     ]
 
-    collected: list[dict] = []
+    collected: list[tuple[dict, str | None]] = []
     attempted = 0
     errored = 0
     covered = 0
@@ -64,9 +59,9 @@ def investigator(state: dict) -> dict:
         if hits:
             covered += 1
             for hit in hits:
-                collected.append({**hit, "statement": original})
+                collected.append((hit, original))
 
-    sources = _dedupe_sources(collected)[:EVIDENCE_MAX_SOURCES]
+    sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
     if attempted and errored == attempted:
         # Caída total del servicio: no penalizamos el veredicto por nuestra

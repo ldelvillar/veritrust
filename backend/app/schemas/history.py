@@ -2,9 +2,9 @@
 Este módulo define los esquemas de datos relacionados con el historial de análisis del usuario.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
 from app.core.credibility import compute_credibility
 
@@ -24,16 +24,21 @@ class SourceItem(BaseModel):
     url: str
     source: Optional[str] = None
     year: Optional[str] = None
-    statement: Optional[str] = None
+    statements: Optional[List[str]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_statement(cls, data: Any) -> Any:
+        """Rellena ``statements`` desde el campo ``statement`` (singular) heredado."""
+        if isinstance(data, dict) and not data.get("statements"):
+            legacy = data.get("statement")
+            if isinstance(legacy, str) and legacy.strip():
+                return {**data, "statements": [legacy]}
+        return data
 
 
 class AnalysisHistoryItem(BaseModel):
-    """Modelo de datos para un ítem del historial de análisis.
-
-    Las columnas de resultado son ``None`` mientras ``status == "pending"`` y se
-    rellenan cuando el worker termina; en ``status == "failed"`` ``error_code``
-    lleva el código de error estable del contrato.
-    """
+    """Modelo de datos para un ítem del historial de análisis."""
 
     analysis_id: str
     user_id: str

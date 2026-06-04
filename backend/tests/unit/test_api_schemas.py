@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.analysis import AnalysisRequest, SourceType
+from app.schemas.history import SourceItem
 
 
 def test_analyze_request_accepts_text_with_default_source_type() -> None:
@@ -76,3 +77,24 @@ def test_analyze_request_rejects_invalid_source_type_value() -> None:
         AnalysisRequest(text="Texto", source_type="audio")
 
     assert "source_type" in str(exc.value)
+
+
+def test_source_item_backfills_statements_from_legacy_statement() -> None:
+    source = SourceItem.model_validate(
+        {"title": "Estudio", "url": "https://x/1", "statement": "afirmación"}
+    )
+
+    assert source.statements == ["afirmación"]
+
+
+def test_source_item_keeps_statements_when_present() -> None:
+    source = SourceItem.model_validate(
+        {
+            "title": "Estudio",
+            "url": "https://x/1",
+            "statements": ["a", "b"],
+            "statement": "ignorada",
+        }
+    )
+
+    assert source.statements == ["a", "b"]

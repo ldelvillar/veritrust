@@ -23,8 +23,8 @@ def test_collects_sources_and_full_coverage(monkeypatch):
     assert set(update.keys()) == {"sources", "evidence_coverage"}
     assert update["evidence_coverage"] == 1.0
     assert len(update["sources"]) == 2
-    # La afirmación original se adjunta para contexto en la UI.
-    assert update["sources"][0]["statement"] == "a"
+    # La afirmación original se adjunta para enlazar la fuente con su afirmación.
+    assert update["sources"][0]["statements"] == ["a"]
 
 
 def test_partial_coverage_when_some_statements_have_no_hits(monkeypatch):
@@ -38,15 +38,19 @@ def test_partial_coverage_when_some_statements_have_no_hits(monkeypatch):
     assert update["evidence_coverage"] == 0.5
 
 
-def test_dedupes_sources_by_url(monkeypatch):
+def test_merges_statements_for_shared_url(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": "same", "url": "https://x/dup"}]
 
     monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
 
-    update = investigator({"translated_statements": ["A", "B"]})
+    update = investigator(
+        {"translated_statements": ["A", "B"], "extracted_statements": ["a", "b"]}
+    )
 
+    # Una misma fuente recuperada para dos afirmaciones queda enlazada a ambas.
     assert len(update["sources"]) == 1
+    assert update["sources"][0]["statements"] == ["a", "b"]
 
 
 def test_total_outage_does_not_penalize_confidence(monkeypatch):

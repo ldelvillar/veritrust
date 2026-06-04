@@ -1,10 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { MarkdownHooks } from 'react-markdown';
 import Check from '@/assets/Check';
+import Chevron from '@/assets/Chevron';
 import Cross from '@/assets/Cross';
 import ListIcon from '@/assets/List';
 import MedicalCross from '@/assets/MedicalCross';
@@ -12,6 +13,7 @@ import ShieldIcon from '@/assets/Shield';
 import WarningIcon from '@/assets/Warning';
 import PendingAnalysis from '@/components/PendingAnalysis';
 import { classifyVerdict } from '@/lib/credibility';
+import { groupSourcesByClaim } from '@/lib/evidence';
 import type { paths } from '@/types/api';
 
 type ResultType =
@@ -330,53 +332,108 @@ function getClaimStyle(label: string): {
   };
 }
 
-function Claims({ claims }: { claims: ClaimType[] }) {
+function SourceRow({ source }: { source: SourceType }) {
+  const meta = sourceMeta(source);
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
-        <ListIcon className="size-4.5 text-primary" />
-        Afirmaciones detectadas
-      </h3>
-      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
-        Cada afirmación verificable se evalúa por separado con el modelo
-        BioBERT.
-      </p>
+    <li className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5">
+      <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <BookIcon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <a
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm leading-snug font-bold text-slate-900 underline-offset-2 hover:text-primary hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
+        >
+          {source.title}
+        </a>
+        {meta && (
+          <p className="mt-1 text-[11.5px] font-semibold text-slate-400">
+            {meta}
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
 
-      {claims.map((claim, index) => {
-        const style = getClaimStyle(claim.label);
-        const ClaimIcon = style.Icon;
-        const confidencePct = Math.round(
-          normalizeFraction(claim.confidence) * 100
-        );
+function ClaimRow({
+  claim,
+  sources,
+  showEvidence,
+}: {
+  claim: ClaimType;
+  sources: SourceType[];
+  showEvidence: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const style = getClaimStyle(claim.label);
+  const ClaimIcon = style.Icon;
+  const confidencePct = Math.round(normalizeFraction(claim.confidence) * 100);
+  const sourceCount = sources.length;
 
-        return (
-          <div
-            key={index}
-            className="flex gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0.5"
+  return (
+    <div className="flex gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0.5">
+      <div
+        className={`grid size-7 shrink-0 place-items-center rounded-lg ${style.tile}`}
+      >
+        <ClaimIcon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-snug font-bold text-slate-900">
+          {claim.text}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2.5">
+          <span
+            className={`rounded-md px-2 py-1 text-[10.5px] font-bold tracking-wide uppercase ${style.pill}`}
           >
-            <div
-              className={`grid size-7 shrink-0 place-items-center rounded-lg ${style.tile}`}
-            >
-              <ClaimIcon className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm leading-snug font-bold text-slate-900">
-                {claim.text}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                <span
-                  className={`rounded-md px-2 py-1 text-[10.5px] font-bold tracking-wide uppercase ${style.pill}`}
+            {style.text}
+          </span>
+          <span className="text-[11.5px] font-semibold text-slate-400">
+            {confidencePct}% de confianza
+          </span>
+        </div>
+
+        {showEvidence &&
+          (sourceCount > 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setOpen(value => !value)}
+                aria-expanded={open}
+                aria-controls={panelId}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              >
+                <BookIcon className="size-3.5" />
+                {open ? 'Ocultar' : 'Ver'} {sourceCount}{' '}
+                {sourceCount === 1 ? 'fuente' : 'fuentes'}
+                <Chevron
+                  className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+                  aria-hidden
+                />
+              </button>
+              {open && (
+                <ul
+                  id={panelId}
+                  aria-label="Fuentes que respaldan esta afirmación"
+                  className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5"
                 >
-                  {style.text}
-                </span>
-                <span className="text-[11.5px] font-semibold text-slate-400">
-                  {confidencePct}% de confianza
-                </span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+                  {sources.map((source, index) => (
+                    <SourceRow key={`${source.url}-${index}`} source={source} />
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-slate-400">
+              <BookIcon className="size-3.5 shrink-0" />
+              Sin evidencia directa en Europe PMC para esta afirmación.
+            </p>
+          ))}
+      </div>
     </div>
   );
 }
@@ -388,48 +445,30 @@ function sourceMeta(source: SourceType): string | null {
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-function Sources({ sources }: { sources: SourceType[] }) {
+function SourcesCard({
+  sources,
+  title,
+  caption,
+}: {
+  sources: SourceType[];
+  title: string;
+  caption: string;
+}) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
         <BookIcon className="size-4.5 text-primary" />
-        Fuentes
+        {title}
       </h3>
       <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
-        Literatura biomédica recuperada de Europe PMC para respaldar el
-        análisis. La confianza del veredicto se ajusta según cuántas
-        afirmaciones encuentran respaldo en estas fuentes.
+        {caption}
       </p>
 
-      {sources.map((source, index) => {
-        const meta = sourceMeta(source);
-
-        return (
-          <div
-            key={`${source.url}-${index}`}
-            className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5"
-          >
-            <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <BookIcon className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <a
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm leading-snug font-bold text-slate-900 underline-offset-2 hover:text-primary hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
-              >
-                {source.title}
-              </a>
-              {meta && (
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-400">
-                  {meta}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      <ul>
+        {sources.map((source, index) => (
+          <SourceRow key={`${source.url}-${index}`} source={source} />
+        ))}
+      </ul>
 
       <p className="mt-4 flex items-center gap-2 text-xs leading-relaxed text-slate-400">
         <ShieldIcon className="size-3.5 shrink-0" />
@@ -437,6 +476,88 @@ function Sources({ sources }: { sources: SourceType[] }) {
         original.
       </p>
     </div>
+  );
+}
+
+const FLAT_SOURCES_CAPTION =
+  'Literatura biomédica recuperada de Europe PMC para respaldar el análisis. La confianza del veredicto se ajusta según cuántas afirmaciones encuentran respaldo en estas fuentes.';
+
+function ClaimsEvidence({
+  claims,
+  sources,
+}: {
+  claims: ClaimType[];
+  sources: SourceType[];
+}) {
+  const hasEvidence = sources.length > 0;
+
+  // Caso defensivo: fuentes sin afirmaciones → lista plana, sin perder nada.
+  if (claims.length === 0) {
+    return hasEvidence ? (
+      <SourcesCard
+        sources={sources}
+        title="Fuentes"
+        caption={FLAT_SOURCES_CAPTION}
+      />
+    ) : null;
+  }
+
+  // Análisis antiguos (previos al investigador) no tienen fuentes: no decimos
+  // "sin evidencia" porque nunca llegó a buscarse.
+  if (!hasEvidence) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <ListIcon className="size-4.5 text-primary" />
+          Afirmaciones detectadas
+        </h3>
+        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+          Cada afirmación verificable se evalúa por separado con el modelo
+          BioBERT.
+        </p>
+        {claims.map((claim, index) => (
+          <ClaimRow
+            key={index}
+            claim={claim}
+            sources={[]}
+            showEvidence={false}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const { groups, unmatched } = groupSourcesByClaim(claims, sources);
+
+  return (
+    <>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <ListIcon className="size-4.5 text-primary" />
+          Afirmaciones y evidencia
+        </h3>
+        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+          Cada afirmación se evalúa con BioBERT y se enlaza con la literatura
+          biomédica de Europe PMC que la respalda.
+        </p>
+        {groups.map((group, index) => (
+          <ClaimRow
+            key={index}
+            claim={group.claim}
+            sources={group.sources}
+            showEvidence
+          />
+        ))}
+      </div>
+
+      {unmatched.length > 0 && (
+        <SourcesCard
+          sources={unmatched}
+          title="Otras fuentes relacionadas"
+          caption="Fuentes recuperadas para el conjunto del texto que no se han asignado a una afirmación concreta."
+        />
+      )}
+    </>
   );
 }
 
@@ -517,8 +638,7 @@ export default function Result({ result, headerActions }: ResultProps) {
         {result.explanation && (
           <MedicalExplanation explanation={result.explanation} />
         )}
-        {claims.length > 0 && <Claims claims={claims} />}
-        {sources.length > 0 && <Sources sources={sources} />}
+        <ClaimsEvidence claims={claims} sources={sources} />
         <Disclaimer />
       </div>
 
