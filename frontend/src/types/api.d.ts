@@ -174,6 +174,8 @@ export interface components {
             created_at: string;
             /** Claims */
             claims?: components["schemas"]["ClaimItem"][] | null;
+            /** Sources */
+            sources?: components["schemas"]["SourceItem"][] | null;
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -359,6 +361,22 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+        };
+        /**
+         * SourceItem
+         * @description Fuente de literatura biomédica recuperada para fundamentar el análisis.
+         */
+        SourceItem: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Source */
+            source?: string | null;
+            /** Year */
+            year?: string | null;
+            /** Statement */
+            statement?: string | null;
         };
         /**
          * SourceType

@@ -6,12 +6,8 @@ import Link from 'next/link';
 import { MarkdownHooks } from 'react-markdown';
 import Check from '@/assets/Check';
 import Cross from '@/assets/Cross';
-import Heart from '@/assets/Heart';
-import LanguageIcon from '@/assets/Language';
 import ListIcon from '@/assets/List';
-import Magnifier from '@/assets/Magnifier';
 import MedicalCross from '@/assets/MedicalCross';
-import Robot from '@/assets/Robot';
 import ShieldIcon from '@/assets/Shield';
 import WarningIcon from '@/assets/Warning';
 import PendingAnalysis from '@/components/PendingAnalysis';
@@ -21,6 +17,7 @@ import type { paths } from '@/types/api';
 type ResultType =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 type ClaimType = NonNullable<ResultType['claims']>[number];
+type SourceType = NonNullable<ResultType['sources']>[number];
 
 interface ResultProps {
   result: ResultType;
@@ -46,30 +43,6 @@ const SOURCE_TAGS: Record<string, string> = {
   file: 'Archivo',
 };
 
-const AGENTS = [
-  {
-    name: 'Agente Extractor',
-    description:
-      'Aísla las afirmaciones médicas verificables presentes en el texto original.',
-    Icon: Magnifier,
-    tile: 'bg-primary/10 text-primary',
-  },
-  {
-    name: 'Agente Traductor',
-    description:
-      'Traduce las afirmaciones al inglés clínico para contrastarlas con el modelo.',
-    Icon: LanguageIcon,
-    tile: 'bg-sky-50 text-sky-600',
-  },
-  {
-    name: 'Agente Médico',
-    description:
-      'Evalúa cada afirmación con el modelo BioBERT y redacta el informe médico.',
-    Icon: Heart,
-    tile: 'bg-emerald-50 text-emerald-600',
-  },
-];
-
 function ClockIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -83,6 +56,23 @@ function ClockIcon({ className }: { className?: string }) {
     >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function BookIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5z" />
+      <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z" />
     </svg>
   );
 }
@@ -165,7 +155,7 @@ function CredibilityGauge({ score }: { score: number }) {
   }, [score, circumference]);
 
   return (
-    <div className="relative size-[172px]">
+    <div className="relative size-43">
       <svg width="172" height="172" className="-rotate-90">
         <circle
           cx="86"
@@ -203,7 +193,6 @@ function CredibilityGauge({ score }: { score: number }) {
 function ResultBand({ result }: { result: ResultType }) {
   const score = result.credibility ?? 0;
   const verdict = getVerdictInfo(result.label ?? '');
-  const segments = Math.max(0, Math.min(5, Math.round(score / 20)));
   const confidence = confidenceLabel(result.confidence);
   const claimCount = result.claims?.length ?? 0;
   const sourceText =
@@ -223,16 +212,6 @@ function ResultBand({ result }: { result: ResultType }) {
     >
       <div className="flex flex-col items-center justify-center gap-4 border-b border-white/20 bg-white/5 px-6 py-8 text-center lg:border-r lg:border-b-0">
         <CredibilityGauge score={score} />
-        <div className="flex items-center gap-1.5" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map(i => (
-            <span
-              key={i}
-              className={`h-1.5 w-6.5 rounded-full ${
-                i < segments ? 'bg-white' : 'bg-white/25'
-              }`}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="flex flex-col justify-center px-7 py-8">
@@ -284,7 +263,7 @@ function ResultBand({ result }: { result: ResultType }) {
 function MedicalExplanation({ explanation }: { explanation: string }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3.5 border-b border-slate-100 bg-gradient-to-b from-[#faf9fe] to-white px-6 py-5">
+      <div className="flex items-center gap-3.5 border-b border-slate-100 bg-linear-to-b from-[#faf9fe] to-white px-6 py-5">
         <div className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
           <MedicalCross className="size-6" />
           <span className="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full border-[2.5px] border-white bg-emerald-500" />
@@ -402,40 +381,61 @@ function Claims({ claims }: { claims: ClaimType[] }) {
   );
 }
 
-function AgentContributions() {
+function sourceMeta(source: SourceType): string | null {
+  const parts = [source.source, source.year].filter((part): part is string =>
+    Boolean(part)
+  );
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function Sources({ sources }: { sources: SourceType[] }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
-        <Robot className="size-4.5 text-primary" />
-        Aportación de cada agente
+        <BookIcon className="size-4.5 text-primary" />
+        Fuentes
       </h3>
       <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
-        Qué hace cada especialista del sistema multiagente.
+        Literatura biomédica recuperada de Europe PMC para respaldar el
+        análisis. La confianza del veredicto se ajusta según cuántas
+        afirmaciones encuentran respaldo en estas fuentes.
       </p>
 
-      {AGENTS.map(agent => {
-        const AgentIcon = agent.Icon;
+      {sources.map((source, index) => {
+        const meta = sourceMeta(source);
+
         return (
           <div
-            key={agent.name}
+            key={`${source.url}-${index}`}
             className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5"
           >
-            <div
-              className={`grid size-9.5 shrink-0 place-items-center rounded-xl ${agent.tile}`}
-            >
-              <AgentIcon className="size-4.5" />
+            <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <BookIcon className="size-4" />
             </div>
-            <div>
-              <h4 className="text-[13.5px] font-bold text-slate-900">
-                {agent.name}
-              </h4>
-              <p className="mt-0.5 text-[12.5px] leading-snug text-slate-500">
-                {agent.description}
-              </p>
+            <div className="min-w-0 flex-1">
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm leading-snug font-bold text-slate-900 underline-offset-2 hover:text-primary hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              >
+                {source.title}
+              </a>
+              {meta && (
+                <p className="mt-1 text-[11.5px] font-semibold text-slate-400">
+                  {meta}
+                </p>
+              )}
             </div>
           </div>
         );
       })}
+
+      <p className="mt-4 flex items-center gap-2 text-xs leading-relaxed text-slate-400">
+        <ShieldIcon className="size-3.5 shrink-0" />
+        Fuentes sugeridas automáticamente; verifica siempre la referencia
+        original.
+      </p>
     </div>
   );
 }
@@ -486,6 +486,7 @@ export default function Result({ result, headerActions }: ResultProps) {
   }
 
   const claims = result.claims ?? [];
+  const sources = result.sources ?? [];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -498,8 +499,8 @@ export default function Result({ result, headerActions }: ResultProps) {
             Resultado del análisis
           </h1>
           <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-500">
-            Resultado global combinado de los tres agentes, con la explicación
-            médica y el desglose afirmación por afirmación.
+            Resultado global combinado del sistema multiagente, con la
+            explicación médica y el desglose afirmación por afirmación.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -512,17 +513,13 @@ export default function Result({ result, headerActions }: ResultProps) {
 
       <ResultBand result={result} />
 
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-6">
-          {result.explanation && (
-            <MedicalExplanation explanation={result.explanation} />
-          )}
-          {claims.length > 0 && <Claims claims={claims} />}
-        </div>
-        <div className="flex flex-col gap-6">
-          <AgentContributions />
-          <Disclaimer />
-        </div>
+      <div className="flex min-w-0 flex-col gap-6">
+        {result.explanation && (
+          <MedicalExplanation explanation={result.explanation} />
+        )}
+        {claims.length > 0 && <Claims claims={claims} />}
+        {sources.length > 0 && <Sources sources={sources} />}
+        <Disclaimer />
       </div>
 
       <div className="flex flex-wrap gap-3">

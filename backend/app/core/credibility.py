@@ -29,3 +29,21 @@ def compute_credibility(
     fraction = confidence if confidence <= 1 else confidence / 100
     credibility = 1 - fraction if classify_verdict(label) == "fake" else fraction
     return max(0, min(100, round(credibility * 100)))
+
+
+# Atenuación máxima de la confianza cuando no se halla evidencia que respalde el
+# veredicto; con cobertura total la confianza no se toca.
+EVIDENCE_MAX_PENALTY = 0.25
+
+
+def adjust_confidence_with_evidence(
+    confidence: float, evidence_coverage: float
+) -> float:
+    """Atenúa la confianza del veredicto según la cobertura de evidencia [0, 1].
+
+    Cobertura 1.0 deja la confianza intacta; 0.0 la reduce en ``EVIDENCE_MAX_PENALTY``.
+    El resultado queda acotado a [0, 1].
+    """
+    coverage = max(0.0, min(1.0, evidence_coverage))
+    adjusted = confidence * (1 - EVIDENCE_MAX_PENALTY * (1 - coverage))
+    return max(0.0, min(1.0, adjusted))

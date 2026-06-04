@@ -17,6 +17,16 @@ class ClaimItem(BaseModel):
     confidence: float
 
 
+class SourceItem(BaseModel):
+    """Fuente de literatura biomédica recuperada para fundamentar el análisis."""
+
+    title: str
+    url: str
+    source: Optional[str] = None
+    year: Optional[str] = None
+    statement: Optional[str] = None
+
+
 class AnalysisHistoryItem(BaseModel):
     """Modelo de datos para un ítem del historial de análisis.
 
@@ -37,6 +47,7 @@ class AnalysisHistoryItem(BaseModel):
     error_code: Optional[str] = None
     created_at: str
     claims: Optional[List[ClaimItem]] = None
+    sources: Optional[List[SourceItem]] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

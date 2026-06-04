@@ -71,6 +71,28 @@ async def test_run_analysis_forwards_per_claim_verdicts(monkeypatch):
     assert completed[0]["claims"] == claims
 
 
+async def test_run_analysis_forwards_retrieved_sources(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+
+    sources = [{"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}]
+
+    async def fake_ainvoke(graph, state):
+        return {
+            "label": "falsa",
+            "confidence": 0.7,
+            "medical_explanation": "Informe.",
+            "sources": sources,
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert failed == []
+    assert completed[0]["sources"] == sources
+
+
 async def test_run_analysis_fails_with_no_medical_claims_on_empty_explanation(
     monkeypatch,
 ):

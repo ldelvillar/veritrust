@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # Modelo BERT detector (ruta local; si no se define, se autodetecta)
     fake_news_model_path: str | None = None
 
+    # Europe PMC (recuperación de evidencia biomédica; API pública sin clave)
+    europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
+    europepmc_timeout_seconds: int = 10
+
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 

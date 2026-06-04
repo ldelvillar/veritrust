@@ -19,16 +19,26 @@ def dummy_prompts():
     )
 
 
-def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl):
+def _load_main_module(
+    monkeypatch, extractor_impl, translator_impl, health_impl, investigator_impl=None
+):
     project_root = Path(__file__).resolve().parents[3]
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
+
+    if investigator_impl is None:
+
+        def investigator_impl(state):
+            return {"sources": [], "evidence_coverage": 1.0}
 
     fake_extractor_module = types.ModuleType("app.agents.extractor")
     fake_extractor_module.extractor = extractor_impl
 
     fake_translator_module = types.ModuleType("app.agents.translator")
     fake_translator_module.translator = translator_impl
+
+    fake_investigator_module = types.ModuleType("app.agents.investigator")
+    fake_investigator_module.investigator = investigator_impl
 
     fake_health_module = types.ModuleType("app.agents.health_expert")
     fake_health_module.health_expert = health_impl
@@ -38,6 +48,9 @@ def _load_main_module(monkeypatch, extractor_impl, translator_impl, health_impl)
 
     monkeypatch.setitem(sys.modules, "app.agents.extractor", fake_extractor_module)
     monkeypatch.setitem(sys.modules, "app.agents.translator", fake_translator_module)
+    monkeypatch.setitem(
+        sys.modules, "app.agents.investigator", fake_investigator_module
+    )
     monkeypatch.setitem(sys.modules, "app.agents.health_expert", fake_health_module)
     monkeypatch.setitem(sys.modules, "app.utils.ollama", fake_start_module)
 
@@ -134,3 +147,37 @@ def test_graph_keeps_contract_when_nodes_return_empty_values(
     assert result["label"] == ""
     assert result["confidence"] == ""
     assert result["medical_explanation"] == ""
+
+
+def test_graph_runs_investigator_and_propagates_sources(monkeypatch, dummy_prompts):
+    fuentes = [{"title": "Estudio", "url": "https://doi.org/10.1/x"}]
+
+    def extractor(state, prompts):
+        return {"extracted_statements": ["A"]}
+
+    def translator(state, prompts):
+        return {"translated_statements": ["A-en"]}
+
+    def investigator(state):
+        # El investigador corre tras el traductor y ve sus afirmaciones.
+        assert state["translated_statements"] == ["A-en"]
+        return {"sources": fuentes, "evidence_coverage": 1.0}
+
+    def health_expert(state, prompts):
+        # Las fuentes y la cobertura llegan al experto en el estado.
+        assert state["sources"] == fuentes
+        assert state["evidence_coverage"] == 1.0
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+        }
+
+    main_module = _load_main_module(
+        monkeypatch, extractor, translator, health_expert, investigator
+    )
+    graph = main_module.create_graph(dummy_prompts)
+    result = graph.invoke(_minimal_state())
+
+    assert result["sources"] == fuentes
+    assert result["evidence_coverage"] == 1.0

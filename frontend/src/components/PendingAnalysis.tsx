@@ -5,6 +5,7 @@ import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
 import Magnifier from '@/assets/Magnifier';
 import LanguageIcon from '@/assets/Language';
+import Newspaper from '@/assets/Newspaper';
 import Heart from '@/assets/Heart';
 
 interface PendingAnalysisProps {
@@ -23,6 +24,11 @@ const STEPS = [
     Icon: LanguageIcon,
   },
   {
+    name: 'Agente Investigador',
+    description: 'Buscando evidencia biomédica en Europe PMC.',
+    Icon: Newspaper,
+  },
+  {
     name: 'Agente Médico',
     description: 'Evaluando con BioBERT y redactando el informe.',
     Icon: Heart,
@@ -32,7 +38,7 @@ const STEPS = [
 // El pipeline no nos informa de su progreso, así que estimamos la etapa por
 // tiempo transcurrido y dejamos la última activa hasta que el estado real deje
 // de ser 'pending'. Umbrales (en segundos) en los que arranca cada etapa.
-const STEP_START_SECONDS = [0, 15, 28];
+const STEP_START_SECONDS = [0, 13, 26, 40];
 
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -72,8 +78,9 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
           Analizando contenido…
         </h3>
         <p className="max-w-md text-sm leading-relaxed text-slate-500">
-          Los agentes están extrayendo, traduciendo y evaluando las afirmaciones
-          médicas. La página se actualizará automáticamente al terminar.
+          Nuestros agentes están analizando el contenido, buscando evidencia y
+          evaluando las afirmaciones médicas. La página se actualizará
+          automáticamente al terminar.
         </p>
         <p className="text-xs font-medium text-slate-400">
           <span className="tabular-nums" aria-hidden="true">

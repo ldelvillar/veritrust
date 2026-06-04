@@ -200,6 +200,45 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
     assert merged["other_key"] == "keep-me"
 
 
+def test_health_expert_grounds_on_sources_and_adjusts_confidence(
+    monkeypatch, health_module, dummy_prompts
+):
+    captured = {}
+
+    class _FakeTool:
+        def predict_batch(self, texts):
+            return [{"label": "verdadera", "confidence": 0.9} for _ in texts]
+
+    class _FakeLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            captured["human"] = messages[-1].content
+            return SimpleNamespace(content="Informe médico")
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "sources": [
+            {
+                "title": "Vitamin C trial",
+                "url": "https://doi.org/10.1/x",
+                "source": "BMJ",
+            }
+        ],
+        # Sin cobertura: la confianza se atenúa al 75% (0.9 -> 0.675).
+        "evidence_coverage": 0.0,
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    assert "Vitamin C trial" in captured["human"]
+    assert update["confidence"] == pytest.approx(0.675)
+
+
 def test_health_expert_fences_user_text_and_neutralizes_injection(
     monkeypatch, health_module, dummy_prompts
 ):

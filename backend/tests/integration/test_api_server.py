@@ -346,6 +346,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         error_code=None,
         created_at="2026-04-10T12:00:00+00:00",
         claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.88}],
+        sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -387,6 +388,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         error_code=None,
         created_at="2026-04-10T12:00:00+00:00",
         claims=None,
+        sources=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -423,6 +425,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         error_code="NO_MEDICAL_CLAIMS",
         created_at="2026-04-10T12:00:00+00:00",
         claims=None,
+        sources=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):

@@ -96,9 +96,9 @@ export const STEPS = [
   },
   {
     n: '2',
-    title: 'Tres agentes verifican',
-    desc: 'El Extractor aísla las afirmaciones, el Traductor normaliza la terminología clínica y el Experto las contrasta con fuentes.',
-    tags: ['Extractor', 'Traductor', 'Experto'],
+    title: 'Los agentes verifican',
+    desc: 'El Extractor aísla las afirmaciones, el Traductor normaliza la terminología clínica, el Investigador busca evidencia biomédica y el Experto las contrasta con las fuentes.',
+    tags: ['Extractor', 'Traductor', 'Investigador', 'Experto'],
   },
   {
     n: '3',

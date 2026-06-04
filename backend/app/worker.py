@@ -61,6 +61,8 @@ async def run_analysis(
         "input_text": text,
         "extracted_statements": [],
         "translated_statements": [],
+        "sources": [],
+        "evidence_coverage": 0.0,
         "label": "",
         "confidence": 0.0,
         "medical_explanation": "",
@@ -87,6 +89,7 @@ async def run_analysis(
             confidence=confidence,
             explanation=str(explanation),
             claims=result.get("claims") or [],
+            sources=result.get("sources") or [],
         )
         logger.info("[Worker] Análisis %s completado (%s)", analysis_id, label)
     except OllamaConnectionError:

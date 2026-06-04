@@ -46,6 +46,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         status=str(row[9]),
         error_code=row[10],
         claims=row[11],
+        sources=row[12],
     )
 
 
@@ -120,7 +121,8 @@ def _build_history_queries(where_sql: str, safe_score_sort: str) -> tuple[str, s
             created_at,
             status,
             error_code,
-            claims
+            claims,
+            sources
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
@@ -172,6 +174,7 @@ async def complete_analysis(
     confidence: Any,
     explanation: str,
     claims: Optional[list[dict]] = None,
+    sources: Optional[list[dict]] = None,
 ) -> None:
     """Marca un análisis pendiente como ``done`` con su resultado."""
     pool = await get_pool()
@@ -183,6 +186,7 @@ async def complete_analysis(
             confidence = %s,
             explanation = %s,
             claims = %s,
+            sources = %s,
             status = 'done',
             error_code = NULL
         WHERE id = %s
@@ -198,6 +202,7 @@ async def complete_analysis(
                         confidence_value,
                         explanation,
                         Jsonb(claims) if claims else None,
+                        Jsonb(sources) if sources else None,
                         analysis_id,
                     ),
                 )
@@ -350,7 +355,8 @@ async def export_user_analysis_history(
             created_at,
             status,
             error_code,
-            claims
+            claims,
+            sources
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY confidence {safe_score_sort}, created_at DESC
@@ -391,7 +397,8 @@ async def get_user_analysis_by_id(
             created_at,
             status,
             error_code,
-            claims
+            claims,
+            sources
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1

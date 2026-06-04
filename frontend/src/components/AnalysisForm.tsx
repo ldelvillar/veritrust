@@ -350,7 +350,8 @@ export default function AnalysisForm() {
           <ShieldIcon className="size-3.75 shrink-0 text-[#a3a4ba]" />
           <span>
             El contenido se procesa de forma privada y no se usa para entrenar
-            modelos.
+            modelos. Las afirmaciones pueden contrastarse con literatura
+            biomédica pública (Europe PMC).
           </span>
         </div>
         <div className="flex-1" />

@@ -17,6 +17,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.extractor import extractor
 from app.agents.health_expert import health_expert
+from app.agents.investigator import investigator
 from app.agents.translator import translator
 
 
@@ -29,6 +30,8 @@ class AgentState(TypedDict):
     input_text: str
     extracted_statements: List[str]
     translated_statements: List[str]
+    sources: List[dict]
+    evidence_coverage: float
     label: str
     confidence: float
     medical_explanation: str
@@ -43,12 +46,14 @@ def create_graph(prompts) -> CompiledStateGraph:
     # Añadir los nodos (los agentes)
     workflow.add_node("extractor", lambda state: extractor(state, prompts))
     workflow.add_node("translator", lambda state: translator(state, prompts))
+    workflow.add_node("investigator", lambda state: investigator(state))
     workflow.add_node("health_expert", lambda state: health_expert(state, prompts))
 
     # Definir el flujo lógico (las aristas del grafo)
     workflow.add_edge(START, "extractor")
     workflow.add_edge("extractor", "translator")
-    workflow.add_edge("translator", "health_expert")
+    workflow.add_edge("translator", "investigator")
+    workflow.add_edge("investigator", "health_expert")
     workflow.add_edge("health_expert", END)
 
     # Compilar el grafo
