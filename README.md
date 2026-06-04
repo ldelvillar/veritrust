@@ -122,7 +122,7 @@ pnpm generate:api-types         # regenerate src/types/api.d.ts (backend must be
 ## Notes
 
 - After changing a backend Pydantic schema, regenerate the frontend types with `pnpm generate:api-types`. Never edit `frontend/src/types/api.d.ts` by hand.
-- The database has no migration framework yet — fresh databases get their shape from `backend/db/init.sql`; existing databases apply the numbered scripts in `backend/db/migrations/` by hand. The async-analysis change ships `0001_async_analysis_status.sql`.
+- The database schema lives in `backend/db/init.sql`, applied once to a fresh database (mounted into the Postgres container's `docker-entrypoint-initdb.d`). There is no migration framework yet — pre-launch, recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
 
 ## License
 
