@@ -25,7 +25,7 @@ export default async function AnalisisPage({ params }: PageProps) {
   const initialData = await fetchJsonServer<AnalysisDetail>(`/analysis/${id}`);
 
   return (
-    <div className="flex flex-1 flex-col px-4 py-8 md:py-10">
+    <div className="flex flex-1 flex-col px-4 py-8 md:py-10 print:p-[12mm]">
       <AnalisisClient id={id} initialData={initialData} />
     </div>
   );

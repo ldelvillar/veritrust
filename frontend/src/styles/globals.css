@@ -6,6 +6,26 @@
   --color-border: #1f1e1d26;
 }
 
+/* Exportar informe a PDF vía «Imprimir → Guardar como PDF».
+   margin:0 deja a Chromium sin espacio para dibujar sus cabeceras/pies (fecha,
+   título, URL, nº de página); el margen real se recrea con padding al imprimir. */
+@page {
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Conserva el medidor de credibilidad, la banda del veredicto y los badges. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;

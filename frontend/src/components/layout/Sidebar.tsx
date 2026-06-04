@@ -297,7 +297,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e8e6f4] bg-white transition-all duration-300 md:flex ${collapsed ? 'w-16 items-center px-0 pt-2 pb-5.5' : 'w-66.5 px-1.5 pt-2 pb-5.5'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e8e6f4] bg-white transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0 pt-2 pb-5.5' : 'w-66.5 px-1.5 pt-2 pb-5.5'}`}
       >
         <SidebarContent
           onCollapse={() => setCollapsed(true)}
@@ -307,7 +307,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile launcher bar */}
-      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[#e8e6f4] bg-white/90 px-4 backdrop-blur-sm md:hidden">
+      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[#e8e6f4] bg-white/90 px-4 backdrop-blur-sm md:hidden print:hidden">
         <button
           type="button"
           aria-label="Abrir menú"

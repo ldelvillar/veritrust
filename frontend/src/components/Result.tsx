@@ -209,7 +209,7 @@ function ResultBand({ result }: { result: ResultType }) {
 
   return (
     <div
-      className="relative grid overflow-hidden rounded-3xl text-white shadow-[0_18px_44px_rgba(0,0,0,.16)] lg:grid-cols-[272px_1fr]"
+      className="relative grid overflow-hidden rounded-3xl text-white shadow-[0_18px_44px_rgba(0,0,0,.16)] lg:grid-cols-[272px_1fr] print:break-inside-avoid"
       style={{ background: verdict.band }}
     >
       <div className="flex flex-col items-center justify-center gap-4 border-b border-white/20 bg-white/5 px-6 py-8 text-center lg:border-r lg:border-b-0">
@@ -336,7 +336,7 @@ function SourceRow({ source }: { source: SourceType }) {
   const meta = sourceMeta(source);
 
   return (
-    <li className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5">
+    <li className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
       <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
         <BookIcon className="size-4" />
       </div>
@@ -376,7 +376,7 @@ function ClaimRow({
   const sourceCount = sources.length;
 
   return (
-    <div className="flex gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0.5">
+    <div className="flex gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
       <div
         className={`grid size-7 shrink-0 place-items-center rounded-lg ${style.tile}`}
       >
@@ -405,7 +405,7 @@ function ClaimRow({
                 onClick={() => setOpen(value => !value)}
                 aria-expanded={open}
                 aria-controls={panelId}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none print:hidden"
               >
                 <BookIcon className="size-3.5" />
                 {open ? 'Ocultar' : 'Ver'} {sourceCount}{' '}
@@ -415,17 +415,19 @@ function ClaimRow({
                   aria-hidden
                 />
               </button>
-              {open && (
-                <ul
-                  id={panelId}
-                  aria-label="Fuentes que respaldan esta afirmación"
-                  className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5"
-                >
-                  {sources.map((source, index) => (
-                    <SourceRow key={`${source.url}-${index}`} source={source} />
-                  ))}
-                </ul>
-              )}
+              {/* Siempre en el DOM y colapsado con clases, para que el PDF
+                  (print:block) muestre toda la evidencia aunque esté oculta. */}
+              <ul
+                id={panelId}
+                aria-label="Fuentes que respaldan esta afirmación"
+                className={`mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 ${
+                  open ? 'block' : 'hidden print:block'
+                }`}
+              >
+                {sources.map((source, index) => (
+                  <SourceRow key={`${source.url}-${index}`} source={source} />
+                ))}
+              </ul>
             </>
           ) : (
             <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-slate-400">
@@ -563,7 +565,7 @@ function ClaimsEvidence({
 
 function Disclaimer() {
   return (
-    <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+    <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 print:break-inside-avoid">
       <div className="grid size-9 shrink-0 place-items-center rounded-xl border border-amber-200 bg-white text-amber-700">
         <WarningIcon className="size-4.5" />
       </div>
@@ -582,6 +584,70 @@ function Disclaimer() {
 
 const SOFT_BUTTON =
   'inline-flex items-center justify-center gap-2 rounded-xl border border-[#dcd9ee] bg-white px-4 py-2.5 text-sm font-semibold text-[#33344c] transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 20h14" />
+    </svg>
+  );
+}
+
+// Cabecera/pie con marca que solo aparecen al imprimir (PDF), no en pantalla.
+function PrintHeader({ createdAt }: { createdAt: string }) {
+  const formattedDate = new Date(createdAt).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="hidden items-center justify-between border-b border-slate-200 pb-4 print:flex">
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the SVG Logo embeds a pattern image that Chromium prints blank; a raster <img> prints reliably */}
+        <img
+          src="/images/logo-1316x1316-no-bg.png"
+          alt="VeriTrust"
+          width={24}
+          height={24}
+          className="h-6 w-6"
+        />
+        <span className="text-lg font-bold tracking-tight text-slate-900">
+          VeriTrust
+        </span>
+      </div>
+      <span className="text-xs font-semibold text-slate-500">
+        Informe de credibilidad · {formattedDate}
+      </span>
+    </div>
+  );
+}
+
+function PrintFooter() {
+  return (
+    <div className="hidden border-t border-slate-200 pt-4 text-[11px] leading-relaxed text-slate-400 print:block">
+      Informe generado por VeriTrust ·{' '}
+      <a
+        href="https://tfg-hazel.vercel.app"
+        className="font-semibold text-slate-500 underline-offset-2 hover:underline"
+      >
+        tfg-hazel.vercel.app
+      </a>
+      . Herramienta orientativa de credibilidad: no emite diagnósticos ni
+      sustituye el consejo de un profesional sanitario.
+    </div>
+  );
+}
 
 export default function Result({ result, headerActions }: ResultProps) {
   if (result.status === 'pending') {
@@ -609,8 +675,27 @@ export default function Result({ result, headerActions }: ResultProps) {
   const claims = result.claims ?? [];
   const sources = result.sources ?? [];
 
+  // Imprime el informe
+  const handleExport = () => {
+    const formattedDate = new Date(result.created_at).toLocaleDateString(
+      'es-ES'
+    );
+    const originalTitle = document.title;
+    document.title = `Informe VeriTrust - ${formattedDate}`;
+    window.addEventListener(
+      'afterprint',
+      () => {
+        document.title = originalTitle;
+      },
+      { once: true }
+    );
+    window.print();
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <PrintHeader createdAt={result.created_at} />
+
       <header className="flex flex-wrap items-start gap-4">
         <div className="min-w-60 flex-1">
           <div className="text-[11px] font-bold tracking-wider text-primary uppercase">
@@ -624,10 +709,11 @@ export default function Result({ result, headerActions }: ResultProps) {
             explicación médica y el desglose afirmación por afirmación.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link href="/app/analisis" className={SOFT_BUTTON}>
-            Nuevo análisis
-          </Link>
+        <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+          <button type="button" onClick={handleExport} className={SOFT_BUTTON}>
+            <DownloadIcon className="size-4" />
+            Exportar PDF
+          </button>
           {headerActions}
         </div>
       </header>
@@ -642,7 +728,7 @@ export default function Result({ result, headerActions }: ResultProps) {
         <Disclaimer />
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 print:hidden">
         <Link href="/app/analisis" className={SOFT_BUTTON}>
           Analizar otro contenido
         </Link>
@@ -650,6 +736,8 @@ export default function Result({ result, headerActions }: ResultProps) {
           Cómo leer este informe
         </Link>
       </div>
+
+      <PrintFooter />
     </div>
   );
 }
