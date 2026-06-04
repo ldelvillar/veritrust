@@ -3,6 +3,7 @@ import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
 import Trash from '@/assets/Trash';
+import { classifyVerdict } from '@/lib/credibility';
 import type { paths } from '@/types/api';
 
 type HistoryItem =
@@ -143,6 +144,13 @@ export default function HistoryResultsTable({
           {history.map(item => {
             const score = item.credibility ?? 0;
             const scoreColor = getScoreColor(score);
+            const verdict =
+              classifyVerdict(item.label) === 'fake'
+                ? { text: 'Falsa', className: 'bg-red-50 text-red-700' }
+                : {
+                    text: 'Verdadera',
+                    className: 'bg-emerald-50 text-emerald-700',
+                  };
 
             return (
               <li
@@ -172,16 +180,23 @@ export default function HistoryResultsTable({
                   })}
                 </span>
 
-                <div className="mt-4 flex items-center gap-3 md:mt-0">
-                  <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
-                    <div
-                      className={`h-full rounded-full ${scoreColor}`}
-                      style={{ width: `${score}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-black text-slate-700">
-                    {score}/100
+                <div className="mt-4 flex flex-col items-start gap-2 md:mt-0">
+                  <span
+                    className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase ${verdict.className}`}
+                  >
+                    {verdict.text}
                   </span>
+                  <div className="flex w-full items-center gap-3">
+                    <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
+                      <div
+                        className={`h-full rounded-full ${scoreColor}`}
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-black text-slate-700">
+                      {score}/100
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex items-center gap-3 md:mt-0 md:justify-self-end">
