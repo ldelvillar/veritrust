@@ -21,13 +21,16 @@ COPY ml ./ml
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app \
+    && chown -R app:app /app
+
 FROM python:3.11-slim AS runtime
 
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app
 
 WORKDIR /app
 
-COPY --from=builder --chown=app:app /app /app
+COPY --from=builder /app /app
 
 USER app
 
