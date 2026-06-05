@@ -21,15 +21,16 @@ export const faqEntries = [
     q: '¿Cómo detecta VeriTrust los bulos médicos?',
     a: (
       <>
-        Tres agentes trabajan en cadena: un <strong>extractor</strong> aísla las
-        afirmaciones, un <strong>traductor</strong> normaliza el idioma y la
-        terminología clínica, y un <strong>experto en salud</strong> contrasta
-        cada afirmación con fuentes como OMS, Cochrane y NIH antes de calcular
-        la puntuación.
+        Varios agentes trabajan en cadena: un <strong>extractor</strong> aísla
+        las afirmaciones, un <strong>traductor</strong> normaliza el idioma y la
+        terminología clínica, un <strong>investigador</strong> reúne evidencia
+        científica de fuentes como OMS, Cochrane y NIH, y un{' '}
+        <strong>experto en salud</strong> contrasta cada afirmación con esa
+        evidencia antes de calcular la puntuación.
       </>
     ),
     plain:
-      'Tres agentes de IA trabajan en cadena: un extractor aísla las afirmaciones, un traductor normaliza el idioma y la terminología clínica, y un experto en salud contrasta cada afirmación con fuentes como OMS, Cochrane y NIH.',
+      'Varios agentes de IA trabajan en cadena: un extractor aísla las afirmaciones, un traductor normaliza el idioma y la terminología clínica, un investigador reúne evidencia científica de fuentes como OMS, Cochrane y NIH, y un experto en salud contrasta cada afirmación con esa evidencia.',
     open: false,
   },
   {
@@ -76,12 +77,13 @@ export const faqEntries = [
     q: '¿Hay una versión gratuita?',
     a: (
       <>
-        Sí. El plan <strong>Gratis</strong> incluye 10 análisis al mes con los
-        tres agentes y las tres vías de entrada, sin necesidad de tarjeta.
+        Sí. El plan <strong>Gratis</strong> incluye 10 análisis al mes con el
+        sistema multiagente completo y las tres vías de entrada, sin necesidad
+        de tarjeta.
       </>
     ),
     plain:
-      'Sí. El plan Gratis incluye 10 análisis al mes con los tres agentes y los tres tipos de entrada.',
+      'Sí. El plan Gratis incluye 10 análisis al mes con el sistema multiagente completo y los tres tipos de entrada.',
     open: false,
   },
 ];

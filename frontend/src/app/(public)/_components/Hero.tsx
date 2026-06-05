@@ -22,9 +22,9 @@ export default function Hero() {
             </span>
           </h1>
           <p className="max-w-140 text-[18.5px] leading-relaxed font-medium text-white/90">
-            Pega un texto, un enlace o sube un documento. Tres agentes de
-            inteligencia artificial verifican cada afirmación médica y te
-            devuelven una puntuación de credibilidad explicada, con sus fuentes.
+            Pega un texto, un enlace o sube un documento. Un sistema multiagente
+            de inteligencia artificial verifica cada afirmación médica y te
+            devuelve una puntuación de credibilidad explicada, con sus fuentes.
           </p>
           <div className="mt-9 mb-6 flex flex-wrap gap-3.5">
             <Link
@@ -154,15 +154,16 @@ export default function Hero() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex gap-1.75">
+              <div className="mt-4 grid grid-cols-2 gap-1.75">
                 {[
                   { c: '#6356e6', label: 'Extractor' },
                   { c: '#2c97e8', label: 'Traductor' },
+                  { c: '#e0922e', label: 'Investigador' },
                   { c: '#13b877', label: 'Experto' },
                 ].map(a => (
                   <span
                     key={a.label}
-                    className="flex flex-1 items-center gap-1.75 rounded-[9px] bg-[#f4f2fd] px-2.25 py-2 text-[10.5px] font-bold text-[#33344c]"
+                    className="flex items-center gap-1.75 rounded-[9px] bg-[#f4f2fd] px-2.25 py-2 text-[10.5px] font-bold text-[#33344c]"
                   >
                     <span
                       className="size-1.75 rounded-full"

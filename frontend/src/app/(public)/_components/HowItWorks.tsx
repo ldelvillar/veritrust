@@ -1,7 +1,7 @@
-import Chevron from '@/assets/Chevron';
 import Document from '@/assets/Document';
 import ExtractIcon from '@/assets/Extract';
 import MedicalCrossIcon from '@/assets/MedicalCross';
+import NewspaperIcon from '@/assets/Newspaper';
 import ShieldIcon from '@/assets/Shield';
 import TranslateIcon from '@/assets/Translate';
 import { container } from './container';
@@ -27,6 +27,15 @@ const steps = [
   },
   {
     n: '03',
+    accent: '#e0922e',
+    accentSoft: '#fbeede',
+    title: 'Investigador',
+    body: 'Busca evidencia científica en la literatura biomédica y reúne las fuentes que respaldan o contradicen cada afirmación.',
+    chips: ['Evidencia', 'Fuentes', 'Literatura'],
+    Icon: NewspaperIcon,
+  },
+  {
+    n: '04',
     accent: '#13b877',
     accentSoft: '#def4ea',
     title: 'Experto en salud',
@@ -36,13 +45,23 @@ const steps = [
   },
 ];
 
-function ConnectorNode({ className }: { className?: string }) {
+function ConnectorNode({
+  from,
+  to,
+  className,
+}: {
+  from: string;
+  to: string;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden="true"
-      className={`absolute top-16 z-3 hidden size-8.5 place-items-center rounded-full border border-[#e8e6f4] bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] md:grid ${className ?? ''}`}
+      style={{ '--from': from, '--to': to } as React.CSSProperties}
+      className={`absolute top-16 z-3 hidden size-8.5 place-items-center lg:grid ${className ?? ''}`}
     >
-      <Chevron className="size-4 rotate-270 text-[#6356e6]" />
+      <span className="absolute size-2.5 animate-ping rounded-full bg-(--from) opacity-60" />
+      <span className="relative size-2.5 rounded-full bg-[linear-gradient(135deg,var(--from),var(--to))] shadow-[0_0_12px_2px_color-mix(in_srgb,var(--from)_45%,transparent)]" />
     </span>
   );
 }
@@ -56,11 +75,11 @@ export default function HowItWorks() {
             Cómo funciona
           </span>
           <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-[#15162c] md:text-[40px]">
-            Tres agentes, un veredicto fiable
+            Agentes especializados, un veredicto fiable
           </h2>
           <p className="text-[17px] leading-relaxed text-[#6f7090]">
-            VeriTrust no es una caja negra. Cada afirmación pasa por tres
-            especialistas de IA que se complementan, y verás exactamente qué
+            VeriTrust no es una caja negra. Cada afirmación pasa por una cadena
+            de especialistas de IA que se complementan, y verás exactamente qué
             aportó cada uno.
           </p>
         </div>
@@ -83,10 +102,23 @@ export default function HowItWorks() {
           </span>
         </div>
 
-        <div className="relative grid gap-6.5 md:grid-cols-3">
+        <div className="relative grid gap-6.5 sm:grid-cols-2 lg:grid-cols-4">
           {/* connector nodes (desktop) */}
-          <ConnectorNode className="left-[calc(33.333%-17px)]" />
-          <ConnectorNode className="left-[calc(66.666%-17px)]" />
+          <ConnectorNode
+            from="#6356e6"
+            to="#2c97e8"
+            className="left-[calc(25%-17px)]"
+          />
+          <ConnectorNode
+            from="#2c97e8"
+            to="#e0922e"
+            className="left-[calc(50%-17px)]"
+          />
+          <ConnectorNode
+            from="#e0922e"
+            to="#13b877"
+            className="left-[calc(75%-17px)]"
+          />
 
           {steps.map(step => (
             <article

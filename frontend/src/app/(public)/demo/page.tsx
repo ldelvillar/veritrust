@@ -85,7 +85,7 @@ const benefits = [
   {
     Icon: ScanIcon,
     title: 'El sistema multiagente en vivo',
-    desc: 'Cómo el extractor, el traductor y el experto en salud llegan a un veredicto.',
+    desc: 'Cómo el extractor, el traductor, el investigador y el experto en salud llegan a un veredicto.',
   },
   {
     Icon: ApiIcon,

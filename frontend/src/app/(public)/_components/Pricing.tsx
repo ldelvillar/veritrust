@@ -10,7 +10,7 @@ const plans = [
     unit: '/ mes',
     items: [
       '10 análisis al mes',
-      'Los 3 agentes de IA',
+      'Sistema multiagente de IA',
       'Texto, enlace y archivo',
       'Informe con fuentes',
     ],

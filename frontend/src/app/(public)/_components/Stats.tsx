@@ -2,7 +2,7 @@ import { container } from './container';
 
 const stats = [
   { n: '88%', l: 'de precisión sobre más de 10.000 análisis verificados' },
-  { n: '3', l: 'agentes de IA especializados trabajando en cadena' },
+  { n: '4', l: 'agentes de IA especializados trabajando en cadena' },
   { n: '~2 min', l: 'por análisis medio, de la entrada al informe' },
   { n: '3', l: 'vías de entrada: texto, enlace y documento' },
 ];

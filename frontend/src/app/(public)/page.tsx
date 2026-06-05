@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     locale: 'es_ES',
     title: 'Detector de noticias falsas de salud con IA | VeriTrust',
     description:
-      'Verifica afirmaciones médicas en segundos. Tres agentes de IA analizan texto, enlaces y documentos y devuelven una puntuación de credibilidad explicada.',
+      'Verifica afirmaciones médicas en segundos. Un sistema multiagente de IA analiza texto, enlaces y documentos y devuelve una puntuación de credibilidad explicada.',
   },
 };
 
