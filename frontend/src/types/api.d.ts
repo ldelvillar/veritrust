@@ -680,7 +680,7 @@ export interface operations {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
                 date_range?: "all" | "7d" | "30d" | "90d";
-                score_sort?: "desc" | "asc";
+                date_sort?: "desc" | "asc";
             };
             header?: {
                 authorization?: string;
@@ -734,7 +734,7 @@ export interface operations {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
                 date_range?: "all" | "7d" | "30d" | "90d";
-                score_sort?: "desc" | "asc";
+                date_sort?: "desc" | "asc";
             };
             header?: {
                 authorization?: string;

@@ -57,7 +57,7 @@ async def get_history(
     search: str | None = Query(default=None, max_length=200),
     source_type: Literal["all", "text", "file", "url"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
-    score_sort: Literal["desc", "asc"] = "desc",
+    date_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
 ):
     """Endpoint para listar el historial de análisis del usuario autenticado."""
@@ -72,7 +72,7 @@ async def get_history(
             search_query=search,
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
-            score_sort_order=score_sort,
+            date_sort_order=date_sort,
         )
     except DatabaseError as e:
         raise HTTPException(
@@ -132,7 +132,7 @@ async def export_history(
     search: str | None = Query(default=None, max_length=200),
     source_type: Literal["all", "text", "file", "url"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
-    score_sort: Literal["desc", "asc"] = "desc",
+    date_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
 ):
     """Exporta todo el historial filtrado del usuario como un fichero CSV."""
@@ -144,7 +144,7 @@ async def export_history(
             search_query=search,
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
-            score_sort_order=score_sort,
+            date_sort_order=date_sort,
         )
     except DatabaseError as e:
         raise HTTPException(

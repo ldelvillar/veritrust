@@ -131,35 +131,35 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_score_sort = (
+    safe_limit, safe_offset, safe_source_type, safe_date_sort = (
         history_module._sanitize_history_query_params(
             limit=500,
             offset=-10,
             source_type="audio",
-            score_sort_order="zzz",
+            date_sort_order="zzz",
         )
     )
 
     assert safe_limit == 100
     assert safe_offset == 0
     assert safe_source_type is None
-    assert safe_score_sort == "DESC"
+    assert safe_date_sort == "DESC"
 
 
 def test_sanitize_history_query_params_preserves_valid_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_score_sort = (
+    safe_limit, safe_offset, safe_source_type, safe_date_sort = (
         history_module._sanitize_history_query_params(
             limit=25,
             offset=5,
             source_type="url",
-            score_sort_order="asc",
+            date_sort_order="asc",
         )
     )
 
     assert safe_limit == 25
     assert safe_offset == 5
     assert safe_source_type == "url"
-    assert safe_score_sort == "ASC"
+    assert safe_date_sort == "ASC"
 
 
 def test_build_history_where_clause_with_only_user_id() -> None:
@@ -205,7 +205,7 @@ def test_build_history_queries_includes_ordering_and_where() -> None:
 
     assert "SELECT COUNT(*)" in count_query
     assert "WHERE user_id = %s" in count_query
-    assert "ORDER BY confidence ASC, created_at DESC" in list_query
+    assert "ORDER BY created_at ASC" in list_query
     assert "LIMIT %s OFFSET %s" in list_query
 
 

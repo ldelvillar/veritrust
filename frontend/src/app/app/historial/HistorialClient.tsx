@@ -6,7 +6,7 @@ import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
 import HistoryFilters, {
   DateRangeFilter,
-  ScoreSortOrder,
+  DateSortOrder,
   SourceTypeFilter,
 } from '@/components/HistoryFilters';
 import HistoryResultsTable from '@/components/HistoryResultsTable';
@@ -17,7 +17,7 @@ import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
 
 const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&date_range=all&score_sort=desc`;
+const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&date_range=all&date_sort=desc`;
 
 type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
@@ -34,7 +34,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     useState<SourceTypeFilter>('all');
   const [dateRangeFilter, setDateRangeFilter] =
     useState<DateRangeFilter>('all');
-  const [scoreSortOrder, setScoreSortOrder] = useState<ScoreSortOrder>('desc');
+  const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       page_size: String(PAGE_SIZE),
       source_type: sourceTypeFilter,
       date_range: dateRangeFilter,
-      score_sort: scoreSortOrder,
+      date_sort: dateSortOrder,
     });
     const trimmedQuery = debouncedSearch.trim();
     if (trimmedQuery) params.set('search', trimmedQuery);
@@ -71,7 +71,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   }, [
     currentPage,
     dateRangeFilter,
-    scoreSortOrder,
+    dateSortOrder,
     debouncedSearch,
     sourceTypeFilter,
   ]);
@@ -80,12 +80,12 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     const params = new URLSearchParams({
       source_type: sourceTypeFilter,
       date_range: dateRangeFilter,
-      score_sort: scoreSortOrder,
+      date_sort: dateSortOrder,
     });
     const trimmedQuery = debouncedSearch.trim();
     if (trimmedQuery) params.set('search', trimmedQuery);
     return `/history/export?${params.toString()}`;
-  }, [dateRangeFilter, scoreSortOrder, debouncedSearch, sourceTypeFilter]);
+  }, [dateRangeFilter, dateSortOrder, debouncedSearch, sourceTypeFilter]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -144,9 +144,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setDateRangeFilter(value);
   }, []);
 
-  const handleScoreSortOrderChange = useCallback((value: ScoreSortOrder) => {
+  const handleDateSortOrderChange = useCallback((value: DateSortOrder) => {
     setCurrentPage(1);
-    setScoreSortOrder(value);
+    setDateSortOrder(value);
   }, []);
 
   const handlePageChange = useCallback((page: number) => {
@@ -230,8 +230,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         onSourceTypeFilterChange={handleSourceTypeFilterChange}
         dateRangeFilter={dateRangeFilter}
         onDateRangeFilterChange={handleDateRangeFilterChange}
-        scoreSortOrder={scoreSortOrder}
-        onScoreSortOrderChange={handleScoreSortOrderChange}
+        dateSortOrder={dateSortOrder}
+        onDateSortOrderChange={handleDateSortOrderChange}
       />
 
       <HistoryResultsTable

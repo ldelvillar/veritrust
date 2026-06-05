@@ -1,7 +1,7 @@
 import Chevron from '@/assets/Chevron';
 import Magnifier from '@/assets/Magnifier';
 
-export type ScoreSortOrder = 'desc' | 'asc';
+export type DateSortOrder = 'desc' | 'asc';
 export type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
 export type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
 
@@ -12,8 +12,8 @@ interface HistoryFiltersProps {
   onSourceTypeFilterChange: (value: SourceTypeFilter) => void;
   dateRangeFilter: DateRangeFilter;
   onDateRangeFilterChange: (value: DateRangeFilter) => void;
-  scoreSortOrder: ScoreSortOrder;
-  onScoreSortOrderChange: (value: ScoreSortOrder) => void;
+  dateSortOrder: DateSortOrder;
+  onDateSortOrderChange: (value: DateSortOrder) => void;
 }
 
 export default function HistoryFilters({
@@ -23,8 +23,8 @@ export default function HistoryFilters({
   onSourceTypeFilterChange,
   dateRangeFilter,
   onDateRangeFilterChange,
-  scoreSortOrder,
-  onScoreSortOrderChange,
+  dateSortOrder,
+  onDateSortOrderChange,
 }: HistoryFiltersProps) {
   return (
     <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
@@ -80,14 +80,14 @@ export default function HistoryFilters({
 
       <label className="relative block">
         <select
-          value={scoreSortOrder}
+          value={dateSortOrder}
           onChange={event =>
-            onScoreSortOrderChange(event.target.value as ScoreSortOrder)
+            onDateSortOrderChange(event.target.value as DateSortOrder)
           }
           className="h-11 w-full min-w-56 cursor-pointer appearance-none rounded-xl border border-border bg-white px-4 pr-10 text-sm font-medium text-slate-600 transition-all outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
         >
-          <option value="desc">Puntuación: mayor a menor</option>
-          <option value="asc">Puntuación: menor a mayor</option>
+          <option value="desc">Más recientes primero</option>
+          <option value="asc">Más antiguos primero</option>
         </select>
         <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400">
           <Chevron />

@@ -683,7 +683,7 @@ def test_historial_returns_user_history(monkeypatch):
         search_query,
         source_type,
         created_after,
-        score_sort_order,
+        date_sort_order,
     ):
         assert user_id == "test-user"
         assert limit == 10
@@ -691,7 +691,7 @@ def test_historial_returns_user_history(monkeypatch):
         assert search_query == "vacuna"
         assert source_type == "text"
         assert created_after is not None
-        assert score_sort_order == "asc"
+        assert date_sort_order == "asc"
         return [types.SimpleNamespace(**row) for row in history_rows], 12
 
     monkeypatch.setattr(
@@ -700,7 +700,7 @@ def test_historial_returns_user_history(monkeypatch):
     )
 
     response = client.get(
-        "/history?page=1&page_size=10&search=vacuna&source_type=text&date_range=30d&score_sort=asc"
+        "/history?page=1&page_size=10&search=vacuna&source_type=text&date_range=30d&date_sort=asc"
     )
 
     assert response.status_code == 200
@@ -824,13 +824,13 @@ def test_historial_export_returns_csv(monkeypatch):
     ]
 
     async def fake_export_user_analysis_history(
-        *, user_id, search_query, source_type, created_after, score_sort_order
+        *, user_id, search_query, source_type, created_after, date_sort_order
     ):
         assert user_id == "test-user"
         assert search_query == "vacuna"
         assert source_type == "url"
         assert created_after is not None
-        assert score_sort_order == "asc"
+        assert date_sort_order == "asc"
         return records
 
     monkeypatch.setattr(
@@ -839,7 +839,7 @@ def test_historial_export_returns_csv(monkeypatch):
     )
 
     response = client.get(
-        "/history/export?search=vacuna&source_type=url&date_range=30d&score_sort=asc"
+        "/history/export?search=vacuna&source_type=url&date_range=30d&date_sort=asc"
     )
 
     assert response.status_code == 200

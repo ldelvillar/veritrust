@@ -17,7 +17,7 @@ type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
 
 const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&date_range=all&score_sort=desc`;
+const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&date_range=all&date_sort=desc`;
 
 export default async function HistorialPage() {
   const initialData = await fetchJsonServer<HistoryPayload>(INITIAL_PATH);
