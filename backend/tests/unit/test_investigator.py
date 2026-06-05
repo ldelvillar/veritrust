@@ -1,5 +1,7 @@
 """Tests del nodo investigador con Europe PMC mockeado."""
 
+import threading
+
 from app.agents import investigator as investigator_module
 from app.agents.investigator import investigator
 from app.utils.europepmc import EvidenceRetrievalError
@@ -64,3 +66,37 @@ def test_total_outage_does_not_penalize_confidence(monkeypatch):
     # Caída total del servicio: cobertura 1.0 (no se castiga el veredicto) y sin fuentes.
     assert update["sources"] == []
     assert update["evidence_coverage"] == 1.0
+
+
+def test_blank_translations_skip_lookups(monkeypatch):
+    called = False
+
+    def fake_search(query, *, max_results):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
+
+    # Traducciones en blanco (relleno): no hay nada que consultar.
+    update = investigator({"translated_statements": ["", "  "]})
+
+    assert update == {"sources": [], "evidence_coverage": 0.0}
+    assert called is False
+
+
+def test_runs_lookups_concurrently(monkeypatch):
+    # La barrera solo se libera si las 3 búsquedas coinciden en el tiempo; en
+    # ejecución secuencial la primera espera agotaría el timeout y la rompería.
+    barrier = threading.Barrier(3, timeout=5)
+
+    def fake_search(query, *, max_results):
+        barrier.wait()
+        return [{"title": query, "url": f"https://x/{query}"}]
+
+    monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
+
+    update = investigator({"translated_statements": ["A", "B", "C"]})
+
+    assert update["evidence_coverage"] == 1.0
+    assert len(update["sources"]) == 3

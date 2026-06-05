@@ -1,6 +1,7 @@
 """Agente investigador: recupera evidencia biomédica de Europe PMC."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from app.utils.europepmc import EvidenceRetrievalError, search_evidence
 
@@ -26,6 +27,15 @@ def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
     return list(by_url.values())
 
 
+def _search_one(query: str) -> list[dict] | None:
+    """Busca evidencia para una afirmación; devuelve ``None`` si Europe PMC falla."""
+    try:
+        return search_evidence(query, max_results=EVIDENCE_RESULTS_PER_STATEMENT)
+    except EvidenceRetrievalError:
+        logger.warning("[Investigador] Fallo recuperando evidencia; se continúa")
+        return None
+
+
 def investigator(state: dict) -> dict:
     """Recupera literatura biomédica para las afirmaciones y calcula su cobertura."""
     logger.info("[Investigador] Buscando evidencia en Europe PMC")
@@ -39,38 +49,40 @@ def investigator(state: dict) -> dict:
     pairs = list(zip(translated, originals + [None] * len(translated)))[
         :EVIDENCE_MAX_STATEMENTS
     ]
+    # Descarta traducciones vacías (relleno) antes de consultar Europe PMC.
+    valid_pairs = [
+        (str(query), original)
+        for query, original in pairs
+        if query and str(query).strip()
+    ]
+    attempted = len(valid_pairs)
+    if not valid_pairs:
+        return {"sources": [], "evidence_coverage": 0.0}
+
+    # Las consultas son I/O de red independiente: se lanzan en paralelo para que
+    # la latencia total sea ~una llamada en vez de la suma de todas.
+    with ThreadPoolExecutor(max_workers=len(valid_pairs)) as pool:
+        results = list(pool.map(_search_one, [query for query, _ in valid_pairs]))
 
     collected: list[tuple[dict, str | None]] = []
-    attempted = 0
     errored = 0
     covered = 0
-    for query, original in pairs:
-        if not query or not str(query).strip():
-            continue
-        attempted += 1
-        try:
-            hits = search_evidence(
-                str(query), max_results=EVIDENCE_RESULTS_PER_STATEMENT
-            )
-        except EvidenceRetrievalError:
-            logger.warning("[Investigador] Fallo recuperando evidencia; se continúa")
+    for (_, original), hits in zip(valid_pairs, results):
+        if hits is None:
             errored += 1
             continue
         if hits:
             covered += 1
-            for hit in hits:
-                collected.append((hit, original))
+            collected.extend((hit, original) for hit in hits)
 
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
-    if attempted and errored == attempted:
+    if errored == attempted:
         # Caída total del servicio: no penalizamos el veredicto por nuestra
         # infraestructura, solo por la ausencia real de literatura.
         coverage = 1.0
-    elif attempted:
-        coverage = covered / attempted
     else:
-        coverage = 0.0
+        coverage = covered / attempted
 
     logger.info("[Investigador] %d fuentes (cobertura %.2f)", len(sources), coverage)
     return {"sources": sources, "evidence_coverage": coverage}
