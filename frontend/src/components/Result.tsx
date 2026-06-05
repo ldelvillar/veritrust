@@ -13,7 +13,6 @@ import MedicalCross from '@/assets/MedicalCross';
 import ShieldIcon from '@/assets/Shield';
 import WarningIcon from '@/assets/Warning';
 import PendingAnalysis from '@/components/PendingAnalysis';
-import { classifyVerdict } from '@/lib/credibility';
 import { groupSourcesByClaim } from '@/lib/evidence';
 import type { paths } from '@/types/api';
 
@@ -21,6 +20,7 @@ type ResultType =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
 type ClaimType = NonNullable<ResultType['claims']>[number];
 type SourceType = NonNullable<ResultType['sources']>[number];
+type Verdict = ResultType['verdict'];
 
 interface ResultProps {
   result: ResultType;
@@ -101,12 +101,11 @@ function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
   );
 }
 
-function getVerdictInfo(label: string): {
+function getVerdictInfo(verdict: Verdict): {
   text: string;
   description: string;
   band: string;
 } {
-  const verdict = classifyVerdict(label);
   if (verdict === 'real') {
     return {
       text: 'Noticia verdadera',
@@ -195,7 +194,7 @@ function CredibilityGauge({ score }: { score: number }) {
 
 function ResultBand({ result }: { result: ResultType }) {
   const score = result.credibility ?? 0;
-  const verdict = getVerdictInfo(result.label ?? '');
+  const verdict = getVerdictInfo(result.verdict);
   const confidence = confidenceLabel(result.confidence);
   const claimCount = result.claims?.length ?? 0;
   const sourceText =
@@ -302,13 +301,12 @@ function MedicalExplanation({ explanation }: { explanation: string }) {
   );
 }
 
-function getClaimStyle(label: string): {
+function getClaimStyle(verdict: Verdict): {
   Icon: typeof Check;
   text: string;
   tile: string;
   pill: string;
 } {
-  const verdict = classifyVerdict(label);
   if (verdict === 'fake') {
     return {
       Icon: Cross,
@@ -371,7 +369,7 @@ function ClaimRow({
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  const style = getClaimStyle(claim.label);
+  const style = getClaimStyle(claim.verdict);
   const ClaimIcon = style.Icon;
   const confidencePct = Math.round(normalizeFraction(claim.confidence) * 100);
   const sourceCount = sources.length;

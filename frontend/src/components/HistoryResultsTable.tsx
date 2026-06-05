@@ -3,7 +3,6 @@ import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
 import Trash from '@/assets/Trash';
-import { classifyVerdict } from '@/lib/credibility';
 import type { paths } from '@/types/api';
 
 type HistoryItem =
@@ -145,7 +144,7 @@ export default function HistoryResultsTable({
             const score = item.credibility ?? 0;
             const scoreColor = getScoreColor(score);
             const verdict =
-              classifyVerdict(item.label) === 'fake'
+              item.verdict === 'fake'
                 ? { text: 'Falsa', className: 'bg-red-50 text-red-700' }
                 : {
                     text: 'Verdadera',

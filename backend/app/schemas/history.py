@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, computed_field, model_validator
 
-from app.core.credibility import compute_credibility
+from app.core.credibility import Verdict, classify_verdict, compute_credibility
 
 
 class ClaimItem(BaseModel):
@@ -15,6 +15,12 @@ class ClaimItem(BaseModel):
     text: str
     label: str
     confidence: float
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def verdict(self) -> Verdict:
+        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        return classify_verdict(self.label)
 
 
 class SourceItem(BaseModel):
@@ -53,6 +59,12 @@ class AnalysisHistoryItem(BaseModel):
     created_at: str
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def verdict(self) -> Verdict:
+        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        return classify_verdict(self.label)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -141,10 +141,6 @@ export interface components {
         /**
          * AnalysisHistoryItem
          * @description Modelo de datos para un ítem del historial de análisis.
-         *
-         *     Las columnas de resultado son ``None`` mientras ``status == "pending"`` y se
-         *     rellenan cuando el worker termina; en ``status == "failed"`` ``error_code``
-         *     lleva el código de error estable del contrato.
          */
         AnalysisHistoryItem: {
             /** Analysis Id */
@@ -176,6 +172,12 @@ export interface components {
             claims?: components["schemas"]["ClaimItem"][] | null;
             /** Sources */
             sources?: components["schemas"]["SourceItem"][] | null;
+            /**
+             * Verdict
+             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @enum {string}
+             */
+            readonly verdict: "real" | "fake" | "uncertain";
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -223,6 +225,12 @@ export interface components {
             label: string;
             /** Confidence */
             confidence: number;
+            /**
+             * Verdict
+             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @enum {string}
+             */
+            readonly verdict: "real" | "fake" | "uncertain";
         };
         /**
          * DashboardAlertItem

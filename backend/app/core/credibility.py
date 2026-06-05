@@ -1,15 +1,11 @@
-"""Derivación de veredicto y credibilidad a partir de etiqueta y confianza.
+"""Derivación de veredicto y credibilidad a partir de etiqueta y confianza."""
 
-``confidence`` es la seguridad del modelo en su veredicto; la credibilidad es lo
-creíble que es el contenido: igual a la confianza para un veredicto verdadero e
-invertida para uno falso. Es la única fuente de verdad de esta regla, compartida
-por la respuesta de la API y la exportación CSV.
-"""
+from typing import Literal, Optional
 
-from typing import Optional
+Verdict = Literal["real", "fake", "uncertain"]
 
 
-def classify_verdict(label: Optional[str]) -> str:
+def classify_verdict(label: Optional[str]) -> Verdict:
     """Clasifica una etiqueta como ``real``, ``fake`` o ``uncertain``."""
     normalized = (label or "").lower()
     if "verdad" in normalized or "true" in normalized or "real" in normalized:
@@ -31,19 +27,14 @@ def compute_credibility(
     return max(0, min(100, round(credibility * 100)))
 
 
-# Atenuación máxima de la confianza cuando no se halla evidencia que respalde el
-# veredicto; con cobertura total la confianza no se toca.
+# Atenuación máxima de la confianza cuando no se halla evidencia que respalde el veredicto
 EVIDENCE_MAX_PENALTY = 0.25
 
 
 def adjust_confidence_with_evidence(
     confidence: float, evidence_coverage: float
 ) -> float:
-    """Atenúa la confianza del veredicto según la cobertura de evidencia [0, 1].
-
-    Cobertura 1.0 deja la confianza intacta; 0.0 la reduce en ``EVIDENCE_MAX_PENALTY``.
-    El resultado queda acotado a [0, 1].
-    """
+    """Atenúa la confianza del veredicto según la cobertura de evidencia [0, 1]."""
     coverage = max(0.0, min(1.0, evidence_coverage))
     adjusted = confidence * (1 - EVIDENCE_MAX_PENALTY * (1 - coverage))
     return max(0.0, min(1.0, adjusted))

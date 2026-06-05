@@ -367,7 +367,12 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     assert body["user_id"] == "test-user"
     assert body["status"] == "done"
     assert body["claims"] == [
-        {"text": "Afirmación", "label": "falsa", "confidence": 0.88}
+        {
+            "text": "Afirmación",
+            "label": "falsa",
+            "confidence": 0.88,
+            "verdict": "fake",
+        }
     ]
 
 
