@@ -83,9 +83,9 @@ function HelpIcon({ className }: IconProps) {
 }
 
 const navItems = [
-  { href: '/app/dashboard', label: 'Dashboard', Icon: GridIcon },
-  { href: '/app/analisis', label: 'Analizar', Icon: ScanIcon },
+  { href: '/app/analisis', label: 'Nuevo análisis', Icon: ScanIcon },
   { href: '/app/historial', label: 'Análisis anteriores', Icon: ListIcon },
+  { href: '/app/dashboard', label: 'Dashboard', Icon: GridIcon },
 ];
 
 function Brand({
