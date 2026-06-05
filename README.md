@@ -1,10 +1,10 @@
 # VeriTrust
 
-AI-powered medical misinformation detector. Users submit text or a URL; a LangGraph multi-agent pipeline (Extractor → Translator → Health Expert) backed by Llama (via Ollama) and a fine-tuned BioBERT classifier returns a verdict (`verdadera`/`falsa`), confidence score, and medical explanation. Results are persisted in PostgreSQL and shown in a Next.js dashboard.
+AI-powered medical misinformation detector. Users submit text or a URL; a LangGraph multi-agent pipeline (Extractor → Translator → Investigator → Health Expert) backed by Llama (via Ollama) and a fine-tuned BioBERT classifier returns a verdict (`verdadera`/`falsa`), confidence score, supporting biomedical sources, and medical explanation. The Investigator cross-checks each claim against Europe PMC literature, and the verdict's confidence is attenuated when no supporting evidence is found. Results are persisted in PostgreSQL and shown in a Next.js dashboard.
 
 ## Stack
 
-- **Backend** — FastAPI (web) + arq worker, LangGraph, Ollama, Transformers (BioBERT), psycopg3
+- **Backend** — FastAPI (web) + arq worker, LangGraph, Ollama, Transformers (BioBERT), Europe PMC evidence retrieval, psycopg3
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind v4
 - **Data** — PostgreSQL, Redis (arq job queue)
 - **ML** — BioBERT fine-tuned on PUBHEALTH

@@ -11,7 +11,7 @@ Focus only on things that matter. Do not flag style preferences, formatting, or 
 ### Logic & correctness
 
 - Off-by-one errors, wrong conditions, unreachable branches
-- LangGraph pipeline ordering must stay Extractor → Translator → Health Expert; translations must preserve order and cardinality with the extracted statements
+- LangGraph pipeline ordering must stay Extractor → Translator → Investigator → Health Expert; translations must preserve order and cardinality with the extracted statements, and the Investigator runs before the Health Expert so evidence coverage can attenuate the verdict confidence
 - Global verdict math in `app/agents/health_expert.py` (fake-probability average, label threshold) — make sure label/confidence stay coherent
 - `sync def` agent nodes vs `async def` routes/DB — no blocking I/O introduced inside an `async def`, and no `await` dropped on async DB/graph calls
 - Race conditions or state inconsistencies in the SWR data hooks (`useApiQuery`) or React state

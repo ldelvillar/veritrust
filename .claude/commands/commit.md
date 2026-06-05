@@ -47,7 +47,7 @@ title-only commit.
 **Scopes for this project:**
 
 - `auth` — Clerk JWT validation (`get_current_user.py`), rate limiting (`check_rate_limit.py`)
-- `agents` — LangGraph pipeline and the Extractor / Translator / Health Expert nodes
+- `agents` — LangGraph pipeline and the Extractor / Translator / Investigator / Health Expert nodes
 - `prompts` — agent system prompts in `app/prompts/prompts.yaml`
 - `ml` — BioBERT training/evaluation under `backend/ml/`, the detector tool
 - `db` — raw psycopg3 SQL and the async pool in `app/db/main.py`
