@@ -10,7 +10,13 @@
       "Bash(pnpm --dir frontend test *)",
       "Bash(pnpm --dir frontend generate:api-types)",
       "Bash(pnpm --dir frontend tsc *)",
-      "Bash(uv run *)"
+      "Bash(uv run *)",
+      "PowerShell(pnpm --dir frontend lint *)",
+      "PowerShell(pnpm --dir frontend build *)",
+      "PowerShell(pnpm --dir frontend test *)",
+      "PowerShell(pnpm --dir frontend generate:api-types)",
+      "PowerShell(pnpm --dir frontend tsc *)",
+      "PowerShell(uv run *)"
     ]
   },
   "hooks": {
