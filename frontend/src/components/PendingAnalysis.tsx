@@ -38,6 +38,9 @@ const STEPS = [
 // El pipeline no informa de su progreso, así que estimamos las etapas
 const STEP_START_SECONDS = [0, 30, 60, 90];
 
+// Si el análisis supera los ~2 min habituales, tranquilizamos al usuario
+const REASSURE_AFTER_SECONDS = 120;
+
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -49,7 +52,6 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
 
   useEffect(() => {
     const parsed = new Date(createdAt).getTime();
-    // Si created_at no es parseable, contamos desde el montaje.
     const startMs = Number.isNaN(parsed) ? Date.now() : parsed;
     const tick = () =>
       setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
@@ -63,6 +65,8 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
     STEP_START_SECONDS.filter(start => elapsed >= start).length - 1,
     STEPS.length - 1
   );
+
+  const showReassurance = elapsed >= REASSURE_AFTER_SECONDS;
 
   return (
     <div
@@ -143,6 +147,12 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
           );
         })}
       </ol>
+
+      {showReassurance && (
+        <p className="rounded-lg bg-primary/5 px-3.5 py-2 text-sm font-semibold text-primary">
+          Casi listo, redactando el informe…
+        </p>
+      )}
     </div>
   );
 }
