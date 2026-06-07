@@ -35,10 +35,8 @@ const STEPS = [
   },
 ] as const;
 
-// El pipeline no nos informa de su progreso, así que estimamos la etapa por
-// tiempo transcurrido y dejamos la última activa hasta que el estado real deje
-// de ser 'pending'. Umbrales (en segundos) en los que arranca cada etapa.
-const STEP_START_SECONDS = [0, 13, 26, 40];
+// El pipeline no informa de su progreso, así que estimamos las etapas
+const STEP_START_SECONDS = [0, 30, 60, 90];
 
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
