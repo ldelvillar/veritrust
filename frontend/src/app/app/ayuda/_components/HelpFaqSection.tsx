@@ -1,4 +1,4 @@
-import HelpFaq from '@/components/HelpFaq';
+import HelpFaq from './HelpFaq';
 
 import type { HelpFaqItem } from '../helpContent';
 

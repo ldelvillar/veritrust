@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import AnalysisForm from '@/components/AnalysisForm';
+import AnalysisForm from './_components/AnalysisForm';
 
 export const metadata: Metadata = {
   title: 'Analizar | VeriTrust',

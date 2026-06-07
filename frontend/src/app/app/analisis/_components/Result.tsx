@@ -12,7 +12,7 @@ import ListIcon from '@/assets/List';
 import MedicalCross from '@/assets/MedicalCross';
 import ShieldIcon from '@/assets/Shield';
 import WarningIcon from '@/assets/Warning';
-import PendingAnalysis from '@/components/PendingAnalysis';
+import PendingAnalysis from './PendingAnalysis';
 import { groupSourcesByClaim } from '@/lib/evidence';
 import type { paths } from '@/types/api';
 

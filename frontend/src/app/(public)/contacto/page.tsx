@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import ContactForm from '@/components/ContactForm';
+import ContactForm from './_components/ContactForm';
 import { CONFIG } from '@/config';
 
 export const metadata: Metadata = {

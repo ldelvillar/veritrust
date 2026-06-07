@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Result from '@/components/Result';
+import Result from '../_components/Result';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Trash from '@/assets/Trash';
 import { useApiQuery } from '@/hooks/useApiQuery';

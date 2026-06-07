@@ -8,8 +8,8 @@ import HistoryFilters, {
   DateRangeFilter,
   DateSortOrder,
   SourceTypeFilter,
-} from '@/components/HistoryFilters';
-import HistoryResultsTable from '@/components/HistoryResultsTable';
+} from './_components/HistoryFilters';
+import HistoryResultsTable from './_components/HistoryResultsTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';

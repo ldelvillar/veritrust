@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import DemoForm from '@/components/DemoForm';
+import DemoForm from './_components/DemoForm';
 
 export const metadata: Metadata = {
   title: 'Solicitar demo | VeriTrust',
