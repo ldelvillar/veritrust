@@ -79,6 +79,13 @@ def test_analyze_request_rejects_invalid_source_type_value() -> None:
     assert "source_type" in str(exc.value)
 
 
+def test_analyze_request_rejects_pdf_source_type() -> None:
+    with pytest.raises(ValidationError) as exc:
+        AnalysisRequest(text="Texto", source_type="pdf")
+
+    assert "endpoint de subida" in str(exc.value)
+
+
 def test_source_item_backfills_statements_from_legacy_statement() -> None:
     source = SourceItem.model_validate(
         {"title": "Estudio", "url": "https://x/1", "statement": "afirmación"}

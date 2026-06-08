@@ -14,6 +14,7 @@ class SourceType(str, Enum):
     TEXT = "text"
     FILE = "file"
     URL = "url"
+    PDF = "pdf"
 
 
 class AnalysisRequest(BaseModel):
@@ -37,6 +38,9 @@ class AnalysisRequest(BaseModel):
         """Valida que el payload sea coherente."""
         has_text = self.text is not None
         has_url = self.url is not None
+
+        if self.source_type == SourceType.PDF:
+            raise ValueError("Los PDF se envían al endpoint de subida, no como JSON.")
 
         if has_text == has_url:
             raise ValueError("Debes enviar exactamente uno: 'text' o 'url'.")

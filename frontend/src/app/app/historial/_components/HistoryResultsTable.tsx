@@ -23,11 +23,13 @@ interface HistoryResultsTableProps {
 
 const getTitle = (item: HistoryItem): string => {
   if (item.source_type === 'url' && item.input_url) return item.input_url;
+  if (item.source_type === 'pdf' && item.pdf_filename) return item.pdf_filename;
   if (item.input_text) return item.input_text;
   return 'Análisis sin título';
 };
 
 const getSource = (item: HistoryItem): string => {
+  if (item.source_type === 'pdf') return item.pdf_filename ?? 'PDF';
   if (item.source_type === 'file') return 'Carga de archivo';
   if (item.source_type === 'text') return 'Texto pegado';
 
@@ -43,6 +45,7 @@ const getSource = (item: HistoryItem): string => {
 const getTypeLabel = (sourceType: HistoryItem['source_type']): string => {
   if (sourceType === 'file') return 'Archivo';
   if (sourceType === 'url') return 'Enlace';
+  if (sourceType === 'pdf') return 'PDF';
   return 'Texto';
 };
 

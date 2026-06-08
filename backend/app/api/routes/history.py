@@ -37,6 +37,7 @@ _EXPORT_SOURCE_LABELS = {
     "text": "Texto pegado",
     "file": "Carga de archivo",
     "url": "Enlace",
+    "pdf": "PDF",
 }
 
 

@@ -47,6 +47,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         error_code=row[10],
         claims=row[11],
         sources=row[12],
+        pdf_filename=row[13],
     )
 
 
@@ -122,7 +123,8 @@ def _build_history_queries(where_sql: str, safe_date_sort: str) -> tuple[str, st
             status,
             error_code,
             claims,
-            sources
+            sources,
+            pdf_filename
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY created_at {safe_date_sort}
@@ -165,6 +167,56 @@ async def create_pending_analysis(
         raise DatabaseError("No se pudo obtener el id del análisis guardado.")
 
     return str(inserted_row[0])
+
+
+async def create_pending_pdf_analysis(
+    *,
+    user_id: str,
+    filename: str,
+    data: bytes,
+) -> str:
+    """Inserta un análisis ``pending`` de tipo ``pdf`` guardando el binario."""
+    pool = await get_pool()
+
+    query = """
+        INSERT INTO public.analysis_history
+        (user_id, source_type, pdf_data, pdf_filename, status)
+        VALUES (%s, 'pdf', %s, %s, 'pending')
+        RETURNING id
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, data, filename))
+                inserted_row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo guardar el PDF en la base de datos.")
+        ) from exc
+
+    if not inserted_row:
+        raise DatabaseError("No se pudo obtener el id del análisis guardado.")
+
+    return str(inserted_row[0])
+
+
+async def set_analysis_input_text(*, analysis_id: str, input_text: str) -> None:
+    """Persiste el texto extraído de un PDF antes de ejecutar el pipeline."""
+    pool = await get_pool()
+
+    query = "UPDATE public.analysis_history SET input_text = %s WHERE id = %s"
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (input_text, analysis_id))
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo actualizar el texto del análisis en la base de datos."
+            )
+        ) from exc
 
 
 async def complete_analysis(
@@ -356,7 +408,8 @@ async def export_user_analysis_history(
             status,
             error_code,
             claims,
-            sources
+            sources,
+            pdf_filename
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY created_at {safe_date_sort}
@@ -398,7 +451,8 @@ async def get_user_analysis_by_id(
             status,
             error_code,
             claims,
-            sources
+            sources,
+            pdf_filename
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -420,6 +474,62 @@ async def get_user_analysis_by_id(
         return None
 
     return _map_history_record(row)
+
+
+async def get_analysis_pdf(
+    *, user_id: str, analysis_id: str
+) -> tuple[bytes, str | None] | None:
+    """Devuelve ``(pdf_data, pdf_filename)`` del PDF propio del usuario, o None."""
+    pool = await get_pool()
+
+    query = """
+        SELECT pdf_data, pdf_filename
+        FROM public.analysis_history
+        WHERE user_id = %s AND id = %s AND source_type = 'pdf'
+        LIMIT 1
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo consultar el PDF en la base de datos.")
+        ) from exc
+
+    if not row or row[0] is None:
+        return None
+
+    return bytes(row[0]), row[1]
+
+
+async def get_pdf_data_by_id(*, analysis_id: str) -> bytes | None:
+    """Devuelve los bytes del PDF de un análisis por id (uso interno del worker)."""
+    pool = await get_pool()
+
+    query = """
+        SELECT pdf_data
+        FROM public.analysis_history
+        WHERE id = %s AND source_type = 'pdf'
+        LIMIT 1
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (analysis_id,))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo consultar el PDF en la base de datos.")
+        ) from exc
+
+    if not row or row[0] is None:
+        return None
+
+    return bytes(row[0])
 
 
 async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:

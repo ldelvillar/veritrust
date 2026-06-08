@@ -9,8 +9,12 @@ import Spinner from '@/assets/Spinner';
 import TypeIcon from '@/assets/Type';
 import UploadIcon from '@/assets/Upload';
 import WarningIcon from '@/assets/Warning';
+import PdfViewer from '@/components/PdfViewer';
 import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
 import type { components } from '@/types/api';
+
+const isPdfFile = (file: File): boolean =>
+  file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
 const EXAMPLE_TEXT_1 =
   'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común y refuerza el sistema inmunitario sin ningún riesgo, según un estudio reciente.';
@@ -21,7 +25,8 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_TEXT_CHARS = 10_000;
 
 export default function AnalysisForm() {
-  const { submit, isLoading, error, setError } = useAnalysisSubmission();
+  const { submit, submitPdf, isLoading, error, setError } =
+    useAnalysisSubmission();
 
   const [inputMethod, setInputMethod] =
     useState<components['schemas']['SourceType']>('text');
@@ -90,6 +95,11 @@ export default function AnalysisForm() {
     if (inputMethod === 'file') {
       if (!selectedFile) {
         setError('Por favor, selecciona un archivo primero.');
+        return;
+      }
+      // Los PDF se suben tal cual, el backend extrae el texto y guarda el binario.
+      if (isPdfFile(selectedFile)) {
+        await submitPdf(selectedFile);
         return;
       }
       try {
@@ -309,10 +319,10 @@ export default function AnalysisForm() {
               </p>
             )}
             <p className="mt-1.5 text-[13px] text-[#7e7f99]">
-              Solo archivos de texto plano (.txt o .md).
+              Documentos PDF o texto plano (.txt o .md).
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              {['TXT', 'MD'].map(t => (
+              {['PDF', 'TXT', 'MD'].map(t => (
                 <span
                   key={t}
                   className="rounded-lg border border-[#e8e6f4] bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-[#7e7f99]"
@@ -328,11 +338,21 @@ export default function AnalysisForm() {
               id="file-upload"
               type="file"
               className="hidden"
-              accept=".txt,.md"
+              accept=".txt,.md,.pdf"
               disabled={isLoading}
               onChange={handleFileChange}
             />
           </label>
+
+          {selectedFile && isPdfFile(selectedFile) && (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
+                <DocumentIcon className="size-3.75 text-[#7e7f99]" />
+                Vista previa del PDF
+              </div>
+              <PdfViewer file={selectedFile} />
+            </div>
+          )}
         </div>
       )}
 

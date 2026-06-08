@@ -14,6 +14,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   text: 'Texto pegado',
   file: 'Carga de archivo',
   url: 'Enlace',
+  pdf: 'PDF',
 };
 
 const getAlertTitle = (item: DashboardAlertItem): string => {

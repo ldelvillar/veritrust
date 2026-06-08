@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 
-import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { ApiError, fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
 import type { components, paths } from '@/types/api';
 
 type AnalysisRequest = components['schemas']['AnalysisRequest'];
@@ -50,5 +50,36 @@ export function useAnalysisSubmission() {
     [getToken, router]
   );
 
-  return { submit, isLoading, error, setError };
+  const submitPdf = useCallback(
+    async (file: File) => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const data = await postFormWithAuth<CreateAnalysisResponse>(
+          getToken,
+          '/analysis/pdf',
+          formData
+        );
+
+        if (!data.analysis_id) {
+          throw new Error(NO_ID_ERROR);
+        }
+
+        router.push(`/app/analisis/${data.analysis_id}`);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError(CONNECTION_ERROR);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getToken, router]
+  );
+
+  return { submit, submitPdf, isLoading, error, setError };
 }

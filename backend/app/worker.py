@@ -26,10 +26,13 @@ from app.db.history import (
     complete_analysis,
     fail_analysis,
     fail_stale_pending_analyses,
+    get_pdf_data_by_id,
+    set_analysis_input_text,
 )
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
+from app.utils.extract_text_from_pdf import PDFExtractionError, extract_text_from_pdf
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 from app.utils.ollama import ensure_ollama_available
 
@@ -56,6 +59,26 @@ async def run_analysis(
             analysis_id=analysis_id, error_code=ErrorCode.URL_EXTRACTION.value
         )
         return
+
+    if source_type == "pdf":
+        data = await get_pdf_data_by_id(analysis_id=analysis_id)
+        if data is None:
+            logger.warning("[Worker] PDF no encontrado para %s", analysis_id)
+            await fail_analysis(
+                analysis_id=analysis_id, error_code=ErrorCode.PDF_EXTRACTION.value
+            )
+            return
+        try:
+            text = await asyncio.to_thread(extract_text_from_pdf, data)
+        except PDFExtractionError:
+            logger.info("[Worker] Extracción de PDF fallida para %s", analysis_id)
+            await fail_analysis(
+                analysis_id=analysis_id, error_code=ErrorCode.PDF_EXTRACTION.value
+            )
+            return
+        # Persistimos el texto para que la búsqueda del historial funcione aunque
+        # el pipeline falle después.
+        await set_analysis_input_text(analysis_id=analysis_id, input_text=text)
 
     initial_state: dict[str, object] = {
         "input_text": text,

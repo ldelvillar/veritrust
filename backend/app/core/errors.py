@@ -28,6 +28,12 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.URL_EXTRACTION: (
         "No se pudo extraer el contenido de la URL proporcionada."
     ),
+    ErrorCode.INVALID_PDF: "El archivo no es un PDF válido.",
+    ErrorCode.PDF_TOO_LARGE: "El PDF supera el tamaño máximo permitido (10 MB).",
+    ErrorCode.PDF_EXTRACTION: (
+        "No se pudo extraer texto del PDF. Puede estar protegido, dañado o ser un "
+        "documento escaneado sin texto seleccionable."
+    ),
     ErrorCode.INVALID_ANALYSIS_ID: "El id de análisis no es válido.",
     ErrorCode.ANALYSIS_NOT_FOUND: "Análisis no encontrado.",
     ErrorCode.ANALYSIS_FETCH_FAILED: "No se pudo recuperar el análisis.",

@@ -86,6 +86,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         None,
         [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
         [{"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}],
+        None,
     )
 
     record = history_module._map_history_record(row)
@@ -115,6 +116,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         None,
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "pending",
+        None,
         None,
         None,
         None,

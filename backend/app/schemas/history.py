@@ -57,6 +57,7 @@ class AnalysisHistoryItem(BaseModel):
     status: str = "done"
     error_code: Optional[str] = None
     created_at: str
+    pdf_filename: Optional[str] = None
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None
 

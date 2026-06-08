@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useId, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
 import { MarkdownHooks } from 'react-markdown';
 import Check from '@/assets/Check';
@@ -13,8 +14,11 @@ import GlobeIcon from '@/assets/Globe';
 import ListIcon from '@/assets/List';
 import MedicalCross from '@/assets/MedicalCross';
 import ShieldIcon from '@/assets/Shield';
+import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import PendingAnalysis from './PendingAnalysis';
+import PdfViewer from '@/components/PdfViewer';
+import { fetchBlobWithAuth } from '@/lib/apiClient';
 import { groupSourcesByClaim } from '@/lib/evidence';
 import type { paths } from '@/types/api';
 
@@ -40,12 +44,15 @@ const FAILURE_MESSAGES: Record<string, string> = {
     'El servicio de análisis no estaba disponible y no se pudo procesar la noticia. Inténtalo de nuevo.',
   INTERNAL:
     'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
+  PDF_EXTRACTION:
+    'No se pudo extraer texto del PDF. Puede estar protegido, dañado o ser un documento escaneado sin texto seleccionable.',
 };
 
 const SOURCE_TAGS: Record<string, string> = {
   text: 'Texto',
   url: 'Enlace',
   file: 'Archivo',
+  pdf: 'PDF',
 };
 
 function ClockIcon({ className }: { className?: string }) {
@@ -580,9 +587,75 @@ function ClaimsEvidence({
   );
 }
 
+function AnalyzedPdf({
+  analysisId,
+  filename,
+}: {
+  analysisId: string;
+  filename?: string | null;
+}) {
+  const { getToken } = useAuth();
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    fetchBlobWithAuth(getToken, `/analysis/${analysisId}/pdf`)
+      .then(blob => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [analysisId, getToken]);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:hidden">
+      <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+        <DocumentIcon className="size-4.5 text-primary" />
+        Documento analizado
+      </h3>
+      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+        {filename ?? 'PDF original que se verificó.'}
+      </p>
+      {failed ? (
+        <p className="flex items-center gap-2 text-[13px] font-medium text-slate-400">
+          <WarningIcon className="size-4 shrink-0 text-amber-500" />
+          No se pudo cargar el PDF.
+        </p>
+      ) : url ? (
+        <PdfViewer file={url} />
+      ) : (
+        <div className="flex min-h-40 items-center justify-center">
+          <Spinner className="size-6 animate-spin text-primary" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnalyzedContent({ result }: { result: ResultType }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+
+  // Análisis por PDF: mostramos el documento original renderizado.
+  if (result.source_type === 'pdf') {
+    return (
+      <AnalyzedPdf
+        analysisId={result.analysis_id}
+        filename={result.pdf_filename}
+      />
+    );
+  }
 
   // Análisis por URL: mostramos el enlace en lugar del texto completo.
   if (result.source_type === 'url') {

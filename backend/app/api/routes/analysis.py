@@ -3,16 +3,27 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from redis.exceptions import RedisError
 
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
+from app.core.config import get_settings
 from app.core.errors import make_error_detail
 from app.db.history import (
     create_pending_analysis,
+    create_pending_pdf_analysis,
     delete_user_analysis,
     fail_analysis,
+    get_analysis_pdf,
     get_user_analysis_by_id,
 )
 from app.db.pool import DatabaseError
@@ -30,6 +41,23 @@ _POST_ERROR_RESPONSES: dict[int | str, dict] = {
     429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
+}
+
+_POST_PDF_ERROR_RESPONSES: dict[int | str, dict] = {
+    401: {"model": ErrorResponse},
+    413: {"model": ErrorResponse},
+    415: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+    503: {"model": ErrorResponse},
+}
+
+_GET_PDF_ERROR_RESPONSES: dict[int | str, dict] = {
+    200: {"content": {"application/pdf": {}}, "description": "PDF original."},
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
 }
 
 _GET_ERROR_RESPONSES: dict[int | str, dict] = {
@@ -57,13 +85,7 @@ async def analyze_news(
     request: Request,
     user: dict = Depends(check_rate_limit),
 ):
-    """Encola el análisis de una noticia y devuelve su id en estado ``pending``.
-
-    El pipeline multiagente (extracción de URL incluida) es lento, así que no se
-    ejecuta dentro del request: se reserva una fila ``pending`` y se encola un
-    trabajo en arq que el worker procesa. El cliente navega al detalle y hace
-    polling de ``GET /analysis/{id}`` hasta que ``status`` deja de ser ``pending``.
-    """
+    """Encola el análisis de una noticia y devuelve su id en estado ``pending``."""
     user_id = user["sub"]
 
     arq_pool = getattr(request.app.state, "arq_pool", None)
@@ -91,8 +113,82 @@ async def analyze_news(
             str(body.url) if body.url else None,
         )
     except (OSError, RedisError) as e:
-        # Sin encolado no hay quien procese la fila: la marcamos failed para que
-        # no quede pending indefinidamente y el cliente deje de hacer polling.
+        # Sin encolado, marcamos la fila como failed para que no quede pending indefinidamente
+        logger.exception("No se pudo encolar el análisis %s", analysis_id)
+        try:
+            await fail_analysis(
+                analysis_id=analysis_id,
+                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+            )
+        except DatabaseError:
+            logger.exception(
+                "No se pudo marcar como failed el análisis %s", analysis_id
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
+
+    return {"status": "pending", "analysis_id": analysis_id}
+
+
+@router.post(
+    "/pdf",
+    response_model=AnalysisResponse,
+    responses=_POST_PDF_ERROR_RESPONSES,
+)
+async def analyze_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(check_rate_limit),
+):
+    """Sube un PDF, guarda el binario y encola su análisis en estado ``pending``."""
+    user_id = user["sub"]
+    settings = get_settings()
+
+    arq_pool = getattr(request.app.state, "arq_pool", None)
+    if arq_pool is None:
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        )
+
+    # Rechaza por tamaño antes de leer todo el cuerpo en memoria cuando es posible.
+    if file.size is not None and file.size > settings.max_pdf_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=make_error_detail(ErrorCode.PDF_TOO_LARGE),
+        )
+
+    data = await file.read()
+    if len(data) > settings.max_pdf_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=make_error_detail(ErrorCode.PDF_TOO_LARGE),
+        )
+
+    if not data or not data.startswith(b"%PDF"):
+        raise HTTPException(
+            status_code=415,
+            detail=make_error_detail(ErrorCode.INVALID_PDF),
+        )
+
+    filename = (file.filename or "documento.pdf")[:255]
+
+    try:
+        analysis_id = await create_pending_pdf_analysis(
+            user_id=user_id, filename=filename, data=data
+        )
+    except DatabaseError as e:
+        logger.exception("No se pudo crear el análisis de PDF pendiente")
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
+        ) from e
+
+    try:
+        await arq_pool.enqueue_job("run_analysis", analysis_id, "pdf", None, None)
+    except (OSError, RedisError) as e:
         logger.exception("No se pudo encolar el análisis %s", analysis_id)
         try:
             await fail_analysis(
@@ -157,6 +253,43 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         created_at=record.created_at,
         claims=record.claims,
         sources=record.sources,
+        pdf_filename=record.pdf_filename,
+    )
+
+
+@router.get("/{analysis_id}/pdf", responses=_GET_PDF_ERROR_RESPONSES)
+async def get_analysis_pdf_file(analysis_id: str, user=Depends(get_current_user)):
+    """Devuelve el PDF original de un análisis para mostrarlo en el informe."""
+    user_id = user["sub"]
+
+    try:
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        pdf = await get_analysis_pdf(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if pdf is None:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    data, filename = pdf
+    safe_name = filename or "documento.pdf"
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
     )
 
 
