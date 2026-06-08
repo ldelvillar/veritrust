@@ -43,7 +43,7 @@ export default function Hero() {
           <div className="flex flex-wrap items-center gap-x-5.5 gap-y-3">
             {[
               { label: '88% de precisión' },
-              { label: '+15.000 análisis' },
+              { label: '+10.000 análisis' },
               { label: 'Fuentes citadas' },
             ].map((item, i) => (
               <div key={item.label} className="flex items-center gap-x-5.5">
