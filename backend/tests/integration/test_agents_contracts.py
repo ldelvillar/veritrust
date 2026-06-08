@@ -352,6 +352,36 @@ def test_health_expert_marks_borderline_verdicts_as_uncertain(
     assert update["confidence"] == pytest.approx(expected_confidence)
 
 
+def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
+    monkeypatch, health_module, dummy_prompts
+):
+    captured = {}
+
+    class _FakeTool:
+        def predict_batch(self, texts):
+            # fake_avg = 0.50 -> incierta.
+            return [{"label": "falsa", "confidence": 0.50} for _ in texts]
+
+    class _FakeLLM:
+        def invoke(self, messages):
+            captured["human"] = messages[-1].content
+            return SimpleNamespace(content="Informe médico")
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
+
+    update = health_module.health_expert(
+        {"extracted_statements": ["S1"], "translated_statements": ["T1"]},
+        dummy_prompts,
+    )
+
+    human = captured["human"]
+    assert update["label"] == "incierta"
+    # No debe presentarse como un veredicto firme con porcentaje de seguridad.
+    assert "seguridad del" not in human
+    assert "INCIERTO" in human
+
+
 def test_health_expert_returns_empty_explanation_when_no_statements(
     monkeypatch, health_module, dummy_prompts
 ):
