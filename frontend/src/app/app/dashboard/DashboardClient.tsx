@@ -27,6 +27,45 @@ const formatSignedPercentage = (value: number): string => {
   return `${value}%`;
 };
 
+function QuestionIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7M12 17h.01" />
+    </svg>
+  );
+}
+
+// Explica cómo se calcula cada KPI; el tooltip aparece al pasar el ratón o al
+// enfocar el botón con teclado.
+function InfoHint({ label, text }: { label: string; text: string }) {
+  return (
+    <span className="group relative inline-flex shrink-0">
+      <button
+        type="button"
+        aria-label={`Cómo se calcula: ${label}`}
+        className="grid size-4 place-items-center rounded-full text-slate-300 transition hover:text-slate-500 focus:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+      >
+        <QuestionIcon className="size-4" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-full right-0 z-10 mt-2 w-56 rounded-lg bg-slate-900 px-3 py-2 text-left text-xs leading-snug font-medium text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 interface DashboardClientProps {
   initialData: DashboardPayload;
 }
@@ -88,36 +127,60 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-            Análisis totales
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+              Análisis totales
+            </p>
+            <InfoHint
+              label="Análisis totales"
+              text="Número total de análisis que has completado."
+            />
+          </div>
           <p className="mt-3 text-3xl font-black text-slate-900">
             {dashboard.kpis.total_analyses}
           </p>
         </article>
 
         <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-            Tasa de fiabilidad
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+              Tasa de fiabilidad
+            </p>
+            <InfoHint
+              label="Tasa de fiabilidad"
+              text="Porcentaje de tus análisis con veredicto «Verdadera» sobre el total completado."
+            />
+          </div>
           <p className="mt-3 text-3xl font-black text-emerald-600">
             {dashboard.kpis.reliable_rate}%
           </p>
         </article>
 
         <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-            Confianza media
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+              Confianza media
+            </p>
+            <InfoHint
+              label="Confianza media"
+              text="Seguridad media del modelo en sus veredictos, promediada sobre todos tus análisis."
+            />
+          </div>
           <p className="mt-3 text-3xl font-black text-slate-900">
             {dashboard.kpis.average_confidence}%
           </p>
         </article>
 
         <article className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-            Variación semanal
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+              Variación semanal
+            </p>
+            <InfoHint
+              label="Variación semanal"
+              text="Cambio en el número de análisis de los últimos 7 días respecto a los 7 días anteriores."
+            />
+          </div>
           <p
             className={`mt-3 text-3xl font-black ${
               dashboard.kpis.week_over_week_delta >= 0
