@@ -46,6 +46,15 @@ const getTypeLabel = (sourceType: HistoryItem['source_type']): string => {
   return 'Texto';
 };
 
+const VERDICT_BADGES: Record<
+  HistoryItem['verdict'],
+  { text: string; className: string }
+> = {
+  fake: { text: 'Falsa', className: 'bg-red-50 text-red-700' },
+  real: { text: 'Verdadera', className: 'bg-emerald-50 text-emerald-700' },
+  uncertain: { text: 'Incierta', className: 'bg-amber-50 text-amber-700' },
+};
+
 const getScoreColor = (score: number): string => {
   if (score >= 70) return 'bg-emerald-500';
   if (score >= 40) return 'bg-amber-500';
@@ -100,7 +109,7 @@ export default function HistoryResultsTable({
         <span>Título del artículo</span>
         <span>Tipo</span>
         <span>Fecha de análisis</span>
-        <span>Puntuación de credibilidad</span>
+        <span>Credibilidad</span>
         <span className="text-right">Acción</span>
       </div>
 
@@ -141,15 +150,8 @@ export default function HistoryResultsTable({
       ) : (
         <ul>
           {history.map(item => {
-            const score = item.credibility ?? 0;
-            const scoreColor = getScoreColor(score);
-            const verdict =
-              item.verdict === 'fake'
-                ? { text: 'Falsa', className: 'bg-red-50 text-red-700' }
-                : {
-                    text: 'Verdadera',
-                    className: 'bg-emerald-50 text-emerald-700',
-                  };
+            const credibility = item.credibility ?? null;
+            const verdict = VERDICT_BADGES[item.verdict];
 
             return (
               <li
@@ -186,15 +188,23 @@ export default function HistoryResultsTable({
                     {verdict.text}
                   </span>
                   <div className="flex w-full items-center gap-3">
-                    <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
-                      <div
-                        className={`h-full rounded-full ${scoreColor}`}
-                        style={{ width: `${score}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-black text-slate-700">
-                      {score}/100
-                    </span>
+                    {credibility === null ? (
+                      <span className="text-sm font-semibold text-slate-400">
+                        Sin puntuación
+                      </span>
+                    ) : (
+                      <>
+                        <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
+                          <div
+                            className={`h-full rounded-full ${getScoreColor(credibility)}`}
+                            style={{ width: `${credibility}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-black text-slate-700">
+                          {credibility}/100
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 

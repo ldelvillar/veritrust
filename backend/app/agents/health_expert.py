@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 _USER_INPUT_START = "<<USER_INPUT>>"
 _USER_INPUT_END = "<<END>>"
 
+# FAKE_THRESHOLD ± UNCERTAINTY_MARGIN: el veredicto global es "incierta"
+FAKE_THRESHOLD = 0.40
+UNCERTAINTY_MARGIN = 0.10
+
 
 def _neutralize_delimiters(text: str) -> str:
     """Impide que el texto del usuario falsifique los marcadores de datos."""
@@ -142,8 +146,15 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     fake_avg = total_fake_prob / total_statements
 
     # Determinar etiqueta global
-    global_label = "falsa" if fake_avg > 0.40 else "verdadera"
-    global_confidence = fake_avg if global_label == "falsa" else (1.0 - fake_avg)
+    if fake_avg > FAKE_THRESHOLD + UNCERTAINTY_MARGIN:
+        global_label = "falsa"
+        global_confidence = fake_avg
+    elif fake_avg < FAKE_THRESHOLD - UNCERTAINTY_MARGIN:
+        global_label = "verdadera"
+        global_confidence = 1.0 - fake_avg
+    else:
+        global_label = "incierta"
+        global_confidence = 1.0 - fake_avg
 
     # La confianza se atenúa según cuánta literatura biomédica respalde el análisis.
     evidence_coverage = float(state.get("evidence_coverage", 1.0))

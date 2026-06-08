@@ -18,8 +18,8 @@ def classify_verdict(label: Optional[str]) -> Verdict:
 def compute_credibility(
     label: Optional[str], confidence: Optional[float]
 ) -> Optional[int]:
-    """Devuelve la credibilidad como entero [0, 100], o ``None`` sin confianza."""
-    if confidence is None:
+    """Devuelve la credibilidad como entero [0, 100], o ``None``."""
+    if confidence is None or classify_verdict(label) == "uncertain":
         return None
 
     fraction = confidence if confidence <= 1 else confidence / 100

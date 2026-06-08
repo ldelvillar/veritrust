@@ -308,6 +308,50 @@ def test_health_expert_handles_empty_llm_output_without_exception(
     assert update["claims"] == [{"text": "S1", "label": "falsa", "confidence": 0.6}]
 
 
+@pytest.mark.parametrize(
+    ("claim_label", "claim_confidence", "expected_label", "expected_confidence"),
+    [
+        # fake_avg = 0.60 (> 0.50) -> falsa decisiva.
+        ("falsa", 0.60, "falsa", 0.60),
+        # fake_avg = 0.50 (en la banda) -> incierta, sin forzar veredicto binario.
+        ("falsa", 0.50, "incierta", 0.50),
+        # fake_avg = 0.35 (en la banda) -> incierta aunque BERT diga "verdadera".
+        ("verdadera", 0.65, "incierta", 0.65),
+        # fake_avg = 0.10 (< 0.30) -> verdadera decisiva.
+        ("verdadera", 0.90, "verdadera", 0.90),
+    ],
+)
+def test_health_expert_marks_borderline_verdicts_as_uncertain(
+    monkeypatch,
+    health_module,
+    dummy_prompts,
+    claim_label,
+    claim_confidence,
+    expected_label,
+    expected_confidence,
+):
+    class _FakeTool:
+        def predict_batch(self, texts):
+            return [
+                {"label": claim_label, "confidence": claim_confidence} for _ in texts
+            ]
+
+    class _FakeLLM:
+        def invoke(self, messages):
+            return SimpleNamespace(content="Informe médico")
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
+
+    update = health_module.health_expert(
+        {"extracted_statements": ["S1"], "translated_statements": ["T1"]},
+        dummy_prompts,
+    )
+
+    assert update["label"] == expected_label
+    assert update["confidence"] == pytest.approx(expected_confidence)
+
+
 def test_health_expert_returns_empty_explanation_when_no_statements(
     monkeypatch, health_module, dummy_prompts
 ):
