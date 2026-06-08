@@ -7,7 +7,9 @@ import { MarkdownHooks } from 'react-markdown';
 import Check from '@/assets/Check';
 import Chevron from '@/assets/Chevron';
 import Cross from '@/assets/Cross';
+import DocumentIcon from '@/assets/Document';
 import DownloadIcon from '@/assets/Download';
+import GlobeIcon from '@/assets/Globe';
 import ListIcon from '@/assets/List';
 import MedicalCross from '@/assets/MedicalCross';
 import ShieldIcon from '@/assets/Shield';
@@ -562,6 +564,72 @@ function ClaimsEvidence({
   );
 }
 
+function AnalyzedContent({ result }: { result: ResultType }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+
+  // Análisis por URL: mostramos el enlace en lugar del texto completo.
+  if (result.source_type === 'url') {
+    if (!result.input_url) return null;
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:break-inside-avoid">
+        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <GlobeIcon className="size-4.5 text-primary" />
+          Contenido analizado
+        </h3>
+        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-slate-500">
+          Enlace de la noticia que se verificó.
+        </p>
+        <a
+          href={result.input_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-semibold break-all text-primary underline-offset-2 hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
+        >
+          {result.input_url}
+        </a>
+      </div>
+    );
+  }
+
+  const text = result.input_text;
+  if (!text) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:break-inside-avoid">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <DocumentIcon className="size-4.5 text-primary" />
+          Contenido analizado
+        </h3>
+        <button
+          type="button"
+          onClick={() => setOpen(value => !value)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none print:hidden"
+        >
+          {open ? 'Ocultar' : 'Ver'} texto analizado
+          <Chevron
+            className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+            aria-hidden
+          />
+        </button>
+      </div>
+      <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+        El texto original tal y como se envió a verificar.
+      </p>
+      {/* Siempre en el DOM y colapsado con clases, para que el PDF (print:block)
+          imprima el texto completo aunque esté oculto en pantalla. */}
+      <div id={panelId} className={open ? 'block' : 'hidden print:block'}>
+        <p className="mt-4 max-h-96 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-sm leading-relaxed whitespace-pre-wrap text-slate-700 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Disclaimer() {
   return (
     <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 print:break-inside-avoid">
@@ -702,6 +770,7 @@ export default function Result({ result, headerActions }: ResultProps) {
       <ResultBand result={result} />
 
       <div className="flex min-w-0 flex-col gap-6">
+        <AnalyzedContent result={result} />
         {result.explanation && (
           <MedicalExplanation explanation={result.explanation} />
         )}
