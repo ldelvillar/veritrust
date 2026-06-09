@@ -63,3 +63,10 @@ class AnalysisResponse(BaseModel):
     label: Optional[str] = None
     confidence: Optional[float] = None
     explanation: Optional[str] = None
+
+
+class ShareResponse(BaseModel):
+    """Respuesta al crear o consultar el enlace público de un análisis."""
+
+    status: str
+    share_token: str

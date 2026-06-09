@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime
 from typing import Any, Optional, Sequence
 
@@ -11,7 +12,7 @@ from psycopg.types.json import Jsonb
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest
-from app.schemas.history import AnalysisHistoryItem
+from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         claims=row[11],
         sources=row[12],
         pdf_filename=row[13],
+        share_token=row[14],
     )
 
 
@@ -146,7 +148,8 @@ def _build_history_queries(where_sql: str, safe_date_sort: str) -> tuple[str, st
             error_code,
             claims,
             sources,
-            pdf_filename
+            pdf_filename,
+            share_token
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY created_at {safe_date_sort}
@@ -435,7 +438,8 @@ async def export_user_analysis_history(
             error_code,
             claims,
             sources,
-            pdf_filename
+            pdf_filename,
+            share_token
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY created_at {safe_date_sort}
@@ -478,7 +482,8 @@ async def get_user_analysis_by_id(
             error_code,
             claims,
             sources,
-            pdf_filename
+            pdf_filename,
+            share_token
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -597,3 +602,109 @@ async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) ->
         raise DatabaseError(
             _build_database_error("No se pudo reabrir el análisis en la base de datos.")
         ) from exc
+
+
+async def set_analysis_share_token(*, user_id: str, analysis_id: str) -> str | None:
+    """Activa el enlace público de un análisis ``done`` propio y devuelve el token.
+
+    Idempotente: si ya estaba compartido, conserva y devuelve el token existente.
+    Devuelve ``None`` si la fila no existe o no está en estado ``done``.
+    """
+    pool = await get_pool()
+    new_token = secrets.token_urlsafe(32)
+
+    query = """
+        UPDATE public.analysis_history
+        SET share_token = COALESCE(share_token, %s)
+        WHERE user_id = %s AND id = %s AND status = 'done'
+        RETURNING share_token
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (new_token, user_id, analysis_id))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo activar el enlace público en la base de datos."
+            )
+        ) from exc
+
+    return str(row[0]) if row else None
+
+
+async def clear_analysis_share_token(*, user_id: str, analysis_id: str) -> bool:
+    """Desactiva el enlace público de un análisis propio. True si cambió una fila."""
+    pool = await get_pool()
+
+    query = """
+        UPDATE public.analysis_history
+        SET share_token = NULL
+        WHERE user_id = %s AND id = %s
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                return cur.rowcount > 0
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo desactivar el enlace público en la base de datos."
+            )
+        ) from exc
+
+
+async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | None:
+    """Obtiene la vista pública de un informe compartido por su token, o ``None``."""
+    pool = await get_pool()
+
+    query = """
+        SELECT
+            source_type,
+            input_text,
+            input_url,
+            label,
+            confidence,
+            explanation,
+            created_at,
+            status,
+            claims,
+            sources,
+            pdf_filename
+        FROM public.analysis_history
+        WHERE share_token = %s AND status = 'done'
+        LIMIT 1
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (token,))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo consultar el informe compartido en la base de datos."
+            )
+        ) from exc
+
+    if not row:
+        return None
+
+    return PublicAnalysisReport(
+        source_type=str(row[0]),
+        input_text=row[1],
+        input_url=row[2],
+        label=str(row[3]) if row[3] is not None else None,
+        confidence=float(row[4]) if row[4] is not None else None,
+        explanation=str(row[5]) if row[5] is not None else None,
+        created_at=str(row[6]),
+        status=str(row[7]),
+        claims=row[8],
+        sources=row[9],
+        pdf_filename=row[10],
+    )

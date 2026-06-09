@@ -87,6 +87,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
         [{"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}],
         None,
+        "tok_xyz",
     )
 
     record = history_module._map_history_record(row)
@@ -102,6 +103,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert record.claims[0].label == "falsa"
     assert record.sources is not None
     assert record.sources[0].source == "BMJ"
+    assert record.share_token == "tok_xyz"
 
 
 def test_map_history_record_handles_pending_row_with_null_results() -> None:
@@ -116,6 +118,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         None,
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "pending",
+        None,
         None,
         None,
         None,

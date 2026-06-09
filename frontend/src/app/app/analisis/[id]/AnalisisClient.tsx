@@ -4,10 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Result from '../_components/Result';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ShareDialog from '@/components/ShareDialog';
 import Trash from '@/assets/Trash';
+import LinkIcon from '@/assets/Link';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
+import { useAnalysisShare } from '@/hooks/useAnalysisShare';
 import type { paths } from '@/types/api';
 
 type AnalysisDetail =
@@ -24,6 +27,10 @@ export default function AnalisisClient({
 }: AnalisisClientProps) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(
+    initialData.share_token ?? null
+  );
   const {
     remove: deleteAnalysis,
     isDeleting,
@@ -31,12 +38,45 @@ export default function AnalisisClient({
     setError: setDeleteError,
   } = useAnalysisDeletion();
   const { retry, isRetrying, error: retryError } = useAnalysisRetry();
+  const {
+    createShare,
+    removeShare,
+    isSharing,
+    error: shareError,
+    setError: setShareError,
+  } = useAnalysisShare();
 
   const { data, refetch } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
     fallbackData: initialData,
     // Hacemos polling cada 2s mientras el análisis siga 'pending'
     refreshInterval: latest => (latest?.status === 'pending' ? 2000 : 0),
   });
+
+  const current = data ?? initialData;
+  // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareUrl = shareToken ? `${origin}/r/${shareToken}` : null;
+
+  const handleShareCreate = async () => {
+    const token = await createShare(id);
+    if (token) setShareToken(token);
+  };
+
+  const handleShareRemove = async () => {
+    const success = await removeShare(id);
+    if (success) setShareToken(null);
+  };
+
+  const handleShareOpen = () => {
+    setShareError(null);
+    setShareOpen(true);
+  };
+
+  const handleShareClose = () => {
+    if (isSharing) return;
+    setShareError(null);
+    setShareOpen(false);
+  };
 
   const handleRetry = async () => {
     const success = await retry(id);
@@ -56,6 +96,17 @@ export default function AnalisisClient({
     setConfirmOpen(false);
   };
 
+  const shareButton = (
+    <button
+      type="button"
+      onClick={handleShareOpen}
+      className="inline-flex items-center gap-2 rounded-xl border border-[#dcd9ee] bg-white px-3 py-2.5 text-sm font-bold text-[#33344c] transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+    >
+      <LinkIcon className="size-4" />
+      Compartir
+    </button>
+  );
+
   const deleteButton = (
     <button
       type="button"
@@ -70,11 +121,19 @@ export default function AnalisisClient({
     </button>
   );
 
+  // Solo se puede compartir un informe terminado.
+  const headerActions = (
+    <>
+      {current.status === 'done' && shareButton}
+      {deleteButton}
+    </>
+  );
+
   return (
     <>
       <Result
-        result={data ?? initialData}
-        headerActions={deleteButton}
+        result={current}
+        headerActions={headerActions}
         onRetry={handleRetry}
         isRetrying={isRetrying}
         retryError={retryError}
@@ -89,6 +148,16 @@ export default function AnalisisClient({
         errorMessage={deleteError}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        shareUrl={shareUrl}
+        isSharing={isSharing}
+        error={shareError}
+        onCreate={handleShareCreate}
+        onRemove={handleShareRemove}
+        onClose={handleShareClose}
       />
     </>
   );

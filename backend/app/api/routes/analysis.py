@@ -19,6 +19,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
 from app.db.history import (
+    clear_analysis_share_token,
     create_pending_analysis,
     create_pending_pdf_analysis,
     delete_user_analysis,
@@ -26,9 +27,10 @@ from app.db.history import (
     get_analysis_pdf,
     get_user_analysis_by_id,
     reset_failed_analysis_to_pending,
+    set_analysis_share_token,
 )
 from app.db.pool import DatabaseError
-from app.schemas.analysis import AnalysisRequest, AnalysisResponse
+from app.schemas.analysis import AnalysisRequest, AnalysisResponse, ShareResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem
 
@@ -83,6 +85,21 @@ _RETRY_ERROR_RESPONSES: dict[int | str, dict] = {
     429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
+}
+
+_SHARE_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    409: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+}
+
+_UNSHARE_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
 }
 
 
@@ -141,6 +158,98 @@ async def analyze_news(
         ) from e
 
     return {"status": "pending", "analysis_id": analysis_id}
+
+
+@router.post(
+    "/{analysis_id}/share",
+    response_model=ShareResponse,
+    responses=_SHARE_ERROR_RESPONSES,
+)
+async def share_analysis(analysis_id: str, user=Depends(get_current_user)):
+    """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
+    user_id = user["sub"]
+
+    try:
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    # Solo se comparte un informe terminado; pending/failed no tienen resultado.
+    if record.status != "done":
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_SHAREABLE),
+        )
+
+    try:
+        token = await set_analysis_share_token(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.SHARE_FAILED),
+        ) from e
+
+    if token is None:
+        # Perdió la carrera: el estado cambió entre la lectura y el update.
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_SHAREABLE),
+        )
+
+    return {"status": "shared", "share_token": token}
+
+
+@router.delete(
+    "/{analysis_id}/share",
+    response_model=AnalysisResponse,
+    responses=_UNSHARE_ERROR_RESPONSES,
+)
+async def unshare_analysis(analysis_id: str, user=Depends(get_current_user)):
+    """Desactiva el enlace público de un análisis propio."""
+    user_id = user["sub"]
+
+    try:
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        cleared = await clear_analysis_share_token(
+            user_id=user_id, analysis_id=analysis_id
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.SHARE_FAILED),
+        ) from e
+
+    if not cleared:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    return {"status": "unshared", "analysis_id": analysis_id}
 
 
 @router.post(
@@ -265,6 +374,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         claims=record.claims,
         sources=record.sources,
         pdf_filename=record.pdf_filename,
+        share_token=record.share_token,
     )
 
 

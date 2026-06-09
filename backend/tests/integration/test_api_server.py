@@ -16,7 +16,7 @@ from redis.exceptions import RedisError
 
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.pool import DatabaseError
-from app.schemas.history import AnalysisHistoryItem
+from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 
 
 class _FakeArqPool:
@@ -349,6 +349,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.88}],
         sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
         pdf_filename=None,
+        share_token=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -397,6 +398,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         claims=None,
         sources=None,
         pdf_filename=None,
+        share_token=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -435,6 +437,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         claims=None,
         sources=None,
         pdf_filename=None,
+        share_token=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -1241,3 +1244,169 @@ def test_get_pdf_returns_400_when_id_invalid(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+_SHARE_ID = "11111111-1111-1111-1111-111111111111"
+
+
+def test_share_creates_link_and_returns_token(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        return _failed_record(status="done")
+
+    async def fake_set(*, user_id, analysis_id):
+        return "tok_abc123"
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.set_analysis_share_token", fake_set)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "shared"
+    assert body["share_token"] == "tok_abc123"
+
+
+def test_share_returns_409_when_not_done(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="pending")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_SHAREABLE"
+
+
+def test_share_returns_404_when_not_found(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+
+
+def test_share_returns_409_when_set_loses_race(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="done")
+
+    async def fake_set(*, user_id, analysis_id):
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.set_analysis_share_token", fake_set)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_SHAREABLE"
+
+
+def test_share_returns_400_when_id_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis/not-a-uuid/share")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_unshare_returns_200_when_cleared(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_clear(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        return True
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.clear_analysis_share_token", fake_clear
+    )
+
+    response = client.delete(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "unshared"
+
+
+def test_unshare_returns_404_when_not_found(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_clear(*, user_id, analysis_id):
+        return False
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.clear_analysis_share_token", fake_clear
+    )
+
+    response = client.delete(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+
+
+def test_shared_report_returns_public_view_without_user_id(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_shared(*, token):
+        assert token == "tok_abc123"
+        return PublicAnalysisReport(
+            source_type="text",
+            input_text="Bleach cures COVID",
+            label="falsa",
+            confidence=0.9,
+            explanation="Sin respaldo científico.",
+            status="done",
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.share.get_shared_analysis_by_token", fake_get_shared
+    )
+
+    response = client.get("/shared/tok_abc123")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "user_id" not in body
+    assert "share_token" not in body
+    assert body["verdict"] == "fake"
+    assert body["input_text"] == "Bleach cures COVID"
+
+
+def test_shared_report_returns_404_for_unknown_token(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_shared(*, token):
+        return None
+
+    monkeypatch.setattr(
+        "app.api.routes.share.get_shared_analysis_by_token", fake_get_shared
+    )
+
+    response = client.get("/shared/unknown-token")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "SHARED_REPORT_NOT_FOUND"

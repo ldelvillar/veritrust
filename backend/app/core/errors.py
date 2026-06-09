@@ -42,6 +42,13 @@ _MESSAGES: dict[ErrorCode, str] = {
         "Solo se pueden reintentar los análisis que han fallado."
     ),
     ErrorCode.ANALYSIS_RETRY_FAILED: "No se pudo reintentar el análisis.",
+    ErrorCode.ANALYSIS_NOT_SHAREABLE: (
+        "Solo se pueden compartir los análisis completados."
+    ),
+    ErrorCode.SHARE_FAILED: "No se pudo actualizar el enlace para compartir.",
+    ErrorCode.SHARED_REPORT_NOT_FOUND: (
+        "Este informe compartido no existe o ya no está disponible."
+    ),
     ErrorCode.HISTORY_FETCH_FAILED: "No se pudo recuperar el historial de análisis.",
     ErrorCode.DASHBOARD_FETCH_FAILED: "No se pudo recuperar el dashboard.",
     ErrorCode.RATE_LIMIT: (

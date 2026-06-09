@@ -60,6 +60,35 @@ class AnalysisHistoryItem(BaseModel):
     pdf_filename: Optional[str] = None
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None
+    share_token: Optional[str] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def verdict(self) -> Verdict:
+        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        return classify_verdict(self.label)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def credibility(self) -> Optional[int]:
+        """Credibilidad [0, 100] derivada del veredicto y la confianza."""
+        return compute_credibility(self.label, self.confidence)
+
+
+class PublicAnalysisReport(BaseModel):
+    """Vista pública de solo lectura de un informe compartido; sin datos de identidad."""
+
+    source_type: str
+    input_text: Optional[str] = None
+    input_url: Optional[str] = None
+    label: Optional[str] = None
+    confidence: Optional[float] = None
+    explanation: Optional[str] = None
+    status: str = "done"
+    created_at: str
+    pdf_filename: Optional[str] = None
+    claims: Optional[List[ClaimItem]] = None
+    sources: Optional[List[SourceItem]] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

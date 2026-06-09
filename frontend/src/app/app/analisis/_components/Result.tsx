@@ -28,12 +28,19 @@ type ClaimType = NonNullable<ResultType['claims']>[number];
 type SourceType = NonNullable<ResultType['sources']>[number];
 type Verdict = ResultType['verdict'];
 
+// Vista común al informe propio (autenticado) y al público compartido: este
+// último no trae datos de identidad, así que analysis_id es opcional.
+type ReportView = Omit<ResultType, 'user_id' | 'analysis_id'> & {
+  analysis_id?: string;
+};
+
 interface ResultProps {
-  result: ResultType;
+  result: ReportView;
   headerActions?: ReactNode;
   onRetry?: () => void;
   isRetrying?: boolean;
   retryError?: string | null;
+  isPublic?: boolean;
 }
 
 const FAILURE_MESSAGES: Record<string, string> = {
@@ -253,7 +260,7 @@ function CredibilityGauge({ score }: { score: number | null }) {
   );
 }
 
-function ResultBand({ result }: { result: ResultType }) {
+function ResultBand({ result }: { result: ReportView }) {
   const score = result.credibility ?? null;
   const verdict = getVerdictInfo(result.verdict);
   const confidence = confidenceLabel(result.confidence);
@@ -698,12 +705,19 @@ function AnalyzedPdf({
   );
 }
 
-function AnalyzedContent({ result }: { result: ResultType }) {
+function AnalyzedContent({
+  result,
+  isPublic,
+}: {
+  result: ReportView;
+  isPublic: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
-  // Análisis por PDF: mostramos el documento original renderizado.
-  if (result.source_type === 'pdf') {
+  // Análisis por PDF: el binario requiere auth, así que en la vista pública
+  // mostramos el texto extraído (cae a la rama de texto de abajo).
+  if (result.source_type === 'pdf' && !isPublic && result.analysis_id) {
     return (
       <AnalyzedPdf
         analysisId={result.analysis_id}
@@ -848,6 +862,7 @@ export default function Result({
   onRetry,
   isRetrying,
   retryError,
+  isPublic = false,
 }: ResultProps) {
   if (result.status === 'pending') {
     return (
@@ -925,7 +940,7 @@ export default function Result({
       <ResultBand result={result} />
 
       <div className="flex min-w-0 flex-col gap-6">
-        <AnalyzedContent result={result} />
+        <AnalyzedContent result={result} isPublic={isPublic} />
         {result.explanation && (
           <MedicalExplanation explanation={result.explanation} />
         )}
@@ -933,14 +948,17 @@ export default function Result({
         <Disclaimer />
       </div>
 
-      <div className="flex flex-wrap gap-3 print:hidden">
-        <Link href="/app/analisis" className={SOFT_BUTTON}>
-          Analizar otro contenido
-        </Link>
-        <Link href="/app/ayuda" className={SOFT_BUTTON}>
-          Cómo leer este informe
-        </Link>
-      </div>
+      {/* Los enlaces a /app/* requieren cuenta: se ocultan en la vista pública. */}
+      {!isPublic && (
+        <div className="flex flex-wrap gap-3 print:hidden">
+          <Link href="/app/analisis" className={SOFT_BUTTON}>
+            Analizar otro contenido
+          </Link>
+          <Link href="/app/ayuda" className={SOFT_BUTTON}>
+            Cómo leer este informe
+          </Link>
+        </div>
+      )}
 
       <PrintFooter />
     </div>

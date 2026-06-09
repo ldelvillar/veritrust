@@ -24,6 +24,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analysis/{analysis_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share Analysis
+         * @description Activa el enlace público de un análisis ``done`` propio y devuelve su token.
+         */
+        post: operations["share_analysis_analysis__analysis_id__share_post"];
+        /**
+         * Unshare Analysis
+         * @description Desactiva el enlace público de un análisis propio.
+         */
+        delete: operations["unshare_analysis_analysis__analysis_id__share_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analysis/pdf": {
         parameters: {
             query?: never;
@@ -168,6 +192,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shared/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Shared Report
+         * @description Devuelve la vista pública de un informe compartido, sin datos de identidad.
+         */
+        get: operations["get_shared_report_shared__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -229,6 +273,8 @@ export interface components {
             claims?: components["schemas"]["ClaimItem"][] | null;
             /** Sources */
             sources?: components["schemas"]["SourceItem"][] | null;
+            /** Share Token */
+            share_token?: string | null;
             /**
              * Verdict
              * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
@@ -393,7 +439,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_PDF" | "PDF_TOO_LARGE" | "PDF_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_PDF" | "PDF_TOO_LARGE" | "PDF_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -430,6 +476,58 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+        };
+        /**
+         * PublicAnalysisReport
+         * @description Vista pública de solo lectura de un informe compartido; sin datos de identidad.
+         */
+        PublicAnalysisReport: {
+            /** Source Type */
+            source_type: string;
+            /** Input Text */
+            input_text?: string | null;
+            /** Input Url */
+            input_url?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Confidence */
+            confidence?: number | null;
+            /** Explanation */
+            explanation?: string | null;
+            /**
+             * Status
+             * @default done
+             */
+            status: string;
+            /** Created At */
+            created_at: string;
+            /** Pdf Filename */
+            pdf_filename?: string | null;
+            /** Claims */
+            claims?: components["schemas"]["ClaimItem"][] | null;
+            /** Sources */
+            sources?: components["schemas"]["SourceItem"][] | null;
+            /**
+             * Verdict
+             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @enum {string}
+             */
+            readonly verdict: "real" | "fake" | "uncertain";
+            /**
+             * Credibility
+             * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
+             */
+            readonly credibility: number | null;
+        };
+        /**
+         * ShareResponse
+         * @description Respuesta al crear o consultar el enlace público de un análisis.
+         */
+        ShareResponse: {
+            /** Status */
+            status: string;
+            /** Share Token */
+            share_token: string;
         };
         /**
          * SourceItem
@@ -537,6 +635,153 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    share_analysis_analysis__analysis_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unshare_analysis_analysis__analysis_id__share_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1074,6 +1319,55 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_shared_report_shared__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAnalysisReport"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

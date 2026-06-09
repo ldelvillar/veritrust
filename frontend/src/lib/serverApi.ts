@@ -39,3 +39,21 @@ export async function fetchJsonServer<T>(path: string): Promise<T> {
 
   return (await response.json()) as T;
 }
+
+export async function fetchPublicJsonServer<T>(path: string): Promise<T> {
+  const response = await fetch(buildServerUrl(path), { cache: 'no-store' });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const { message, code } = parseErrorDetail(
+      (payload as { detail?: unknown }).detail
+    );
+    throw new ApiError(
+      message ?? `Status ${response.status}: error al conectar con el servidor`,
+      code,
+      response.status
+    );
+  }
+
+  return (await response.json()) as T;
+}
