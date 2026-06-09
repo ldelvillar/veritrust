@@ -106,7 +106,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)   
 - **Async end-to-end** — all routes, dependencies, and DB functions are `async def`. Invoke the graph via `await graph.ainvoke(...)` (helper `ainvoke_graph` in `app/agents/errors.py`). Individual agent nodes stay sync `def` (LangGraph dispatches them to its own threadpool). `extract_text_from_url` stays sync and is called via `await asyncio.to_thread(...)`.
 - **No ORM** — database access is raw psycopg3 async SQL under `app/db/`, served by the module-level `AsyncConnectionPool` in `app/db/pool.py` (opened/closed in the lifespan).
 - **TypeScript API types** are generated from the backend's OpenAPI spec — run `generate:api-types` after changing schemas, never hand-edit `frontend/src/types/api.d.ts`.
-- **Comments & docstrings** — keep them short. Comments explain _what_ in one line. Class/method docstrings are a single plain sentence. Don't put architectural rationale or trade-off discussion in code; it belongs here or in the PR.
+- **Comments & docstrings** — every code comment is **exactly one line**. Never write a multi-line or multi-sentence comment, and never stack several `#`/`//` lines into one block — if it doesn't fit on one line, cut it down until it does. Comments explain _what_ in that single line. Class/method docstrings are a single plain sentence. Don't put architectural rationale or trade-off discussion in code; it belongs here or in the PR.
 - **Per-file `E402` ignore** — `app/agents/main.py`, `app/agents/health_expert.py`, and `ml/evaluation/evaluate_factcheck.py` carry an `E402` ignore for the intentional `sys.path` manipulation that lets them run as scripts. Preserve it.
 
 ## Security
