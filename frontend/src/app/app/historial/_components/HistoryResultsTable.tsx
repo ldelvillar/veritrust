@@ -3,7 +3,24 @@ import Spinner from '@/assets/Spinner';
 import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
 import Trash from '@/assets/Trash';
+import Magnifier from '@/assets/Magnifier';
 import type { paths } from '@/types/api';
+
+function FunnelIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+    </svg>
+  );
+}
 
 type HistoryItem =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
@@ -19,6 +36,8 @@ interface HistoryResultsTableProps {
   onPageChange: (page: number) => void;
   onDelete: (item: HistoryItem) => void;
   deletingId?: string | null;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
 }
 
 const getTitle = (item: HistoryItem): string => {
@@ -95,7 +114,53 @@ export default function HistoryResultsTable({
   onPageChange,
   onDelete,
   deletingId,
+  hasActiveFilters,
+  onClearFilters,
 }: HistoryResultsTableProps) {
+  // Estado vacío dedicado: distingue primer uso (sin análisis) de filtros sin
+  // coincidencias, sin la cabecera ni la paginación de la tabla.
+  if (!isLoading && !errorMessage && history.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-white shadow-sm">
+        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
+            {hasActiveFilters ? (
+              <FunnelIcon className="size-7" />
+            ) : (
+              <Magnifier className="size-7" />
+            )}
+          </div>
+          <h2 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
+            {hasActiveFilters
+              ? 'Sin resultados para estos filtros'
+              : 'Aún no has analizado nada'}
+          </h2>
+          <p className="mt-2 max-w-sm text-sm font-medium text-slate-500">
+            {hasActiveFilters
+              ? 'Ningún análisis coincide con la búsqueda o los filtros aplicados. Prueba a ajustarlos o límpialos para ver todo tu historial.'
+              : 'Cuando verifiques tu primer contenido médico, tus informes aparecerán aquí para que puedas consultarlos y gestionarlos.'}
+          </p>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            >
+              Limpiar filtros
+            </button>
+          ) : (
+            <Link
+              href="/app/analisis"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-[#5446dc] focus:ring-4 focus:ring-primary/20 focus:outline-none"
+            >
+              Analizar contenido
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
   const startRecord =
@@ -145,10 +210,6 @@ export default function HistoryResultsTable({
               </div>
             </div>
           </div>
-        </div>
-      ) : history.length === 0 ? (
-        <div className="px-5 py-12 text-center text-sm font-medium text-slate-500">
-          Aún no tienes análisis o los resultados no coinciden con los filtros.
         </div>
       ) : (
         <ul>

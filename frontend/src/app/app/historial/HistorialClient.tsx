@@ -127,6 +127,12 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const effectivePage = Math.min(currentPage, totalPages);
 
+  // El orden por fecha no acota resultados, así que no cuenta como filtro activo.
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    sourceTypeFilter !== 'all' ||
+    dateRangeFilter !== 'all';
+
   const handleSearchQueryChange = useCallback((value: string) => {
     setSearchQuery(value);
   }, []);
@@ -151,6 +157,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(Math.max(1, page));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    // Reseteamos también debouncedSearch para no esperar al debounce de 300 ms.
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setSourceTypeFilter('all');
+    setDateRangeFilter('all');
+    setCurrentPage(1);
   }, []);
 
   const handleDeleteRequest = useCallback(
@@ -245,6 +260,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         onPageChange={handlePageChange}
         onDelete={handleDeleteRequest}
         deletingId={isDeleting ? (pendingDelete?.analysis_id ?? null) : null}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={handleClearFilters}
       />
 
       <ConfirmDialog
