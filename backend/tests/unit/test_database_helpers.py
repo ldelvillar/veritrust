@@ -199,6 +199,50 @@ def test_build_history_where_clause_with_search_filters_and_date() -> None:
     ]
 
 
+def test_build_history_where_clause_filters_by_fake_verdict() -> None:
+    where_sql, params = history_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+        verdict="fake",
+    )
+
+    assert "LIKE '%%fals%%'" in where_sql
+    assert "LIKE '%%fake%%'" in where_sql
+    # La cláusula de veredicto es constante: no añade parámetros.
+    assert params == ["user-1"]
+
+
+def test_build_history_where_clause_uncertain_excludes_real_and_fake() -> None:
+    where_sql, params = history_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+        verdict="uncertain",
+    )
+
+    assert where_sql.endswith(
+        f"AND (NOT {history_module._VERDICT_REAL_SQL} "
+        f"AND NOT {history_module._VERDICT_FAKE_SQL})"
+    )
+    assert params == ["user-1"]
+
+
+def test_build_history_where_clause_ignores_unknown_verdict() -> None:
+    where_sql, params = history_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+        verdict="bogus",
+    )
+
+    assert where_sql == "user_id = %s AND status = 'done'"
+    assert params == ["user-1"]
+
+
 def test_build_history_queries_includes_ordering_and_where() -> None:
     count_query, list_query = history_module._build_history_queries(
         "user_id = %s",

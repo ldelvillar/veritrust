@@ -8,6 +8,7 @@ import HistoryFilters, {
   DateRangeFilter,
   DateSortOrder,
   SourceTypeFilter,
+  VerdictFilter,
 } from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -17,7 +18,7 @@ import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
 
 const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&date_range=all&date_sort=desc`;
+const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&date_range=all&date_sort=desc`;
 
 type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
@@ -32,6 +33,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] =
     useState<SourceTypeFilter>('all');
+  const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>('all');
   const [dateRangeFilter, setDateRangeFilter] =
     useState<DateRangeFilter>('all');
   const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>('desc');
@@ -62,6 +64,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       page: String(currentPage),
       page_size: String(PAGE_SIZE),
       source_type: sourceTypeFilter,
+      verdict: verdictFilter,
       date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
@@ -74,18 +77,26 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     dateSortOrder,
     debouncedSearch,
     sourceTypeFilter,
+    verdictFilter,
   ]);
 
   const exportPath = useMemo(() => {
     const params = new URLSearchParams({
       source_type: sourceTypeFilter,
+      verdict: verdictFilter,
       date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
     const trimmedQuery = debouncedSearch.trim();
     if (trimmedQuery) params.set('search', trimmedQuery);
     return `/history/export?${params.toString()}`;
-  }, [dateRangeFilter, dateSortOrder, debouncedSearch, sourceTypeFilter]);
+  }, [
+    dateRangeFilter,
+    dateSortOrder,
+    debouncedSearch,
+    sourceTypeFilter,
+    verdictFilter,
+  ]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -131,6 +142,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     sourceTypeFilter !== 'all' ||
+    verdictFilter !== 'all' ||
     dateRangeFilter !== 'all';
 
   const handleSearchQueryChange = useCallback((value: string) => {
@@ -144,6 +156,11 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     },
     []
   );
+
+  const handleVerdictFilterChange = useCallback((value: VerdictFilter) => {
+    setCurrentPage(1);
+    setVerdictFilter(value);
+  }, []);
 
   const handleDateRangeFilterChange = useCallback((value: DateRangeFilter) => {
     setCurrentPage(1);
@@ -164,6 +181,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setSearchQuery('');
     setDebouncedSearch('');
     setSourceTypeFilter('all');
+    setVerdictFilter('all');
     setDateRangeFilter('all');
     setCurrentPage(1);
   }, []);
@@ -243,6 +261,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         onSearchQueryChange={handleSearchQueryChange}
         sourceTypeFilter={sourceTypeFilter}
         onSourceTypeFilterChange={handleSourceTypeFilterChange}
+        verdictFilter={verdictFilter}
+        onVerdictFilterChange={handleVerdictFilterChange}
         dateRangeFilter={dateRangeFilter}
         onDateRangeFilterChange={handleDateRangeFilterChange}
         dateSortOrder={dateSortOrder}

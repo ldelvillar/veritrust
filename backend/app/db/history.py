@@ -16,6 +16,23 @@ from app.schemas.history import AnalysisHistoryItem
 logger = logging.getLogger(__name__)
 
 _VALID_SOURCE_TYPES = {"text", "file", "url"}
+_VALID_VERDICTS = {"real", "fake", "uncertain"}
+
+# Espejo en SQL de classify_verdict
+_VERDICT_REAL_SQL = (
+    "(LOWER(COALESCE(label, '')) LIKE '%%verdad%%' "
+    "OR LOWER(COALESCE(label, '')) LIKE '%%true%%' "
+    "OR LOWER(COALESCE(label, '')) LIKE '%%real%%')"
+)
+_VERDICT_FAKE_SQL = (
+    "(LOWER(COALESCE(label, '')) LIKE '%%fals%%' "
+    "OR LOWER(COALESCE(label, '')) LIKE '%%fake%%')"
+)
+_VERDICT_SQL = {
+    "real": _VERDICT_REAL_SQL,
+    "fake": _VERDICT_FAKE_SQL,
+    "uncertain": f"(NOT {_VERDICT_REAL_SQL} AND NOT {_VERDICT_FAKE_SQL})",
+}
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -72,6 +89,7 @@ def _build_history_where_clause(
     search_query: Optional[str],
     source_type: Optional[str],
     created_after: Optional[datetime],
+    verdict: Optional[str] = None,
 ) -> tuple[str, list[Any]]:
     """Construye cláusula WHERE y parámetros para historial paginado."""
     where_clauses = ["user_id = %s", "status = 'done'"]
@@ -93,6 +111,10 @@ def _build_history_where_clause(
     if source_type:
         where_clauses.append("source_type = %s")
         where_params.append(source_type)
+
+    # Cláusula constante (sin parámetros): el bucket ya viene validado.
+    if verdict in _VALID_VERDICTS:
+        where_clauses.append(_VERDICT_SQL[verdict])
 
     if created_after is not None:
         where_clauses.append("created_at >= %s")
@@ -325,6 +347,7 @@ async def list_user_analysis_history(
     source_type: Optional[str] = None,
     created_after: Optional[datetime] = None,
     date_sort_order: str = "desc",
+    verdict: Optional[str] = None,
 ) -> tuple[list[AnalysisHistoryItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
     pool = await get_pool()
@@ -342,6 +365,7 @@ async def list_user_analysis_history(
         search_query=search_query,
         source_type=safe_source_type,
         created_after=created_after,
+        verdict=verdict,
     )
     count_query, list_query = _build_history_queries(where_sql, safe_date_sort)
 
@@ -349,11 +373,15 @@ async def list_user_analysis_history(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql/safe_date_sort son valores saneados, no entrada cruda.
-                await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    count_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    list_query, (*where_params, safe_limit, safe_offset)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -377,6 +405,7 @@ async def export_user_analysis_history(
     source_type: Optional[str] = None,
     created_after: Optional[datetime] = None,
     date_sort_order: str = "desc",
+    verdict: Optional[str] = None,
 ) -> list[AnalysisHistoryItem]:
     """Lista todo el historial filtrado del usuario para exportarlo (sin paginar)."""
     pool = await get_pool()
@@ -392,6 +421,7 @@ async def export_user_analysis_history(
         search_query=search_query,
         source_type=safe_source_type,
         created_after=created_after,
+        verdict=verdict,
     )
 
     export_query = """
@@ -419,7 +449,9 @@ async def export_user_analysis_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    export_query, (*where_params, _EXPORT_MAX_ROWS)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(

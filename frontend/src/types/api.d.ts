@@ -404,9 +404,6 @@ export interface components {
         /**
          * ErrorResponse
          * @description Cuerpo completo de un error: {"detail": ErrorDetail}.
-         *
-         *     Se usa en el parámetro ``responses`` de las rutas para documentar el
-         *     contrato de errores en OpenAPI y, vía openapi-typescript, en el frontend.
          */
         ErrorResponse: {
             detail: components["schemas"]["ErrorDetail"];
@@ -996,6 +993,7 @@ export interface operations {
                 page_size?: number;
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
+                verdict?: "all" | "real" | "fake" | "uncertain";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 date_sort?: "desc" | "asc";
             };
@@ -1050,6 +1048,7 @@ export interface operations {
             query?: {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
+                verdict?: "all" | "real" | "fake" | "uncertain";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 date_sort?: "desc" | "asc";
             };

@@ -4,12 +4,15 @@ import Magnifier from '@/assets/Magnifier';
 export type DateSortOrder = 'desc' | 'asc';
 export type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
 export type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
+export type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
 
 interface HistoryFiltersProps {
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   sourceTypeFilter: SourceTypeFilter;
   onSourceTypeFilterChange: (value: SourceTypeFilter) => void;
+  verdictFilter: VerdictFilter;
+  onVerdictFilterChange: (value: VerdictFilter) => void;
   dateRangeFilter: DateRangeFilter;
   onDateRangeFilterChange: (value: DateRangeFilter) => void;
   dateSortOrder: DateSortOrder;
@@ -21,13 +24,15 @@ export default function HistoryFilters({
   onSearchQueryChange,
   sourceTypeFilter,
   onSourceTypeFilterChange,
+  verdictFilter,
+  onVerdictFilterChange,
   dateRangeFilter,
   onDateRangeFilterChange,
   dateSortOrder,
   onDateSortOrderChange,
 }: HistoryFiltersProps) {
   return (
-    <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+    <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto]">
       <label className="relative block">
         <span className="sr-only">
           Buscar análisis por título o palabra clave
@@ -54,6 +59,24 @@ export default function HistoryFilters({
           <option value="text">Texto pegado</option>
           <option value="file">Carga de archivo</option>
           <option value="url">Enlace</option>
+        </select>
+        <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400">
+          <Chevron />
+        </div>
+      </label>
+
+      <label className="relative block">
+        <select
+          value={verdictFilter}
+          onChange={event =>
+            onVerdictFilterChange(event.target.value as VerdictFilter)
+          }
+          className="h-11 w-full min-w-44 cursor-pointer appearance-none rounded-xl border border-border bg-white px-4 pr-10 text-sm font-medium text-slate-600 transition-all outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+        >
+          <option value="all">Todos los veredictos</option>
+          <option value="real">Verdadera</option>
+          <option value="fake">Falsa</option>
+          <option value="uncertain">Incierta</option>
         </select>
         <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400">
           <Chevron />

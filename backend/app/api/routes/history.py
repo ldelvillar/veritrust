@@ -57,6 +57,7 @@ async def get_history(
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, max_length=200),
     source_type: Literal["all", "text", "file", "url"] = "all",
+    verdict: Literal["all", "real", "fake", "uncertain"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
     date_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
@@ -74,6 +75,7 @@ async def get_history(
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
             date_sort_order=date_sort,
+            verdict=None if verdict == "all" else verdict,
         )
     except DatabaseError as e:
         raise HTTPException(
@@ -132,6 +134,7 @@ def _build_history_csv(records: list[AnalysisHistoryItem]) -> bytes:
 async def export_history(
     search: str | None = Query(default=None, max_length=200),
     source_type: Literal["all", "text", "file", "url"] = "all",
+    verdict: Literal["all", "real", "fake", "uncertain"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
     date_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
@@ -146,6 +149,7 @@ async def export_history(
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
             date_sort_order=date_sort,
+            verdict=None if verdict == "all" else verdict,
         )
     except DatabaseError as e:
         raise HTTPException(
