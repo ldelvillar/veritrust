@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 # Commit.md
 
 Analyze the staged changes and write a conventional commit message for the VeriTrust project.
