@@ -266,13 +266,14 @@ def test_sanitize_dashboard_params_clamps_values() -> None:
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:
-    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0)
-    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2)) == (
+    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0, 0)
+    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3)) == (
         10,
         0.83,
         7,
         4,
         2,
+        3,
     )
 
 

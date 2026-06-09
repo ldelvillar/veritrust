@@ -31,19 +31,21 @@ def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[in
 
 def _extract_kpis_values(
     kpi_row: Sequence[Any] | None,
-) -> tuple[int, float, int, int, int]:
+) -> tuple[int, float, int, int, int, int]:
     """Extrae valores de KPI con defaults cuando no hay resultados."""
     total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
     average_confidence = float(kpi_row[1] or 0.0) if kpi_row else 0.0
     reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
     current_week_total = int(kpi_row[3] or 0) if kpi_row else 0
     previous_week_total = int(kpi_row[4] or 0) if kpi_row else 0
+    active_alerts = int(kpi_row[5] or 0) if kpi_row else 0
     return (
         total_analyses,
         average_confidence,
         reliable_total,
         current_week_total,
         previous_week_total,
+        active_alerts,
     )
 
 
@@ -215,7 +217,15 @@ async def get_user_dashboard_summary(
                     THEN 1
                     ELSE 0
                 END
-            ) AS previous_week_total
+            ) AS previous_week_total,
+            SUM(
+                CASE
+                    WHEN LOWER(COALESCE(label, '')) LIKE 'fals%%'
+                      OR LOWER(COALESCE(label, '')) LIKE 'fake%%'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS active_alerts
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
     """
@@ -308,6 +318,7 @@ async def get_user_dashboard_summary(
         reliable_total,
         current_week_total,
         previous_week_total,
+        active_alerts,
     ) = _extract_kpis_values(kpi_row)
 
     reliable_rate = _calculate_reliable_rate(
@@ -335,6 +346,7 @@ async def get_user_dashboard_summary(
             reliable_rate=reliable_rate,
             average_confidence=_round_percentage(average_confidence),
             week_over_week_delta=week_over_week_delta,
+            active_alerts=active_alerts,
         ),
         trend=trend_points,
         source_breakdown=source_breakdown,

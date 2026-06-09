@@ -981,6 +981,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
             reliable_rate=61.5,
             average_confidence=74.2,
             week_over_week_delta=15.0,
+            active_alerts=7,
         ),
         trend=[
             types.SimpleNamespace(
@@ -1031,6 +1032,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     body = response.json()
     assert body["status"] == "success"
     assert body["kpis"]["total_analyses"] == 23
+    assert body["kpis"]["active_alerts"] == 7
     assert body["trend"][0]["date"] == "2026-04-10"
     assert body["source_breakdown"][0]["source_type"] == "url"
     assert body["domain_breakdown"][0]["domain"] == "ejemplo.com"

@@ -344,6 +344,8 @@ export interface components {
             average_confidence: number;
             /** Week Over Week Delta */
             week_over_week_delta: number;
+            /** Active Alerts */
+            active_alerts: number;
         };
         /**
          * DashboardSourceBreakdownItem

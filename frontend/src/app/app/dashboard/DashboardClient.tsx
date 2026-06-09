@@ -691,7 +691,13 @@ function getAlertTitle(item: DashboardAlertItem): string {
   return 'Análisis sin título';
 }
 
-function AlertsCard({ items }: { items: DashboardAlertItem[] }) {
+function AlertsCard({
+  items,
+  total,
+}: {
+  items: DashboardAlertItem[];
+  total: number;
+}) {
   return (
     <section className="flex flex-col rounded-[20px] border border-[#e8e6f4] bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -706,12 +712,12 @@ function AlertsCard({ items }: { items: DashboardAlertItem[] }) {
             Últimos análisis con baja credibilidad detectada.
           </p>
         </div>
-        {items.length > 0 && (
+        {total > 0 && (
           <span
             className="shrink-0 rounded-full border border-[#e7e3fb] bg-[#f4f2fd] px-[11px] py-[6px] text-[11.5px] font-bold"
             style={{ color: '#5446dc' }}
           >
-            {items.length} nuevas
+            {total} {total === 1 ? 'alerta' : 'alertas'}
           </span>
         )}
       </div>
@@ -906,7 +912,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         />
         <KpiCard
           label="Alertas activas"
-          value={String(dashboard.alerts.length)}
+          value={String(dashboard.kpis.active_alerts)}
           sub="baja credibilidad"
           icon={<IcWarn className="size-5" />}
           tint="#fbe4e8"
@@ -973,7 +979,10 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       {/* Domains + Alerts row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.1fr]">
         <DomainsCard items={dashboard.domain_breakdown} />
-        <AlertsCard items={dashboard.alerts} />
+        <AlertsCard
+          items={dashboard.alerts}
+          total={dashboard.kpis.active_alerts}
+        />
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ class DashboardKpis(BaseModel):
     reliable_rate: float
     average_confidence: float
     week_over_week_delta: float
+    active_alerts: int
 
 
 class DashboardTrendPoint(BaseModel):
