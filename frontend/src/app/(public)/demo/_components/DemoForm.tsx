@@ -2,6 +2,11 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import BuildingIcon from '@/assets/Building';
+import CheckIcon from '@/assets/Check';
+import InstitutionIcon from '@/assets/Institution';
+import NewspaperIcon from '@/assets/Newspaper';
+import ShieldIcon from '@/assets/Shield';
 
 type Values = {
   nombre: string;
@@ -50,88 +55,13 @@ const optMark = (
   <span className="text-[11.5px] font-semibold text-[#9698b1]">(opcional)</span>
 );
 
-type IconProps = { className?: string };
-
-function PressIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2zM18 8h2a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2M7 8h7M7 12h7M7 16h4" />
-    </svg>
-  );
-}
-function HealthIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />
-    </svg>
-  );
-}
-function InstitutionIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 9l9-6 9 6M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M9 21v-6h6v6" />
-    </svg>
-  );
-}
-function CheckIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-function ShieldIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
 const perfiles = [
-  { value: 'periodismo', label: 'Periodismo / verificación', Icon: PressIcon },
-  { value: 'salud-publica', label: 'Salud pública', Icon: HealthIcon },
+  {
+    value: 'periodismo',
+    label: 'Periodismo / verificación',
+    Icon: NewspaperIcon,
+  },
+  { value: 'salud-publica', label: 'Salud pública', Icon: BuildingIcon },
   { value: 'institucion', label: 'Institución / otra', Icon: InstitutionIcon },
 ];
 
@@ -220,7 +150,7 @@ export default function DemoForm() {
       <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-[#def4ea] text-[#0e8e5b]">
-            <CheckIcon className="size-9.5" />
+            <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
           <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-[#15162c]">
             ¡Solicitud recibida!
@@ -456,7 +386,7 @@ export default function DemoForm() {
             Solicitar demo
           </button>
           <span className="flex items-center gap-1.75 text-[12.5px] text-[#7e7f99]">
-            <ShieldIcon className="size-3.75 text-[#9698b1]" />
+            <ShieldIcon className="size-3.75 text-[#9698b1]" strokeWidth={2.1} />
             Sin compromiso · respondemos en 24&nbsp;h
           </span>
         </div>

@@ -2,151 +2,21 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import ArrowRightIcon from '@/assets/ArrowRight';
+import ChevronDownIcon from '@/assets/ChevronDown';
+import ChevronUpIcon from '@/assets/ChevronUp';
+import ListIcon from '@/assets/List';
 import Magnifier from '@/assets/Magnifier';
+import QuestionIcon from '@/assets/Question';
+import ShieldIcon from '@/assets/Shield';
+import SparkleIcon from '@/assets/Sparkle';
+import WarningIcon from '@/assets/Warning';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import type { paths } from '@/types/api';
 
 type DashboardPayload =
   paths['/dashboard/summary']['get']['responses']['200']['content']['application/json'];
 type DashboardAlertItem = DashboardPayload['alerts'][number];
-
-// ── Icon components ──────────────────────────────────────────────────────────
-
-function IcList({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <line x1="8" y1="6" x2="20" y2="6" />
-      <line x1="8" y1="12" x2="20" y2="12" />
-      <line x1="8" y1="18" x2="20" y2="18" />
-      <circle cx="3.5" cy="6" r="1" />
-      <circle cx="3.5" cy="12" r="1" />
-      <circle cx="3.5" cy="18" r="1" />
-    </svg>
-  );
-}
-
-function IcShield({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
-function IcSparkle({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
-      <path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z" />
-    </svg>
-  );
-}
-
-function IcWarn({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
-    </svg>
-  );
-}
-
-function IcArrowUp({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M6 14l6-6 6 6" />
-    </svg>
-  );
-}
-
-function IcArrowDown({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M6 10l6 6 6-6" />
-    </svg>
-  );
-}
-
-function IcArrowRight({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-function QuestionIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7M12 17h.01" />
-    </svg>
-  );
-}
 
 // ── Tooltip hint ──────────────────────────────────────────────────────────────
 
@@ -282,9 +152,9 @@ function KpiCard({
               }
             >
               {delta.dir === 'up' ? (
-                <IcArrowUp className="size-3" />
+                <ChevronUpIcon className="size-3" />
               ) : (
-                <IcArrowDown className="size-3" />
+                <ChevronDownIcon className="size-3" />
               )}
               {delta.value}
               <span style={{ fontWeight: 600, opacity: 0.8 }}>sem.</span>
@@ -782,7 +652,7 @@ function AlertsCard({
                     className="grid size-[34px] shrink-0 place-items-center self-center rounded-[10px] border border-[#e8e6f4] bg-white transition-transform duration-150 group-hover:translate-x-0.5"
                     style={{ color: '#a3a4ba' }}
                   >
-                    <IcArrowRight className="size-4" />
+                    <ArrowRightIcon className="size-4" strokeWidth={2.1} />
                   </div>
                 </Link>
               );
@@ -795,7 +665,8 @@ function AlertsCard({
               className="font-display inline-flex items-center gap-2 text-[13.5px] font-semibold"
               style={{ color: '#5446dc' }}
             >
-              Ver todas las alertas <IcArrowRight className="size-4" />
+              Ver todas las alertas{' '}
+              <ArrowRightIcon className="size-4" strokeWidth={2.1} />
             </Link>
           </div>
         </>
@@ -883,7 +754,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           label="Análisis totales"
           value={String(dashboard.kpis.total_analyses)}
           sub="este mes"
-          icon={<IcList className="size-5" />}
+          icon={<ListIcon className="size-5" />}
           tint="#eeebfc"
           color="#6356e6"
           delta={{ dir: delta >= 0 ? 'up' : 'down', value: deltaStr }}
@@ -894,7 +765,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           label="Tasa de fiabilidad"
           value={`${dashboard.kpis.reliable_rate}%`}
           sub="veredicto «fiable»"
-          icon={<IcShield className="size-5" />}
+          icon={<ShieldIcon className="size-5" strokeWidth={2.1} />}
           tint="#def4ea"
           color="#13b877"
           spark={sparkConf.length >= 2 ? sparkConf : undefined}
@@ -904,7 +775,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           label="Confianza media"
           value={`${dashboard.kpis.average_confidence}%`}
           sub="media ponderada"
-          icon={<IcSparkle className="size-5" />}
+          icon={<SparkleIcon className="size-5" />}
           tint="#e4f1fc"
           color="#2c97e8"
           spark={sparkConf.length >= 2 ? sparkConf : undefined}
@@ -914,7 +785,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           label="Alertas activas"
           value={String(dashboard.kpis.active_alerts)}
           sub="baja credibilidad"
-          icon={<IcWarn className="size-5" />}
+          icon={<WarningIcon className="size-5" strokeWidth={2.2} />}
           tint="#fbe4e8"
           color="#e0556b"
           spark={sparkTotal.length >= 2 ? sparkTotal : undefined}

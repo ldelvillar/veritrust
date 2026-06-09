@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
 
+import ArrowRightIcon from '@/assets/ArrowRight';
+import BellIcon from '@/assets/Bell';
+import ClockIcon from '@/assets/Clock';
+import MailIcon from '@/assets/Mail';
+import NewspaperIcon from '@/assets/Newspaper';
+import PhoneIcon from '@/assets/Phone';
+import PinIcon from '@/assets/Pin';
 import ContactForm from './_components/ContactForm';
 import { CONFIG } from '@/config';
 
@@ -18,122 +25,6 @@ export const metadata: Metadata = {
 
 const container = 'mx-auto w-full max-w-295 px-5 md:px-8';
 
-type IconProps = { className?: string };
-
-function MailIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 8l9 6 9-6M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
-    </svg>
-  );
-}
-
-function BellIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
-    </svg>
-  );
-}
-
-function PressIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2zM18 8h2a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2M7 8h7M7 12h7M7 16h4" />
-    </svg>
-  );
-}
-
-function PhoneIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" />
-    </svg>
-  );
-}
-
-function PinIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function ClockIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
-}
-
-function ArrowIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
 const channels = [
   {
     Icon: MailIcon,
@@ -151,7 +42,7 @@ const channels = [
     },
   },
   {
-    Icon: PressIcon,
+    Icon: NewspaperIcon,
     title: 'Prensa y alianzas',
     desc: 'Medios, organismos de salud y colaboraciones de investigación.',
     link: {
@@ -206,7 +97,10 @@ export default function ContactoPage() {
                 className="inline-flex items-center gap-1.75 text-[14.5px] font-semibold text-[#5446dc] transition hover:text-primary"
               >
                 {link.label}
-                <ArrowIcon className="size-4 transition group-hover:translate-x-0.75" />
+                <ArrowRightIcon
+                  className="size-4 transition group-hover:translate-x-0.75"
+                  strokeWidth={2.1}
+                />
               </a>
             </div>
           ))}

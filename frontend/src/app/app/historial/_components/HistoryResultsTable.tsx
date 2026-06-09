@@ -4,23 +4,8 @@ import Arrow from '@/assets/Arrow';
 import Warning from '@/assets/Warning';
 import Trash from '@/assets/Trash';
 import Magnifier from '@/assets/Magnifier';
+import FunnelIcon from '@/assets/Funnel';
 import type { paths } from '@/types/api';
-
-function FunnelIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 5h18l-7 8v6l-4 2v-8z" />
-    </svg>
-  );
-}
 
 type HistoryItem =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];

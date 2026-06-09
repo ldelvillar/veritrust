@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import CheckIcon from '@/assets/Check';
+import ShieldIcon from '@/assets/Shield';
 
 type Values = {
   nombre: string;
@@ -30,39 +32,6 @@ function fieldClass(invalid: boolean) {
   return `${inputBase} ${
     invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-[#dcd9ee] bg-[#faf9fe]'
   }`;
-}
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function ShieldIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
 }
 
 const labelClass =
@@ -116,7 +85,7 @@ export default function ContactForm() {
       {sent ? (
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-[#def4ea] text-[#0e8e5b]">
-            <CheckIcon className="size-9.5" />
+            <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
           <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-[#15162c]">
             Mensaje enviado
@@ -271,7 +240,7 @@ export default function ContactForm() {
                 Enviar mensaje
               </button>
               <span className="flex items-center gap-1.75 text-[12.5px] text-[#7e7f99]">
-                <ShieldIcon className="size-3.75 text-[#9698b1]" />
+                <ShieldIcon className="size-3.75 text-[#9698b1]" strokeWidth={2.1} />
                 Tus datos están seguros
               </span>
             </div>

@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
 
+import CodeIcon from '@/assets/Code';
+import ScanIcon from '@/assets/Scan';
+import ShieldIcon from '@/assets/Shield';
+import UploadIcon from '@/assets/Upload';
 import DemoForm from './_components/DemoForm';
 
 export const metadata: Metadata = {
@@ -17,70 +21,6 @@ export const metadata: Metadata = {
 
 const container = 'mx-auto w-full max-w-295 px-5 md:px-8';
 
-type IconProps = { className?: string };
-
-function ScanIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M7.5 12h9" />
-    </svg>
-  );
-}
-function ApiIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
-    </svg>
-  );
-}
-function ExportIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 16V4M7 9l5-5 5 5M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1" />
-    </svg>
-  );
-}
-function ShieldIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
 const benefits = [
   {
     Icon: ScanIcon,
@@ -88,12 +28,12 @@ const benefits = [
     desc: 'Cómo el extractor, el traductor, el investigador y el experto en salud llegan a un veredicto.',
   },
   {
-    Icon: ApiIcon,
+    Icon: CodeIcon,
     title: 'Integración por API',
     desc: 'Cómo conectar VeriTrust a tu CMS o flujo de monitorización.',
   },
   {
-    Icon: ExportIcon,
+    Icon: UploadIcon,
     title: 'Informes y exportación',
     desc: 'El formato de informe que respaldará tu fact-check o tu campaña.',
   },

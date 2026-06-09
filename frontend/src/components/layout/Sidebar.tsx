@@ -6,81 +6,10 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SidebarIcon from '@/assets/Sidebar';
 import Logo from '@/assets/Logo';
-
-type IconProps = { className?: string };
-
-function GridIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </svg>
-  );
-}
-
-function ScanIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M7.5 12h9" />
-    </svg>
-  );
-}
-
-function ListIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <line x1="8" y1="6" x2="20" y2="6" />
-      <line x1="8" y1="12" x2="20" y2="12" />
-      <line x1="8" y1="18" x2="20" y2="18" />
-      <circle cx="3.5" cy="6" r="1" />
-      <circle cx="3.5" cy="12" r="1" />
-      <circle cx="3.5" cy="18" r="1" />
-    </svg>
-  );
-}
-
-function HelpIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7M12 17h.01" />
-    </svg>
-  );
-}
+import GridIcon from '@/assets/Grid';
+import ScanIcon from '@/assets/Scan';
+import ListIcon from '@/assets/List';
+import QuestionIcon from '@/assets/Question';
 
 const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: ScanIcon },
@@ -214,7 +143,7 @@ function SidebarContent({
             collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
           }`}
         >
-          <HelpIcon className="size-4.75 shrink-0" />
+          <QuestionIcon className="size-4.75 shrink-0" />
           {!collapsed && <span>Ayuda</span>}
         </Link>
       </div>
