@@ -19,7 +19,7 @@ import WarningIcon from '@/assets/Warning';
 import PendingAnalysis from './PendingAnalysis';
 import PdfViewer from '@/components/PdfViewer';
 import { fetchBlobWithAuth } from '@/lib/apiClient';
-import { groupSourcesByClaim } from '@/lib/evidence';
+import { countBackedClaims, groupSourcesByClaim } from '@/lib/evidence';
 import type { paths } from '@/types/api';
 
 type ResultType =
@@ -258,6 +258,10 @@ function ResultBand({ result }: { result: ResultType }) {
   const verdict = getVerdictInfo(result.verdict);
   const confidence = confidenceLabel(result.confidence);
   const claimCount = result.claims?.length ?? 0;
+  const sources = result.sources ?? [];
+  const coverage = countBackedClaims(result.claims ?? [], sources);
+  // Solo con fuentes (investigador ejecutado): los análisis antiguos no se cuentan.
+  const showCoverage = coverage.total > 0 && sources.length > 0;
   const sourceText =
     result.source_type === 'url' ? result.input_url : result.input_text;
   const formattedDate = new Date(result.created_at).toLocaleString('es-ES', {
@@ -300,6 +304,12 @@ function ResultBand({ result }: { result: ResultType }) {
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
               <ListIcon className="size-3.5 opacity-85" />
               {claimCount} {claimCount === 1 ? 'afirmación' : 'afirmaciones'}
+            </span>
+          )}
+          {showCoverage && (
+            <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
+              <BookIcon className="size-3.5 opacity-85" />
+              {coverage.backed}/{coverage.total} con evidencia
             </span>
           )}
           <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
@@ -590,6 +600,7 @@ function ClaimsEvidence({
   }
 
   const { groups, unmatched } = groupSourcesByClaim(claims, sources);
+  const backed = groups.filter(group => group.sources.length > 0).length;
 
   return (
     <>
@@ -598,9 +609,17 @@ function ClaimsEvidence({
           <ListIcon className="size-4.5 text-primary" />
           Afirmaciones y evidencia
         </h3>
-        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-slate-500">
           Cada afirmación se evalúa con BioBERT y se enlaza con la literatura
           biomédica de Europe PMC que la respalda.
+        </p>
+        <p className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-[13px] font-semibold text-primary">
+          <BookIcon className="size-4 shrink-0" />
+          {backed} de {claims.length}{' '}
+          {claims.length === 1
+            ? 'afirmación respaldada'
+            : 'afirmaciones respaldadas'}{' '}
+          por literatura biomédica
         </p>
         {groups.map((group, index) => (
           <ClaimRow

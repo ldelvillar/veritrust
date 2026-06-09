@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupSourcesByClaim } from './evidence';
+import { countBackedClaims, groupSourcesByClaim } from './evidence';
 
 const claim = (text: string) => ({ text, label: 'verdadera', confidence: 0.9 });
 const source = (url: string, statements: string[] | null) => ({
@@ -64,5 +64,29 @@ describe('groupSourcesByClaim', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].sources).toEqual([]);
+  });
+});
+
+describe('countBackedClaims', () => {
+  it('counts only claims with at least one matching source', () => {
+    expect(
+      countBackedClaims(
+        [claim('a'), claim('b'), claim('c')],
+        [source('u1', ['a']), source('u2', ['a']), source('u3', ['c'])]
+      )
+    ).toEqual({ backed: 2, total: 3 });
+  });
+
+  it('reports zero backed when sources match no claim', () => {
+    expect(
+      countBackedClaims([claim('a'), claim('b')], [source('u1', ['z'])])
+    ).toEqual({ backed: 0, total: 2 });
+  });
+
+  it('reports zero backed when there are no sources', () => {
+    expect(countBackedClaims([claim('a')], [])).toEqual({
+      backed: 0,
+      total: 1,
+    });
   });
 });
