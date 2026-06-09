@@ -7,6 +7,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import Trash from '@/assets/Trash';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
+import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
 import type { paths } from '@/types/api';
 
 type AnalysisDetail =
@@ -29,13 +30,19 @@ export default function AnalisisClient({
     error: deleteError,
     setError: setDeleteError,
   } = useAnalysisDeletion();
+  const { retry, isRetrying, error: retryError } = useAnalysisRetry();
 
-  const { data } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
+  const { data, refetch } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
     fallbackData: initialData,
-    // El worker procesa el análisis en segundo plano: hacemos polling cada 2s
-    // mientras siga 'pending' y paramos en cuanto termina ('done' o 'failed').
+    // Hacemos polling cada 2s mientras el análisis siga 'pending'
     refreshInterval: latest => (latest?.status === 'pending' ? 2000 : 0),
   });
+
+  const handleRetry = async () => {
+    const success = await retry(id);
+    // Al reabrirse la fila vuelve a 'pending': refrescamos para reanudar el polling.
+    if (success) await refetch();
+  };
 
   const handleDeleteConfirm = async () => {
     const success = await deleteAnalysis(id);
@@ -65,7 +72,13 @@ export default function AnalisisClient({
 
   return (
     <>
-      <Result result={data ?? initialData} headerActions={deleteButton} />
+      <Result
+        result={data ?? initialData}
+        headerActions={deleteButton}
+        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        retryError={retryError}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

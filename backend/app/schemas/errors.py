@@ -21,6 +21,8 @@ class ErrorCode(str, Enum):
     ANALYSIS_NOT_FOUND = "ANALYSIS_NOT_FOUND"
     ANALYSIS_FETCH_FAILED = "ANALYSIS_FETCH_FAILED"
     ANALYSIS_DELETE_FAILED = "ANALYSIS_DELETE_FAILED"
+    ANALYSIS_NOT_RETRYABLE = "ANALYSIS_NOT_RETRYABLE"
+    ANALYSIS_RETRY_FAILED = "ANALYSIS_RETRY_FAILED"
     HISTORY_FETCH_FAILED = "HISTORY_FETCH_FAILED"
     DASHBOARD_FETCH_FAILED = "DASHBOARD_FETCH_FAILED"
     RATE_LIMIT = "RATE_LIMIT"
@@ -37,10 +39,6 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Cuerpo completo de un error: {"detail": ErrorDetail}.
-
-    Se usa en el parámetro ``responses`` de las rutas para documentar el
-    contrato de errores en OpenAPI y, vía openapi-typescript, en el frontend.
-    """
+    """Cuerpo completo de un error: {"detail": ErrorDetail}."""
 
     detail: ErrorDetail

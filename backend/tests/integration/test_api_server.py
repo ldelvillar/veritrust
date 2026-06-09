@@ -16,6 +16,7 @@ from redis.exceptions import RedisError
 
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.pool import DatabaseError
+from app.schemas.history import AnalysisHistoryItem
 
 
 class _FakeArqPool:
@@ -564,6 +565,238 @@ def test_delete_analisis_returns_500_when_database_fails(monkeypatch):
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "ANALYSIS_DELETE_FAILED"
+
+
+_RETRY_ID = "11111111-1111-1111-1111-111111111111"
+
+
+def _failed_record(
+    *,
+    source_type: str = "text",
+    input_text: str | None = "Bleach cures COVID",
+    input_url: str | None = None,
+    status: str = "failed",
+) -> AnalysisHistoryItem:
+    """Construye un registro de historial para los tests de reintento."""
+    return AnalysisHistoryItem(
+        analysis_id=_RETRY_ID,
+        user_id="test-user",
+        source_type=source_type,
+        input_text=input_text,
+        input_url=input_url,
+        created_at="2026-06-01T00:00:00+00:00",
+        status=status,
+        error_code="CONNECTION",
+    )
+
+
+def test_retry_reopens_failed_analysis_and_enqueues_text(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        return _failed_record(source_type="text")
+
+    reopened = []
+
+    async def fake_reset(*, user_id, analysis_id):
+        reopened.append((user_id, analysis_id))
+        return True
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["analysis_id"] == _RETRY_ID
+    assert reopened == [("test-user", _RETRY_ID)]
+
+    job = fake_pool.jobs[0]
+    assert job[0] == "run_analysis"
+    assert job[1] == _RETRY_ID
+    assert job[2] == "text"
+    assert job[3] == "Bleach cures COVID"
+    assert job[4] is None
+
+
+def test_retry_enqueues_url_with_stored_link(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(
+            source_type="url",
+            input_text=None,
+            input_url="https://ejemplo.com/noticia",
+        )
+
+    async def fake_reset(*, user_id, analysis_id):
+        return True
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 200
+    job = fake_pool.jobs[0]
+    assert job[2] == "url"
+    assert job[3] is None
+    assert job[4] == "https://ejemplo.com/noticia"
+
+
+def test_retry_returns_404_when_not_found(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+    assert fake_pool.jobs == []
+
+
+def test_retry_returns_409_when_not_failed(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="done")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_RETRYABLE"
+    assert fake_pool.jobs == []
+
+
+def test_retry_returns_409_when_reopen_loses_race(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record()
+
+    async def fake_reset(*, user_id, analysis_id):
+        return False
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_RETRYABLE"
+    assert fake_pool.jobs == []
+
+
+def test_retry_returns_400_when_id_is_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis/not-a-uuid/retry")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_retry_returns_503_when_pool_unavailable(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.arq_pool = None
+    client = TestClient(server_module.app)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_retry_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenArqPool(_FakeArqPool):
+        async def enqueue_job(self, *args):
+            raise RedisError("redis down")
+
+    server_module.app.state.arq_pool = _BrokenArqPool()
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record()
+
+    async def fake_reset(*, user_id, analysis_id):
+        return True
+
+    failed = []
+
+    async def fake_fail_analysis(**kwargs):
+        failed.append(kwargs)
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", fake_fail_analysis)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+    # La fila reabierta se devuelve a failed para que no quede pending.
+    assert failed == [{"analysis_id": _RETRY_ID, "error_code": "SERVICE_UNAVAILABLE"}]
+
+
+def test_retry_returns_500_when_fetch_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
+def test_retry_returns_500_when_reopen_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record()
+
+    async def fake_reset(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_RETRY_FAILED"
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):

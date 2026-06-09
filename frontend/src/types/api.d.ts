@@ -16,11 +16,6 @@ export interface paths {
         /**
          * Analyze News
          * @description Encola el análisis de una noticia y devuelve su id en estado ``pending``.
-         *
-         *     El pipeline multiagente (extracción de URL incluida) es lento, así que no se
-         *     ejecuta dentro del request: se reserva una fila ``pending`` y se encola un
-         *     trabajo en arq que el worker procesa. El cliente navega al detalle y hace
-         *     polling de ``GET /analysis/{id}`` hasta que ``status`` deja de ser ``pending``.
          */
         post: operations["analyze_news_analysis_post"];
         delete?: never;
@@ -41,9 +36,6 @@ export interface paths {
         /**
          * Analyze Pdf
          * @description Sube un PDF, guarda el binario y encola su análisis en estado ``pending``.
-         *
-         *     El worker extrae el texto del PDF guardado y ejecuta el mismo pipeline. El
-         *     binario se conserva para poder mostrarlo en el informe más adelante.
          */
         post: operations["analyze_pdf_analysis_pdf_post"];
         delete?: never;
@@ -90,6 +82,26 @@ export interface paths {
         get: operations["get_analysis_pdf_file_analysis__analysis_id__pdf_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analysis/{analysis_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Analysis
+         * @description Reabre un análisis ``failed`` propio y lo reencola reutilizando su entrada.
+         */
+        post: operations["retry_analysis_analysis__analysis_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -379,7 +391,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_PDF" | "PDF_TOO_LARGE" | "PDF_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_PDF" | "PDF_TOO_LARGE" | "PDF_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -823,6 +835,102 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    retry_analysis_analysis__analysis_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -31,6 +31,9 @@ type Verdict = ResultType['verdict'];
 interface ResultProps {
   result: ResultType;
   headerActions?: ReactNode;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+  retryError?: string | null;
 }
 
 const FAILURE_MESSAGES: Record<string, string> = {
@@ -89,7 +92,17 @@ function BookIcon({ className }: { className?: string }) {
   );
 }
 
-function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
+function FailedView({
+  errorCode,
+  onRetry,
+  isRetrying,
+  retryError,
+}: {
+  errorCode: string | null | undefined;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+  retryError?: string | null;
+}) {
   const message =
     (errorCode && FAILURE_MESSAGES[errorCode]) ?? FAILURE_MESSAGES.INTERNAL;
 
@@ -100,12 +113,35 @@ function FailedView({ errorCode }: { errorCode: string | null | undefined }) {
         No se pudo completar el análisis
       </h3>
       <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
-      <Link
-        href="/app/analisis"
-        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none"
-      >
-        Analizar otro contenido
-      </Link>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={isRetrying}
+            aria-busy={isRetrying}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRetrying && <Spinner className="size-4 animate-spin" />}
+            {isRetrying ? 'Reintentando…' : 'Reintentar análisis'}
+          </button>
+        )}
+        <Link
+          href="/app/analisis"
+          className={
+            onRetry
+              ? 'inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100 focus:ring-4 focus:ring-red-200 focus:outline-none'
+              : 'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none'
+          }
+        >
+          Analizar otro contenido
+        </Link>
+      </div>
+      {retryError && (
+        <p role="alert" className="text-xs font-semibold text-red-600">
+          {retryError}
+        </p>
+      )}
     </div>
   );
 }
@@ -787,7 +823,13 @@ function PrintFooter() {
   );
 }
 
-export default function Result({ result, headerActions }: ResultProps) {
+export default function Result({
+  result,
+  headerActions,
+  onRetry,
+  isRetrying,
+  retryError,
+}: ResultProps) {
   if (result.status === 'pending') {
     return (
       <div className="mx-auto w-full max-w-2xl">
@@ -805,7 +847,12 @@ export default function Result({ result, headerActions }: ResultProps) {
         {headerActions && (
           <div className="mb-4 flex justify-end">{headerActions}</div>
         )}
-        <FailedView errorCode={result.error_code} />
+        <FailedView
+          errorCode={result.error_code}
+          onRetry={onRetry}
+          isRetrying={isRetrying}
+          retryError={retryError}
+        />
       </div>
     );
   }

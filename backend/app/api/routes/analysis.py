@@ -25,6 +25,7 @@ from app.db.history import (
     fail_analysis,
     get_analysis_pdf,
     get_user_analysis_by_id,
+    reset_failed_analysis_to_pending,
 )
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
@@ -72,6 +73,16 @@ _DELETE_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
+}
+
+_RETRY_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    409: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+    503: {"model": ErrorResponse},
 }
 
 
@@ -326,3 +337,103 @@ async def delete_analysis_detail(analysis_id: str, user=Depends(get_current_user
         )
 
     return {"status": "deleted", "analysis_id": analysis_id}
+
+
+@router.post(
+    "/{analysis_id}/retry",
+    response_model=AnalysisResponse,
+    responses=_RETRY_ERROR_RESPONSES,
+)
+async def retry_analysis(
+    analysis_id: str,
+    request: Request,
+    user: dict = Depends(check_rate_limit),
+):
+    """Reabre un análisis ``failed`` propio y lo reencola reutilizando su entrada."""
+    user_id = user["sub"]
+
+    try:
+        # Validación rápida para evitar consultas con ids inválidos.
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    arq_pool = getattr(request.app.state, "arq_pool", None)
+    if arq_pool is None:
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        )
+
+    try:
+        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    # Solo tiene sentido reintentar lo que falló; un 'pending'/'done' no se toca.
+    if record.status != "failed":
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_RETRYABLE),
+        )
+
+    try:
+        reopened = await reset_failed_analysis_to_pending(
+            user_id=user_id, analysis_id=analysis_id
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_RETRY_FAILED),
+        ) from e
+
+    if not reopened:
+        # Perdió la carrera: el estado cambió entre la lectura y el reinicio.
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_RETRYABLE),
+        )
+
+    if record.source_type == "url":
+        text_arg, url_arg = None, record.input_url
+    else:
+        text_arg, url_arg = record.input_text, None
+
+    try:
+        await arq_pool.enqueue_job(
+            "run_analysis",
+            analysis_id,
+            record.source_type,
+            text_arg,
+            url_arg,
+        )
+    except (OSError, RedisError) as e:
+        # Sin encolado, se devuelve la fila a failed para que no quede pending.
+        logger.exception("No se pudo reencolar el análisis %s", analysis_id)
+        try:
+            await fail_analysis(
+                analysis_id=analysis_id,
+                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+            )
+        except DatabaseError:
+            logger.exception(
+                "No se pudo marcar como failed el análisis %s", analysis_id
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
+
+    return {"status": "pending", "analysis_id": analysis_id}

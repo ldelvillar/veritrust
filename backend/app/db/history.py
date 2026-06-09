@@ -549,3 +549,25 @@ async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
                 "No se pudo eliminar el análisis en la base de datos."
             )
         ) from exc
+
+
+async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) -> bool:
+    """Reabre a ``pending`` un análisis ``failed`` propio. Devuelve True si cambió una fila."""
+    pool = await get_pool()
+
+    # created_at se reinicia a NOW()
+    query = """
+        UPDATE public.analysis_history
+        SET status = 'pending', error_code = NULL, created_at = NOW()
+        WHERE user_id = %s AND id = %s AND status = 'failed'
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                return cur.rowcount > 0
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo reabrir el análisis en la base de datos.")
+        ) from exc
