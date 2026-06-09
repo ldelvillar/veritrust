@@ -96,6 +96,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)   
 - **Async end-to-end** — routes, dependencies, and DB functions are `async def`; invoke the graph via `ainvoke_graph`. Agent nodes stay sync `def` (LangGraph threadpool). `extract_text_from_url` stays sync, called via `await asyncio.to_thread(...)`.
 - **No ORM** — raw psycopg3 async SQL under `app/db/`, served by the module-level pool opened/closed in the lifespan.
 - **Generated API types** — after any backend schema change, run `pnpm --dir frontend generate:api-types` (backend running); the frontend won't type-check against a stale contract.
+- **SVG icons** — icon components live in `frontend/src/assets/` as default exports (`SVGProps<SVGSVGElement>` spread, `stroke="currentColor"`); import and size them via `className`. Don't define inline icon functions in feature files; add or reuse an asset instead.
 - **Comments & docstrings** — every code comment is **exactly one line**; never multi-line, multi-sentence, or stacked `#`/`//` blocks. Class/method docstrings are a single plain sentence. Architectural rationale belongs here or in the PR, not in code.
 - **Per-file `E402` ignore** — `app/agents/main.py`, `app/agents/health_expert.py`, and `ml/evaluation/evaluate_factcheck.py` ignore `E402` for intentional `sys.path` manipulation. Preserve it.
 
