@@ -20,6 +20,7 @@ from app.agents.errors import (
 )
 from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
+from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.history import (
@@ -80,6 +81,11 @@ async def run_analysis(
         # Persistimos el texto para que la búsqueda del historial funcione aunque
         # el pipeline falle después.
         await set_analysis_input_text(analysis_id=analysis_id, input_text=text)
+
+    # Neutraliza los marcadores de datos en la entrada antes de que el extractor
+    # los interpole, para que el texto del usuario no pueda romper <<USER_INPUT>>.
+    if text is not None:
+        text = neutralize_delimiters(text)
 
     initial_state: dict[str, object] = {
         "input_text": text,

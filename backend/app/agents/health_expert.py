@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.agents import sanitize
 from app.core.config import get_settings
 from app.core.credibility import adjust_confidence_with_evidence
 from app.prompts.agents import Prompts
@@ -23,18 +24,14 @@ from app.tools.model_tool import FakeNewsDetectorTool
 
 logger = logging.getLogger(__name__)
 
-
-_USER_INPUT_START = "<<USER_INPUT>>"
-_USER_INPUT_END = "<<END>>"
+# Alias internos hacia los marcadores y la neutralización compartidos.
+_USER_INPUT_START = sanitize.USER_INPUT_START
+_USER_INPUT_END = sanitize.USER_INPUT_END
+_neutralize_delimiters = sanitize.neutralize_delimiters
 
 # FAKE_THRESHOLD ± UNCERTAINTY_MARGIN: el veredicto global es "incierta"
 FAKE_THRESHOLD = 0.40
 UNCERTAINTY_MARGIN = 0.10
-
-
-def _neutralize_delimiters(text: str) -> str:
-    """Impide que el texto del usuario falsifique los marcadores de datos."""
-    return text.replace(_USER_INPUT_START, "").replace(_USER_INPUT_END, "")
 
 
 def _build_evidence_block(sources: list[dict]) -> str:
