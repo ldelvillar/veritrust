@@ -15,7 +15,7 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 
 ## Shell command conventions
 
-Run every command from the **repo root** — never `cd` into a subdirectory. Backend tools: `uv run --directory backend <tool>` (uv, not pip). Frontend scripts: `pnpm --dir frontend <script>` (pnpm v9, not npm/yarn). Chain with `&&` when running both.
+Run every command from the **repo root** — never `cd` into a subdirectory. Backend tools: `uv run --directory backend <tool>` (uv, not pip). Frontend scripts: `pnpm --dir frontend <script>` (pnpm v11, not npm/yarn). Chain with `&&` when running both.
 
 ## Commands
 
