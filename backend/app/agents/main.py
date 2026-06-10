@@ -3,7 +3,10 @@ Este módulo construye el grafo de LangGraph, define los nodos (agentes) y ejecu
 el flujo completo para verificar noticias falsas en el ámbito de la salud.
 """
 
+import logging
 import sys
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import List, TypedDict
 
@@ -19,6 +22,8 @@ from app.agents.extractor import extractor
 from app.agents.health_expert import health_expert
 from app.agents.investigator import investigator
 from app.agents.translator import translator
+
+logger = logging.getLogger(__name__)
 
 
 class AgentState(TypedDict):
@@ -38,16 +43,39 @@ class AgentState(TypedDict):
     claims: List[dict]
 
 
+def _timed_run(name: str, fn: Callable[[], dict]) -> dict:
+    """Ejecuta un nodo del grafo registrando cuánto tarda en completarse."""
+    start = time.perf_counter()
+    try:
+        return fn()
+    finally:
+        logger.info("[%s] completado en %.2fs", name, time.perf_counter() - start)
+
+
 def create_graph(prompts) -> CompiledStateGraph:
     """Instancia y configura el flujo de trabajo multiagente."""
     # Inicializar el grafo con el estado definido
     workflow = StateGraph(AgentState)
 
-    # Añadir los nodos (los agentes)
-    workflow.add_node("extractor", lambda state: extractor(state, prompts))
-    workflow.add_node("translator", lambda state: translator(state, prompts))
-    workflow.add_node("investigator", lambda state: investigator(state))
-    workflow.add_node("health_expert", lambda state: health_expert(state, prompts))
+    # Añadir los nodos (los agentes), instrumentados con su duración
+    workflow.add_node(
+        "extractor",
+        lambda state: _timed_run("extractor", lambda: extractor(state, prompts)),
+    )
+    workflow.add_node(
+        "translator",
+        lambda state: _timed_run("translator", lambda: translator(state, prompts)),
+    )
+    workflow.add_node(
+        "investigator",
+        lambda state: _timed_run("investigator", lambda: investigator(state)),
+    )
+    workflow.add_node(
+        "health_expert",
+        lambda state: _timed_run(
+            "health_expert", lambda: health_expert(state, prompts)
+        ),
+    )
 
     # Definir el flujo lógico (las aristas del grafo)
     workflow.add_edge(START, "extractor")
