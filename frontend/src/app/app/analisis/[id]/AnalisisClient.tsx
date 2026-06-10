@@ -28,9 +28,6 @@ export default function AnalisisClient({
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareToken, setShareToken] = useState<string | null>(
-    initialData.share_token ?? null
-  );
   const {
     remove: deleteAnalysis,
     isDeleting,
@@ -55,16 +52,17 @@ export default function AnalisisClient({
   const current = data ?? initialData;
   // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareToken = current.share_token ?? null;
   const shareUrl = shareToken ? `${origin}/r/${shareToken}` : null;
 
   const handleShareCreate = async () => {
     const token = await createShare(id);
-    if (token) setShareToken(token);
+    if (token) await refetch();
   };
 
   const handleShareRemove = async () => {
     const success = await removeShare(id);
-    if (success) setShareToken(null);
+    if (success) await refetch();
   };
 
   const handleShareOpen = () => {
