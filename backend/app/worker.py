@@ -177,6 +177,8 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     job_timeout = get_settings().analysis_job_timeout_seconds
+    # El pipeline satura CPU/Ollama; concurrencia >1 infla la latencia por job
+    max_jobs = get_settings().worker_max_jobs
 
 
 def main() -> None:
