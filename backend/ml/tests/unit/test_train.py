@@ -52,6 +52,7 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
     def fake_load_dataset(partition="train"):
         if partition == "validation":
             return val_df
+        # 'train' y 'test' devuelven el df de 2 filas para distinguirlos de val (1).
         return train_df
 
     monkeypatch.setattr(train_module, "load_dataset", fake_load_dataset)
@@ -107,8 +108,9 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
         def train(self):
             calls["train"] += 1
 
-        def evaluate(self):
+        def evaluate(self, eval_dataset=None):
             calls["evaluate"] += 1
+            calls["evaluate_dataset"] = eval_dataset
             return {"eval_f1": 0.8}
 
     monkeypatch.setattr(train_module, "Trainer", _FakeTrainer)
@@ -117,6 +119,8 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
 
     assert calls["train"] == 1
     assert calls["evaluate"] == 1
+    # La métrica final se calcula sobre test (2 filas), no sobre validación (1 fila).
+    assert len(calls["evaluate_dataset"]) == 2
     # Entrenamiento reproducible: semilla fijada y propagada al Trainer.
     assert seed_calls == [train_module.SEED]
     assert captured_args["seed"] == train_module.SEED

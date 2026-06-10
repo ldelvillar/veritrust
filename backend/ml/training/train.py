@@ -78,8 +78,13 @@ def run_training() -> None:
     raw_val = load_dataset("validation")
     val_df = preprocess_data(raw_val)
 
+    # El conjunto de test se reserva para la métrica final, ajeno a la selección.
+    raw_test = load_dataset("test")
+    test_df = preprocess_data(raw_test)
+
     logger.info("Datos de entrenamiento: %d", len(train_df))
     logger.info("Datos de validación: %d", len(val_df))
+    logger.info("Datos de test: %d", len(test_df))
 
     # Extraer listas
     train_texts = train_df["text"].tolist()
@@ -87,6 +92,9 @@ def run_training() -> None:
 
     val_texts = val_df["text"].tolist()
     val_labels = val_df["label"].tolist()
+
+    test_texts = test_df["text"].tolist()
+    test_labels = test_df["label"].tolist()
 
     # Tokenización
     logger.info("Tokenizando con %s", MODEL_NAME)
@@ -98,10 +106,14 @@ def run_training() -> None:
     val_encodings = tokenizer(
         val_texts, truncation=True, padding=True, max_length=MAX_LENGTH
     )
+    test_encodings = tokenizer(
+        test_texts, truncation=True, padding=True, max_length=MAX_LENGTH
+    )
 
     # Crear datasets de PyTorch
     train_dataset = PubHealthDataset(train_encodings, train_labels)
     val_dataset = PubHealthDataset(val_encodings, val_labels)
+    test_dataset = PubHealthDataset(test_encodings, test_labels)
 
     # Configuración del modelo
     logger.info("Inicializando modelo. Usando dispositivo: %s", DEVICE)
@@ -140,10 +152,10 @@ def run_training() -> None:
 
     trainer.train()
 
-    # Evaular el modelo en el conjunto de validación
-    logger.info("Evaluando en el conjunto de validación...")
-    eval_results = trainer.evaluate()
-    logger.info("Resultados finales: %s", eval_results)
+    # Métrica final sobre el conjunto de test, ajeno a la selección del modelo
+    logger.info("Evaluando en el conjunto de test...")
+    test_results = trainer.evaluate(test_dataset)
+    logger.info("Resultados finales (test): %s", test_results)
 
     # Guardar el modelo final y el tokenizador para su uso posterior en los agentes
     model.save_pretrained(OUTPUT_DIR)

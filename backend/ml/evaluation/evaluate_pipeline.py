@@ -48,7 +48,7 @@ class EvalRow(TypedDict):
 
 
 def load_samples(
-    partition: str = "validation", limit: int = 30, seed: int = 42
+    partition: str = "test", limit: int = 30, seed: int = 42
 ) -> list[Sample]:
     """Carga una muestra binaria y balanceada de PubHealth para la evaluación."""
     df = load_dataset(partition)
@@ -184,7 +184,7 @@ def main() -> dict[str, float]:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--partition",
-        default="validation",
+        default="test",
         choices=["train", "test", "validation"],
         help="Partición de PubHealth a muestrear.",
     )
