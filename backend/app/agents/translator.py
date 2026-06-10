@@ -32,10 +32,11 @@ class TranslatedStatements(BaseModel):
 @lru_cache(maxsize=1)
 def get_translator_chain(prompt_text: str):
     """Devuelve la cadena de traducción configurada y cacheada."""
+    settings = get_settings()
     llm = ChatOllama(
-        model="translategemma",
+        model=settings.ollama_translator_model,
         temperature=0,
-        base_url=get_settings().ollama_base_url,
+        base_url=settings.ollama_base_url,
     )
     structured_llm = llm.with_structured_output(TranslatedStatements)
 

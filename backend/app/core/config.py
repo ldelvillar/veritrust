@@ -37,13 +37,18 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
 
+    # Modelos de Ollama por agente
+    ollama_extractor_model: str = "llama3"
+    ollama_translator_model: str = "translategemma"
+    ollama_health_expert_model: str = "llama3.2"
+
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
 
     # Modelo BERT detector (ruta local; si no se define, se autodetecta)
     fake_news_model_path: str | None = None
 
-    # Europe PMC (recuperación de evidencia biomédica; API pública sin clave)
+    # Europe PMC
     europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     europepmc_timeout_seconds: int = 10
 
@@ -103,11 +108,7 @@ class Settings(BaseSettings):
         return audiences if len(audiences) > 1 else audiences[0]
 
     def validate_runtime(self, *, require_cors: bool = True) -> None:
-        """Valida la configuración obligatoria. Invocado en el startup del lifespan.
-
-        ``require_cors`` solo aplica al proceso web; el worker no sirve HTTP y no
-        tiene configuración de CORS, así que la omite.
-        """
+        """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
         missing: list[str] = []
 
         if not self.database_url.strip():

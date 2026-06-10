@@ -80,8 +80,11 @@ def ensure_bert_detector_ready() -> None:
 @lru_cache(maxsize=1)
 def get_health_expert_llm() -> ChatOllama:
     """Devuelve el LLM del experto en salud configurado y cacheado."""
+    settings = get_settings()
     return ChatOllama(
-        model="llama3.2", temperature=0, base_url=get_settings().ollama_base_url
+        model=settings.ollama_health_expert_model,
+        temperature=0,
+        base_url=settings.ollama_base_url,
     )
 
 

@@ -32,8 +32,11 @@ class MedicalStatements(BaseModel):
 @lru_cache(maxsize=1)
 def get_extractor_chain(prompt_text: str):
     """Devuelve la cadena de extracción configurada y cacheada."""
+    settings = get_settings()
     llm = ChatOllama(
-        model="llama3", temperature=0, base_url=get_settings().ollama_base_url
+        model=settings.ollama_extractor_model,
+        temperature=0,
+        base_url=settings.ollama_base_url,
     )
     structured_llm = llm.with_structured_output(MedicalStatements)
 
