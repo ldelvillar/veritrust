@@ -195,3 +195,56 @@ jobs:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci_placeholder
           CLERK_SECRET_KEY: sk_test_ci_placeholder
+
+  api_contract:
+    name: API contract (frontend types in sync)
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_app == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CORS_ALLOWED_ORIGINS: "http://localhost"
+      UV_CACHE_DIR: /tmp/.uv-cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-path: backend/uv.lock
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Dump OpenAPI schema
+        working-directory: backend
+        run: uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > "$RUNNER_TEMP/openapi.json"
+
+      - name: Regenerate API types from schema
+        working-directory: frontend
+        run: pnpm exec openapi-typescript "$RUNNER_TEMP/openapi.json" -o src/types/api.d.ts
+
+      - name: Verify committed types match the OpenAPI schema
+        run: |
+          git diff --exit-code -- frontend/src/types/api.d.ts || {
+            echo "::error::frontend/src/types/api.d.ts is out of sync with the backend OpenAPI schema. Run 'pnpm --dir frontend generate:api-types' against a running backend and commit the result."
+            exit 1
+          }
