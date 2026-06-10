@@ -897,7 +897,7 @@ function PrintFooter() {
   );
 }
 
-export default function Result({
+export default function AnalysisResult({
   result,
   headerActions,
   onRetry,

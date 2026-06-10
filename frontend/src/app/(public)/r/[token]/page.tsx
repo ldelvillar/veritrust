@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import Result from '@/app/app/analisis/_components/Result';
+import AnalysisResult from '@/components/AnalysisResult';
 import { ApiError } from '@/lib/apiClient';
 import { fetchPublicJsonServer } from '@/lib/serverApi';
 import type { paths } from '@/types/api';
@@ -50,7 +50,7 @@ export default async function SharedReportPage({ params }: PageProps) {
           Verifica tu propio contenido
         </Link>
       </div>
-      <Result result={data} isPublic />
+      <AnalysisResult result={data} isPublic />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Result from '../_components/Result';
+import AnalysisResult from '@/components/AnalysisResult';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ShareDialog from '@/components/ShareDialog';
 import Trash from '@/assets/Trash';
@@ -131,7 +131,7 @@ export default function AnalisisClient({
 
   return (
     <>
-      <Result
+      <AnalysisResult
         result={current}
         headerActions={headerActions}
         onRetry={handleRetry}
