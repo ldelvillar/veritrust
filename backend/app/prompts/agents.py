@@ -1,10 +1,11 @@
 """Este módulo contiene los prompts de sistema que utilizan los distintos agentes."""
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+from app.core.config import get_settings
 
 
 @dataclass
@@ -27,7 +28,8 @@ class Prompts:
 def load_prompts() -> Prompts:
     """Carga los prompts desde un archivo YAML y los devuelve como una instancia de Prompts."""
     default_path = Path(__file__).parent / "prompts.yaml"
-    yaml_path = Path(os.getenv("PROMPT_FILE_PATH", str(default_path)))
+    configured_path = get_settings().prompt_file_path
+    yaml_path = Path(configured_path) if configured_path else default_path
     try:
         with open(yaml_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)

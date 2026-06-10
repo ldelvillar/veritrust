@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
 
+    # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
+    prompt_file_path: str | None = None
+
     # Modelo BERT detector (ruta local; si no se define, se autodetecta)
     fake_news_model_path: str | None = None
 
