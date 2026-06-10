@@ -4,17 +4,27 @@ export default function LinkIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      fill="none"
+      width="1em"
+      height="1em"
       viewBox="0 0 24 24"
-      strokeWidth={1.9}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       {...props}
     >
-      <path d="M9 15l6-6" />
-      <path d="M11 6l1-1a3.5 3.5 0 0 1 5 5l-1 1" />
-      <path d="M13 18l-1 1a3.5 3.5 0 0 1-5-5l1-1" />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeDasharray={28}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 6l2 -2c1 -1 3 -1 4 0l1 1c1 1 1 3 0 4l-5 5c-1 1 -3 1 -4 0M11 18l-2 2c-1 1 -3 1 -4 0l-1 -1c-1 -1 -1 -3 0 -4l5 -5c1 -1 3 -1 4 0"
+      >
+        <animate
+          fill="freeze"
+          attributeName="stroke-dashoffset"
+          dur="0.6s"
+          values="28;0"
+        ></animate>
+      </path>
     </svg>
   );
 }
