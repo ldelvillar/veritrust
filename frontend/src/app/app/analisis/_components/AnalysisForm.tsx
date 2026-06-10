@@ -22,10 +22,9 @@ const EXAMPLE_TEXT_2 =
   'Tomar el sol 20 minutos al día sin protección es suficiente para obtener toda la vitamina D que el cuerpo necesita.';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const MAX_TEXT_CHARS = 10_000;
 
 export default function AnalysisForm() {
-  const { submit, submitPdf, isLoading, error, setError } =
+  const { submit, submitFile, isLoading, error, setError } =
     useAnalysisSubmission();
 
   const [inputMethod, setInputMethod] =
@@ -89,54 +88,34 @@ export default function AnalysisForm() {
     e.preventDefault();
     setError(null);
 
-    let textContent = '';
-    const finalSourceType: components['schemas']['SourceType'] = inputMethod;
-
     if (inputMethod === 'file') {
       if (!selectedFile) {
         setError('Por favor, selecciona un archivo primero.');
         return;
       }
-      // Los PDF se suben tal cual, el backend extrae el texto y guarda el binario.
-      if (isPdfFile(selectedFile)) {
-        await submitPdf(selectedFile);
-        return;
-      }
-      try {
-        textContent = await selectedFile.text();
-      } catch (err) {
-        console.error('Error al leer el archivo:', err);
-        setError('Hubo un error al leer el archivo.');
-        return;
-      }
-      if (textContent.length > MAX_TEXT_CHARS) {
-        setError(
-          `El archivo supera el límite de ${MAX_TEXT_CHARS.toLocaleString()} caracteres. Por favor, acorta el texto.`
-        );
-        return;
-      }
-    } else if (inputMethod === 'url') {
+      // Todos los archivos (PDF/TXT/MD) se suben tal cual: el backend extrae el
+      // texto y guarda el binario, igual que antes solo se hacía con los PDF.
+      await submitFile(selectedFile);
+      return;
+    }
+
+    if (inputMethod === 'url') {
       if (!formData.url.trim()) {
         setError('Por favor, introduce una URL.');
         return;
       }
-    } else {
-      if (!formData.text.trim()) {
-        setError('Por favor, introduce un texto.');
-        return;
-      }
-      textContent = formData.text;
+      const fullUrl = formData.url.startsWith('http')
+        ? formData.url
+        : `https://${formData.url}`;
+      await submit({ url: fullUrl, source_type: 'url' });
+      return;
     }
 
-    const fullUrl = formData.url.startsWith('http')
-      ? formData.url
-      : `https://${formData.url}`;
-    const requestBody =
-      inputMethod === 'url'
-        ? { url: fullUrl, source_type: 'url' as const }
-        : { text: textContent, source_type: finalSourceType };
-
-    await submit(requestBody);
+    if (!formData.text.trim()) {
+      setError('Por favor, introduce un texto.');
+      return;
+    }
+    await submit({ text: formData.text, source_type: 'text' });
   };
 
   const canRun =

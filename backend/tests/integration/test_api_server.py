@@ -348,7 +348,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         created_at="2026-04-10T12:00:00+00:00",
         claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.88}],
         sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
-        pdf_filename=None,
+        file_filename=None,
         share_token=None,
     )
 
@@ -397,7 +397,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         created_at="2026-04-10T12:00:00+00:00",
         claims=None,
         sources=None,
-        pdf_filename=None,
+        file_filename=None,
         share_token=None,
     )
 
@@ -436,7 +436,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         created_at="2026-04-10T12:00:00+00:00",
         claims=None,
         sources=None,
-        pdf_filename=None,
+        file_filename=None,
         share_token=None,
     )
 
@@ -1139,23 +1139,23 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
 _MINIMAL_PDF = b"%PDF-1.4 minimal content"
 
 
-def test_analisis_pdf_enqueues_job_and_returns_pending(monkeypatch):
+def test_analisis_file_enqueues_job_and_returns_pending(monkeypatch):
     server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_create_pending_pdf_analysis(**kwargs):
+    async def fake_create_pending_file_analysis(**kwargs):
         assert kwargs["user_id"] == "test-user"
         assert kwargs["filename"] == "informe.pdf"
         assert kwargs["data"].startswith(b"%PDF")
         return "11111111-1111-1111-1111-111111111111"
 
     monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_pdf_analysis",
-        fake_create_pending_pdf_analysis,
+        "app.api.routes.analysis.create_pending_file_analysis",
+        fake_create_pending_file_analysis,
     )
 
     response = client.post(
-        "/analysis/pdf",
+        "/analysis/file",
         files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
     )
 
@@ -1164,54 +1164,83 @@ def test_analisis_pdf_enqueues_job_and_returns_pending(monkeypatch):
     job = fake_pool.jobs[0]
     assert job[0] == "run_analysis"
     assert job[1] == "11111111-1111-1111-1111-111111111111"
-    assert job[2] == "pdf"
+    assert job[2] == "file"
     assert job[3] is None
     assert job[4] is None
 
 
-def test_analisis_pdf_rejects_non_pdf(monkeypatch):
+def test_analisis_file_accepts_plain_text(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_file_analysis(**kwargs):
+        assert kwargs["filename"] == "nota.txt"
+        return "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_file_analysis",
+        fake_create_pending_file_analysis,
+    )
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("nota.txt", b"texto plano a verificar", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
+    assert fake_pool.jobs[0][2] == "file"
+
+
+def test_analisis_file_rejects_unsupported_type(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
-        "/analysis/pdf",
-        files={"file": ("nota.txt", b"hola, no soy un pdf", "text/plain")},
+        "/analysis/file",
+        files={
+            "file": (
+                "documento.docx",
+                b"PK\x03\x04 zip-ish",
+                "application/octet-stream",
+            )
+        },
     )
 
     assert response.status_code == 415
-    assert response.json()["detail"]["code"] == "INVALID_PDF"
+    assert response.json()["detail"]["code"] == "INVALID_FILE"
 
 
-def test_analisis_pdf_rejects_oversized(monkeypatch):
+def test_analisis_file_rejects_oversized(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
     monkeypatch.setattr(
         "app.api.routes.analysis.get_settings",
-        lambda: types.SimpleNamespace(max_pdf_bytes=10),
+        lambda: types.SimpleNamespace(max_file_bytes=10),
     )
 
     response = client.post(
-        "/analysis/pdf",
+        "/analysis/file",
         files={"file": ("big.pdf", b"%PDF-1.4" + b"x" * 100, "application/pdf")},
     )
 
     assert response.status_code == 413
-    assert response.json()["detail"]["code"] == "PDF_TOO_LARGE"
+    assert response.json()["detail"]["code"] == "FILE_TOO_LARGE"
 
 
-def test_get_pdf_returns_file(monkeypatch):
+def test_get_file_returns_file(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_pdf(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id):
         assert user_id == "test-user"
         return (b"%PDF-1.4 data", "informe.pdf")
 
     monkeypatch.setattr(
-        "app.api.routes.analysis.get_analysis_pdf", fake_get_analysis_pdf
+        "app.api.routes.analysis.get_analysis_file", fake_get_analysis_file
     )
 
-    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/pdf")
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/file")
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -1219,28 +1248,28 @@ def test_get_pdf_returns_file(monkeypatch):
     assert "informe.pdf" in response.headers["content-disposition"]
 
 
-def test_get_pdf_returns_404_when_missing(monkeypatch):
+def test_get_file_returns_404_when_missing(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_pdf(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id):
         return None
 
     monkeypatch.setattr(
-        "app.api.routes.analysis.get_analysis_pdf", fake_get_analysis_pdf
+        "app.api.routes.analysis.get_analysis_file", fake_get_analysis_file
     )
 
-    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/pdf")
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/file")
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
 
 
-def test_get_pdf_returns_400_when_id_invalid(monkeypatch):
+def test_get_file_returns_400_when_id_invalid(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    response = client.get("/analysis/not-a-uuid/pdf")
+    response = client.get("/analysis/not-a-uuid/file")
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"

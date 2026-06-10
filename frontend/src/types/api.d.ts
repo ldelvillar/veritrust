@@ -48,7 +48,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/analysis/pdf": {
+    "/analysis/file": {
         parameters: {
             query?: never;
             header?: never;
@@ -58,10 +58,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Analyze Pdf
-         * @description Sube un PDF, guarda el binario y encola su análisis en estado ``pending``.
+         * Analyze File
+         * @description Sube un archivo (PDF/TXT/MD), guarda el binario y encola su análisis ``pending``.
          */
-        post: operations["analyze_pdf_analysis_pdf_post"];
+        post: operations["analyze_file_analysis_file_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -92,7 +92,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/analysis/{analysis_id}/pdf": {
+    "/analysis/{analysis_id}/file": {
         parameters: {
             query?: never;
             header?: never;
@@ -100,10 +100,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Analysis Pdf File
-         * @description Devuelve el PDF original de un análisis para mostrarlo en el informe.
+         * Get Analysis File Content
+         * @description Devuelve el archivo original de un análisis para mostrarlo en el informe.
          */
-        get: operations["get_analysis_pdf_file_analysis__analysis_id__pdf_get"];
+        get: operations["get_analysis_file_content_analysis__analysis_id__file_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -267,8 +267,8 @@ export interface components {
             error_code?: string | null;
             /** Created At */
             created_at: string;
-            /** Pdf Filename */
-            pdf_filename?: string | null;
+            /** File Filename */
+            file_filename?: string | null;
             /** Claims */
             claims?: components["schemas"]["ClaimItem"][] | null;
             /** Sources */
@@ -317,8 +317,8 @@ export interface components {
             /** Explanation */
             explanation?: string | null;
         };
-        /** Body_analyze_pdf_analysis_pdf_post */
-        Body_analyze_pdf_analysis_pdf_post: {
+        /** Body_analyze_file_analysis_file_post */
+        Body_analyze_file_analysis_file_post: {
             /** File */
             file: string;
         };
@@ -439,7 +439,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_PDF" | "PDF_TOO_LARGE" | "PDF_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -501,8 +501,8 @@ export interface components {
             status: string;
             /** Created At */
             created_at: string;
-            /** Pdf Filename */
-            pdf_filename?: string | null;
+            /** File Filename */
+            file_filename?: string | null;
             /** Claims */
             claims?: components["schemas"]["ClaimItem"][] | null;
             /** Sources */
@@ -550,7 +550,7 @@ export interface components {
          * @description Tipos de fuentes de entrada para el análisis.
          * @enum {string}
          */
-        SourceType: "text" | "file" | "url" | "pdf";
+        SourceType: "text" | "file" | "url";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -791,7 +791,7 @@ export interface operations {
             };
         };
     };
-    analyze_pdf_analysis_pdf_post: {
+    analyze_file_analysis_file_post: {
         parameters: {
             query?: never;
             header?: {
@@ -802,7 +802,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_analyze_pdf_analysis_pdf_post"];
+                "multipart/form-data": components["schemas"]["Body_analyze_file_analysis_file_post"];
             };
         };
         responses: {
@@ -1018,7 +1018,7 @@ export interface operations {
             };
         };
     };
-    get_analysis_pdf_file_analysis__analysis_id__pdf_get: {
+    get_analysis_file_content_analysis__analysis_id__file_get: {
         parameters: {
             query?: never;
             header?: {
@@ -1031,14 +1031,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description PDF original. */
+            /** @description Archivo original. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": unknown;
-                    "application/pdf": unknown;
+                    "application/octet-stream": unknown;
                 };
             };
             /** @description Bad Request */

@@ -56,16 +56,20 @@ const FAILURE_MESSAGES: Record<string, string> = {
     'El servicio de análisis no estaba disponible y no se pudo procesar la noticia. Inténtalo de nuevo.',
   INTERNAL:
     'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
-  PDF_EXTRACTION:
-    'No se pudo extraer texto del PDF. Puede estar protegido, dañado o ser un documento escaneado sin texto seleccionable.',
+  FILE_EXTRACTION:
+    'No se pudo extraer texto del archivo. Puede estar protegido, dañado, vacío o ser un documento escaneado sin texto seleccionable.',
 };
 
 const SOURCE_TAGS: Record<string, string> = {
   text: 'Texto',
   url: 'Enlace',
   file: 'Archivo',
-  pdf: 'PDF',
 };
+
+// Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.
+function isPdfFilename(name?: string | null): boolean {
+  return Boolean(name && name.toLowerCase().endsWith('.pdf'));
+}
 
 function FailedView({
   errorCode,
@@ -632,7 +636,7 @@ function AnalyzedPdf({
     let active = true;
     let objectUrl: string | null = null;
 
-    fetchBlobWithAuth(getToken, `/analysis/${analysisId}/pdf`)
+    fetchBlobWithAuth(getToken, `/analysis/${analysisId}/file`)
       .then(blob => {
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
@@ -673,6 +677,57 @@ function AnalyzedPdf({
   );
 }
 
+function DownloadOriginalFile({
+  analysisId,
+  filename,
+}: {
+  analysisId: string;
+  filename?: string | null;
+}) {
+  const { getToken } = useAuth();
+  const [downloading, setDownloading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    setFailed(false);
+    try {
+      const blob = await fetchBlobWithAuth(
+        getToken,
+        `/analysis/${analysisId}/file`
+      );
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename || 'documento';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setFailed(true);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleDownload}
+      disabled={downloading}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {downloading ? (
+        <Spinner className="size-3.5 animate-spin" />
+      ) : (
+        <DownloadIcon className="size-3.5" />
+      )}
+      {failed ? 'Reintentar descarga' : 'Descargar original'}
+    </button>
+  );
+}
+
 function AnalyzedContent({
   result,
   isPublic,
@@ -684,12 +739,15 @@ function AnalyzedContent({
   const panelId = useId();
 
   // Análisis por PDF: el binario requiere auth, así que en la vista pública
-  // mostramos el texto extraído (cae a la rama de texto de abajo).
-  if (result.source_type === 'pdf' && !isPublic && result.analysis_id) {
+  // mostramos el texto extraído (cae a la rama de texto de abajo). Los archivos
+  // .txt/.md también caen a la rama de texto: su contenido ya es el texto.
+  const isPdf =
+    result.source_type === 'file' && isPdfFilename(result.file_filename);
+  if (isPdf && !isPublic && result.analysis_id) {
     return (
       <AnalyzedPdf
         analysisId={result.analysis_id}
-        filename={result.pdf_filename}
+        filename={result.file_filename}
       />
     );
   }
@@ -721,6 +779,11 @@ function AnalyzedContent({
   const text = result.input_text;
   if (!text) return null;
 
+  // El binario requiere auth: solo se ofrece la descarga del original en la
+  // vista propia de un análisis por archivo (.txt/.md; el PDF usa su visor).
+  const originalFileId =
+    result.source_type === 'file' && !isPublic ? result.analysis_id : undefined;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:break-inside-avoid">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -728,22 +791,32 @@ function AnalyzedContent({
           <DocumentIcon className="size-4.5 text-primary" />
           Contenido analizado
         </h3>
-        <button
-          type="button"
-          onClick={() => setOpen(value => !value)}
-          aria-expanded={open}
-          aria-controls={panelId}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none print:hidden"
-        >
-          {open ? 'Ocultar' : 'Ver'} texto analizado
-          <Chevron
-            className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
-            aria-hidden
-          />
-        </button>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          {originalFileId && (
+            <DownloadOriginalFile
+              analysisId={originalFileId}
+              filename={result.file_filename}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(value => !value)}
+            aria-expanded={open}
+            aria-controls={panelId}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+          >
+            {open ? 'Ocultar' : 'Ver'} texto analizado
+            <Chevron
+              className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+              aria-hidden
+            />
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
-        El texto original tal y como se envió a verificar.
+        {originalFileId
+          ? 'El texto extraído del archivo original que se verificó.'
+          : 'El texto original tal y como se envió a verificar.'}
       </p>
       {/* Siempre en el DOM y colapsado con clases, para que el PDF (print:block)
           imprima el texto completo aunque esté oculto en pantalla. */}

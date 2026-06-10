@@ -11,12 +11,13 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
-from app.schemas.analysis import AnalysisRequest
+from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 
 logger = logging.getLogger(__name__)
 
-_VALID_SOURCE_TYPES = {"text", "file", "url"}
+# Vocabulario único: derivado del enum SourceType para no divergir del contrato.
+_VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
 _VALID_VERDICTS = {"real", "fake", "uncertain"}
 
 # Espejo en SQL de classify_verdict
@@ -65,7 +66,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         error_code=row[10],
         claims=row[11],
         sources=row[12],
-        pdf_filename=row[13],
+        file_filename=row[13],
         share_token=row[14],
     )
 
@@ -148,7 +149,7 @@ def _build_history_queries(where_sql: str, safe_date_sort: str) -> tuple[str, st
             error_code,
             claims,
             sources,
-            pdf_filename,
+            file_filename,
             share_token
         FROM public.analysis_history
         WHERE {where_sql}
@@ -194,19 +195,19 @@ async def create_pending_analysis(
     return str(inserted_row[0])
 
 
-async def create_pending_pdf_analysis(
+async def create_pending_file_analysis(
     *,
     user_id: str,
     filename: str,
     data: bytes,
 ) -> str:
-    """Inserta un análisis ``pending`` de tipo ``pdf`` guardando el binario."""
+    """Inserta un análisis ``pending`` de tipo ``file`` guardando el binario."""
     pool = await get_pool()
 
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, pdf_data, pdf_filename, status)
-        VALUES (%s, 'pdf', %s, %s, 'pending')
+        (user_id, source_type, file_data, file_filename, status)
+        VALUES (%s, 'file', %s, %s, 'pending')
         RETURNING id
     """
 
@@ -217,7 +218,7 @@ async def create_pending_pdf_analysis(
                 inserted_row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
-            _build_database_error("No se pudo guardar el PDF en la base de datos.")
+            _build_database_error("No se pudo guardar el archivo en la base de datos.")
         ) from exc
 
     if not inserted_row:
@@ -227,7 +228,7 @@ async def create_pending_pdf_analysis(
 
 
 async def set_analysis_input_text(*, analysis_id: str, input_text: str) -> None:
-    """Persiste el texto extraído de un PDF antes de ejecutar el pipeline."""
+    """Persiste el texto extraído de un archivo antes de ejecutar el pipeline."""
     pool = await get_pool()
 
     query = "UPDATE public.analysis_history SET input_text = %s WHERE id = %s"
@@ -438,7 +439,7 @@ async def export_user_analysis_history(
             error_code,
             claims,
             sources,
-            pdf_filename,
+            file_filename,
             share_token
         FROM public.analysis_history
         WHERE {where_sql}
@@ -482,7 +483,7 @@ async def get_user_analysis_by_id(
             error_code,
             claims,
             sources,
-            pdf_filename,
+            file_filename,
             share_token
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
@@ -507,16 +508,16 @@ async def get_user_analysis_by_id(
     return _map_history_record(row)
 
 
-async def get_analysis_pdf(
+async def get_analysis_file(
     *, user_id: str, analysis_id: str
 ) -> tuple[bytes, str | None] | None:
-    """Devuelve ``(pdf_data, pdf_filename)`` del PDF propio del usuario, o None."""
+    """Devuelve ``(file_data, file_filename)`` del archivo propio del usuario, o None."""
     pool = await get_pool()
 
     query = """
-        SELECT pdf_data, pdf_filename
+        SELECT file_data, file_filename
         FROM public.analysis_history
-        WHERE user_id = %s AND id = %s AND source_type = 'pdf'
+        WHERE user_id = %s AND id = %s AND source_type = 'file'
         LIMIT 1
     """
 
@@ -527,7 +528,9 @@ async def get_analysis_pdf(
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
-            _build_database_error("No se pudo consultar el PDF en la base de datos.")
+            _build_database_error(
+                "No se pudo consultar el archivo en la base de datos."
+            )
         ) from exc
 
     if not row or row[0] is None:
@@ -536,14 +539,14 @@ async def get_analysis_pdf(
     return bytes(row[0]), row[1]
 
 
-async def get_pdf_data_by_id(*, analysis_id: str) -> bytes | None:
-    """Devuelve los bytes del PDF de un análisis por id (uso interno del worker)."""
+async def get_file_data_by_id(*, analysis_id: str) -> tuple[bytes, str | None] | None:
+    """Devuelve ``(file_data, file_filename)`` de un análisis por id (uso del worker)."""
     pool = await get_pool()
 
     query = """
-        SELECT pdf_data
+        SELECT file_data, file_filename
         FROM public.analysis_history
-        WHERE id = %s AND source_type = 'pdf'
+        WHERE id = %s AND source_type = 'file'
         LIMIT 1
     """
 
@@ -554,13 +557,15 @@ async def get_pdf_data_by_id(*, analysis_id: str) -> bytes | None:
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
-            _build_database_error("No se pudo consultar el PDF en la base de datos.")
+            _build_database_error(
+                "No se pudo consultar el archivo en la base de datos."
+            )
         ) from exc
 
     if not row or row[0] is None:
         return None
 
-    return bytes(row[0])
+    return bytes(row[0]), row[1]
 
 
 async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
@@ -674,7 +679,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
             status,
             claims,
             sources,
-            pdf_filename
+            file_filename
         FROM public.analysis_history
         WHERE share_token = %s AND status = 'done'
         LIMIT 1
@@ -706,5 +711,5 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         status=str(row[7]),
         claims=row[8],
         sources=row[9],
-        pdf_filename=row[10],
+        file_filename=row[10],
     )

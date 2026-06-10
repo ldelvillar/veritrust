@@ -2,7 +2,7 @@
 
 import app.worker as worker
 from app.agents.errors import BertInferenceError, OllamaConnectionError
-from app.utils.extract_text_from_pdf import PDFExtractionError
+from app.utils.extract_text_from_file import FileExtractionError
 from app.utils.extract_text_from_url import URLExtractionError
 
 ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
@@ -161,50 +161,51 @@ async def test_run_analysis_fails_with_url_extraction_error(monkeypatch):
     assert invoked == []  # no se llega a invocar el grafo
 
 
-async def test_run_analysis_extracts_pdf_text_and_persists_it(monkeypatch):
+async def test_run_analysis_extracts_file_text_and_persists_it(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
     saved_text = []
 
-    async def fake_get_pdf(*, analysis_id):
+    async def fake_get_file(*, analysis_id):
         assert analysis_id == ANALYSIS_ID
-        return b"%PDF-1.4 bytes"
+        return b"%PDF-1.4 bytes", "informe.pdf"
 
-    def fake_extract(data):
+    def fake_extract(data, filename):
         assert data == b"%PDF-1.4 bytes"
-        return "Texto extraído del PDF"
+        assert filename == "informe.pdf"
+        return "Texto extraído del archivo"
 
     async def fake_set_text(*, analysis_id, input_text):
         saved_text.append(input_text)
 
     async def fake_ainvoke(graph, state):
-        assert state["input_text"] == "Texto extraído del PDF"
+        assert state["input_text"] == "Texto extraído del archivo"
         return {
             "label": "verdadera",
             "confidence": 0.8,
             "medical_explanation": "Información correcta.",
         }
 
-    monkeypatch.setattr(worker, "get_pdf_data_by_id", fake_get_pdf)
-    monkeypatch.setattr(worker, "extract_text_from_pdf", fake_extract)
+    monkeypatch.setattr(worker, "get_file_data_by_id", fake_get_file)
+    monkeypatch.setattr(worker, "extract_text_from_file", fake_extract)
     monkeypatch.setattr(worker, "set_analysis_input_text", fake_set_text)
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
     ctx = {"verification_system": object()}
-    await worker.run_analysis(ctx, ANALYSIS_ID, "pdf", None, None)
+    await worker.run_analysis(ctx, ANALYSIS_ID, "file", None, None)
 
     assert failed == []
     assert completed[0]["label"] == "verdadera"
-    assert saved_text == ["Texto extraído del PDF"]
+    assert saved_text == ["Texto extraído del archivo"]
 
 
-async def test_run_analysis_fails_with_pdf_extraction_error(monkeypatch):
+async def test_run_analysis_fails_with_file_extraction_error(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_get_pdf(*, analysis_id):
-        return b"%PDF-1.4 bytes"
+    async def fake_get_file(*, analysis_id):
+        return b"%PDF-1.4 bytes", "informe.pdf"
 
-    def fake_extract(data):
-        raise PDFExtractionError("sin texto")
+    def fake_extract(data, filename):
+        raise FileExtractionError("sin texto")
 
     invoked = []
 
@@ -212,15 +213,15 @@ async def test_run_analysis_fails_with_pdf_extraction_error(monkeypatch):
         invoked.append(state)
         return {}
 
-    monkeypatch.setattr(worker, "get_pdf_data_by_id", fake_get_pdf)
-    monkeypatch.setattr(worker, "extract_text_from_pdf", fake_extract)
+    monkeypatch.setattr(worker, "get_file_data_by_id", fake_get_file)
+    monkeypatch.setattr(worker, "extract_text_from_file", fake_extract)
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
     ctx = {"verification_system": object()}
-    await worker.run_analysis(ctx, ANALYSIS_ID, "pdf", None, None)
+    await worker.run_analysis(ctx, ANALYSIS_ID, "file", None, None)
 
     assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "PDF_EXTRACTION"}]
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "FILE_EXTRACTION"}]
     assert invoked == []
 
 

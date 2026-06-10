@@ -4,12 +4,12 @@
 CREATE TABLE IF NOT EXISTS public.analysis_history (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      TEXT NOT NULL,
-    source_type  TEXT NOT NULL CHECK (source_type IN ('text', 'file', 'url', 'pdf')),
+    source_type  TEXT NOT NULL CHECK (source_type IN ('text', 'file', 'url')),
     input_text   TEXT,
     input_url    TEXT,
-    -- Raw uploaded PDF (source_type = 'pdf'); served back so the report can render it.
-    pdf_data     BYTEA,
-    pdf_filename TEXT,
+    -- Raw uploaded file (source_type = 'file': pdf/txt/md); served back so the report can render it.
+    file_data    BYTEA,
+    file_filename TEXT,
     -- Result columns are NULL while status = 'pending' (filled in by the worker).
     label        TEXT,
     confidence   DOUBLE PRECISION

@@ -1,6 +1,7 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
 import logging
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import (
@@ -21,10 +22,10 @@ from app.core.errors import make_error_detail
 from app.db.history import (
     clear_analysis_share_token,
     create_pending_analysis,
-    create_pending_pdf_analysis,
+    create_pending_file_analysis,
     delete_user_analysis,
     fail_analysis,
-    get_analysis_pdf,
+    get_analysis_file,
     get_user_analysis_by_id,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
@@ -33,6 +34,7 @@ from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse, ShareResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem
+from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ _POST_ERROR_RESPONSES: dict[int | str, dict] = {
     503: {"model": ErrorResponse},
 }
 
-_POST_PDF_ERROR_RESPONSES: dict[int | str, dict] = {
+_POST_FILE_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     413: {"model": ErrorResponse},
     415: {"model": ErrorResponse},
@@ -55,8 +57,11 @@ _POST_PDF_ERROR_RESPONSES: dict[int | str, dict] = {
     503: {"model": ErrorResponse},
 }
 
-_GET_PDF_ERROR_RESPONSES: dict[int | str, dict] = {
-    200: {"content": {"application/pdf": {}}, "description": "PDF original."},
+_GET_FILE_ERROR_RESPONSES: dict[int | str, dict] = {
+    200: {
+        "content": {"application/octet-stream": {}},
+        "description": "Archivo original.",
+    },
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
@@ -253,16 +258,16 @@ async def unshare_analysis(analysis_id: str, user=Depends(get_current_user)):
 
 
 @router.post(
-    "/pdf",
+    "/file",
     response_model=AnalysisResponse,
-    responses=_POST_PDF_ERROR_RESPONSES,
+    responses=_POST_FILE_ERROR_RESPONSES,
 )
-async def analyze_pdf(
+async def analyze_file(
     request: Request,
     file: UploadFile = File(...),
     user: dict = Depends(check_rate_limit),
 ):
-    """Sube un PDF, guarda el binario y encola su análisis en estado ``pending``."""
+    """Sube un archivo (PDF/TXT/MD), guarda el binario y encola su análisis ``pending``."""
     user_id = user["sub"]
     settings = get_settings()
 
@@ -273,41 +278,48 @@ async def analyze_pdf(
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
         )
 
+    filename = (file.filename or "documento")[:255]
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_FILE_SUFFIXES:
+        raise HTTPException(
+            status_code=415,
+            detail=make_error_detail(ErrorCode.INVALID_FILE),
+        )
+
     # Rechaza por tamaño antes de leer todo el cuerpo en memoria cuando es posible.
-    if file.size is not None and file.size > settings.max_pdf_bytes:
+    if file.size is not None and file.size > settings.max_file_bytes:
         raise HTTPException(
             status_code=413,
-            detail=make_error_detail(ErrorCode.PDF_TOO_LARGE),
+            detail=make_error_detail(ErrorCode.FILE_TOO_LARGE),
         )
 
     data = await file.read()
-    if len(data) > settings.max_pdf_bytes:
+    if len(data) > settings.max_file_bytes:
         raise HTTPException(
             status_code=413,
-            detail=make_error_detail(ErrorCode.PDF_TOO_LARGE),
+            detail=make_error_detail(ErrorCode.FILE_TOO_LARGE),
         )
 
-    if not data or not data.startswith(b"%PDF"):
+    # Un PDF debe llevar su firma; los .txt/.md se decodifican en el worker.
+    if not data or (suffix == ".pdf" and not data.startswith(b"%PDF")):
         raise HTTPException(
             status_code=415,
-            detail=make_error_detail(ErrorCode.INVALID_PDF),
+            detail=make_error_detail(ErrorCode.INVALID_FILE),
         )
 
-    filename = (file.filename or "documento.pdf")[:255]
-
     try:
-        analysis_id = await create_pending_pdf_analysis(
+        analysis_id = await create_pending_file_analysis(
             user_id=user_id, filename=filename, data=data
         )
     except DatabaseError as e:
-        logger.exception("No se pudo crear el análisis de PDF pendiente")
+        logger.exception("No se pudo crear el análisis de archivo pendiente")
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
         ) from e
 
     try:
-        await arq_pool.enqueue_job("run_analysis", analysis_id, "pdf", None, None)
+        await arq_pool.enqueue_job("run_analysis", analysis_id, "file", None, None)
     except (OSError, RedisError) as e:
         logger.exception("No se pudo encolar el análisis %s", analysis_id)
         try:
@@ -373,14 +385,21 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         created_at=record.created_at,
         claims=record.claims,
         sources=record.sources,
-        pdf_filename=record.pdf_filename,
+        file_filename=record.file_filename,
         share_token=record.share_token,
     )
 
 
-@router.get("/{analysis_id}/pdf", responses=_GET_PDF_ERROR_RESPONSES)
-async def get_analysis_pdf_file(analysis_id: str, user=Depends(get_current_user)):
-    """Devuelve el PDF original de un análisis para mostrarlo en el informe."""
+_FILE_MEDIA_TYPES = {
+    ".pdf": "application/pdf",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+}
+
+
+@router.get("/{analysis_id}/file", responses=_GET_FILE_ERROR_RESPONSES)
+async def get_analysis_file_content(analysis_id: str, user=Depends(get_current_user)):
+    """Devuelve el archivo original de un análisis para mostrarlo en el informe."""
     user_id = user["sub"]
 
     try:
@@ -392,24 +411,27 @@ async def get_analysis_pdf_file(analysis_id: str, user=Depends(get_current_user)
         ) from e
 
     try:
-        pdf = await get_analysis_pdf(user_id=user_id, analysis_id=analysis_id)
+        stored = await get_analysis_file(user_id=user_id, analysis_id=analysis_id)
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
         ) from e
 
-    if pdf is None:
+    if stored is None:
         raise HTTPException(
             status_code=404,
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
-    data, filename = pdf
-    safe_name = filename or "documento.pdf"
+    data, filename = stored
+    safe_name = filename or "documento"
+    media_type = _FILE_MEDIA_TYPES.get(
+        Path(safe_name).suffix.lower(), "application/octet-stream"
+    )
     return Response(
         content=data,
-        media_type="application/pdf",
+        media_type=media_type,
         headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
     )
 

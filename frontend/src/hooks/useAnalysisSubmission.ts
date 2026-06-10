@@ -50,7 +50,7 @@ export function useAnalysisSubmission() {
     [getToken, router]
   );
 
-  const submitPdf = useCallback(
+  const submitFile = useCallback(
     async (file: File) => {
       setError(null);
       setIsLoading(true);
@@ -59,7 +59,7 @@ export function useAnalysisSubmission() {
         formData.append('file', file);
         const data = await postFormWithAuth<CreateAnalysisResponse>(
           getToken,
-          '/analysis/pdf',
+          '/analysis/file',
           formData
         );
 
@@ -81,5 +81,5 @@ export function useAnalysisSubmission() {
     [getToken, router]
   );
 
-  return { submit, submitPdf, isLoading, error, setError };
+  return { submit, submitFile, isLoading, error, setError };
 }

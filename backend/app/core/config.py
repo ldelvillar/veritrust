@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     rate_limit_max_requests: int = 5
     rate_limit_window_seconds: int = 60
 
-    # Subida de PDF (POST /analysis/pdf)
-    max_pdf_bytes: int = 10 * 1024 * 1024  # 10 MB
+    # Subida de archivos (POST /analysis/file)
+    max_file_bytes: int = 10 * 1024 * 1024  # 10 MB
 
     # Autenticación
     clerk_pem_public_key: str | None = None

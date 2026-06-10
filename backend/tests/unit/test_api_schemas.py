@@ -15,14 +15,6 @@ def test_analyze_request_accepts_text_with_default_source_type() -> None:
     assert request.source_type == SourceType.TEXT
 
 
-def test_analyze_request_accepts_text_with_file_source_type() -> None:
-    request = AnalysisRequest(text="Texto extraído", source_type="file")
-
-    assert request.text == "Texto extraído"
-    assert request.url is None
-    assert request.source_type == SourceType.FILE
-
-
 def test_analyze_request_accepts_url_with_url_source_type() -> None:
     request = AnalysisRequest(
         url="https://ejemplo.com/noticia",
@@ -79,9 +71,9 @@ def test_analyze_request_rejects_invalid_source_type_value() -> None:
     assert "source_type" in str(exc.value)
 
 
-def test_analyze_request_rejects_pdf_source_type() -> None:
+def test_analyze_request_rejects_file_source_type() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalysisRequest(text="Texto", source_type="pdf")
+        AnalysisRequest(text="Texto", source_type="file")
 
     assert "endpoint de subida" in str(exc.value)
 

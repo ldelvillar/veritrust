@@ -26,13 +26,13 @@ from app.db.history import (
     complete_analysis,
     fail_analysis,
     fail_stale_pending_analyses,
-    get_pdf_data_by_id,
+    get_file_data_by_id,
     set_analysis_input_text,
 )
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
-from app.utils.extract_text_from_pdf import PDFExtractionError, extract_text_from_pdf
+from app.utils.extract_text_from_file import FileExtractionError, extract_text_from_file
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 from app.utils.ollama import ensure_ollama_available
 
@@ -60,20 +60,21 @@ async def run_analysis(
         )
         return
 
-    if source_type == "pdf":
-        data = await get_pdf_data_by_id(analysis_id=analysis_id)
-        if data is None:
-            logger.warning("[Worker] PDF no encontrado para %s", analysis_id)
+    if source_type == "file":
+        stored = await get_file_data_by_id(analysis_id=analysis_id)
+        if stored is None:
+            logger.warning("[Worker] Archivo no encontrado para %s", analysis_id)
             await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.PDF_EXTRACTION.value
+                analysis_id=analysis_id, error_code=ErrorCode.FILE_EXTRACTION.value
             )
             return
+        data, filename = stored
         try:
-            text = await asyncio.to_thread(extract_text_from_pdf, data)
-        except PDFExtractionError:
-            logger.info("[Worker] Extracción de PDF fallida para %s", analysis_id)
+            text = await asyncio.to_thread(extract_text_from_file, data, filename or "")
+        except FileExtractionError:
+            logger.info("[Worker] Extracción de archivo fallida para %s", analysis_id)
             await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.PDF_EXTRACTION.value
+                analysis_id=analysis_id, error_code=ErrorCode.FILE_EXTRACTION.value
             )
             return
         # Persistimos el texto para que la búsqueda del historial funcione aunque
