@@ -1,7 +1,3 @@
----
-model: haiku
----
-
 # Commit.md
 
 Analyze the staged changes and write a conventional commit message for the VeriTrust project.
@@ -64,7 +60,7 @@ title-only commit.
 
 - Keep the title under 72 characters.
 - Use the imperative mood: "add rate limiting" not "added rate limiting".
-- Do not mention file names in the title unless the file name *is* the feature (e.g. `add .env.example`).
+- Do not mention file names in the title unless the file name _is_ the feature (e.g. `add .env.example`).
 - Do not include the scope if the change is truly cross-cutting.
 - If a backend Pydantic schema changed (under `app/schemas/`), the frontend types in `frontend/src/types/api.d.ts` must be regenerated via `pnpm generate:api-types` — if the diff shows a schema change without a matching `api.d.ts` change, warn the user before committing.
 - Never edit `frontend/src/types/api.d.ts` by hand — it is generated.
