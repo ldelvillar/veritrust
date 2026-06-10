@@ -3,7 +3,7 @@ import 'server-only';
 import { auth } from '@clerk/nextjs/server';
 
 import { serverEnv } from '@/env/server';
-import { ApiError, parseErrorDetail } from '@/lib/apiClient';
+import { throwIfNotOk } from '@/lib/apiClient';
 
 const TOKEN_TEMPLATE = 'veritrust-api';
 
@@ -25,17 +25,7 @@ export async function fetchJsonServer<T>(path: string): Promise<T> {
     cache: 'no-store',
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const { message, code } = parseErrorDetail(
-      (payload as { detail?: unknown }).detail
-    );
-    throw new ApiError(
-      message ?? `Status ${response.status}: error al conectar con el servidor`,
-      code,
-      response.status
-    );
-  }
+  await throwIfNotOk(response, 'error al conectar con el servidor');
 
   return (await response.json()) as T;
 }
@@ -43,17 +33,7 @@ export async function fetchJsonServer<T>(path: string): Promise<T> {
 export async function fetchPublicJsonServer<T>(path: string): Promise<T> {
   const response = await fetch(buildServerUrl(path), { cache: 'no-store' });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const { message, code } = parseErrorDetail(
-      (payload as { detail?: unknown }).detail
-    );
-    throw new ApiError(
-      message ?? `Status ${response.status}: error al conectar con el servidor`,
-      code,
-      response.status
-    );
-  }
+  await throwIfNotOk(response, 'error al conectar con el servidor');
 
   return (await response.json()) as T;
 }

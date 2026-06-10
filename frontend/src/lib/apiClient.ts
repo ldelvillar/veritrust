@@ -69,6 +69,24 @@ export function parseErrorDetail(detail: unknown): ParsedErrorDetail {
   return { message: null, code: null };
 }
 
+// Lanza un ApiError con el detail estructurado del backend si la respuesta no es 2xx.
+export async function throwIfNotOk(
+  response: Response,
+  errorContextMessage: string
+): Promise<void> {
+  if (response.ok) return;
+
+  const payload = await response.json().catch(() => ({}));
+  const { message, code } = parseErrorDetail(
+    (payload as { detail?: unknown }).detail
+  );
+  throw new ApiError(
+    message ?? `Status ${response.status}: ${errorContextMessage}`,
+    code,
+    response.status
+  );
+}
+
 export async function fetchJsonWithAuth<TResponse>(
   getToken: GetTokenFn,
   path: string,
@@ -104,17 +122,7 @@ export async function fetchJsonWithAuth<TResponse>(
     body: requestBody,
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const { message, code } = parseErrorDetail(
-      (payload as { detail?: unknown }).detail
-    );
-    throw new ApiError(
-      message ?? `Status ${response.status}: ${errorContextMessage}`,
-      code,
-      response.status
-    );
-  }
+  await throwIfNotOk(response, errorContextMessage);
 
   return (await response.json()) as TResponse;
 }
@@ -142,17 +150,7 @@ export async function postFormWithAuth<TResponse>(
     body: formData,
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const { message, code } = parseErrorDetail(
-      (payload as { detail?: unknown }).detail
-    );
-    throw new ApiError(
-      message ?? `Status ${response.status}: ${errorContextMessage}`,
-      code,
-      response.status
-    );
-  }
+  await throwIfNotOk(response, errorContextMessage);
 
   return (await response.json()) as TResponse;
 }
@@ -177,17 +175,7 @@ export async function fetchBlobWithAuth(
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const { message, code } = parseErrorDetail(
-      (payload as { detail?: unknown }).detail
-    );
-    throw new ApiError(
-      message ?? `Status ${response.status}: ${errorContextMessage}`,
-      code,
-      response.status
-    );
-  }
+  await throwIfNotOk(response, errorContextMessage);
 
   return await response.blob();
 }
