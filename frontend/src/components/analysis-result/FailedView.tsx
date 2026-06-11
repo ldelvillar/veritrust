@@ -1,10 +1,9 @@
 import Link from 'next/link';
+import Magnifier from '@/assets/Magnifier';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 
 const FAILURE_MESSAGES: Record<string, string> = {
-  NO_MEDICAL_CLAIMS:
-    'No se detectaron afirmaciones médicas verificables en el contenido proporcionado.',
   URL_EXTRACTION:
     'No se pudo extraer el contenido de la URL. Comprueba que el enlace sea válido y accesible.',
   CONNECTION:
@@ -28,6 +27,32 @@ export default function FailedView({
   isRetrying?: boolean;
   retryError?: string | null;
 }) {
+  // No es un fallo del sistema: el contenido no traía afirmaciones médicas que verificar
+  if (errorCode === 'NO_MEDICAL_CLAIMS') {
+    return (
+      <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-primary">
+          <Magnifier className="size-7" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900">
+          No encontramos afirmaciones médicas que verificar
+        </h3>
+        <p className="max-w-md text-sm leading-relaxed text-slate-500">
+          Revisamos el contenido, pero no contenía afirmaciones médicas
+          concretas que se puedan contrastar con literatura biomédica. Prueba
+          con un texto que afirme algo sobre un tratamiento, síntoma, alimento o
+          medida de prevención.
+        </p>
+        <Link
+          href="/app/analisis"
+          className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none"
+        >
+          Analizar otro contenido
+        </Link>
+      </div>
+    );
+  }
+
   const message =
     (errorCode && FAILURE_MESSAGES[errorCode]) ?? FAILURE_MESSAGES.INTERNAL;
 
