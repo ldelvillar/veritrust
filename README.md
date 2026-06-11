@@ -49,6 +49,30 @@ docker compose exec ollama ollama pull translategemma
 
 Frontend at `http://localhost:3000`, backend at `http://localhost:8000`. The BioBERT weights under `backend/models/bert_classifier/` are mounted into the backend container read-only.
 
+### Production deployment (Caddy + TLS)
+
+For an internet-facing host, `docker-compose.prod.yml` adds a [Caddy](https://caddyserver.com/) reverse proxy that terminates TLS (automatic Let's Encrypt) and routes two subdomains to the stack. With this overlay the frontend, backend, and data services are no longer published to the host — only Caddy's `80`/`443` are.
+
+Prerequisites:
+
+- Two DNS `A` records pointing at the host's public IP: `app.<domain>` and `api.<domain>`.
+- Inbound `80` and `443` allowed (and `22` restricted to your IP). On GCP these are VPC firewall rules.
+- A repo-root `.env` with strong `POSTGRES_PASSWORD`/`REDIS_PASSWORD`, your Clerk keys, and:
+
+```bash
+APP_DOMAIN=app.example.com
+API_DOMAIN=api.example.com
+ACME_EMAIL=you@example.com
+```
+
+Then build and start the stack with the overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy provisions and renews certificates automatically once DNS resolves to the host. `NEXT_PUBLIC_API_URL` is baked into the frontend **at build time** from `API_DOMAIN`, so changing the domain needs a rebuild (`--build`), not just a restart. Add `https://app.<domain>` as an allowed origin in your Clerk application.
+
 ### Local development (without Docker)
 
 #### 1. Configure environment

@@ -1,0 +1,38 @@
+# Production overlay: TLS reverse proxy (Caddy) in front of the stack, with the
+# frontend/backend no longer published to the host. Layer it on the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires Docker Compose v2.24+ (for the !override tag).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN must be set in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  backend:
+    ports: !override []
+    environment:
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+
+  frontend:
+    ports: !override []
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN:?API_DOMAIN must be set in .env}
+
+volumes:
+  caddy_data:
+  caddy_config:

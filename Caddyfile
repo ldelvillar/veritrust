@@ -1,0 +1,15 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Frontend (Next.js). TLS is provisioned automatically via Let's Encrypt.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
+
+# Backend (FastAPI). The browser calls this directly via NEXT_PUBLIC_API_URL.
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy backend:8000
+}
