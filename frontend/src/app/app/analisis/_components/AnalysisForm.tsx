@@ -233,35 +233,6 @@ export default function AnalysisForm() {
               onChange={handleChange}
             />
           </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <span className="text-[12.5px] font-bold text-[#a3a4ba]">
-              Sugerencias:
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  url: 'www.20minutos.es/salud/actualidad/estudio-vitamina-c',
-                })
-              }
-              className="rounded-full border border-[#e8e6f4] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#33344c] transition-all hover:border-primary hover:bg-[#f4f2fd] hover:text-primary"
-            >
-              20minutos.es
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  url: 'www.larazon.es/salud/asi-influye-la-vitamina-d',
-                })
-              }
-              className="rounded-full border border-[#e8e6f4] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#33344c] transition-all hover:border-primary hover:bg-[#f4f2fd] hover:text-primary"
-            >
-              larazon.es
-            </button>
-          </div>
         </div>
       )}
 
