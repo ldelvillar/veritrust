@@ -34,15 +34,19 @@ Do **not** write prose paragraphs explaining motivation at length; the title
 names the intent, the bullets name what changed. When in doubt, prefer a
 title-only commit.
 
-**Types:**
+**Types** (full Conventional Commits / Angular set):
 
 - `feat` — new feature or behaviour
 - `fix` — bug fix
+- `perf` — performance improvement with no behaviour change
 - `refactor` — restructuring with no behaviour change
 - `test` — adding or updating tests
-- `chore` — tooling, config, dependencies
+- `build` — build system or external dependencies (Dockerfiles, `uv.lock`, `pnpm-lock.yaml`)
+- `ci` — CI configuration and workflows (`.github/workflows/`)
+- `chore` — tooling or maintenance that doesn't fit another type
 - `style` — formatting only (Ruff format, Prettier)
 - `docs` — documentation only
+- `revert` — reverts a previous commit
 
 **Scopes for this project:**
 
@@ -53,8 +57,7 @@ title-only commit.
 - `db` — raw psycopg3 SQL and the async pool in `app/db/main.py`
 - `api` — FastAPI routes, dependencies, `app/main.py`, the structured error contract
 - `frontend` — Next.js pages, components, hooks, `apiClient.ts`
-- `config` — `pyproject.toml`, lint/type config, env examples
-- `ci` — GitHub Actions workflows
+- `config` — `pyproject.toml`, lint/type config, env examples, Docker/compose
 
 ## Rules
 
