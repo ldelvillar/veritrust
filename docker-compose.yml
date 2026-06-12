@@ -49,6 +49,7 @@ services:
   backend:
     build:
       context: ./backend
+    image: veritrust-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
@@ -67,8 +68,7 @@ services:
         condition: service_healthy
 
   worker:
-    build:
-      context: ./backend
+    image: veritrust-backend
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment:
