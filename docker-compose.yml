@@ -68,6 +68,8 @@ services:
         condition: service_healthy
 
   worker:
+    build:
+      context: ./backend
     image: veritrust-backend
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
