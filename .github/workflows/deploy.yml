@@ -29,3 +29,4 @@ jobs:
             git pull --ff-only
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
             docker image prune -f
+            docker builder prune -f
