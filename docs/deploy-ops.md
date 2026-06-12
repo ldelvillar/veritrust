@@ -39,20 +39,7 @@ sudo dpkg-reconfigure --priority=low unattended-upgrades
 
 ## Backups
 
-Schedule a daily Postgres dump via crontab (`crontab -e`):
-
-```bash
-0 3 * * * docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \
-  pg_dump -U veritrust veritrust | gzip \
-  > ~/backups/veritrust-$(date +\%Y\%m\%d).sql.gz && \
-  find ~/backups -name "*.sql.gz" -mtime +7 -delete
-```
-
-Create the backups directory first:
-
-```bash
-mkdir -p ~/backups
-```
+See [deploy-backups.md](deploy-backups.md).
 
 ## Updating the app
 
