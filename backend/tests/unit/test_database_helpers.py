@@ -175,7 +175,34 @@ def test_build_history_where_clause_with_only_user_id() -> None:
         created_after=None,
     )
 
-    assert where_sql == "user_id = %s AND status = 'done'"
+    # Sin filtro de estado se listan todas las filas (en curso, completadas o fallidas).
+    assert where_sql == "user_id = %s"
+    assert params == ["user-1"]
+
+
+def test_build_history_where_clause_filters_by_status() -> None:
+    where_sql, params = history_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+        status="failed",
+    )
+
+    assert where_sql == "user_id = %s AND status = %s"
+    assert params == ["user-1", "failed"]
+
+
+def test_build_history_where_clause_ignores_unknown_status() -> None:
+    where_sql, params = history_module._build_history_where_clause(
+        user_id="user-1",
+        search_query=None,
+        source_type=None,
+        created_after=None,
+        status="bogus",
+    )
+
+    assert where_sql == "user_id = %s"
     assert params == ["user-1"]
 
 
@@ -226,8 +253,10 @@ def test_build_history_where_clause_uncertain_excludes_real_and_fake() -> None:
         verdict="uncertain",
     )
 
+    # El bucket incierto exige etiqueta no vacía para no arrastrar filas pending/failed.
     assert where_sql.endswith(
-        f"AND (NOT {history_module._VERDICT_REAL_SQL} "
+        f"AND (COALESCE(label, '') <> '' "
+        f"AND NOT {history_module._VERDICT_REAL_SQL} "
         f"AND NOT {history_module._VERDICT_FAKE_SQL})"
     )
     assert params == ["user-1"]
@@ -242,7 +271,7 @@ def test_build_history_where_clause_ignores_unknown_verdict() -> None:
         verdict="bogus",
     )
 
-    assert where_sql == "user_id = %s AND status = 'done'"
+    assert where_sql == "user_id = %s"
     assert params == ["user-1"]
 
 

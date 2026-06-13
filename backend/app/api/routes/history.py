@@ -57,6 +57,7 @@ async def get_history(
     search: str | None = Query(default=None, max_length=200),
     source_type: Literal["all", "text", "file", "url"] = "all",
     verdict: Literal["all", "real", "fake", "uncertain"] = "all",
+    status: Literal["all", "done", "pending", "failed"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
     date_sort: Literal["desc", "asc"] = "desc",
     user=Depends(get_current_user),
@@ -75,6 +76,7 @@ async def get_history(
             created_after=_get_date_threshold(date_range),
             date_sort_order=date_sort,
             verdict=None if verdict == "all" else verdict,
+            status=None if status == "all" else status,
         )
     except DatabaseError as e:
         raise HTTPException(
@@ -95,6 +97,7 @@ async def get_history(
             status=record.status,
             error_code=record.error_code,
             created_at=record.created_at,
+            file_filename=record.file_filename,
         )
         for record in records
     ]

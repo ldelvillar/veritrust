@@ -1241,6 +1241,7 @@ export interface operations {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
                 verdict?: "all" | "real" | "fake" | "uncertain";
+                status?: "all" | "done" | "pending" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 date_sort?: "desc" | "asc";
             };

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Vocabulario único: derivado del enum SourceType para no divergir del contrato.
 _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
 _VALID_VERDICTS = {"real", "fake", "uncertain"}
+_VALID_STATUSES = {"done", "pending", "failed"}
 
 # Espejo en SQL de classify_verdict
 _VERDICT_REAL_SQL = (
@@ -30,10 +31,14 @@ _VERDICT_FAKE_SQL = (
     "(LOWER(COALESCE(label, '')) LIKE '%%fals%%' "
     "OR LOWER(COALESCE(label, '')) LIKE '%%fake%%')"
 )
+# El bucket 'incierto' exige etiqueta no vacía: las filas pending/failed no tienen veredicto.
 _VERDICT_SQL = {
     "real": _VERDICT_REAL_SQL,
     "fake": _VERDICT_FAKE_SQL,
-    "uncertain": f"(NOT {_VERDICT_REAL_SQL} AND NOT {_VERDICT_FAKE_SQL})",
+    "uncertain": (
+        f"(COALESCE(label, '') <> '' "
+        f"AND NOT {_VERDICT_REAL_SQL} AND NOT {_VERDICT_FAKE_SQL})"
+    ),
 }
 
 
@@ -93,10 +98,16 @@ def _build_history_where_clause(
     source_type: Optional[str],
     created_after: Optional[datetime],
     verdict: Optional[str] = None,
+    status: Optional[str] = None,
 ) -> tuple[str, list[Any]]:
     """Construye cláusula WHERE y parámetros para historial paginado."""
-    where_clauses = ["user_id = %s", "status = 'done'"]
+    where_clauses = ["user_id = %s"]
     where_params: list[Any] = [user_id]
+
+    # status=None lista cualquier estado (en curso, completado o fallido).
+    if status in _VALID_STATUSES:
+        where_clauses.append("status = %s")
+        where_params.append(status)
 
     normalized_search = (search_query or "").strip()
     if normalized_search:
@@ -352,6 +363,7 @@ async def list_user_analysis_history(
     created_after: Optional[datetime] = None,
     date_sort_order: str = "desc",
     verdict: Optional[str] = None,
+    status: Optional[str] = None,
 ) -> tuple[list[AnalysisHistoryItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
     pool = await get_pool()
@@ -370,6 +382,7 @@ async def list_user_analysis_history(
         source_type=safe_source_type,
         created_after=created_after,
         verdict=verdict,
+        status=status,
     )
     count_query, list_query = _build_history_queries(where_sql, safe_date_sort)
 
@@ -422,6 +435,7 @@ async def export_user_analysis_history(
         source_type=safe_source_type,
         created_after=created_after,
         verdict=verdict,
+        status="done",
     )
 
     export_query = """

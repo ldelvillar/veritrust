@@ -1,9 +1,4 @@
-"""Tests de integración para la API server, verificando endpoints y manejo de errores.
-
-``POST /analysis`` ahora solo crea una fila ``pending`` y encola un trabajo en
-arq; el pipeline multiagente se prueba en ``test_worker.py``. Aquí se verifica el
-contrato HTTP: validación, encolado y lectura del detalle.
-"""
+"""Tests de integración para la API server, verificando endpoints y manejo de errores."""
 
 import importlib
 import sys
@@ -911,6 +906,7 @@ def test_historial_returns_user_history(monkeypatch):
             "status": "done",
             "error_code": None,
             "created_at": "2026-04-10T12:00:00+00:00",
+            "file_filename": "documento.pdf",
         }
     ]
 
@@ -924,6 +920,7 @@ def test_historial_returns_user_history(monkeypatch):
         created_after,
         date_sort_order,
         verdict,
+        status,
     ):
         assert user_id == "test-user"
         assert verdict == "fake"
@@ -933,6 +930,8 @@ def test_historial_returns_user_history(monkeypatch):
         assert source_type == "text"
         assert created_after is not None
         assert date_sort_order == "asc"
+        # Sin parámetro 'status' explícito el filtro de estado queda en None (todos).
+        assert status is None
         return [types.SimpleNamespace(**row) for row in history_rows], 12
 
     monkeypatch.setattr(
@@ -953,6 +952,27 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["page_size"] == 10
     assert body["items"][0]["user_id"] == "test-user"
     assert body["items"][0]["source_type"] == "text"
+    # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
+    assert body["items"][0]["file_filename"] == "documento.pdf"
+
+
+def test_historial_forwards_status_filter(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_list_user_analysis_history(*, status, **kwargs):
+        assert status == "failed"
+        return [], 0
+
+    monkeypatch.setattr(
+        "app.api.routes.history.list_user_analysis_history",
+        fake_list_user_analysis_history,
+    )
+
+    response = client.get("/history?status=failed")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 0
 
 
 def test_historial_returns_500_when_database_fails(monkeypatch):

@@ -68,6 +68,46 @@ const getScoreColor = (score: number): string => {
   return 'bg-red-500';
 };
 
+interface RowState {
+  badge: { text: string; className: string };
+  detailLabel: string;
+  showScore: boolean;
+}
+
+// Las filas no completadas no tienen veredicto ni puntuación: muestran su estado.
+const getRowState = (item: HistoryItem): RowState => {
+  if (item.status === 'pending') {
+    return {
+      badge: { text: 'En curso', className: 'bg-[#eeebfc] text-primary' },
+      detailLabel: 'Ver estado',
+      showScore: false,
+    };
+  }
+  if (item.status === 'failed') {
+    // No es un fallo: el contenido no traía afirmaciones médicas que verificar.
+    if (item.error_code === 'NO_MEDICAL_CLAIMS') {
+      return {
+        badge: {
+          text: 'Sin afirmaciones',
+          className: 'bg-slate-100 text-slate-600',
+        },
+        detailLabel: 'Ver detalle',
+        showScore: false,
+      };
+    }
+    return {
+      badge: { text: 'Fallido', className: 'bg-red-50 text-red-700' },
+      detailLabel: 'Ver detalle',
+      showScore: false,
+    };
+  }
+  return {
+    badge: VERDICT_BADGES[item.verdict],
+    detailLabel: 'Ver informe',
+    showScore: true,
+  };
+};
+
 const getVisiblePages = (
   currentPage: number,
   totalPages: number,
@@ -200,7 +240,7 @@ export default function HistoryResultsTable({
         <ul>
           {history.map(item => {
             const credibility = item.credibility ?? null;
-            const verdict = VERDICT_BADGES[item.verdict];
+            const rowState = getRowState(item);
 
             return (
               <li
@@ -232,29 +272,35 @@ export default function HistoryResultsTable({
 
                 <div className="mt-4 flex flex-col items-start gap-2 md:mt-0">
                   <span
-                    className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase ${verdict.className}`}
+                    className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase ${rowState.badge.className}`}
                   >
-                    {verdict.text}
+                    {rowState.badge.text}
                   </span>
-                  <div className="flex w-full items-center gap-3">
-                    {credibility === null ? (
-                      <span className="text-sm font-semibold text-slate-400">
-                        Sin puntuación
-                      </span>
-                    ) : (
-                      <>
-                        <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
-                          <div
-                            className={`h-full rounded-full ${getScoreColor(credibility)}`}
-                            style={{ width: `${credibility}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-black text-slate-700">
-                          {credibility}/100
+                  {rowState.showScore ? (
+                    <div className="flex w-full items-center gap-3">
+                      {credibility === null ? (
+                        <span className="text-sm font-semibold text-slate-400">
+                          Sin puntuación
                         </span>
-                      </>
-                    )}
-                  </div>
+                      ) : (
+                        <>
+                          <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
+                            <div
+                              className={`h-full rounded-full ${getScoreColor(credibility)}`}
+                              style={{ width: `${credibility}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-black text-slate-700">
+                            {credibility}/100
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  ) : item.status === 'pending' ? (
+                    <span className="text-sm font-medium text-slate-400">
+                      Procesando…
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 flex items-center gap-3 md:mt-0 md:justify-self-end">
@@ -262,7 +308,7 @@ export default function HistoryResultsTable({
                     href={`/app/analisis/${item.analysis_id}`}
                     className="inline-flex w-fit items-center gap-2 text-sm font-bold text-primary"
                   >
-                    Ver informe
+                    {rowState.detailLabel}
                     <Arrow className="size-4 rotate-270 text-primary" />
                   </Link>
                   <button
