@@ -54,7 +54,7 @@ export default function AlertsCard({
         </div>
         {total > 0 && (
           <span
-            className="shrink-0 rounded-full border border-[#e7e3fb] bg-[#f4f2fd] px-[11px] py-[6px] text-[11.5px] font-bold"
+            className="shrink-0 rounded-full border border-[#e7e3fb] bg-[#f4f2fd] px-2.75 py-1.5 text-[11.5px] font-bold"
             style={{ color: '#5446dc' }}
           >
             {total} {total === 1 ? 'alerta' : 'alertas'}
@@ -83,7 +83,7 @@ export default function AlertsCard({
                 <Link
                   key={item.id}
                   href={`/app/analisis/${item.id}`}
-                  className="group flex items-start gap-3.5 rounded-[14px] border p-[17px] transition-all duration-150 hover:shadow-sm"
+                  className="group flex items-start gap-3.5 rounded-[14px] border p-4.25 transition-all duration-150 hover:shadow-sm"
                   style={st.card}
                 >
                   <div
@@ -104,7 +104,7 @@ export default function AlertsCard({
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
                       <span
-                        className="rounded-[6px] px-[9px] py-[3px] text-[10.5px] font-bold tracking-[.05em] uppercase"
+                        className="rounded-md px-2.25 py-0.75 text-[10.5px] font-bold tracking-[.05em] uppercase"
                         style={st.verdict}
                       >
                         {label}
@@ -119,7 +119,7 @@ export default function AlertsCard({
                   </div>
 
                   <div
-                    className="grid size-[34px] shrink-0 place-items-center self-center rounded-[10px] border border-[#e8e6f4] bg-white transition-transform duration-150 group-hover:translate-x-0.5"
+                    className="grid size-8.5 shrink-0 place-items-center self-center rounded-[10px] border border-[#e8e6f4] bg-white transition-transform duration-150 group-hover:translate-x-0.5"
                     style={{ color: '#a3a4ba' }}
                   >
                     <ArrowRightIcon className="size-4" strokeWidth={2.1} />
