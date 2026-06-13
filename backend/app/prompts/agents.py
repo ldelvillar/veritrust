@@ -22,6 +22,7 @@ class Prompts:
 
     extractor: PromptItem
     translator: PromptItem
+    judge: PromptItem
     health_expert: PromptItem
 
 
@@ -40,5 +41,6 @@ def load_prompts() -> Prompts:
     return Prompts(
         extractor=PromptItem(**data["extractor"]),
         translator=PromptItem(**data["translator"]),
+        judge=PromptItem(**data["judge"]),
         health_expert=PromptItem(**data["health_expert"]),
     )

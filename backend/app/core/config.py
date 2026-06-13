@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     ollama_extractor_model: str = "llama3"
     ollama_translator_model: str = "translategemma"
     ollama_health_expert_model: str = "llama3.2"
+    ollama_judge_model: str = "llama3.2"
 
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None

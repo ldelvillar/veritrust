@@ -15,6 +15,7 @@ def dummy_prompts():
     return Prompts(
         extractor=PromptItem(version="v1", text="extractor"),
         translator=PromptItem(version="v1", text="translator"),
+        judge=PromptItem(version="v1", text="judge"),
         health_expert=PromptItem(version="v1", text="health_expert"),
     )
 
@@ -28,7 +29,7 @@ def _load_main_module(
 
     if investigator_impl is None:
 
-        def investigator_impl(state):
+        def investigator_impl(state, prompts):
             return {"sources": [], "evidence_coverage": 1.0}
 
     fake_extractor_module = types.ModuleType("app.agents.extractor")
@@ -158,7 +159,7 @@ def test_graph_runs_investigator_and_propagates_sources(monkeypatch, dummy_promp
     def translator(state, prompts):
         return {"translated_statements": ["A-en"]}
 
-    def investigator(state):
+    def investigator(state, prompts):
         # El investigador corre tras el traductor y ve sus afirmaciones.
         assert state["translated_statements"] == ["A-en"]
         return {"sources": fuentes, "evidence_coverage": 1.0}

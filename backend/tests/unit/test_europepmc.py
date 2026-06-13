@@ -41,6 +41,7 @@ def test_search_evidence_maps_results_with_doi_url(monkeypatch):
                     "doi": "10.1000/abc",
                     "journalTitle": "BMJ",
                     "pubYear": "2021",
+                    "abstractText": "Vitamin C does not prevent the common cold.",
                 }
             ]
         }
@@ -55,6 +56,7 @@ def test_search_evidence_maps_results_with_doi_url(monkeypatch):
             "url": "https://doi.org/10.1000/abc",
             "source": "BMJ",
             "year": "2021",
+            "abstract": "Vitamin C does not prevent the common cold.",
         }
     ]
 

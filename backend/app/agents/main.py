@@ -69,7 +69,7 @@ def create_graph(prompts) -> CompiledStateGraph:
     )
     workflow.add_node(
         "investigator",
-        lambda state: _timed_run("investigator", lambda: investigator(state)),
+        lambda state: _timed_run("investigator", lambda: investigator(state, prompts)),
     )
     workflow.add_node(
         "health_expert",

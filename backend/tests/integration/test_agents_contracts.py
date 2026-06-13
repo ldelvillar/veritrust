@@ -12,6 +12,7 @@ def dummy_prompts():
     return Prompts(
         extractor=PromptItem(version="v1", text="extractor"),
         translator=PromptItem(version="v1", text="translator"),
+        judge=PromptItem(version="v1", text="judge"),
         health_expert=PromptItem(version="v1", text="health_expert"),
     )
 

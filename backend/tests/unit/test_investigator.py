@@ -1,10 +1,13 @@
 """Tests del nodo investigador con Europe PMC mockeado."""
 
 import threading
+from types import SimpleNamespace
 
 from app.agents import investigator as investigator_module
 from app.agents.investigator import investigator
 from app.utils.europepmc import EvidenceRetrievalError
+
+_PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
 
 
 def test_returns_empty_without_translated_statements():
@@ -124,6 +127,33 @@ def test_falls_back_to_translation_when_query_blank(monkeypatch):
     )
 
     assert queried == ['"focused"', "B-en"]
+
+
+def test_relevance_gate_filters_sources_and_updates_coverage(monkeypatch):
+    def fake_search(query, *, max_results):
+        return [{"title": "t", "url": f"https://x/{query}", "abstract": "abs"}]
+
+    monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
+
+    # El juez solo considera relevante la evidencia de la afirmación A.
+    def fake_keep(prompt_text, claim, hits):
+        return hits if claim == "A-en" else []
+
+    monkeypatch.setattr(investigator_module, "keep_relevant", fake_keep)
+
+    update = investigator(
+        {
+            "translated_statements": ["A-en", "B-en"],
+            "extracted_statements": ["a", "b"],
+        },
+        _PROMPTS,
+    )
+
+    # Solo cuenta la afirmación con evidencia relevante; el abstract no se persiste.
+    assert update["evidence_coverage"] == 0.5
+    assert len(update["sources"]) == 1
+    assert update["sources"][0]["statements"] == ["a"]
+    assert "abstract" not in update["sources"][0]
 
 
 def test_runs_lookups_concurrently(monkeypatch):

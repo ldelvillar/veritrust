@@ -30,7 +30,11 @@ def _build_article_url(result: dict) -> str:
 
 
 def _map_result(result: dict) -> dict:
-    """Mapea un resultado de Europe PMC a los metadatos que persistimos."""
+    """Mapea un resultado de Europe PMC a los metadatos que persistimos.
+
+    El ``abstract`` es transitorio: solo se usa para juzgar la relevancia y se
+    descarta antes de persistir la fuente.
+    """
     journal = (result.get("journalTitle") or "").strip()
     year = str(result.get("pubYear")).strip() if result.get("pubYear") else None
     return {
@@ -38,6 +42,7 @@ def _map_result(result: dict) -> dict:
         "url": _build_article_url(result),
         "source": journal or None,
         "year": year,
+        "abstract": (result.get("abstractText") or "").strip() or None,
     }
 
 
@@ -56,7 +61,8 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         "query": cleaned,
         "format": "json",
         "pageSize": max_results,
-        "resultType": "lite",
+        # "core" incluye el abstract, necesario para juzgar la relevancia.
+        "resultType": "core",
     }
 
     try:

@@ -3,6 +3,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
+from app.agents.relevance import keep_relevant
+from app.prompts.agents import Prompts
 from app.utils.europepmc import EvidenceRetrievalError, search_evidence
 
 logger = logging.getLogger(__name__)
@@ -20,7 +22,9 @@ def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
         url = hit["url"]
         source = by_url.get(url)
         if source is None:
-            source = {**hit, "statements": []}
+            # Excluye el abstract: solo sirve para juzgar relevancia, no se persiste.
+            source = {key: value for key, value in hit.items() if key != "abstract"}
+            source["statements"] = []
             by_url[url] = source
         if statement and statement not in source["statements"]:
             source["statements"].append(statement)
@@ -36,8 +40,8 @@ def _search_one(query: str) -> list[dict] | None:
         return None
 
 
-def investigator(state: dict) -> dict:
-    """Recupera literatura biomédica para las afirmaciones y calcula su cobertura."""
+def investigator(state: dict, prompts: Prompts | None = None) -> dict:
+    """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
     logger.info("[Investigador] Buscando evidencia en Europe PMC")
 
     translated = state.get("translated_statements", [])
@@ -47,41 +51,49 @@ def investigator(state: dict) -> dict:
     if not translated:
         return {"sources": [], "evidence_coverage": 0.0}
 
-    # Consulta enfocada por afirmación, con respaldo en la traducción completa.
-    effective = [
-        queries[i]
-        if i < len(queries) and queries[i] and str(queries[i]).strip()
-        else translated[i]
+    # Por afirmación: consulta enfocada (con respaldo en la traducción), texto en
+    # inglés para juzgar la relevancia y original en español para enlazar la fuente.
+    triples = [
+        (
+            queries[i]
+            if i < len(queries) and queries[i] and str(queries[i]).strip()
+            else translated[i],
+            translated[i] or "",
+            originals[i] if i < len(originals) else None,
+        )
         for i in range(len(translated))
-    ]
-    pairs = list(zip(effective, originals + [None] * len(effective)))[
-        :EVIDENCE_MAX_STATEMENTS
-    ]
-    # Descarta traducciones vacías (relleno) antes de consultar Europe PMC.
-    valid_pairs = [
-        (str(query), original)
-        for query, original in pairs
+    ][:EVIDENCE_MAX_STATEMENTS]
+    # Descarta consultas vacías (relleno) antes de llamar a Europe PMC.
+    valid = [
+        (str(query), claim, original)
+        for query, claim, original in triples
         if query and str(query).strip()
     ]
-    attempted = len(valid_pairs)
-    if not valid_pairs:
+    attempted = len(valid)
+    if not valid:
         return {"sources": [], "evidence_coverage": 0.0}
 
     # Las consultas son I/O de red independiente: se lanzan en paralelo para que
     # la latencia total sea ~una llamada en vez de la suma de todas.
-    with ThreadPoolExecutor(max_workers=len(valid_pairs)) as pool:
-        results = list(pool.map(_search_one, [query for query, _ in valid_pairs]))
+    with ThreadPoolExecutor(max_workers=len(valid)) as pool:
+        results = list(pool.map(_search_one, [query for query, _, _ in valid]))
+
+    judge_prompt = prompts.judge.text if prompts else None
 
     collected: list[tuple[dict, str | None]] = []
     errored = 0
     covered = 0
-    for (_, original), hits in zip(valid_pairs, results):
+    for (query, claim, original), hits in zip(valid, results):
         if hits is None:
             errored += 1
             continue
-        if hits:
+        # Filtra las fuentes irrelevantes con el juez; sin prompt se conservan todas.
+        relevant = (
+            keep_relevant(judge_prompt, claim or query, hits) if judge_prompt else hits
+        )
+        if relevant:
             covered += 1
-            collected.extend((hit, original) for hit in hits)
+            collected.extend((hit, original) for hit in relevant)
 
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
