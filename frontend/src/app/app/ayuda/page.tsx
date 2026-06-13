@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { CONFIG } from '@/config';
+import { SITE_CONFIG } from '@/config/site';
 
 import HelpArticleCatalog from './_components/HelpArticleCatalog';
 import HelpCategories from './_components/HelpCategories';
@@ -24,7 +24,7 @@ export default function AyudaPage() {
       <HelpArticleCatalog articles={ARTICLES} categories={CATEGORIES} />
       <HelpSteps steps={STEPS} />
       <HelpFaqSection faq={FAQ} />
-      <HelpContactStrip email={CONFIG.email} />
+      <HelpContactStrip email={SITE_CONFIG.email} />
     </div>
   );
 }

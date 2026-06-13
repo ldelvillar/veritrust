@@ -11,7 +11,7 @@ const onest = Onest({
 });
 
 export const metadata: Metadata = {
-  title: 'Detector de Desinformación con IA | VeriTrust',
+  title: 'Detector de Desinformación Médica con IA | VeriTrust',
   description:
     'Detecta afirmaciones médicas falsas con nuestro sistema impulsado por IA. VeriTrust proporciona una evaluación de su veracidad, ayudando a identificar información confiable y combatir la desinformación en línea.',
 };

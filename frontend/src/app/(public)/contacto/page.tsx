@@ -8,7 +8,7 @@ import NewspaperIcon from '@/assets/Newspaper';
 import PhoneIcon from '@/assets/Phone';
 import PinIcon from '@/assets/Pin';
 import ContactForm from './_components/ContactForm';
-import { CONFIG } from '@/config';
+import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Contacto | VeriTrust',
@@ -37,8 +37,8 @@ const channels = [
     title: 'Soporte',
     desc: '¿Algo no funciona o tienes dudas sobre tu cuenta? Te ayudamos.',
     link: {
-      label: CONFIG.email,
-      href: `mailto:${CONFIG.email}`,
+      label: SITE_CONFIG.email,
+      href: `mailto:${SITE_CONFIG.email}`,
     },
   },
   {
@@ -46,8 +46,8 @@ const channels = [
     title: 'Prensa y alianzas',
     desc: 'Medios, organismos de salud y colaboraciones de investigación.',
     link: {
-      label: CONFIG.email,
-      href: `mailto:${CONFIG.email}`,
+      label: SITE_CONFIG.email,
+      href: `mailto:${SITE_CONFIG.email}`,
     },
   },
 ];
@@ -127,10 +127,10 @@ export default function ContactoPage() {
                   Email general
                 </h4>
                 <a
-                  href={`mailto:${CONFIG.email}`}
+                  href={`mailto:${SITE_CONFIG.email}`}
                   className="text-[13.5px] font-semibold text-[#5446dc] hover:underline"
                 >
-                  {CONFIG.email}
+                  {SITE_CONFIG.email}
                 </a>
               </div>
             </div>
@@ -143,7 +143,9 @@ export default function ContactoPage() {
                 <h4 className="mb-0.5 text-[14.5px] font-bold text-[#15162c]">
                   Teléfono
                 </h4>
-                <p className="text-[13.5px] text-[#7e7f99]">{CONFIG.phone}</p>
+                <p className="text-[13.5px] text-[#7e7f99]">
+                  {SITE_CONFIG.phone}
+                </p>
               </div>
             </div>
 
