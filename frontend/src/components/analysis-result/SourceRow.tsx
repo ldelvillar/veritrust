@@ -1,4 +1,5 @@
 import BookIcon from '@/assets/Book';
+import { getStanceInfo } from './format';
 import type { SourceType } from './types';
 
 function sourceMeta(source: SourceType): string | null {
@@ -8,8 +9,15 @@ function sourceMeta(source: SourceType): string | null {
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-export default function SourceRow({ source }: { source: SourceType }) {
+export default function SourceRow({
+  source,
+  stance,
+}: {
+  source: SourceType;
+  stance?: string | null;
+}) {
   const meta = sourceMeta(source);
+  const stanceInfo = getStanceInfo(stance);
 
   return (
     <li className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
@@ -25,10 +33,21 @@ export default function SourceRow({ source }: { source: SourceType }) {
         >
           {source.title}
         </a>
-        {meta && (
-          <p className="mt-1 text-[11.5px] font-semibold text-slate-400">
-            {meta}
-          </p>
+        {(stanceInfo || meta) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {stanceInfo && (
+              <span
+                className={`rounded-md px-2 py-0.5 text-[10.5px] font-bold tracking-wide uppercase ${stanceInfo.className}`}
+              >
+                {stanceInfo.text}
+              </span>
+            )}
+            {meta && (
+              <span className="text-[11.5px] font-semibold text-slate-400">
+                {meta}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </li>

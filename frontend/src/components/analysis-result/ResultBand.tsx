@@ -41,7 +41,8 @@ export default function ResultBand({ result }: { result: ReportView }) {
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
               <BookIcon className="size-3.5 opacity-85" />
               {coverage.backed}/{claimCount}{' '}
-              {claimCount === 1 ? 'afirmación' : 'afirmaciones'} con evidencia
+              {claimCount === 1 ? 'afirmación' : 'afirmaciones'} con literatura
+              relacionada
             </span>
           )}
         </div>

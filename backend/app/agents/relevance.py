@@ -1,8 +1,8 @@
-"""Filtra las fuentes recuperadas dejando solo las relevantes para cada afirmación."""
+"""Juzga la relevancia y la postura de las fuentes recuperadas para cada afirmación."""
 
 import logging
 from functools import lru_cache
-from typing import List
+from typing import List, Literal
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
@@ -12,28 +12,33 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# "unrelated" descarta la fuente; las demás se conservan con su postura.
+JudgeStance = Literal["supports", "contradicts", "inconclusive", "unrelated"]
 
-class RelevanceVerdicts(BaseModel):
-    """Relevancia de cada fuente candidata, en el mismo orden que la entrada."""
 
-    relevant: List[bool] = Field(
+class EvidenceJudgments(BaseModel):
+    """Postura de cada fuente candidata, en el mismo orden que la entrada."""
+
+    stances: List[JudgeStance] = Field(
         description=(
-            "Un booleano por fuente candidata, en el MISMO orden y número: true si "
-            "el resumen aborda la afirmación (a favor o en contra), false si no."
+            "Una postura por fuente candidata, en el MISMO orden y número: "
+            "'supports' si el resumen respalda la afirmación, 'contradicts' si la "
+            "refuta, 'inconclusive' si la aborda sin concluir, 'unrelated' si trata "
+            "de otro tema."
         )
     )
 
 
 @lru_cache(maxsize=1)
 def get_relevance_chain(prompt_text: str):
-    """Devuelve la cadena de juicio de relevancia configurada y cacheada."""
+    """Devuelve la cadena de juicio de evidencia configurada y cacheada."""
     settings = get_settings()
     llm = ChatOllama(
         model=settings.ollama_judge_model,
         temperature=0,
         base_url=settings.ollama_base_url,
     )
-    structured_llm = llm.with_structured_output(RelevanceVerdicts)
+    structured_llm = llm.with_structured_output(EvidenceJudgments)
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -55,11 +60,12 @@ def _format_candidates(hits: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def keep_relevant(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]:
-    """Devuelve solo las fuentes cuyo resumen es relevante para la afirmación.
+def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]:
+    """Devuelve las fuentes relevantes, cada una anotada con su ``stance``.
 
-    Falla en abierto: ante cualquier error del juez conserva todas las fuentes,
-    para no descartar evidencia por un fallo de infraestructura.
+    Descarta las marcadas como ``unrelated``. Falla en abierto: ante cualquier
+    error del juez conserva todas las fuentes (sin postura), para no descartar
+    evidencia por un fallo de infraestructura.
     """
     if not hits:
         return hits
@@ -68,11 +74,15 @@ def keep_relevant(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]:
     try:
         verdict = chain.invoke({"claim": claim, "sources": _format_candidates(hits)})
     except Exception:
-        logger.warning("[Juez] Fallo evaluando relevancia; se conservan las fuentes")
+        logger.warning("[Juez] Fallo evaluando la evidencia; se conservan las fuentes")
         return hits
 
-    flags = list(verdict.relevant)
+    stances = list(verdict.stances)
     # Ante desajuste de cardinalidad, conserva las fuentes no juzgadas.
-    if len(flags) < len(hits):
-        flags.extend([True] * (len(hits) - len(flags)))
-    return [hit for hit, keep in zip(hits, flags) if keep]
+    if len(stances) < len(hits):
+        stances.extend(["inconclusive"] * (len(hits) - len(stances)))
+    return [
+        {**hit, "stance": stance}
+        for hit, stance in zip(hits, stances)
+        if stance != "unrelated"
+    ]

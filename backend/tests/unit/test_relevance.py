@@ -1,48 +1,57 @@
-"""Tests del juez de relevancia con el LLM mockeado."""
+"""Tests del juez de evidencia con el LLM mockeado."""
 
 from types import SimpleNamespace
 
 from app.agents import relevance
-from app.agents.relevance import _format_candidates, get_relevance_chain, keep_relevant
+from app.agents.relevance import _format_candidates, get_relevance_chain, judge_evidence
 
 
 class _FakeChain:
-    def __init__(self, flags):
-        self._flags = flags
+    def __init__(self, stances):
+        self._stances = stances
 
     def invoke(self, payload):
-        return SimpleNamespace(relevant=self._flags)
+        return SimpleNamespace(stances=self._stances)
 
 
-def test_keep_relevant_drops_irrelevant_sources(monkeypatch):
+def test_judge_evidence_drops_unrelated_and_annotates_stance(monkeypatch):
     monkeypatch.setattr(
-        relevance, "get_relevance_chain", lambda prompt: _FakeChain([True, False])
+        relevance,
+        "get_relevance_chain",
+        lambda prompt: _FakeChain(["supports", "unrelated"]),
     )
     hits = [{"title": "a", "abstract": "x"}, {"title": "b", "abstract": "y"}]
 
-    assert keep_relevant("p", "claim", hits) == [hits[0]]
+    kept = judge_evidence("p", "claim", hits)
+
+    assert kept == [{"title": "a", "abstract": "x", "stance": "supports"}]
 
 
-def test_keep_relevant_returns_empty_without_calling_judge(monkeypatch):
+def test_judge_evidence_returns_empty_without_calling_judge(monkeypatch):
     def _fail(prompt):
         raise AssertionError("no debe construirse la cadena sin candidatas")
 
     monkeypatch.setattr(relevance, "get_relevance_chain", _fail)
 
-    assert keep_relevant("p", "claim", []) == []
+    assert judge_evidence("p", "claim", []) == []
 
 
-def test_keep_relevant_keeps_unjudged_when_flags_missing(monkeypatch):
-    # Un solo flag para dos fuentes: la no juzgada se conserva.
+def test_judge_evidence_pads_missing_stances_as_inconclusive(monkeypatch):
+    # Una sola postura para dos fuentes: la no juzgada se conserva sin concluir.
     monkeypatch.setattr(
-        relevance, "get_relevance_chain", lambda prompt: _FakeChain([True])
+        relevance, "get_relevance_chain", lambda prompt: _FakeChain(["supports"])
     )
     hits = [{"title": "a"}, {"title": "b"}]
 
-    assert keep_relevant("p", "claim", hits) == hits
+    kept = judge_evidence("p", "claim", hits)
+
+    assert kept == [
+        {"title": "a", "stance": "supports"},
+        {"title": "b", "stance": "inconclusive"},
+    ]
 
 
-def test_keep_relevant_fails_open_on_judge_error(monkeypatch):
+def test_judge_evidence_fails_open_on_error(monkeypatch):
     class _BoomChain:
         def invoke(self, payload):
             raise RuntimeError("ollama caído")
@@ -50,8 +59,8 @@ def test_keep_relevant_fails_open_on_judge_error(monkeypatch):
     monkeypatch.setattr(relevance, "get_relevance_chain", lambda prompt: _BoomChain())
     hits = [{"title": "a"}]
 
-    # Ante un fallo del juez se conservan todas las fuentes.
-    assert keep_relevant("p", "claim", hits) == hits
+    # Ante un fallo del juez se conservan todas las fuentes, sin postura.
+    assert judge_evidence("p", "claim", hits) == hits
 
 
 def test_format_candidates_includes_abstract_and_title_only():

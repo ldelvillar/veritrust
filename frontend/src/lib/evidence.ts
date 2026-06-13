@@ -46,8 +46,8 @@ export function groupSourcesByClaim(
   for (const source of sources) {
     const matchedIndices = new Set<number>();
     for (const statement of source.statements ?? []) {
-      if (!statement) continue;
-      const index = indexByText.get(normalize(statement));
+      if (!statement?.text) continue;
+      const index = indexByText.get(normalize(statement.text));
       if (index !== undefined) matchedIndices.add(index);
     }
 

@@ -29,7 +29,7 @@ def test_collects_sources_and_full_coverage(monkeypatch):
     assert update["evidence_coverage"] == 1.0
     assert len(update["sources"]) == 2
     # La afirmación original se adjunta para enlazar la fuente con su afirmación.
-    assert update["sources"][0]["statements"] == ["a"]
+    assert update["sources"][0]["statements"] == [{"text": "a", "stance": None}]
 
 
 def test_partial_coverage_when_some_statements_have_no_hits(monkeypatch):
@@ -55,7 +55,10 @@ def test_merges_statements_for_shared_url(monkeypatch):
 
     # Una misma fuente recuperada para dos afirmaciones queda enlazada a ambas.
     assert len(update["sources"]) == 1
-    assert update["sources"][0]["statements"] == ["a", "b"]
+    assert update["sources"][0]["statements"] == [
+        {"text": "a", "stance": None},
+        {"text": "b", "stance": None},
+    ]
 
 
 def test_total_outage_does_not_penalize_confidence(monkeypatch):
@@ -129,17 +132,17 @@ def test_falls_back_to_translation_when_query_blank(monkeypatch):
     assert queried == ['"focused"', "B-en"]
 
 
-def test_relevance_gate_filters_sources_and_updates_coverage(monkeypatch):
+def test_evidence_gate_filters_sources_and_records_stance(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": "t", "url": f"https://x/{query}", "abstract": "abs"}]
 
     monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
 
-    # El juez solo considera relevante la evidencia de la afirmación A.
-    def fake_keep(prompt_text, claim, hits):
-        return hits if claim == "A-en" else []
+    # El juez solo conserva la evidencia de la afirmación A, con su postura.
+    def fake_judge(prompt_text, claim, hits):
+        return [{**h, "stance": "contradicts"} for h in hits] if claim == "A-en" else []
 
-    monkeypatch.setattr(investigator_module, "keep_relevant", fake_keep)
+    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
 
     update = investigator(
         {
@@ -149,11 +152,15 @@ def test_relevance_gate_filters_sources_and_updates_coverage(monkeypatch):
         _PROMPTS,
     )
 
-    # Solo cuenta la afirmación con evidencia relevante; el abstract no se persiste.
+    # Solo cuenta la afirmación con evidencia relevante; el abstract no se persiste
+    # y la postura se guarda dentro de la afirmación enlazada.
     assert update["evidence_coverage"] == 0.5
     assert len(update["sources"]) == 1
-    assert update["sources"][0]["statements"] == ["a"]
+    assert update["sources"][0]["statements"] == [
+        {"text": "a", "stance": "contradicts"}
+    ]
     assert "abstract" not in update["sources"][0]
+    assert "stance" not in update["sources"][0]
 
 
 def test_runs_lookups_concurrently(monkeypatch):

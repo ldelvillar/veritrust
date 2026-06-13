@@ -543,7 +543,7 @@ export interface components {
             /** Year */
             year?: string | null;
             /** Statements */
-            statements?: string[] | null;
+            statements?: components["schemas"]["StatementStance"][] | null;
         };
         /**
          * SourceType
@@ -551,6 +551,16 @@ export interface components {
          * @enum {string}
          */
         SourceType: "text" | "file" | "url";
+        /**
+         * StatementStance
+         * @description Afirmación enlazada a una fuente y la postura de la fuente sobre ella.
+         */
+        StatementStance: {
+            /** Text */
+            text: string;
+            /** Stance */
+            stance?: ("supports" | "contradicts" | "inconclusive") | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */

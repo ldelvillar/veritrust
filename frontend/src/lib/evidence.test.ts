@@ -5,7 +5,7 @@ const claim = (text: string) => ({ text, label: 'verdadera', confidence: 0.9 });
 const source = (url: string, statements: string[] | null) => ({
   title: `Paper ${url}`,
   url,
-  statements,
+  statements: statements?.map(text => ({ text, stance: null })) ?? null,
 });
 
 describe('groupSourcesByClaim', () => {

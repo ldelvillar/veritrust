@@ -3,7 +3,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from app.agents.relevance import keep_relevant
+from app.agents.relevance import judge_evidence
 from app.prompts.agents import Prompts
 from app.utils.europepmc import EvidenceRetrievalError, search_evidence
 
@@ -22,12 +22,15 @@ def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
         url = hit["url"]
         source = by_url.get(url)
         if source is None:
-            # Excluye el abstract: solo sirve para juzgar relevancia, no se persiste.
-            source = {key: value for key, value in hit.items() if key != "abstract"}
+            # Excluye abstract/stance: el abstract solo sirve para juzgar y la
+            # postura se guarda por afirmación dentro de "statements".
+            source = {k: v for k, v in hit.items() if k not in ("abstract", "stance")}
             source["statements"] = []
             by_url[url] = source
-        if statement and statement not in source["statements"]:
-            source["statements"].append(statement)
+        if statement and all(s["text"] != statement for s in source["statements"]):
+            source["statements"].append(
+                {"text": statement, "stance": hit.get("stance")}
+            )
     return list(by_url.values())
 
 
@@ -87,9 +90,9 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         if hits is None:
             errored += 1
             continue
-        # Filtra las fuentes irrelevantes con el juez; sin prompt se conservan todas.
+        # Juzga la evidencia (relevancia + postura); sin prompt se conservan todas.
         relevant = (
-            keep_relevant(judge_prompt, claim or query, hits) if judge_prompt else hits
+            judge_evidence(judge_prompt, claim or query, hits) if judge_prompt else hits
         )
         if relevant:
             covered += 1

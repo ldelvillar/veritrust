@@ -80,3 +80,19 @@ export function getClaimStyle(verdict: Verdict): {
 export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));
 }
+
+// Postura de una fuente sobre la afirmación que tiene enlazada.
+export function getStanceInfo(
+  stance: string | null | undefined
+): { text: string; className: string } | null {
+  if (stance === 'supports') {
+    return { text: 'Respalda', className: 'bg-emerald-50 text-emerald-700' };
+  }
+  if (stance === 'contradicts') {
+    return { text: 'Contradice', className: 'bg-red-50 text-red-700' };
+  }
+  if (stance === 'inconclusive') {
+    return { text: 'No concluyente', className: 'bg-amber-50 text-amber-700' };
+  }
+  return null;
+}

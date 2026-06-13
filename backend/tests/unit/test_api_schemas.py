@@ -83,10 +83,12 @@ def test_source_item_backfills_statements_from_legacy_statement() -> None:
         {"title": "Estudio", "url": "https://x/1", "statement": "afirmación"}
     )
 
-    assert source.statements == ["afirmación"]
+    assert source.statements is not None
+    assert source.statements[0].text == "afirmación"
+    assert source.statements[0].stance is None
 
 
-def test_source_item_keeps_statements_when_present() -> None:
+def test_source_item_coerces_legacy_string_statements() -> None:
     source = SourceItem.model_validate(
         {
             "title": "Estudio",
@@ -96,4 +98,20 @@ def test_source_item_keeps_statements_when_present() -> None:
         }
     )
 
-    assert source.statements == ["a", "b"]
+    assert source.statements is not None
+    assert [s.text for s in source.statements] == ["a", "b"]
+    assert all(s.stance is None for s in source.statements)
+
+
+def test_source_item_keeps_statement_stance_when_present() -> None:
+    source = SourceItem.model_validate(
+        {
+            "title": "Estudio",
+            "url": "https://x/1",
+            "statements": [{"text": "a", "stance": "contradicts"}],
+        }
+    )
+
+    assert source.statements is not None
+    assert source.statements[0].text == "a"
+    assert source.statements[0].stance == "contradicts"

@@ -73,7 +73,15 @@ export default function ClaimRow({
                 }`}
               >
                 {sources.map((source, index) => (
-                  <SourceRow key={`${source.url}-${index}`} source={source} />
+                  <SourceRow
+                    key={`${source.url}-${index}`}
+                    source={source}
+                    stance={
+                      source.statements?.find(
+                        s => s.text.trim() === claim.text.trim()
+                      )?.stance
+                    }
+                  />
                 ))}
               </ul>
             </>
