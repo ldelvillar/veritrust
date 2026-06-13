@@ -57,10 +57,10 @@ export default function ContactoPage() {
     <>
       {/* ===================== SUBHEAD ===================== */}
       <section className="relative overflow-hidden bg-[linear-gradient(165deg,#5a44e8_0%,#432dd7_50%,#3722b8_100%)] pt-16 pb-30 text-center text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:26px_26px] opacity-60" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
-        <div className="relative z-[2] mx-auto max-w-180 px-5">
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2 text-[12.5px] font-extrabold tracking-[0.1em] whitespace-nowrap text-white uppercase">
+        <div className="relative z-2 mx-auto max-w-180 px-5">
+          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2 text-[12.5px] font-extrabold tracking-widest whitespace-nowrap text-white uppercase">
             <span className="size-1.75 rounded-full bg-[#13b877] shadow-[0_0_0_4px_rgba(19,184,119,0.25)]" />
             Estamos para ayudarte
           </span>
@@ -76,12 +76,12 @@ export default function ContactoPage() {
       </section>
 
       {/* ===================== CHANNELS + FORM ===================== */}
-      <section className={`${container} relative z-[5] -mt-21 pb-22.5`}>
+      <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
         <div className="mb-8.5 grid gap-5.5 md:grid-cols-3">
           {channels.map(({ Icon, title, desc, link }) => (
             <div
               key={title}
-              className="group rounded-[18px] border border-[#e8e6f4] bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition hover:-translate-y-[3px] hover:border-[#dcd9ee] hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
+              className="group rounded-[18px] border border-[#e8e6f4] bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition hover:-translate-y-0.75 hover:border-[#dcd9ee] hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
             >
               <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-[#efedfc] text-[#5446dc]">
                 <Icon className="size-5.75" />

@@ -8,8 +8,8 @@ export default function Cta() {
       <div className={container}>
         <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(150deg,#5a44e8,#432dd7_55%,#3722b8)] px-14 py-16 text-center text-white max-md:px-6 max-md:py-12">
           <div className="pointer-events-none absolute -top-30 -right-25 size-95 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
-          <div className="relative z-[2] mx-auto max-w-160">
-            <span className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2 text-[12.5px] font-extrabold tracking-[0.1em] whitespace-nowrap text-white uppercase">
+          <div className="relative z-2 mx-auto max-w-160">
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2 text-[12.5px] font-extrabold tracking-widest whitespace-nowrap text-white uppercase">
               <span className="size-1.75 animate-pulse rounded-full bg-[#13b877] shadow-[0_0_0_4px_rgba(19,184,119,0.25)]" />
               Empieza hoy
             </span>
