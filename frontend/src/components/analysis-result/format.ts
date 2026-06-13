@@ -10,7 +10,7 @@ export function getVerdictInfo(verdict: Verdict): {
 } {
   if (verdict === 'real') {
     return {
-      text: 'Noticia verdadera',
+      text: 'Contenido verdadero',
       description:
         'El contenido muestra alta consistencia factual con fuentes médicas reputadas y bajos indicadores de información errónea.',
       band: 'linear-gradient(135deg,#2bc488,#10a566 70%,#0c9059)',
@@ -18,7 +18,7 @@ export function getVerdictInfo(verdict: Verdict): {
   }
   if (verdict === 'fake') {
     return {
-      text: 'Noticia falsa',
+      text: 'Contenido falso',
       description:
         'El contenido contiene afirmaciones que contradicen o no pueden ser verificadas con fuentes médicas reconocidas.',
       band: 'linear-gradient(135deg,#e2607a,#d23c5d 70%,#c33051)',

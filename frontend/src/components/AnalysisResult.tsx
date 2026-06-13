@@ -87,10 +87,7 @@ export default function AnalysisResult({
 
       <header className="flex flex-wrap items-start gap-4">
         <div className="min-w-60 flex-1">
-          <div className="text-[11px] font-bold tracking-wider text-primary uppercase">
-            Informe de credibilidad
-          </div>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-[25px]">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[25px]">
             Resultado del análisis
           </h1>
           <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-500">
