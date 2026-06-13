@@ -6,15 +6,15 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SidebarIcon from '@/assets/Sidebar';
 import Logo from '@/assets/Logo';
-import GridIcon from '@/assets/Grid';
-import ScanIcon from '@/assets/Scan';
-import ListIcon from '@/assets/List';
+import DashboardIcon from '@/assets/Dashboard';
+import NewIcon from '@/assets/New';
+import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
 
 const navItems = [
-  { href: '/app/analisis', label: 'Nuevo análisis', Icon: ScanIcon },
-  { href: '/app/historial', label: 'Análisis anteriores', Icon: ListIcon },
-  { href: '/app/dashboard', label: 'Dashboard', Icon: GridIcon },
+  { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
+  { href: '/app/historial', label: 'Análisis anteriores', Icon: HistoryIcon },
+  { href: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
 ];
 
 function Brand({
@@ -121,7 +121,7 @@ function SidebarContent({
               <Icon
                 className={`size-4.75 shrink-0 ${active ? 'text-primary' : ''}`}
               />
-              {!collapsed && <span>{label}</span>}
+              {!collapsed && <span className="leading-none">{label}</span>}
             </Link>
           );
         })}
@@ -144,7 +144,7 @@ function SidebarContent({
           }`}
         >
           <QuestionIcon className="size-4.75 shrink-0" />
-          {!collapsed && <span>Ayuda</span>}
+          {!collapsed && <span className="leading-none">Ayuda</span>}
         </Link>
       </div>
 
