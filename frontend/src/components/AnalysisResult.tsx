@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import ClockIcon from '@/assets/Clock';
 import DownloadIcon from '@/assets/Download';
 import PendingAnalysis from './PendingAnalysis';
 import AnalyzedContent from './analysis-result/AnalyzedContent';
@@ -63,6 +64,13 @@ export default function AnalysisResult({
 
   const claims = result.claims ?? [];
   const sources = result.sources ?? [];
+  const analyzedAt = new Date(result.created_at).toLocaleString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   // Imprime el informe
   const handleExport = () => {
@@ -126,6 +134,11 @@ export default function AnalysisResult({
           </Link>
         </div>
       )}
+
+      <p className="flex items-center gap-1.5 text-xs text-slate-400 print:hidden">
+        <ClockIcon className="size-3.5" />
+        Analizado el {analyzedAt}
+      </p>
 
       <PrintFooter />
     </div>
