@@ -85,6 +85,47 @@ def test_blank_translations_skip_lookups(monkeypatch):
     assert called is False
 
 
+def test_uses_focused_search_query_over_translation(monkeypatch):
+    queried: list[str] = []
+
+    def fake_search(query, *, max_results):
+        queried.append(query)
+        return [{"title": "hit", "url": f"https://x/{query}"}]
+
+    monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
+
+    investigator(
+        {
+            "translated_statements": ["full translated sentence"],
+            "search_queries": ['"vitamin C" AND "common cold"'],
+            "extracted_statements": ["vitamina C y resfriado"],
+        }
+    )
+
+    # Se consulta Europe PMC con la query enfocada, no con la frase completa.
+    assert queried == ['"vitamin C" AND "common cold"']
+
+
+def test_falls_back_to_translation_when_query_blank(monkeypatch):
+    queried: list[str] = []
+
+    def fake_search(query, *, max_results):
+        queried.append(query)
+        return [{"title": "hit", "url": f"https://x/{query}"}]
+
+    monkeypatch.setattr(investigator_module, "search_evidence", fake_search)
+
+    # Query en blanco (relleno del extractor): se recurre a la traducción completa.
+    investigator(
+        {
+            "translated_statements": ["A-en", "B-en"],
+            "search_queries": ['"focused"', "  "],
+        }
+    )
+
+    assert queried == ['"focused"', "B-en"]
+
+
 def test_runs_lookups_concurrently(monkeypatch):
     # La barrera solo se libera si las 3 búsquedas coinciden en el tiempo; en
     # ejecución secuencial la primera espera agotaría el timeout y la rompería.

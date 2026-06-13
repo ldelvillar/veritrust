@@ -44,7 +44,9 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
     class _FakeChain:
         def invoke(self, payload):
             assert "texto" in payload
-            return SimpleNamespace(statements=["Afirmacion 1"])
+            return SimpleNamespace(
+                statements=["Afirmacion 1"], search_queries=['"claim 1"']
+            )
 
     monkeypatch.setattr(
         extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
@@ -56,7 +58,7 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
     }
     update = extractor_module.extractor(state, dummy_prompts)
 
-    assert set(update.keys()) == {"extracted_statements"}
+    assert set(update.keys()) == {"extracted_statements", "search_queries"}
     merged = {**state, **update}
     assert merged["input_text"] == "Texto médico"
     assert merged["other_key"] == "keep-me"
@@ -68,7 +70,7 @@ def test_extractor_handles_empty_llm_output_without_exception(
 
     class _FakeChain:
         def invoke(self, payload):
-            return SimpleNamespace(statements=[])
+            return SimpleNamespace(statements=[], search_queries=[])
 
     monkeypatch.setattr(
         extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
@@ -78,7 +80,44 @@ def test_extractor_handles_empty_llm_output_without_exception(
         {"input_text": "Sin afirmaciones"}, dummy_prompts
     )
 
-    assert update == {"extracted_statements": []}
+    assert update == {"extracted_statements": [], "search_queries": []}
+
+
+def test_extractor_pads_search_queries_to_match_statements(
+    monkeypatch, extractor_module, dummy_prompts
+):
+
+    class _FakeChain:
+        def invoke(self, payload):
+            return SimpleNamespace(statements=["A", "B"], search_queries=['"a"'])
+
+    monkeypatch.setattr(
+        extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
+    )
+
+    update = extractor_module.extractor({"input_text": "Texto"}, dummy_prompts)
+
+    assert update == {
+        "extracted_statements": ["A", "B"],
+        "search_queries": ['"a"', ""],
+    }
+
+
+def test_extractor_truncates_extra_search_queries(
+    monkeypatch, extractor_module, dummy_prompts
+):
+
+    class _FakeChain:
+        def invoke(self, payload):
+            return SimpleNamespace(statements=["A"], search_queries=['"a"', '"extra"'])
+
+    monkeypatch.setattr(
+        extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
+    )
+
+    update = extractor_module.extractor({"input_text": "Texto"}, dummy_prompts)
+
+    assert update == {"extracted_statements": ["A"], "search_queries": ['"a"']}
 
 
 def test_translator_returns_only_expected_field_and_preserves_state(

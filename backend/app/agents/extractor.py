@@ -27,6 +27,15 @@ class MedicalStatements(BaseModel):
             "científica. Deben ser oraciones cortas y claras."
         )
     )
+    search_queries: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Para CADA afirmación, en el MISMO orden y número, una consulta de "
+            "búsqueda en inglés con los términos clínicos clave unidos por "
+            "operadores booleanos. Ej.: "
+            '\'("vitamin C" OR "ascorbic acid") AND ("common cold")\'.'
+        ),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -61,7 +70,15 @@ def extractor(state: dict, prompts: Prompts) -> dict:
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
-    logger.info("[Extractor] Se extrajeron %d afirmaciones", len(result.statements))
+    statements = result.statements
+    # Alinea las consultas con las afirmaciones; rellena o recorta si el modelo desvía.
+    queries = list(result.search_queries)
+    if len(queries) < len(statements):
+        queries.extend([""] * (len(statements) - len(queries)))
+    else:
+        queries = queries[: len(statements)]
+
+    logger.info("[Extractor] Se extrajeron %d afirmaciones", len(statements))
 
     # Devolver la parte del estado que este agente es responsable de actualizar
-    return {"extracted_statements": result.statements}
+    return {"extracted_statements": statements, "search_queries": queries}

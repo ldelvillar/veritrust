@@ -41,12 +41,20 @@ def investigator(state: dict) -> dict:
     logger.info("[Investigador] Buscando evidencia en Europe PMC")
 
     translated = state.get("translated_statements", [])
+    queries = state.get("search_queries", [])
     originals = state.get("extracted_statements", [])
 
     if not translated:
         return {"sources": [], "evidence_coverage": 0.0}
 
-    pairs = list(zip(translated, originals + [None] * len(translated)))[
+    # Consulta enfocada por afirmación, con respaldo en la traducción completa.
+    effective = [
+        queries[i]
+        if i < len(queries) and queries[i] and str(queries[i]).strip()
+        else translated[i]
+        for i in range(len(translated))
+    ]
+    pairs = list(zip(effective, originals + [None] * len(effective)))[
         :EVIDENCE_MAX_STATEMENTS
     ]
     # Descarta traducciones vacías (relleno) antes de consultar Europe PMC.

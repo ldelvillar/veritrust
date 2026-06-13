@@ -34,6 +34,7 @@ class AgentState(TypedDict):
 
     input_text: str
     extracted_statements: List[str]
+    search_queries: List[str]
     translated_statements: List[str]
     sources: List[dict]
     evidence_coverage: float
