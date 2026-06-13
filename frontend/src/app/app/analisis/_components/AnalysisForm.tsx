@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import DocumentIcon from '@/assets/Document';
 import GlobeIcon from '@/assets/Globe';
@@ -129,6 +129,11 @@ export default function AnalysisForm() {
     { id: 'file' as const, label: 'Archivo', Icon: DocumentIcon },
   ];
 
+  // Ids estables para asociar cada pestaña con su panel (semántica de tablist).
+  const baseId = useId();
+  const tabId = (id: string) => `${baseId}-tab-${id}`;
+  const panelId = `${baseId}-panel`;
+
   return (
     <form
       className="w-full max-w-4xl rounded-2xl border border-[#e8e6f4] bg-white p-7 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
@@ -147,11 +152,19 @@ export default function AnalysisForm() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-5 flex gap-2 rounded-2xl border border-[#e8e6f4] bg-[#f4f2fd] p-1.5">
+      <div
+        role="tablist"
+        aria-label="Método de entrada del contenido"
+        className="mb-5 flex gap-2 rounded-2xl border border-[#e8e6f4] bg-[#f4f2fd] p-1.5"
+      >
         {tabs.map(({ id, label, Icon }) => (
           <button
             key={id}
             type="button"
+            role="tab"
+            id={tabId(id)}
+            aria-selected={inputMethod === id}
+            aria-controls={panelId}
             disabled={isLoading}
             onClick={() => setInputMethod(id)}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[14.5px] font-bold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -168,12 +181,16 @@ export default function AnalysisForm() {
 
       {/* Texto tab */}
       {inputMethod === 'text' && (
-        <div>
-          <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
+        <div role="tabpanel" id={panelId} aria-labelledby={tabId('text')}>
+          <label
+            htmlFor="analysis-text"
+            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]"
+          >
             <TypeIcon className="size-3.75 text-[#7e7f99]" />
             Pega el texto o la afirmación a verificar
-          </div>
+          </label>
           <textarea
+            id="analysis-text"
             name="text"
             disabled={isLoading}
             className="min-h-47 w-full resize-y rounded-xl border border-[#dcd9ee] bg-[#faf9fe] p-4 font-[inherit] text-[15px] leading-relaxed text-[#33344c] transition-all placeholder:text-[#a3a4ba] focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(99,86,230,.12)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
@@ -214,16 +231,20 @@ export default function AnalysisForm() {
 
       {/* Enlace tab */}
       {inputMethod === 'url' && (
-        <div>
-          <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
+        <div role="tabpanel" id={panelId} aria-labelledby={tabId('url')}>
+          <label
+            htmlFor="analysis-url"
+            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]"
+          >
             <GlobeIcon className="size-3.75 text-[#7e7f99]" />
             Introduce la URL del artículo
-          </div>
+          </label>
           <div className="flex overflow-hidden rounded-xl border border-[#dcd9ee] bg-[#faf9fe] transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(99,86,230,.12)]">
             <span className="flex items-center self-stretch border-r border-[#e8e6f4] bg-white px-3.5 text-[14px] font-bold text-[#7e7f99]">
               https://
             </span>
             <input
+              id="analysis-url"
               name="url"
               type="text"
               disabled={isLoading}
@@ -238,7 +259,7 @@ export default function AnalysisForm() {
 
       {/* Archivo tab */}
       {inputMethod === 'file' && (
-        <div>
+        <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
           <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
             <DocumentIcon className="size-3.75 text-[#7e7f99]" />
             Sube un documento para analizar
@@ -308,7 +329,10 @@ export default function AnalysisForm() {
 
       {/* Error */}
       {error && (
-        <div className="mt-4 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+        <div
+          role="alert"
+          className="mt-4 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600"
+        >
           <WarningIcon className="size-5 shrink-0" />
           <p>{error}</p>
         </div>
