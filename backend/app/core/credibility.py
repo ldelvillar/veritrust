@@ -38,3 +38,22 @@ def adjust_confidence_with_evidence(
     coverage = max(0.0, min(1.0, evidence_coverage))
     adjusted = confidence * (1 - EVIDENCE_MAX_PENALTY * (1 - coverage))
     return max(0.0, min(1.0, adjusted))
+
+
+# Fracción de evidencia opuesta a partir de la cual un veredicto firme pasa a "incierta"
+OPPOSITION_UNCERTAINTY_THRESHOLD = 0.5
+# Atenuación máxima de la confianza por evidencia que contradice el veredicto
+OPPOSITION_MAX_PENALTY = 0.25
+
+
+def soften_verdict_with_opposition(
+    label: str, confidence: float, opposition: float
+) -> tuple[str, float]:
+    """Ablanda (nunca invierte) un veredicto firme según la evidencia que lo contradice."""
+    if label not in ("verdadera", "falsa") or opposition <= 0.0:
+        return label, confidence
+    opp = max(0.0, min(1.0, opposition))
+    softened = max(0.0, min(1.0, confidence * (1 - OPPOSITION_MAX_PENALTY * opp)))
+    if opp >= OPPOSITION_UNCERTAINTY_THRESHOLD:
+        return "incierta", softened
+    return label, softened

@@ -2,7 +2,10 @@
 
 import pytest
 
-from app.core.credibility import adjust_confidence_with_evidence
+from app.core.credibility import (
+    adjust_confidence_with_evidence,
+    soften_verdict_with_opposition,
+)
 
 
 def test_full_coverage_keeps_confidence():
@@ -26,3 +29,31 @@ def test_coverage_is_clamped_to_unit_interval():
 
 def test_result_never_exceeds_one():
     assert adjust_confidence_with_evidence(1.0, 1.0) <= 1.0
+
+
+def test_no_opposition_leaves_verdict_untouched():
+    assert soften_verdict_with_opposition("verdadera", 0.9, 0.0) == ("verdadera", 0.9)
+
+
+def test_uncertain_verdict_is_never_softened():
+    assert soften_verdict_with_opposition("incierta", 0.6, 1.0) == ("incierta", 0.6)
+
+
+def test_minor_opposition_only_reduces_confidence():
+    # 0.8 * (1 - 0.25 * 0.4) = 0.8 * 0.9 = 0.72; el veredicto se mantiene.
+    label, confidence = soften_verdict_with_opposition("verdadera", 0.8, 0.4)
+    assert label == "verdadera"
+    assert confidence == pytest.approx(0.72)
+
+
+def test_majority_opposition_downgrades_to_uncertain():
+    # Al alcanzar el umbral, un veredicto firme pasa a incierta y baja su confianza.
+    label, confidence = soften_verdict_with_opposition("falsa", 0.9, 0.5)
+    assert label == "incierta"
+    assert confidence == pytest.approx(0.9 * (1 - 0.25 * 0.5))
+
+
+def test_opposition_is_clamped_to_unit_interval():
+    label, confidence = soften_verdict_with_opposition("verdadera", 0.9, 5.0)
+    assert label == "incierta"
+    assert confidence == pytest.approx(0.675)

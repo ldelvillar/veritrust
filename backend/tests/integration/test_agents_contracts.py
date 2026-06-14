@@ -279,6 +279,105 @@ def test_health_expert_grounds_on_sources_and_adjusts_confidence(
     assert update["confidence"] == pytest.approx(0.675)
 
 
+def _stub_health_models(monkeypatch, health_module, claim_label, claim_confidence):
+    class _FakeTool:
+        def predict_batch(self, texts):
+            return [
+                {"label": claim_label, "confidence": claim_confidence} for _ in texts
+            ]
+
+    class _FakeLLM:
+        def invoke(self, messages):
+            return SimpleNamespace(content="Informe médico")
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
+
+
+def test_contradicting_evidence_downgrades_confident_verdict_to_uncertain(
+    monkeypatch, health_module, dummy_prompts
+):
+    # BERT da "verdadera" decisiva, pero toda la literatura contradice la afirmación.
+    _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "evidence_coverage": 1.0,
+        "sources": [
+            {
+                "title": "Refutación",
+                "url": "https://doi.org/10.1/x",
+                "statements": [{"text": "S1", "stance": "contradicts"}],
+            }
+        ],
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    assert update["label"] == "incierta"
+    # Confianza ablandada: 0.9 * (1 - 0.25 * 1.0) = 0.675.
+    assert update["confidence"] == pytest.approx(0.675)
+
+
+def test_supporting_evidence_keeps_confident_verdict(
+    monkeypatch, health_module, dummy_prompts
+):
+    # La literatura respalda la afirmación: el veredicto firme se mantiene intacto.
+    _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "evidence_coverage": 1.0,
+        "sources": [
+            {
+                "title": "Respaldo",
+                "url": "https://doi.org/10.1/x",
+                "statements": [{"text": "S1", "stance": "supports"}],
+            }
+        ],
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    assert update["label"] == "verdadera"
+    assert update["confidence"] == pytest.approx(0.9)
+
+
+def test_minor_opposition_only_reduces_confidence_without_downgrade(
+    monkeypatch, health_module, dummy_prompts
+):
+    # Una de tres afirmaciones contradicha (oposición 1/3 < 0.5): baja confianza, no cambia veredicto.
+    _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
+
+    state = {
+        "extracted_statements": ["S1", "S2", "S3"],
+        "translated_statements": ["T1", "T2", "T3"],
+        "evidence_coverage": 1.0,
+        "sources": [
+            {
+                "title": "Contra",
+                "url": "https://doi.org/10.1/a",
+                "statements": [{"text": "S1", "stance": "contradicts"}],
+            },
+            {
+                "title": "A favor 1",
+                "url": "https://doi.org/10.1/b",
+                "statements": [{"text": "S2", "stance": "supports"}],
+            },
+            {
+                "title": "A favor 2",
+                "url": "https://doi.org/10.1/c",
+                "statements": [{"text": "S3", "stance": "supports"}],
+            },
+        ],
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    assert update["label"] == "verdadera"
+    # 0.9 * (1 - 0.25 * (1/3)) = 0.825.
+    assert update["confidence"] == pytest.approx(0.9 * (1 - 0.25 / 3))
+
+
 def test_health_expert_fences_user_text_and_neutralizes_injection(
     monkeypatch, health_module, dummy_prompts
 ):
