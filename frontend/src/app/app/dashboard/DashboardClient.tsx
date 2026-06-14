@@ -43,7 +43,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       <PageHeader
         eyebrow="Panorama general"
         title="Dashboard"
-        subtitle="Actividad, credibilidad y riesgos detectados en los últimos 14 días."
+        subtitle="Actividad, credibilidad y riesgos detectados en el conjunto de tus análisis."
       />
 
       {/* KPI row */}
@@ -51,7 +51,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         <KpiCard
           label="Análisis totales"
           value={String(dashboard.kpis.total_analyses)}
-          sub="este mes"
+          sub="en total"
           icon={<ListIcon className="size-5" />}
           tint="#eeebfc"
           color="#6356e6"
@@ -72,7 +72,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         <KpiCard
           label="Confianza media"
           value={`${dashboard.kpis.average_confidence}%`}
-          sub="media ponderada"
+          sub="todos tus análisis"
           icon={<SparkleIcon className="size-5" />}
           tint="#e4f1fc"
           color="#2c97e8"
