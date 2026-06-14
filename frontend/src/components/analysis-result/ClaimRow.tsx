@@ -24,14 +24,14 @@ export default function ClaimRow({
   const sourceCount = sources.length;
 
   return (
-    <div className="flex gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
+    <div className="flex gap-3 border-t border-line py-4 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
       <div
         className={`grid size-7 shrink-0 place-items-center rounded-lg ${style.tile}`}
       >
         <ClaimIcon className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug font-bold text-slate-900">
+        <p className="text-sm leading-snug font-bold text-ink">
           {claim.text}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2.5">
@@ -40,7 +40,7 @@ export default function ClaimRow({
           >
             {style.text}
           </span>
-          <span className="text-[11.5px] font-semibold text-slate-400">
+          <span className="text-[11.5px] font-semibold text-faint">
             {confidencePct}% de confianza
           </span>
         </div>
@@ -68,7 +68,7 @@ export default function ClaimRow({
               <ul
                 id={panelId}
                 aria-label="Fuentes que respaldan esta afirmación"
-                className={`mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 ${
+                className={`mt-2.5 rounded-xl border border-line bg-surface-subtle/70 px-3.5 ${
                   open ? 'block' : 'hidden print:block'
                 }`}
               >
@@ -86,7 +86,7 @@ export default function ClaimRow({
               </ul>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-slate-400">
+            <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-faint">
               <BookIcon className="size-3.5 shrink-0" />
               Sin evidencia directa en Europe PMC para esta afirmación.
             </p>

@@ -7,7 +7,7 @@ export default function PrintHeader({ createdAt }: { createdAt: string }) {
   });
 
   return (
-    <div className="hidden items-center justify-between border-b border-slate-200 pb-4 print:flex">
+    <div className="hidden items-center justify-between border-b border-line pb-4 print:flex">
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- the SVG Logo embeds a pattern image that Chromium prints blank; a raster <img> prints reliably */}
         <img
@@ -17,11 +17,11 @@ export default function PrintHeader({ createdAt }: { createdAt: string }) {
           height={24}
           className="h-6 w-6"
         />
-        <span className="text-lg font-bold tracking-tight text-slate-900">
+        <span className="text-lg font-bold tracking-tight text-ink">
           VeriTrust
         </span>
       </div>
-      <span className="text-xs font-semibold text-slate-500">
+      <span className="text-xs font-semibold text-muted">
         Informe de credibilidad · {formattedDate}
       </span>
     </div>

@@ -39,20 +39,20 @@ const equipoOpts = [
 ];
 
 const inputBase =
-  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-[#33344c] transition placeholder:text-[#9698b1] focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#efedfc]';
+  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#efedfc]';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
-    invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-[#dcd9ee] bg-[#faf9fe]'
+    invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-line-strong bg-surface-subtle'
   }`;
 }
 
 const labelClass =
-  'flex items-center gap-1.5 text-[13px] font-bold text-[#33344c]';
+  'flex items-center gap-1.5 text-[13px] font-bold text-body';
 const errClass = 'text-[12px] font-semibold text-[#c23552]';
 const reqMark = <span className="text-primary">*</span>;
 const optMark = (
-  <span className="text-[11.5px] font-semibold text-[#9698b1]">(opcional)</span>
+  <span className="text-[11.5px] font-semibold text-faint">(opcional)</span>
 );
 
 const perfiles = [
@@ -94,7 +94,7 @@ function ChevronSelect({
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-[#9698b1]"
+        className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-faint"
       >
         <path d="M6 9l6 6 6-6" />
       </svg>
@@ -152,10 +152,10 @@ export default function DemoForm() {
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-[#def4ea] text-[#0e8e5b]">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-[#15162c]">
+          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-ink">
             ¡Solicitud recibida!
           </h2>
-          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-[#7e7f99]">
+          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
             {firstName ? `Gracias, ${firstName}` : 'Gracias'}. Un especialista
             de VeriTrust te escribirá en menos de 24&nbsp;h laborables para
             agendar tu demo.
@@ -169,7 +169,7 @@ export default function DemoForm() {
             </Link>
             <Link
               href="/"
-              className="inline-flex items-center justify-center rounded-xl border border-[#dcd9ee] bg-white px-5.5 py-3.25 text-[15px] font-semibold text-[#33344c] transition hover:border-primary hover:text-primary"
+              className="inline-flex items-center justify-center rounded-xl border border-line-strong bg-white px-5.5 py-3.25 text-[15px] font-semibold text-body transition hover:border-primary hover:text-primary"
             >
               Volver al inicio
             </Link>
@@ -181,13 +181,13 @@ export default function DemoForm() {
 
   return (
     <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
-      <span className="text-[12.5px] font-extrabold tracking-widest text-[#5446dc] uppercase">
+      <span className="text-[12.5px] font-extrabold tracking-widest text-accent uppercase">
         Cuéntanos sobre ti
       </span>
-      <h2 className="mt-2.5 mb-2 text-[26px] font-bold tracking-[-0.02em] text-[#15162c]">
+      <h2 className="mt-2.5 mb-2 text-[26px] font-bold tracking-[-0.02em] text-ink">
         Reserva tu demo
       </h2>
-      <p className="mb-7.5 text-[15px] leading-snug text-[#7e7f99]">
+      <p className="mb-7.5 text-[15px] leading-snug text-muted">
         Un especialista te contactará en menos de 24&nbsp;h laborables para
         agendar una sesión.
       </p>
@@ -283,12 +283,12 @@ export default function DemoForm() {
                     <span
                       className={`inline-flex items-center gap-2 rounded-[11px] border px-3.75 py-2.75 text-[13.5px] font-bold transition ${
                         active
-                          ? 'border-primary bg-[#efedfc] text-[#5446dc] ring-1 ring-primary'
-                          : 'border-[#dcd9ee] bg-[#faf9fe] text-[#33344c] hover:border-primary hover:text-[#5446dc]'
+                          ? 'border-primary bg-[#efedfc] text-accent ring-1 ring-primary'
+                          : 'border-line-strong bg-surface-subtle text-body hover:border-primary hover:text-accent'
                       }`}
                     >
                       <Icon
-                        className={`size-4 ${active ? 'text-primary' : 'text-[#9698b1]'}`}
+                        className={`size-4 ${active ? 'text-primary' : 'text-faint'}`}
                       />
                       {label}
                     </span>
@@ -357,13 +357,13 @@ export default function DemoForm() {
               />
               <label
                 htmlFor="consent"
-                className="text-[12.5px] leading-snug font-medium text-[#7e7f99]"
+                className="text-[12.5px] leading-snug font-medium text-muted"
               >
                 Acepto que VeriTrust trate mis datos para contactarme sobre la
                 demo, de acuerdo con la{' '}
                 <Link
                   href="/politica-de-privacidad"
-                  className="font-bold text-[#5446dc] underline underline-offset-2"
+                  className="font-bold text-accent underline underline-offset-2"
                 >
                   Política de privacidad
                 </Link>
@@ -385,8 +385,8 @@ export default function DemoForm() {
           >
             Solicitar demo
           </button>
-          <span className="flex items-center gap-1.75 text-[12.5px] text-[#7e7f99]">
-            <ShieldIcon className="size-3.75 text-[#9698b1]" strokeWidth={2.1} />
+          <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
+            <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
             Sin compromiso · respondemos en 24&nbsp;h
           </span>
         </div>

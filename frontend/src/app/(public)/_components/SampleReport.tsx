@@ -48,10 +48,10 @@ export default function SampleReport() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Un informe real
           </span>
-          <h2 className="my-4 text-[28px] font-bold tracking-[-0.02em] text-[#15162c] md:text-[36px]">
+          <h2 className="my-4 text-[28px] font-bold tracking-[-0.02em] text-ink md:text-[36px]">
             Mira cómo VeriTrust desmonta un bulo
           </h2>
-          <p className="mb-5 text-base leading-relaxed text-[#6f7090]">
+          <p className="mb-5 text-base leading-relaxed text-muted">
             Analizamos una afirmación habitual: «la vitamina C en dosis altas
             previene por completo el resfriado». Esto es lo que devuelve el
             sistema.
@@ -63,8 +63,8 @@ export default function SampleReport() {
                   <CheckIcon className="size-4" />
                 </span>
                 <div>
-                  <b className="font-semibold text-[#15162c]">{li.b}</b>
-                  <p className="mt-0.75 text-[13.5px] text-[#6f7090]">{li.p}</p>
+                  <b className="font-semibold text-ink">{li.b}</b>
+                  <p className="mt-0.75 text-[13.5px] text-muted">{li.p}</p>
                 </div>
               </div>
             ))}
@@ -79,8 +79,8 @@ export default function SampleReport() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[22px] border border-[#e8e6f4] bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
-          <div className="flex items-center gap-1.75 border-b border-[#e8e6f4] bg-[#faf9fe] px-4.5 py-3.5">
+        <div className="overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
+          <div className="flex items-center gap-1.75 border-b border-line bg-surface-subtle px-4.5 py-3.5">
             <i className="size-2.75 rounded-full bg-[#f0a8b4]" />
             <i className="size-2.75 rounded-full bg-[#f3d49a]" />
             <i className="size-2.75 rounded-full bg-[#a8e0c4]" />
@@ -98,22 +98,22 @@ export default function SampleReport() {
                 <span className="text-[11px] font-extrabold tracking-[0.06em] text-[#c23552] uppercase">
                   Engañoso
                 </span>
-                <h4 className="my-1.5 text-[21px] font-semibold text-[#15162c]">
+                <h4 className="my-1.5 text-[21px] font-semibold text-ink">
                   Credibilidad baja
                 </h4>
-                <p className="text-[13px] leading-snug text-[#6f7090]">
+                <p className="text-[13px] leading-snug text-muted">
                   Parte de un hecho real pero exagera sus efectos y contradice
                   el consenso clínico.
                 </p>
               </div>
             </div>
-            <div className="mt-1.5 mb-3 text-xs font-extrabold tracking-[0.06em] text-[#9698b1] uppercase">
+            <div className="mt-1.5 mb-3 text-xs font-extrabold tracking-[0.06em] text-faint uppercase">
               Afirmaciones detectadas
             </div>
             {claims.map((claim, idx) => (
               <div
                 key={claim.text}
-                className={`flex gap-3 py-3.25 ${idx > 0 ? 'border-t border-[#e8e6f4]' : ''}`}
+                className={`flex gap-3 py-3.25 ${idx > 0 ? 'border-t border-line' : ''}`}
               >
                 <span
                   className={`mt-px grid size-6 shrink-0 place-items-center rounded-[7px] ${
@@ -133,7 +133,7 @@ export default function SampleReport() {
                   )}
                 </span>
                 <div>
-                  <div className="text-[13.5px] leading-snug font-semibold text-[#33344c]">
+                  <div className="text-[13.5px] leading-snug font-semibold text-body">
                     {claim.text}
                   </div>
                   <span

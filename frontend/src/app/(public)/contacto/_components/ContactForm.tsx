@@ -26,16 +26,16 @@ const motivos = [
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const inputBase =
-  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-[#33344c] transition placeholder:text-[#9698b1] focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#efedfc]';
+  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#efedfc]';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
-    invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-[#dcd9ee] bg-[#faf9fe]'
+    invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-line-strong bg-surface-subtle'
   }`;
 }
 
 const labelClass =
-  'flex items-center gap-1.5 text-[13px] font-bold text-[#33344c]';
+  'flex items-center gap-1.5 text-[13px] font-bold text-body';
 const errClass = 'text-[12px] font-semibold text-[#c23552]';
 const reqMark = <span className="text-primary">*</span>;
 
@@ -80,17 +80,17 @@ export default function ContactForm() {
   return (
     <div
       id="formulario"
-      className="rounded-[20px] border border-[#e8e6f4] bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
+      className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
     >
       {sent ? (
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-[#def4ea] text-[#0e8e5b]">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-[#15162c]">
+          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-ink">
             Mensaje enviado
           </h2>
-          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-[#7e7f99]">
+          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
             {firstName ? `Gracias, ${firstName}` : 'Gracias por escribirnos'}.
             Nuestro equipo te responderá en menos de 24&nbsp;h laborables.
           </p>
@@ -103,10 +103,10 @@ export default function ContactForm() {
         </div>
       ) : (
         <>
-          <h3 className="text-[19px] font-bold text-[#15162c]">
+          <h3 className="text-[19px] font-bold text-ink">
             Envíanos un mensaje
           </h3>
-          <p className="mt-1.5 mb-6 text-[14px] leading-snug text-[#7e7f99]">
+          <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
             Rellena el formulario y te responderemos en menos de 24&nbsp;h
             laborables.
           </p>
@@ -173,7 +173,7 @@ export default function ContactForm() {
                     strokeWidth={2.4}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-[#9698b1]"
+                    className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-faint"
                   >
                     <path d="M6 9l6 6 6-6" />
                   </svg>
@@ -212,12 +212,12 @@ export default function ContactForm() {
                   />
                   <label
                     htmlFor="consent"
-                    className="text-[12.5px] leading-snug font-medium text-[#7e7f99]"
+                    className="text-[12.5px] leading-snug font-medium text-muted"
                   >
                     Acepto la{' '}
                     <Link
                       href="/politica-de-privacidad"
-                      className="font-bold text-[#5446dc] underline underline-offset-2"
+                      className="font-bold text-accent underline underline-offset-2"
                     >
                       Política de privacidad
                     </Link>{' '}
@@ -239,8 +239,8 @@ export default function ContactForm() {
               >
                 Enviar mensaje
               </button>
-              <span className="flex items-center gap-1.75 text-[12.5px] text-[#7e7f99]">
-                <ShieldIcon className="size-3.75 text-[#9698b1]" strokeWidth={2.1} />
+              <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
+                <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
                 Tus datos están seguros
               </span>
             </div>

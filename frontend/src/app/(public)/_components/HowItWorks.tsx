@@ -74,10 +74,10 @@ export default function HowItWorks() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Cómo funciona
           </span>
-          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-[#15162c] md:text-[40px]">
+          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-ink md:text-[40px]">
             Agentes especializados, un veredicto fiable
           </h2>
-          <p className="text-[17px] leading-relaxed text-[#6f7090]">
+          <p className="text-[17px] leading-relaxed text-muted">
             VeriTrust no es una caja negra. Cada afirmación pasa por una cadena
             de especialistas de IA que se complementan, y verás exactamente qué
             aportó cada uno.
@@ -88,13 +88,13 @@ export default function HowItWorks() {
           role="presentation"
           className="mx-auto mb-7.5 flex max-w-190 items-center"
         >
-          <span className="inline-flex items-center gap-2.25 rounded-full border border-[#e8e6f4] bg-white px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-[#33344c] shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
+          <span className="inline-flex items-center gap-2.25 rounded-full border border-line bg-white px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-body shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
             <Document className="size-4.25 text-primary" />
             Entrada
           </span>
           <span
             aria-hidden="true"
-            className="relative -mx-px h-0.5 flex-1 bg-[linear-gradient(90deg,#dcd9ee_60%,transparent_0)] bg-size-[10px_2px] bg-repeat-x after:absolute after:top-1/2 after:-right-px after:size-0 after:-translate-y-1/2 after:border-y-[5px] after:border-l-[7px] after:border-y-transparent after:border-l-[#dcd9ee] after:content-['']"
+            className="relative -mx-px h-0.5 flex-1 bg-[linear-gradient(90deg,#dcd9ee_60%,transparent_0)] bg-size-[10px_2px] bg-repeat-x after:absolute after:top-1/2 after:-right-px after:size-0 after:-translate-y-1/2 after:border-y-[5px] after:border-l-[7px] after:border-y-transparent after:border-l-line-strong after:content-['']"
           />
           <span className="inline-flex items-center gap-2.25 rounded-full border border-[#bfe8d4] bg-[#def4ea] px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-[#0e8e5b] shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
             <ShieldIcon className="size-4.25" strokeWidth={2} />
@@ -129,7 +129,7 @@ export default function HowItWorks() {
                   '--accent-soft': step.accentSoft,
                 } as React.CSSProperties
               }
-              className="relative overflow-hidden rounded-[20px] border border-[#e8e6f4] bg-white px-7 pt-7.5 pb-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-(--accent) before:content-[''] after:pointer-events-none after:absolute after:-top-10 after:-right-10 after:size-37.5 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-70 after:content-[''] hover:-translate-y-1.25 hover:border-(--accent-soft) hover:shadow-[0_24px_60px_rgba(60,50,140,0.18)]"
+              className="relative overflow-hidden rounded-[20px] border border-line bg-white px-7 pt-7.5 pb-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-(--accent) before:content-[''] after:pointer-events-none after:absolute after:-top-10 after:-right-10 after:size-37.5 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-70 after:content-[''] hover:-translate-y-1.25 hover:border-(--accent-soft) hover:shadow-[0_24px_60px_rgba(60,50,140,0.18)]"
             >
               <div className="relative z-2 mb-5 flex items-center justify-between">
                 <div className="grid size-14.5 place-items-center rounded-2xl bg-(--accent-soft) text-(--accent) shadow-[0_8px_18px_color-mix(in_srgb,var(--accent)_22%,transparent)]">
@@ -139,17 +139,17 @@ export default function HowItWorks() {
                   {step.n}
                 </span>
               </div>
-              <h3 className="relative z-2 mb-2.5 text-xl font-semibold text-[#15162c]">
+              <h3 className="relative z-2 mb-2.5 text-xl font-semibold text-ink">
                 {step.title}
               </h3>
-              <p className="relative z-2 text-[14.5px] leading-relaxed text-[#6f7090]">
+              <p className="relative z-2 text-[14.5px] leading-relaxed text-muted">
                 {step.body}
               </p>
               <div className="relative z-2 mt-4.5 flex flex-wrap gap-1.75">
                 {step.chips.map(chip => (
                   <span
                     key={chip}
-                    className="rounded-lg border border-[#e8e6f4] bg-[#faf9fe] px-2.75 py-1.5 text-[11.5px] font-bold text-[#33344c]"
+                    className="rounded-lg border border-line bg-surface-subtle px-2.75 py-1.5 text-[11.5px] font-bold text-body"
                   >
                     {chip}
                   </span>

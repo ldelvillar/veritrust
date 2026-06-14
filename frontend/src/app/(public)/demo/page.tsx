@@ -65,11 +65,11 @@ export default function DemoPage() {
 
       {/* ===================== FORM CARD ===================== */}
       <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
-        <div className="grid overflow-hidden rounded-3xl border border-[#e8e6f4] bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)] md:grid-cols-[1.35fr_0.95fr]">
+        <div className="grid overflow-hidden rounded-3xl border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)] md:grid-cols-[1.35fr_0.95fr]">
           <DemoForm />
 
           {/* benefits aside */}
-          <aside className="relative order-first overflow-hidden bg-[#16172e] px-9.5 py-11 text-white md:order-0">
+          <aside className="relative order-first overflow-hidden bg-ink px-9.5 py-11 text-white md:order-0">
             <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(124,110,240,0.4),transparent_62%)]" />
             <div className="relative z-2">
               <h3 className="mb-2 text-[21px] font-bold text-white">

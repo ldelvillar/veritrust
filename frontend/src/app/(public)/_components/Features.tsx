@@ -68,10 +68,10 @@ export default function Features() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Características
           </span>
-          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-[#15162c] md:text-[40px]">
+          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-ink md:text-[40px]">
             Todo lo que necesitas para verificar con rigor
           </h2>
-          <p className="text-[17px] leading-relaxed text-[#6f7090]">
+          <p className="text-[17px] leading-relaxed text-muted">
             Pensado para equipos que no pueden permitirse publicar o difundir un
             bulo médico.
           </p>
@@ -86,15 +86,15 @@ export default function Features() {
                   '--accent-soft': feat.accentSoft,
                 } as React.CSSProperties
               }
-              className="group relative overflow-hidden rounded-[18px] border border-[#e8e6f4] bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition duration-220 ease-in-out after:pointer-events-none after:absolute after:-top-11.5 after:-right-11.5 after:size-35 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-0 after:transition-opacity after:duration-250 after:content-[''] hover:-translate-y-1 hover:border-(--accent-soft) hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] hover:after:opacity-85"
+              className="group relative overflow-hidden rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition duration-220 ease-in-out after:pointer-events-none after:absolute after:-top-11.5 after:-right-11.5 after:size-35 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-0 after:transition-opacity after:duration-250 after:content-[''] hover:-translate-y-1 hover:border-(--accent-soft) hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] hover:after:opacity-85"
             >
               <div className="relative z-2 mb-4.5 grid size-12.5 place-items-center rounded-[14px] bg-(--accent-soft) text-(--accent) transition duration-220 ease-in-out group-hover:-translate-y-0.5 group-hover:shadow-[0_10px_22px_color-mix(in_srgb,var(--accent)_26%,transparent)]">
                 <feat.Icon className="size-5.75" />
               </div>
-              <h3 className="relative z-2 mb-2 text-[17px] font-semibold text-[#15162c]">
+              <h3 className="relative z-2 mb-2 text-[17px] font-semibold text-ink">
                 {feat.title}
               </h3>
-              <p className="relative z-2 text-[14px] leading-[1.55] text-[#6f7090]">
+              <p className="relative z-2 text-[14px] leading-[1.55] text-muted">
                 {feat.body}
               </p>
             </article>

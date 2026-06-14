@@ -22,7 +22,7 @@ const MAX_PAGE_WIDTH = 820;
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-60 items-center justify-center p-6 text-center text-sm font-medium text-slate-500">
+    <div className="flex min-h-60 items-center justify-center p-6 text-center text-sm font-medium text-muted">
       {children}
     </div>
   );
@@ -56,11 +56,11 @@ export default function PdfDocument({ file, className }: PdfDocumentProps) {
   return (
     <div
       ref={containerRef}
-      className={`overflow-hidden rounded-xl border border-slate-200 bg-slate-50 ${className ?? ''}`}
+      className={`overflow-hidden rounded-xl border border-line bg-surface-subtle ${className ?? ''}`}
     >
       {failed ? (
         <CenteredMessage>
-          <span className="flex flex-col items-center gap-2 text-slate-500">
+          <span className="flex flex-col items-center gap-2 text-muted">
             <WarningIcon className="size-6 text-amber-500" />
             No se pudo mostrar el PDF.
           </span>
@@ -96,17 +96,17 @@ export default function PdfDocument({ file, className }: PdfDocumentProps) {
           </div>
 
           {numPages > 1 && (
-            <div className="flex items-center justify-center gap-4 border-t border-slate-200 bg-white px-4 py-2.5">
+            <div className="flex items-center justify-center gap-4 border-t border-line bg-white px-4 py-2.5">
               <button
                 type="button"
                 onClick={() => setPage(value => Math.max(1, value - 1))}
                 disabled={page <= 1}
                 aria-label="Página anterior"
-                className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid size-8 place-items-center rounded-lg border border-line text-muted transition hover:bg-surface-subtle focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Chevron className="size-4 rotate-90" />
               </button>
-              <span className="text-sm font-semibold text-slate-600 tabular-nums">
+              <span className="text-sm font-semibold text-body tabular-nums">
                 Página {page} de {numPages}
               </span>
               <button
@@ -114,7 +114,7 @@ export default function PdfDocument({ file, className }: PdfDocumentProps) {
                 onClick={() => setPage(value => Math.min(numPages, value + 1))}
                 disabled={page >= numPages}
                 aria-label="Página siguiente"
-                className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid size-8 place-items-center rounded-lg border border-line text-muted transition hover:bg-surface-subtle focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Chevron className="size-4 -rotate-90" />
               </button>

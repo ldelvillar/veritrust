@@ -20,10 +20,10 @@ export default function HelpArticleCatalog({
         <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
           Artículos
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#15162c]">
+        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
           Guías del centro de ayuda
         </h2>
-        <p className="mt-1 text-[13.5px] text-[#7e7f99]">
+        <p className="mt-1 text-[13.5px] text-muted">
           Todos los artículos organizados por categoría para consultar pasos,
           criterios y solución de problemas.
         </p>
@@ -39,7 +39,7 @@ export default function HelpArticleCatalog({
             <section
               key={category.title}
               id={category.slug}
-              className="rounded-[18px] border border-[#e8e6f4] bg-white p-5.5 shadow-sm"
+              className="rounded-[18px] border border-line bg-white p-5.5 shadow-sm"
             >
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <div
@@ -49,7 +49,7 @@ export default function HelpArticleCatalog({
                   <HelpCategoryIcon name={category.icon} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[16px] font-bold text-[#15162c]">
+                  <h3 className="text-[16px] font-bold text-ink">
                     {category.title}
                   </h3>
                   <p className="mt-0.5 text-[12.5px] font-semibold text-[#8b8ca6]">
@@ -65,7 +65,7 @@ export default function HelpArticleCatalog({
                     id={article.id}
                     className="scroll-mt-24 rounded-[14px] border border-[#eceaf6] bg-[#fbfafe] p-4 transition hover:border-[#d0cdf0] hover:bg-white"
                   >
-                    <h4 className="text-[14px] leading-snug font-bold text-[#15162c]">
+                    <h4 className="text-[14px] leading-snug font-bold text-ink">
                       {article.title}
                     </h4>
                     <p className="mt-2 text-[12.8px] leading-relaxed text-[#6f7090]">
@@ -75,7 +75,7 @@ export default function HelpArticleCatalog({
                       {article.tags.map(tag => (
                         <span
                           key={tag}
-                          className="rounded-[7px] border border-[#e8e6f4] bg-white px-2.5 py-1 text-[10.5px] font-bold text-[#656682]"
+                          className="rounded-[7px] border border-line bg-white px-2.5 py-1 text-[10.5px] font-bold text-[#656682]"
                         >
                           {tag}
                         </span>

@@ -5,6 +5,7 @@ import ListIcon from '@/assets/List';
 import ShieldIcon from '@/assets/Shield';
 import SparkleIcon from '@/assets/Sparkle';
 import WarningIcon from '@/assets/Warning';
+import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import AlertsCard from './_components/AlertsCard';
 import DomainsCard from './_components/DomainsCard';
@@ -39,24 +40,11 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
   return (
     <div className="flex w-full flex-col gap-5">
-      {/* Page header */}
-      <header>
-        <p
-          className="text-[11px] font-bold tracking-[.13em] uppercase"
-          style={{ color: '#5446dc', marginBottom: 8 }}
-        >
-          Panorama general
-        </p>
-        <h1 className="text-[30px] leading-tight font-bold tracking-[-0.03em] text-[#15162c]">
-          Dashboard
-        </h1>
-        <p
-          className="mt-1.5 text-[14.5px] leading-snug"
-          style={{ color: '#7e7f99' }}
-        >
-          Actividad, credibilidad y riesgos detectados en los últimos 14 días.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Panorama general"
+        title="Dashboard"
+        subtitle="Actividad, credibilidad y riesgos detectados en los últimos 14 días."
+      />
 
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -105,24 +93,18 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Trend + Sources row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
-        <section className="flex flex-col rounded-[20px] border border-[#e8e6f4] bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+        <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-[#15162c]">
+              <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
                 Tendencia (14 días)
               </h2>
-              <p
-                className="mt-1 text-[13px] leading-snug"
-                style={{ color: '#7e7f99' }}
-              >
+              <p className="mt-1 text-[13px] leading-snug text-muted">
                 Volumen diario de análisis y confianza media del periodo.
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <span
-                className="flex items-center gap-1.5 text-[12px] font-semibold"
-                style={{ color: '#7e7f99' }}
-              >
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
                 <span
                   className="size-3.25 rounded-sm"
                   style={{
@@ -131,14 +113,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 />
                 Volumen
               </span>
-              <span
-                className="flex items-center gap-1.5 text-[12px] font-semibold"
-                style={{ color: '#7e7f99' }}
-              >
-                <span
-                  className="inline-block h-0.75 w-4.5 rounded-full"
-                  style={{ background: '#5446dc' }}
-                />
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+                <span className="inline-block h-0.75 w-4.5 rounded-full bg-accent" />
                 Confianza
               </span>
             </div>
@@ -147,7 +123,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             <TrendChart data={dashboard.trend} />
           ) : (
             <div className="flex min-h-44 items-center justify-center">
-              <p className="text-sm font-medium" style={{ color: '#7e7f99' }}>
+              <p className="text-sm font-medium text-muted">
                 Sin datos de tendencia todavía.
               </p>
             </div>

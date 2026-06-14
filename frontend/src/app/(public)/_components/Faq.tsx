@@ -96,7 +96,7 @@ export default function Faq() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Preguntas frecuentes
           </span>
-          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-[#15162c] md:text-[40px]">
+          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-ink md:text-[40px]">
             Todo sobre el detector de noticias falsas de salud
           </h2>
         </div>
@@ -105,15 +105,15 @@ export default function Faq() {
             <details
               key={item.q}
               open={item.open}
-              className="group overflow-hidden rounded-2xl border border-[#e8e6f4] bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
+              className="group overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
             >
-              <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5.5 text-[17px] font-semibold text-[#15162c] [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5.5 text-[17px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
                 <span className="flex-1">{item.q}</span>
-                <span className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-[#f4f2fd] text-primary transition group-open:rotate-45 group-open:bg-primary group-open:text-white">
+                <span className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-surface text-primary transition group-open:rotate-45 group-open:bg-primary group-open:text-white">
                   <PlusIcon className="size-3.5" />
                 </span>
               </summary>
-              <div className="px-6 pb-6 text-[14.5px] leading-relaxed text-[#6f7090] [&_strong]:font-bold [&_strong]:text-[#33344c]">
+              <div className="px-6 pb-6 text-[14.5px] leading-relaxed text-muted [&_strong]:font-bold [&_strong]:text-body">
                 {item.a}
               </div>
             </details>

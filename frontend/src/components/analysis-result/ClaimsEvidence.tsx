@@ -32,12 +32,12 @@ export default function ClaimsEvidence({
   // "sin evidencia" porque nunca llegó a buscarse.
   if (!hasEvidence) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
+        <h3 className="flex items-center gap-2 text-base font-bold text-ink">
           <ListIcon className="size-4.5 text-primary" />
           Afirmaciones detectadas
         </h3>
-        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
           Cada afirmación verificable se evalúa por separado con el modelo
           BioBERT.
         </p>
@@ -58,12 +58,12 @@ export default function ClaimsEvidence({
 
   return (
     <>
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
+        <h3 className="flex items-center gap-2 text-base font-bold text-ink">
           <ListIcon className="size-4.5 text-primary" />
           Afirmaciones y evidencia
         </h3>
-        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-slate-500">
+        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-muted">
           Cada afirmación se evalúa con BioBERT y se enlaza con la literatura
           biomédica de Europe PMC que la aborda, a favor o en contra.
         </p>

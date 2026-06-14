@@ -28,7 +28,7 @@ const useCases = [
 
 export default function UseCases() {
   return (
-    <section id="casos" className="bg-[#16172e] py-24 text-white max-md:py-18">
+    <section id="casos" className="bg-ink py-24 text-white max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-[#bdb3ff] uppercase">

@@ -13,10 +13,10 @@ export default function HelpFaqSection({ faq }: HelpFaqSectionProps) {
         <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
           Dudas
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#15162c]">
+        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
           Preguntas frecuentes
         </h2>
-        <p className="mt-1 text-[13.5px] text-[#7e7f99]">
+        <p className="mt-1 text-[13.5px] text-muted">
           Lo que más nos preguntan sobre el uso, la privacidad y los informes.
         </p>
       </div>

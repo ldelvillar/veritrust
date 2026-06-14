@@ -30,14 +30,14 @@ export default function FailedView({
   // No es un fallo del sistema: el contenido no traía afirmaciones médicas que verificar
   if (errorCode === 'NO_MEDICAL_CLAIMS') {
     return (
-      <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+      <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-line bg-white p-10 text-center shadow-sm">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-primary">
           <Magnifier className="size-7" />
         </div>
-        <h3 className="text-xl font-bold text-slate-900">
+        <h3 className="text-xl font-bold text-ink">
           No encontramos afirmaciones médicas que verificar
         </h3>
-        <p className="max-w-md text-sm leading-relaxed text-slate-500">
+        <p className="max-w-md text-sm leading-relaxed text-muted">
           Revisamos el contenido, pero no contenía afirmaciones médicas
           concretas que se puedan contrastar con literatura biomédica. Prueba
           con un texto que afirme algo sobre un tratamiento, síntoma, alimento o

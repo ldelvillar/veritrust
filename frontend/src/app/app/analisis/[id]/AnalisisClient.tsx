@@ -98,7 +98,7 @@ export default function AnalisisClient({
     <button
       type="button"
       onClick={handleShareOpen}
-      className="inline-flex items-center gap-2 rounded-xl border border-[#dcd9ee] bg-white px-3 py-2.5 text-sm font-bold text-[#33344c] transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+      className="inline-flex items-center gap-2 rounded-xl border border-line-strong bg-white px-3 py-2.5 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
     >
       <LinkIcon className="size-4" />
       Compartir

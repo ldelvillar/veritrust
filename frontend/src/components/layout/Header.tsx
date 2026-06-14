@@ -58,7 +58,7 @@ export default function Header() {
           onClick={closeMenu}
         >
           <Logo className="h-6 w-auto" />
-          <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
+          <span className="text-[19px] font-bold tracking-[-0.02em] text-ink">
             VeriTrust
           </span>
         </Link>
@@ -78,7 +78,7 @@ export default function Header() {
         <div className="hidden items-center gap-2.5 md:flex">
           <Show when="signed-out">
             <SignInButton forceRedirectUrl="/app/analisis">
-              <button className="cursor-pointer px-3.5 py-2.5 text-[14.5px] font-bold text-[#33344c] transition hover:text-primary">
+              <button className="cursor-pointer px-3.5 py-2.5 text-[14.5px] font-bold text-body transition hover:text-primary">
                 Iniciar sesión
               </button>
             </SignInButton>
@@ -101,7 +101,7 @@ export default function Header() {
 
         <button
           type="button"
-          className="ml-auto inline-flex items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-medium transition hover:bg-gray-100 md:hidden"
+          className="ml-auto inline-flex items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-medium transition hover:bg-surface md:hidden"
           aria-expanded={isMenuOpen}
           aria-controls="mobile-nav"
           aria-label="Abrir menú de navegación"
@@ -123,13 +123,13 @@ export default function Header() {
               onClick={closeMenu}
             >
               <Logo className="h-6 w-auto" />
-              <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
+              <span className="text-[19px] font-bold tracking-[-0.02em] text-ink">
                 VeriTrust
               </span>
             </Link>
             <button
               type="button"
-              className="rounded-md border border-border px-3 py-2 text-sm font-medium transition hover:bg-gray-100"
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium transition hover:bg-surface"
               aria-label="Cerrar menú"
               onClick={closeMenu}
             >
@@ -142,7 +142,7 @@ export default function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-md px-2 py-2 font-semibold text-[#33344c] transition duration-200 hover:bg-gray-100 hover:text-primary"
+                className="rounded-md px-2 py-2 font-semibold text-body transition duration-200 hover:bg-surface hover:text-primary"
                 onClick={closeMenu}
               >
                 {link.label}

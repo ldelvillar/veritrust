@@ -7,7 +7,7 @@ import type { PdfDocumentProps } from './PdfDocument';
 const PdfDocument = dynamic(() => import('./PdfDocument'), {
   ssr: false,
   loading: () => (
-    <div className="flex min-h-60 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
+    <div className="flex min-h-60 items-center justify-center rounded-xl border border-line bg-surface-subtle">
       <Spinner className="size-6 animate-spin text-primary" />
     </div>
   ),

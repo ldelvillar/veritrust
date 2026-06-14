@@ -37,8 +37,8 @@ export default async function SharedReportPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-1 flex-col px-4 py-8 md:py-10">
-      <div className="mx-auto mb-6 flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e8e6f4] bg-white px-5 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[#33344c]">
+      <div className="mx-auto mb-6 flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-sm">
+        <p className="text-sm font-semibold text-body">
           Informe analizado con{' '}
           <span className="font-bold text-primary">VeriTrust</span> · detector de
           desinformación médica con IA

@@ -72,19 +72,19 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
     <div
       role="status"
       aria-live="polite"
-      className="flex w-full max-w-2xl flex-col items-center gap-6 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm md:p-10"
+      className="flex w-full max-w-2xl flex-col items-center gap-6 rounded-xl border border-line bg-white p-8 text-center shadow-sm md:p-10"
     >
       <div className="flex flex-col items-center gap-3">
         <Spinner className="size-10 animate-spin text-primary" />
-        <h3 className="text-xl font-bold text-slate-900">
+        <h3 className="text-xl font-bold text-ink">
           Analizando contenido…
         </h3>
-        <p className="max-w-md text-sm leading-relaxed text-slate-500">
+        <p className="max-w-md text-sm leading-relaxed text-muted">
           Nuestros agentes están analizando el contenido, buscando evidencia y
           evaluando las afirmaciones médicas. La página se actualizará
           automáticamente al terminar.
         </p>
-        <p className="text-xs font-medium text-slate-400">
+        <p className="text-xs font-medium text-faint">
           <span className="tabular-nums" aria-hidden="true">
             {formatElapsed(elapsed)}
           </span>{' '}
@@ -107,7 +107,7 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
                   ? 'border-emerald-100 bg-emerald-50'
                   : isActive
                     ? 'border-primary/30 bg-primary/5'
-                    : 'border-slate-100 bg-white'
+                    : 'border-line bg-white'
               }`}
             >
               <span
@@ -116,7 +116,7 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
                     ? 'bg-emerald-100 text-emerald-600'
                     : isActive
                       ? 'bg-primary/10 text-primary'
-                      : 'bg-slate-100 text-slate-300'
+                      : 'bg-surface text-faint'
                 }`}
               >
                 {isDone ? (
@@ -130,14 +130,14 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
               <div className="min-w-0">
                 <p
                   className={`text-sm font-bold ${
-                    isDone || isActive ? 'text-slate-900' : 'text-slate-400'
+                    isDone || isActive ? 'text-ink' : 'text-faint'
                   }`}
                 >
                   {step.name}
                 </p>
                 <p
                   className={`text-xs leading-snug ${
-                    isDone || isActive ? 'text-slate-500' : 'text-slate-400'
+                    isDone || isActive ? 'text-muted' : 'text-faint'
                   }`}
                 >
                   {step.description}

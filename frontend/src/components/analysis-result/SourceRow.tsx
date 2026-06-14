@@ -20,7 +20,7 @@ export default function SourceRow({
   const stanceInfo = getStanceInfo(stance);
 
   return (
-    <li className="flex gap-3 border-t border-slate-100 py-3.5 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
+    <li className="flex gap-3 border-t border-line py-3.5 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
       <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
         <BookIcon className="size-4" />
       </div>
@@ -29,7 +29,7 @@ export default function SourceRow({
           href={source.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm leading-snug font-bold text-slate-900 underline-offset-2 hover:text-primary hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
+          className="text-sm leading-snug font-bold text-ink underline-offset-2 hover:text-primary hover:underline focus:ring-2 focus:ring-primary/20 focus:outline-none"
         >
           {source.title}
         </a>
@@ -43,7 +43,7 @@ export default function SourceRow({
               </span>
             )}
             {meta && (
-              <span className="text-[11.5px] font-semibold text-slate-400">
+              <span className="text-[11.5px] font-semibold text-faint">
                 {meta}
               </span>
             )}

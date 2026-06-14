@@ -64,8 +64,8 @@ export default function Hero() {
               <CheckIcon className="size-4.5" />
             </span>
             <span className="leading-tight">
-              <b className="block font-bold text-[#15162c]">4 afirmaciones</b>
-              <small className="text-[11px] text-[#6f7090]">
+              <b className="block font-bold text-ink">4 afirmaciones</b>
+              <small className="text-[11px] text-muted">
                 verificadas por agente
               </small>
             </span>
@@ -75,19 +75,19 @@ export default function Hero() {
               <GlobeIcon className="size-4.5" />
             </span>
             <span className="leading-tight">
-              <b className="block font-bold text-[#15162c]">OMS · Cochrane</b>
-              <small className="text-[11px] text-[#6f7090]">
+              <b className="block font-bold text-ink">OMS · Cochrane</b>
+              <small className="text-[11px] text-muted">
                 fuentes consultadas
               </small>
             </span>
           </div>
 
-          <div className="transform-[rotate(0.6deg)] overflow-hidden rounded-[20px] bg-white text-[#33344c] shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
-            <div className="flex items-center gap-1.75 border-b border-[#e8e6f4] bg-[#faf9fe] px-4 py-3.5">
+          <div className="transform-[rotate(0.6deg)] overflow-hidden rounded-[20px] bg-white text-body shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
+            <div className="flex items-center gap-1.75 border-b border-line bg-surface-subtle px-4 py-3.5">
               <i className="size-2.75 rounded-full bg-[#f0a8b4]" />
               <i className="size-2.75 rounded-full bg-[#f3d49a]" />
               <i className="size-2.75 rounded-full bg-[#a8e0c4]" />
-              <span className="ml-2.5 font-mono text-[11.5px] text-[#9698b1]">
+              <span className="ml-2.5 font-mono text-[11.5px] text-faint">
                 veriTrust.health/analizar
               </span>
             </div>
@@ -103,10 +103,10 @@ export default function Hero() {
                   <span className="text-[11px] font-extrabold tracking-[0.08em] text-[#c23552] uppercase">
                     Engañoso
                   </span>
-                  <h4 className="my-1.5 text-lg font-semibold text-[#15162c]">
+                  <h4 className="my-1.5 text-lg font-semibold text-ink">
                     Credibilidad baja
                   </h4>
-                  <p className="text-[12.5px] leading-snug text-[#6f7090]">
+                  <p className="text-[12.5px] leading-snug text-muted">
                     Mezcla datos ciertos con una conclusión que la evidencia no
                     respalda.
                   </p>
@@ -129,7 +129,7 @@ export default function Hero() {
                 ].map(claim => (
                   <div
                     key={claim.text}
-                    className="flex items-start gap-2.5 rounded-[11px] border border-[#e8e6f4] bg-[#faf9fe] px-3.25 py-2.75"
+                    className="flex items-start gap-2.5 rounded-[11px] border border-line bg-surface-subtle px-3.25 py-2.75"
                   >
                     <span
                       className={`mt-px grid size-5.5 shrink-0 place-items-center rounded-md ${
@@ -148,7 +148,7 @@ export default function Hero() {
                         <WarningIcon className="size-3.25" />
                       )}
                     </span>
-                    <span className="text-[12.5px] leading-snug font-semibold text-[#33344c]">
+                    <span className="text-[12.5px] leading-snug font-semibold text-body">
                       {claim.text}
                     </span>
                   </div>
@@ -163,7 +163,7 @@ export default function Hero() {
                 ].map(a => (
                   <span
                     key={a.label}
-                    className="flex items-center gap-1.75 rounded-[9px] bg-[#f4f2fd] px-2.25 py-2 text-[10.5px] font-bold text-[#33344c]"
+                    className="flex items-center gap-1.75 rounded-[9px] bg-surface px-2.25 py-2 text-[10.5px] font-bold text-body"
                   >
                     <span
                       className="size-1.75 rounded-full"

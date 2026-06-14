@@ -125,7 +125,7 @@ export default function HelpSearch({
         <label htmlFor="help-search" className="sr-only">
           Buscar en el centro de ayuda
         </label>
-        <Magnifier className="size-4.5 shrink-0 text-[#9698b1]" />
+        <Magnifier className="size-4.5 shrink-0 text-faint" />
         <input
           ref={inputRef}
           id="help-search"
@@ -133,7 +133,7 @@ export default function HelpSearch({
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder="Busca en guías, preguntas frecuentes y fuentes..."
-          className="min-w-0 flex-1 py-2.5 text-[14.5px] text-[#33344c] outline-none placeholder:text-[#b0b1c8]"
+          className="min-w-0 flex-1 py-2.5 text-[14.5px] text-body outline-none placeholder:text-[#b0b1c8]"
         />
         {query.length > 0 && (
           <button
@@ -143,7 +143,7 @@ export default function HelpSearch({
               inputRef.current?.focus();
             }}
             aria-label="Limpiar búsqueda"
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-[#9698b1] transition hover:bg-[#f4f2fd] hover:text-[#5446dc]"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-faint transition hover:bg-surface hover:text-accent"
           >
             <CrossIcon className="size-4" />
           </button>
@@ -163,7 +163,7 @@ export default function HelpSearch({
       </form>
 
       {trimmedQuery.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-white/70 bg-white text-[#15162c] shadow-[0_16px_34px_rgba(36,24,90,.2)]">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-white/70 bg-white text-ink shadow-[0_16px_34px_rgba(36,24,90,.2)]">
           {results.length > 0 ? (
             <div className="max-h-80 overflow-y-auto">
               {results.map(result => (
@@ -171,17 +171,17 @@ export default function HelpSearch({
                   key={`${result.kind}-${result.id}`}
                   href={result.href}
                   onClick={() => setQuery(result.title)}
-                  className="block border-t border-[#eceaf6] px-4 py-3.5 text-left transition first:border-t-0 hover:bg-[#faf9fe]"
+                  className="block border-t border-[#eceaf6] px-4 py-3.5 text-left transition first:border-t-0 hover:bg-surface-subtle"
                 >
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-[7px] bg-[#efedfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-[#5446dc] uppercase">
+                    <span className="rounded-[7px] bg-[#efedfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-accent uppercase">
                       {result.kind}
                     </span>
                     <span className="text-[11.5px] font-bold text-[#8b8ca6]">
                       {result.category}
                     </span>
                   </div>
-                  <div className="text-[14px] leading-snug font-bold text-[#15162c]">
+                  <div className="text-[14px] leading-snug font-bold text-ink">
                     {result.title}
                   </div>
                   <p className="mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-[#6f7090]">

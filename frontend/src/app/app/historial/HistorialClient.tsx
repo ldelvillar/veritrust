@@ -13,6 +13,7 @@ import HistoryFilters, {
 } from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
@@ -234,37 +235,34 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            Análisis anteriores
-          </h1>
-          <p className="mt-2 text-sm font-medium text-slate-500">
-            Revisa y gestiona tus informes previos.
-          </p>
-        </div>
-
-        <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={isExporting || totalCount === 0}
-            aria-busy={isExporting}
-            className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isExporting ? (
-              <Spinner className="size-4 animate-spin text-primary" />
-            ) : (
-              <DownloadIcon className="size-4" aria-hidden />
-            )}
-            {isExporting ? 'Exportando…' : 'Exportar todo'}
-          </button>
-          {exportError ? (
-            <p role="alert" className="text-xs font-semibold text-red-600">
-              {exportError}
-            </p>
-          ) : null}
-        </div>
+      <div className="mb-6">
+        <PageHeader
+          title="Análisis anteriores"
+          subtitle="Revisa y gestiona tus informes previos."
+          actions={
+            <div className="flex flex-col items-end gap-1">
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExporting || totalCount === 0}
+                aria-busy={isExporting}
+                className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <Spinner className="size-4 animate-spin text-primary" />
+                ) : (
+                  <DownloadIcon className="size-4" aria-hidden />
+                )}
+                {isExporting ? 'Exportando…' : 'Exportar todo'}
+              </button>
+              {exportError ? (
+                <p role="alert" className="text-xs font-semibold text-red-600">
+                  {exportError}
+                </p>
+              ) : null}
+            </div>
+          }
+        />
       </div>
 
       <HistoryFilters

@@ -9,20 +9,20 @@ export const metadata: Metadata = {
 export default function TerminosYCondicionesPage() {
   return (
     <section className="animate-fade-in mx-auto w-full max-w-4xl px-4 py-12 md:py-16">
-      <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 md:text-5xl">
+      <h1 className="text-4xl font-extrabold tracking-tight text-ink md:text-5xl">
         Términos y condiciones
       </h1>
-      <p className="mt-4 text-base leading-7 text-gray-600 md:text-lg">
+      <p className="mt-4 text-base leading-7 text-body md:text-lg">
         Estos términos regulan el acceso y uso de VeriTrust. Al utilizar
         nuestros servicios, aceptas estas condiciones en su totalidad.
       </p>
 
       <div className="mt-10 space-y-10">
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-ink">
             1. Objeto del servicio
           </h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <p className="mt-3 text-base leading-7 text-body">
             VeriTrust proporciona herramientas de análisis de contenido médico
             para apoyar la identificación de posible desinformación. El servicio
             es de apoyo y no sustituye asesoramiento médico, legal ni
@@ -31,10 +31,10 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-ink">
             2. Registro y cuenta
           </h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <p className="mt-3 text-base leading-7 text-body">
             Eres responsable de la veracidad de los datos aportados y de
             mantener la confidencialidad de tus credenciales. Toda actividad
             realizada desde tu cuenta se entenderá efectuada por ti.
@@ -42,8 +42,8 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">3. Uso permitido</h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <h2 className="text-2xl font-bold text-ink">3. Uso permitido</h2>
+          <p className="mt-3 text-base leading-7 text-body">
             No está permitido utilizar la plataforma para actividades ilícitas,
             para difundir contenido ofensivo o para vulnerar derechos de
             propiedad intelectual y privacidad de terceros.
@@ -51,10 +51,10 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-ink">
             4. Disponibilidad y cambios
           </h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <p className="mt-3 text-base leading-7 text-body">
             Podemos actualizar, modificar o suspender funcionalidades cuando sea
             necesario por motivos técnicos, de seguridad o de mejora del
             servicio, intentando minimizar el impacto en el usuario.
@@ -62,10 +62,10 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-ink">
             5. Responsabilidad
           </h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <p className="mt-3 text-base leading-7 text-body">
             No garantizamos que los resultados sean exactos al cien por cien en
             todos los casos. El usuario asume la responsabilidad de validar la
             información antes de tomar decisiones relevantes basadas en ella.
@@ -73,10 +73,10 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-ink">
             6. Vigencia y modificaciones
           </h2>
-          <p className="mt-3 text-base leading-7 text-gray-600">
+          <p className="mt-3 text-base leading-7 text-body">
             Estos términos pueden actualizarse periódicamente. Las nuevas
             versiones se publicarán en esta pagina y entrarán en vigor desde su
             publicación.

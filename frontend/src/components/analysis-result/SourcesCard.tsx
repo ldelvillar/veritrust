@@ -13,12 +13,12 @@ export default function SourcesCard({
   caption: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+    <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
+      <h3 className="flex items-center gap-2 text-base font-bold text-ink">
         <BookIcon className="size-4.5 text-primary" />
         {title}
       </h3>
-      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
         {caption}
       </p>
 
@@ -28,7 +28,7 @@ export default function SourcesCard({
         ))}
       </ul>
 
-      <p className="mt-4 flex items-center gap-2 text-xs leading-relaxed text-slate-400">
+      <p className="mt-4 flex items-center gap-2 text-xs leading-relaxed text-faint">
         <ShieldIcon className="size-3.5 shrink-0" />
         Fuentes sugeridas automáticamente; verifica siempre la referencia
         original.

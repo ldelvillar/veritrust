@@ -89,7 +89,7 @@ const getRowState = (item: HistoryItem): RowState => {
       return {
         badge: {
           text: 'Sin afirmaciones',
-          className: 'bg-slate-100 text-slate-600',
+          className: 'bg-surface text-body',
         },
         detailLabel: 'Ver detalle',
         showScore: false,
@@ -155,12 +155,12 @@ export default function HistoryResultsTable({
               <Magnifier className="size-7" />
             )}
           </div>
-          <h2 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
+          <h2 className="mt-5 text-xl font-bold tracking-tight text-ink">
             {hasActiveFilters
               ? 'Sin resultados para estos filtros'
               : 'Aún no has analizado nada'}
           </h2>
-          <p className="mt-2 max-w-sm text-sm font-medium text-slate-500">
+          <p className="mt-2 max-w-sm text-sm font-medium text-muted">
             {hasActiveFilters
               ? 'Ningún análisis coincide con la búsqueda o los filtros aplicados. Prueba a ajustarlos o límpialos para ver todo tu historial.'
               : 'Cuando verifiques tu primer contenido médico, tus informes aparecerán aquí para que puedas consultarlos y gestionarlos.'}
@@ -169,14 +169,14 @@ export default function HistoryResultsTable({
             <button
               type="button"
               onClick={onClearFilters}
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
             >
               Limpiar filtros
             </button>
           ) : (
             <Link
               href="/app/analisis"
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-[#5446dc] focus:ring-4 focus:ring-primary/20 focus:outline-none"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
             >
               Analizar contenido
             </Link>
@@ -198,7 +198,7 @@ export default function HistoryResultsTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-      <div className="hidden grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-slate-50 px-5 py-4 text-xs font-bold tracking-widest text-slate-400 uppercase md:grid">
+      <div className="hidden grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-surface-subtle px-5 py-4 text-xs font-bold tracking-widest text-faint uppercase md:grid">
         <span>Título del artículo</span>
         <span>Tipo</span>
         <span>Fecha de análisis</span>
@@ -207,7 +207,7 @@ export default function HistoryResultsTable({
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-3 px-5 py-12 text-sm font-semibold text-slate-500">
+        <div className="flex items-center justify-center gap-3 px-5 py-12 text-sm font-semibold text-muted">
           <Spinner className="size-5 animate-spin text-primary" />
           Cargando análisis...
         </div>
@@ -248,19 +248,19 @@ export default function HistoryResultsTable({
                 className="border-b border-border px-4 py-4 last:border-b-0 md:grid md:grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] md:items-center md:gap-4 md:px-5"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-slate-800">
+                  <p className="truncate text-base font-bold text-ink">
                     {getTitle(item)}
                   </p>
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+                  <p className="mt-1 truncate text-xs font-semibold text-faint">
                     Fuente: {getSource(item)}
                   </p>
                 </div>
 
-                <span className="mt-3 inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 md:mt-0 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-sm md:text-slate-600">
+                <span className="mt-3 inline-flex w-fit items-center rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-body md:mt-0 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-sm md:text-body">
                   {getTypeLabel(item.source_type)}
                 </span>
 
-                <span className="mt-3 block text-xs font-semibold text-slate-500 md:mt-0 md:text-sm">
+                <span className="mt-3 block text-xs font-semibold text-muted md:mt-0 md:text-sm">
                   {new Date(item.created_at).toLocaleString('es-ES', {
                     month: 'short',
                     day: 'numeric',
@@ -279,25 +279,25 @@ export default function HistoryResultsTable({
                   {rowState.showScore ? (
                     <div className="flex w-full items-center gap-3">
                       {credibility === null ? (
-                        <span className="text-sm font-semibold text-slate-400">
+                        <span className="text-sm font-semibold text-faint">
                           Sin puntuación
                         </span>
                       ) : (
                         <>
-                          <div className="h-2 w-full rounded-full bg-slate-200 md:max-w-24">
+                          <div className="h-2 w-full rounded-full bg-line md:max-w-24">
                             <div
                               className={`h-full rounded-full ${getScoreColor(credibility)}`}
                               style={{ width: `${credibility}%` }}
                             />
                           </div>
-                          <span className="text-sm font-black text-slate-700">
+                          <span className="text-sm font-black text-body">
                             {credibility}/100
                           </span>
                         </>
                       )}
                     </div>
                   ) : item.status === 'pending' ? (
-                    <span className="text-sm font-medium text-slate-400">
+                    <span className="text-sm font-medium text-faint">
                       Procesando…
                     </span>
                   ) : null}
@@ -316,7 +316,7 @@ export default function HistoryResultsTable({
                     onClick={() => onDelete(item)}
                     disabled={deletingId === item.analysis_id}
                     aria-label="Eliminar análisis"
-                    className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex size-8 items-center justify-center rounded-lg text-faint transition hover:bg-red-50 hover:text-red-600 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {deletingId === item.analysis_id ? (
                       <Spinner className="size-4 animate-spin text-red-500" />
@@ -331,8 +331,8 @@ export default function HistoryResultsTable({
         </ul>
       )}
 
-      <div className="flex flex-col gap-4 border-t border-border bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <p className="text-xs font-semibold text-slate-400">
+      <div className="flex flex-col gap-4 border-t border-border bg-surface-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <p className="text-xs font-semibold text-faint">
           {isLoading
             ? 'Cargando registros...'
             : errorMessage
@@ -346,7 +346,7 @@ export default function HistoryResultsTable({
             onClick={() => onPageChange(safeCurrentPage - 1)}
             disabled={isPaginationDisabled || safeCurrentPage === 1}
             aria-label="Página anterior"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500 transition disabled:cursor-not-allowed disabled:text-slate-300"
+            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-muted transition disabled:cursor-not-allowed disabled:text-faint"
           >
             ‹
           </button>
@@ -364,7 +364,7 @@ export default function HistoryResultsTable({
                 className={`size-8 rounded-lg text-sm font-bold transition ${
                   isActive
                     ? 'bg-primary text-white'
-                    : 'border border-border bg-white text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300'
+                    : 'border border-border bg-white text-muted hover:bg-surface disabled:cursor-not-allowed disabled:text-faint'
                 }`}
               >
                 {page}
@@ -377,7 +377,7 @@ export default function HistoryResultsTable({
             onClick={() => onPageChange(safeCurrentPage + 1)}
             disabled={isPaginationDisabled || safeCurrentPage === totalPages}
             aria-label="Página siguiente"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-slate-500 transition disabled:cursor-not-allowed disabled:text-slate-300"
+            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-muted transition disabled:cursor-not-allowed disabled:text-faint"
           >
             ›
           </button>

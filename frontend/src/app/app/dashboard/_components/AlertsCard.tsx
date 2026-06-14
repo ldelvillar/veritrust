@@ -39,31 +39,25 @@ export default function AlertsCard({
   total: number;
 }) {
   return (
-    <section className="flex flex-col rounded-[20px] border border-[#e8e6f4] bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-[#15162c]">
+          <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
             Alertas recientes
           </h2>
-          <p
-            className="mt-1 text-[13px] leading-snug"
-            style={{ color: '#7e7f99' }}
-          >
+          <p className="mt-1 text-[13px] leading-snug text-muted">
             Últimos análisis con baja credibilidad detectada.
           </p>
         </div>
         {total > 0 && (
-          <span
-            className="shrink-0 rounded-full border border-[#e7e3fb] bg-[#f4f2fd] px-2.75 py-1.5 text-[11.5px] font-bold"
-            style={{ color: '#5446dc' }}
-          >
+          <span className="shrink-0 rounded-full border border-[#e7e3fb] bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
             {total} {total === 1 ? 'alerta' : 'alertas'}
           </span>
         )}
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm font-medium" style={{ color: '#7e7f99' }}>
+        <p className="text-sm font-medium text-muted">
           No hay alertas por ahora.
         </p>
       ) : (
@@ -99,7 +93,7 @@ export default function AlertsCard({
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[14px] leading-[1.45] font-bold text-[#15162c]">
+                    <p className="line-clamp-2 text-[14px] leading-[1.45] font-bold text-ink">
                       {getAlertTitle(item)}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
@@ -109,19 +103,13 @@ export default function AlertsCard({
                       >
                         {label}
                       </span>
-                      <span
-                        className="text-[12px] font-semibold"
-                        style={{ color: '#7e7f99' }}
-                      >
+                      <span className="text-[12px] font-semibold text-muted">
                         {date}
                       </span>
                     </div>
                   </div>
 
-                  <div
-                    className="grid size-8.5 shrink-0 place-items-center self-center rounded-[10px] border border-[#e8e6f4] bg-white transition-transform duration-150 group-hover:translate-x-0.5"
-                    style={{ color: '#a3a4ba' }}
-                  >
+                  <div className="grid size-8.5 shrink-0 place-items-center self-center rounded-[10px] border border-line bg-white text-faint transition-transform duration-150 group-hover:translate-x-0.5">
                     <ArrowRightIcon className="size-4" strokeWidth={2.1} />
                   </div>
                 </Link>
@@ -132,8 +120,7 @@ export default function AlertsCard({
           <div className="mt-4 flex justify-center">
             <Link
               href="/app/historial"
-              className="font-display inline-flex items-center gap-2 text-[13.5px] font-semibold"
-              style={{ color: '#5446dc' }}
+              className="font-display inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent"
             >
               Ver todas las alertas{' '}
               <ArrowRightIcon className="size-4" strokeWidth={2.1} />

@@ -81,20 +81,20 @@ export default function ContactoPage() {
           {channels.map(({ Icon, title, desc, link }) => (
             <div
               key={title}
-              className="group rounded-[18px] border border-[#e8e6f4] bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition hover:-translate-y-0.75 hover:border-[#dcd9ee] hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
+              className="group rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition hover:-translate-y-0.75 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
             >
-              <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-[#efedfc] text-[#5446dc]">
+              <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-[#efedfc] text-accent">
                 <Icon className="size-5.75" />
               </div>
-              <h3 className="mb-1.75 text-[17px] font-bold text-[#15162c]">
+              <h3 className="mb-1.75 text-[17px] font-bold text-ink">
                 {title}
               </h3>
-              <p className="mb-3.5 text-[13.5px] leading-snug text-[#7e7f99]">
+              <p className="mb-3.5 text-[13.5px] leading-snug text-muted">
                 {desc}
               </p>
               <a
                 href={link.href}
-                className="inline-flex items-center gap-1.75 text-[14.5px] font-semibold text-[#5446dc] transition hover:text-primary"
+                className="inline-flex items-center gap-1.75 text-[14.5px] font-semibold text-accent transition hover:text-primary"
               >
                 {link.label}
                 <ArrowRightIcon
@@ -110,66 +110,66 @@ export default function ContactoPage() {
           <ContactForm />
 
           {/* info side */}
-          <div className="rounded-[20px] border border-[#e8e6f4] bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]">
-            <h3 className="text-[19px] font-bold text-[#15162c]">
+          <div className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]">
+            <h3 className="text-[19px] font-bold text-ink">
               Otras formas de encontrarnos
             </h3>
-            <p className="mt-1.5 mb-6 text-[14px] leading-snug text-[#7e7f99]">
+            <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
               Datos directos del equipo de VeriTrust.
             </p>
 
             <div className="flex items-start gap-3.5 pt-1 pb-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-[#f4f2fd] text-[#5446dc]">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
                 <MailIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-[#15162c]">
+                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
                   Email general
                 </h4>
                 <a
                   href={`mailto:${SITE_CONFIG.email}`}
-                  className="text-[13.5px] font-semibold text-[#5446dc] hover:underline"
+                  className="text-[13.5px] font-semibold text-accent hover:underline"
                 >
                   {SITE_CONFIG.email}
                 </a>
               </div>
             </div>
 
-            <div className="flex items-start gap-3.5 border-t border-[#e8e6f4] py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-[#f4f2fd] text-[#5446dc]">
+            <div className="flex items-start gap-3.5 border-t border-line py-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
                 <PhoneIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-[#15162c]">
+                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
                   Teléfono
                 </h4>
-                <p className="text-[13.5px] text-[#7e7f99]">
+                <p className="text-[13.5px] text-muted">
                   {SITE_CONFIG.phone}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3.5 border-t border-[#e8e6f4] py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-[#f4f2fd] text-[#5446dc]">
+            <div className="flex items-start gap-3.5 border-t border-line py-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
                 <PinIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-[#15162c]">
+                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
                   Ubicación
                 </h4>
-                <p className="text-[13.5px] text-[#7e7f99]">Madrid, España.</p>
+                <p className="text-[13.5px] text-muted">Madrid, España.</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3.5 border-t border-[#e8e6f4] py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-[#f4f2fd] text-[#5446dc]">
+            <div className="flex items-start gap-3.5 border-t border-line py-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
                 <ClockIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-[#15162c]">
+                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
                   Tiempo de respuesta
                 </h4>
-                <p className="text-[13.5px] text-[#7e7f99]">
+                <p className="text-[13.5px] text-muted">
                   Menos de 24&nbsp;h laborables en todos los canales
                 </p>
               </div>
@@ -179,7 +179,7 @@ export default function ContactoPage() {
             <div
               role="img"
               aria-label="Mapa esquemático de la ubicación de la oficina en Madrid"
-              className="relative mt-5.5 h-42.5 overflow-hidden rounded-2xl border border-[#e8e6f4] bg-[linear-gradient(0deg,rgba(67,45,215,0.06),rgba(67,45,215,0.06)),repeating-linear-gradient(0deg,#eee9fa_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,#eee9fa_0_1px,transparent_1px_34px),#f6f4fd]"
+              className="relative mt-5.5 h-42.5 overflow-hidden rounded-2xl border border-line bg-[linear-gradient(0deg,rgba(67,45,215,0.06),rgba(67,45,215,0.06)),repeating-linear-gradient(0deg,#eee9fa_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,#eee9fa_0_1px,transparent_1px_34px),#f6f4fd]"
             >
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full text-primary">
                 <svg

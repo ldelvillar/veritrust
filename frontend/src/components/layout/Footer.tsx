@@ -39,7 +39,7 @@ const bottomLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[#16172e] pt-16 pb-[30px] text-white">
+    <footer className="bg-ink pt-16 pb-[30px] text-white">
       <div className="mx-auto w-full max-w-[1180px] px-5 md:px-8">
         <div className="mb-12 grid gap-10 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>

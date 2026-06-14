@@ -23,52 +23,39 @@ export default function DomainsCard({
   const maxCount = Math.max(1, ...items.map(d => d.total));
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-[#e8e6f4] bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
       <div className="mb-5">
-        <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-[#15162c]">
+        <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
           Dominios frecuentes
         </h2>
-        <p
-          className="mt-1 text-[13px] leading-snug"
-          style={{ color: '#7e7f99' }}
-        >
+        <p className="mt-1 text-[13px] leading-snug text-muted">
           Top de enlaces analizados por frecuencia.
         </p>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm font-medium" style={{ color: '#7e7f99' }}>
+        <p className="text-sm font-medium text-muted">
           No hay dominios registrados todavía.
         </p>
       ) : (
         <div className="flex flex-col">
-          {items.map((item, idx) => {
+          {items.map(item => {
             const cred = domainCredibility(item.average_confidence);
             const init = item.domain[0]?.toUpperCase() ?? '?';
             return (
               <div
                 key={item.domain}
-                className="flex items-center gap-3.5 py-3.5"
-                style={{
-                  borderTop: idx === 0 ? 'none' : '1px solid #e8e6f4',
-                  paddingTop: idx === 0 ? 2 : undefined,
-                }}
+                className="flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0 first:pt-0.5"
               >
-                <div
-                  className="font-display grid size-9 shrink-0 place-items-center rounded-[10px] border border-[#e8e6f4] text-[14px] font-bold uppercase"
-                  style={{ background: '#faf9fe', color: '#7e7f99' }}
-                >
+                <div className="font-display grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-subtle text-[14px] font-bold text-muted uppercase">
                   {init}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[14px] font-bold text-[#15162c]">
+                    <span className="truncate text-[14px] font-bold text-ink">
                       {item.domain}
                     </span>
-                    <span
-                      className="shrink-0 text-[12px] font-semibold"
-                      style={{ color: '#a3a4ba' }}
-                    >
+                    <span className="shrink-0 text-[12px] font-semibold text-faint">
                       · {item.total} análisis
                     </span>
                   </div>
@@ -86,7 +73,7 @@ export default function DomainsCard({
                   </div>
                 </div>
                 <span
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-[11px] py-[5px] text-[12px] font-bold"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.75 py-1.25 text-[12px] font-bold"
                   style={CRED_STYLES[cred.cls]}
                 >
                   <span

@@ -18,12 +18,12 @@ export default function Stats() {
           {stats.map(stat => (
             <div
               key={stat.l}
-              className="rounded-[18px] border border-[#e8e6f4] bg-white px-6.5 py-7.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
+              className="rounded-[18px] border border-line bg-white px-6.5 py-7.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
             >
               <b className="block text-[42px] leading-none font-bold tracking-[-0.03em] text-primary">
                 {stat.n}
               </b>
-              <div className="mt-2.5 text-[14.5px] leading-snug font-semibold text-[#6f7090]">
+              <div className="mt-2.5 text-[14.5px] leading-snug font-semibold text-muted">
                 {stat.l}
               </div>
             </div>

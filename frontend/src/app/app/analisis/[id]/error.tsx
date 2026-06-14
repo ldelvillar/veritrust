@@ -18,10 +18,10 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
           <WarningIcon className="size-8" />
         </div>
         <div>
-          <h2 className="mb-2 text-2xl font-bold text-gray-800">
+          <h2 className="mb-2 text-2xl font-bold text-ink">
             No se pudo cargar el análisis
           </h2>
-          <p className="text-base text-gray-600">
+          <p className="text-base text-body">
             {error.message || 'Error desconocido.'}
           </p>
         </div>
@@ -34,7 +34,7 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
           </button>
           <button
             onClick={() => router.replace('/app/historial')}
-            className="rounded-xl bg-slate-50 px-6 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus:ring-4 focus:ring-slate-100 focus:outline-none"
+            className="rounded-xl bg-surface-subtle px-6 py-3 font-semibold text-body transition-colors hover:bg-surface focus:ring-4 focus:ring-line focus:outline-none"
           >
             Volver al historial
           </button>

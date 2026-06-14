@@ -136,16 +136,16 @@ export default function AnalysisForm() {
 
   return (
     <form
-      className="w-full max-w-4xl rounded-2xl border border-[#e8e6f4] bg-white p-7 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
+      className="w-full max-w-4xl rounded-2xl border border-line bg-white p-7 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
       {/* Header */}
       <div className="mb-5">
-        <h2 className="text-[20px] font-bold tracking-tight text-[#15162c]">
+        <h2 className="text-[20px] font-bold tracking-tight text-ink">
           Nuevo análisis
         </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-[#7e7f99]">
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
           Elige cómo quieres aportar el contenido a verificar. Procesamos texto,
           páginas web y documentos.
         </p>
@@ -155,7 +155,7 @@ export default function AnalysisForm() {
       <div
         role="tablist"
         aria-label="Método de entrada del contenido"
-        className="mb-5 flex gap-2 rounded-2xl border border-[#e8e6f4] bg-[#f4f2fd] p-1.5"
+        className="mb-5 flex gap-2 rounded-2xl border border-line bg-surface p-1.5"
       >
         {tabs.map(({ id, label, Icon }) => (
           <button
@@ -170,7 +170,7 @@ export default function AnalysisForm() {
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[14.5px] font-bold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
               inputMethod === id
                 ? 'bg-white text-primary shadow-[0_1px_2px_rgba(20,22,44,.04),0_4px_14px_rgba(92,80,200,.05)]'
-                : 'text-[#7e7f99] hover:text-[#33344c]'
+                : 'text-muted hover:text-body'
             }`}
           >
             <Icon className="size-4.5" />
@@ -184,23 +184,23 @@ export default function AnalysisForm() {
         <div role="tabpanel" id={panelId} aria-labelledby={tabId('text')}>
           <label
             htmlFor="analysis-text"
-            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]"
+            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body"
           >
-            <TypeIcon className="size-3.75 text-[#7e7f99]" />
+            <TypeIcon className="size-3.75 text-muted" />
             Pega el texto o la afirmación a verificar
           </label>
           <textarea
             id="analysis-text"
             name="text"
             disabled={isLoading}
-            className="min-h-47 w-full resize-y rounded-xl border border-[#dcd9ee] bg-[#faf9fe] p-4 font-[inherit] text-[15px] leading-relaxed text-[#33344c] transition-all placeholder:text-[#a3a4ba] focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(99,86,230,.12)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-47 w-full resize-y rounded-xl border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15px] leading-relaxed text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(99,86,230,.12)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
             value={formData.text}
             onChange={handleChange}
           />
           <div className="mt-2.5 flex items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12.5px] font-bold text-[#a3a4ba]">
+              <span className="text-[12.5px] font-bold text-faint">
                 Probar un ejemplo:
               </span>
               <button
@@ -208,7 +208,7 @@ export default function AnalysisForm() {
                 onClick={() =>
                   setFormData({ ...formData, text: EXAMPLE_TEXT_1 })
                 }
-                className="rounded-full border border-[#e8e6f4] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#33344c] transition-all hover:border-primary hover:bg-[#f4f2fd] hover:text-primary"
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary"
               >
                 Vitamina C y resfriado
               </button>
@@ -217,12 +217,12 @@ export default function AnalysisForm() {
                 onClick={() =>
                   setFormData({ ...formData, text: EXAMPLE_TEXT_2 })
                 }
-                className="rounded-full border border-[#e8e6f4] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#33344c] transition-all hover:border-primary hover:bg-[#f4f2fd] hover:text-primary"
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary"
               >
                 Sol y vitamina D
               </button>
             </div>
-            <span className="shrink-0 text-[12.5px] font-semibold text-[#a3a4ba]">
+            <span className="shrink-0 text-[12.5px] font-semibold text-faint">
               {formData.text.length} caracteres
             </span>
           </div>
@@ -234,13 +234,13 @@ export default function AnalysisForm() {
         <div role="tabpanel" id={panelId} aria-labelledby={tabId('url')}>
           <label
             htmlFor="analysis-url"
-            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]"
+            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body"
           >
-            <GlobeIcon className="size-3.75 text-[#7e7f99]" />
+            <GlobeIcon className="size-3.75 text-muted" />
             Introduce la URL del artículo
           </label>
-          <div className="flex overflow-hidden rounded-xl border border-[#dcd9ee] bg-[#faf9fe] transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(99,86,230,.12)]">
-            <span className="flex items-center self-stretch border-r border-[#e8e6f4] bg-white px-3.5 text-[14px] font-bold text-[#7e7f99]">
+          <div className="flex overflow-hidden rounded-xl border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(99,86,230,.12)]">
+            <span className="flex items-center self-stretch border-r border-line bg-white px-3.5 text-[14px] font-bold text-muted">
               https://
             </span>
             <input
@@ -248,7 +248,7 @@ export default function AnalysisForm() {
               name="url"
               type="text"
               disabled={isLoading}
-              className="flex-1 border-none bg-transparent px-4 py-3.5 font-[inherit] text-[15px] text-[#33344c] placeholder:text-[#a3a4ba] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex-1 border-none bg-transparent px-4 py-3.5 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="www.medio.es/salud/articulo-a-verificar"
               value={formData.url}
               onChange={handleChange}
@@ -260,16 +260,16 @@ export default function AnalysisForm() {
       {/* Archivo tab */}
       {inputMethod === 'file' && (
         <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
-          <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
-            <DocumentIcon className="size-3.75 text-[#7e7f99]" />
+          <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body">
+            <DocumentIcon className="size-3.75 text-muted" />
             Sube un documento para analizar
           </div>
           <label
             htmlFor="file-upload"
             className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-center transition-all ${
               isDragging
-                ? 'border-primary bg-[#f4f2fd]'
-                : 'border-[#dcd9ee] bg-[#faf9fe] hover:border-primary hover:bg-[#f4f2fd]'
+                ? 'border-primary bg-surface'
+                : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
             } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -279,29 +279,29 @@ export default function AnalysisForm() {
               <UploadIcon className="size-6.5" />
             </div>
             {selectedFile ? (
-              <p className="text-[16px] font-semibold text-[#15162c]">
+              <p className="text-[16px] font-semibold text-ink">
                 <span className="text-primary">{selectedFile.name}</span> ·
                 listo para analizar
               </p>
             ) : (
-              <p className="text-[16px] font-semibold text-[#15162c]">
+              <p className="text-[16px] font-semibold text-ink">
                 Arrastra un archivo aquí o{' '}
                 <span className="text-primary">búscalo</span>
               </p>
             )}
-            <p className="mt-1.5 text-[13px] text-[#7e7f99]">
+            <p className="mt-1.5 text-[13px] text-muted">
               Documentos PDF o texto plano (.txt o .md).
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               {['PDF', 'TXT', 'MD'].map(t => (
                 <span
                   key={t}
-                  className="rounded-lg border border-[#e8e6f4] bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-[#7e7f99]"
+                  className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
                 >
                   {t}
                 </span>
               ))}
-              <span className="text-[11.5px] font-bold text-[#a3a4ba]">
+              <span className="text-[11.5px] font-bold text-faint">
                 máx. 10 MB
               </span>
             </div>
@@ -317,8 +317,8 @@ export default function AnalysisForm() {
 
           {selectedFile && isPdfFile(selectedFile) && (
             <div className="mt-4">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-[#33344c]">
-                <DocumentIcon className="size-3.75 text-[#7e7f99]" />
+              <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-body">
+                <DocumentIcon className="size-3.75 text-muted" />
                 Vista previa del PDF
               </div>
               <PdfViewer file={selectedFile} />
@@ -339,9 +339,9 @@ export default function AnalysisForm() {
       )}
 
       {/* Footer */}
-      <div className="mt-6 flex items-center gap-4 border-t border-[#e8e6f4] pt-5">
-        <div className="flex items-center gap-2 text-[12.5px] leading-snug text-[#7e7f99]">
-          <ShieldIcon className="size-3.75 shrink-0 text-[#a3a4ba]" />
+      <div className="mt-6 flex items-center gap-4 border-t border-line pt-5">
+        <div className="flex items-center gap-2 text-[12.5px] leading-snug text-muted">
+          <ShieldIcon className="size-3.75 shrink-0 text-faint" />
           <span>
             El contenido se procesa de forma privada y no se usa para entrenar
             modelos. Las afirmaciones pueden contrastarse con literatura

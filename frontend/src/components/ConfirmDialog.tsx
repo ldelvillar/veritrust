@@ -50,7 +50,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4"
       onClick={() => {
         if (!isConfirming) onCancel();
       }}
@@ -70,13 +70,13 @@ export default function ConfirmDialog({
           <div className="min-w-0">
             <h2
               id={titleId}
-              className="text-lg font-black tracking-tight text-slate-900"
+              className="text-lg font-black tracking-tight text-ink"
             >
               {title}
             </h2>
             <p
               id={descriptionId}
-              className="mt-1 text-sm font-medium text-slate-500"
+              className="mt-1 text-sm font-medium text-muted"
             >
               {description}
             </p>
@@ -95,7 +95,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={isConfirming}
-            className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-bold text-body transition hover:bg-surface-subtle focus:ring-2 focus:ring-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cancelLabel}
           </button>

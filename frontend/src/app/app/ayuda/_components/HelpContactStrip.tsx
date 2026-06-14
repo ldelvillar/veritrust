@@ -22,7 +22,7 @@ export default function HelpContactStrip({ email }: HelpContactStripProps) {
       <div className="relative z-10 mt-5 flex flex-wrap gap-3 md:mt-0 md:shrink-0">
         <a
           href={`mailto:${email}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[14px] font-semibold text-[#5446dc] transition hover:-translate-y-px hover:shadow-[0_12px_26px_rgba(0,0,0,.18)]"
+          className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[14px] font-semibold text-accent transition hover:-translate-y-px hover:shadow-[0_12px_26px_rgba(0,0,0,.18)]"
         >
           <BellIcon width={16} height={16} />
           Contactar con soporte

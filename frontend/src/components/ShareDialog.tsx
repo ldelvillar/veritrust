@@ -66,7 +66,7 @@ export default function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4"
       onClick={() => {
         if (!isSharing) onClose();
       }}
@@ -86,13 +86,13 @@ export default function ShareDialog({
           <div className="min-w-0">
             <h2
               id={titleId}
-              className="text-lg font-black tracking-tight text-slate-900"
+              className="text-lg font-black tracking-tight text-ink"
             >
               Compartir informe
             </h2>
             <p
               id={descriptionId}
-              className="mt-1 text-sm font-medium text-slate-500"
+              className="mt-1 text-sm font-medium text-muted"
             >
               Cualquiera con el enlace podrá ver este informe en modo lectura,
               sin acceder a tu cuenta. Puedes desactivarlo cuando quieras.
@@ -104,7 +104,7 @@ export default function ShareDialog({
           <div className="mt-5">
             <label
               htmlFor={`${titleId}-url`}
-              className="text-xs font-bold tracking-wide text-slate-500 uppercase"
+              className="text-xs font-bold tracking-wide text-muted uppercase"
             >
               Enlace público
             </label>
@@ -115,7 +115,7 @@ export default function ShareDialog({
                 readOnly
                 value={shareUrl}
                 onFocus={event => event.target.select()}
-                className="min-w-0 flex-1 rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-sm text-slate-700 focus:border-primary focus:outline-none"
+                className="min-w-0 flex-1 rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-body focus:border-primary focus:outline-none"
               />
               <button
                 type="button"
@@ -147,7 +147,7 @@ export default function ShareDialog({
             type="button"
             onClick={onClose}
             disabled={isSharing}
-            className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-bold text-body transition hover:bg-surface-subtle focus:ring-2 focus:ring-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cerrar
           </button>

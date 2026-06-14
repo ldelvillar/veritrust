@@ -34,10 +34,10 @@ function Brand({
         onClick={onExpand}
         aria-label="Expandir menú"
         title="Expandir menú"
-        className="group relative mx-auto mt-1 mb-5.5 flex size-10 items-center justify-center rounded-xl transition hover:bg-[#f4f2fd]"
+        className="group relative mx-auto mt-1 mb-5.5 flex size-10 items-center justify-center rounded-xl transition hover:bg-surface"
       >
         <Logo className="h-6 w-auto transition-opacity group-hover:opacity-0" />
-        <div className="absolute inset-0 flex items-center justify-center text-xl text-[#33344c] opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute inset-0 flex items-center justify-center text-xl text-body opacity-0 transition-opacity group-hover:opacity-100">
           <SidebarIcon />
         </div>
       </button>
@@ -51,14 +51,14 @@ function Brand({
         onClick={onNavigate}
         className="flex items-center"
       >
-        <span className="text-[19px] font-bold tracking-[-0.02em] text-[#15162c]">
+        <span className="text-[19px] font-bold tracking-[-0.02em] text-ink">
           VeriTrust
         </span>
       </Link>
       {onCollapse && (
         <button
           onClick={onCollapse}
-          className="-mr-1.5 flex size-8 items-center justify-center rounded-lg text-[#a3a4ba] transition hover:bg-[#f4f2fd] hover:text-[#33344c]"
+          className="-mr-1.5 flex size-8 items-center justify-center rounded-lg text-faint transition hover:bg-surface hover:text-body"
           aria-label="Colapsar menú"
           title="Colapsar menú"
         >
@@ -96,7 +96,7 @@ function SidebarContent({
       />
 
       {!collapsed && (
-        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-[#9698b1] uppercase">
+        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-faint uppercase">
           Menú
         </div>
       )}
@@ -114,8 +114,8 @@ function SidebarContent({
                 collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
               } ${
                 active
-                  ? 'bg-[#efedfc] text-[#5446dc]'
-                  : 'text-[#7e7f99] hover:bg-[#f4f2fd] hover:text-[#33344c]'
+                  ? 'bg-[#efedfc] text-accent'
+                  : 'text-muted hover:bg-surface hover:text-body'
               }`}
             >
               <Icon
@@ -128,7 +128,7 @@ function SidebarContent({
       </div>
 
       {!collapsed && (
-        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-[#9698b1] uppercase">
+        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-faint uppercase">
           Cuenta
         </div>
       )}
@@ -139,7 +139,7 @@ function SidebarContent({
           href="/app/ayuda"
           onClick={onNavigate}
           title={collapsed ? 'Ayuda' : undefined}
-          className={`mb-0.5 flex items-center rounded-xl py-2.5 text-[14.5px] font-semibold text-[#7e7f99] transition hover:bg-[#f4f2fd] hover:text-[#33344c] ${
+          className={`mb-0.5 flex items-center rounded-xl py-2.5 text-[14.5px] font-semibold text-muted transition hover:bg-surface hover:text-body ${
             collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
           }`}
         >
@@ -150,11 +150,11 @@ function SidebarContent({
 
       <div className="mt-auto">
         {!collapsed && (
-          <div className="mb-3.5 rounded-2xl border border-[#e8e6f4] bg-[#f4f2fd] p-4">
-            <h4 className="text-[13.5px] font-bold text-[#15162c]">
+          <div className="mb-3.5 rounded-2xl border border-line bg-surface p-4">
+            <h4 className="text-[13.5px] font-bold text-ink">
               ¿Necesitas más análisis?
             </h4>
-            <p className="mt-1 mb-3 text-xs leading-snug text-[#7e7f99]">
+            <p className="mt-1 mb-3 text-xs leading-snug text-muted">
               Mejora tu plan para verificar sin límites.
             </p>
             <Link
@@ -169,15 +169,15 @@ function SidebarContent({
 
         <Show when="signed-in">
           <div
-            className={`flex items-center py-1.5 ${collapsed ? 'mt-2 justify-center border-t border-[#e8e6f4] pt-4' : 'gap-3 px-1.5'}`}
+            className={`flex items-center py-1.5 ${collapsed ? 'mt-2 justify-center border-t border-line pt-4' : 'gap-3 px-1.5'}`}
           >
             <UserButton />
             {!collapsed && (
               <div className="min-w-0">
-                <div className="truncate text-[13.5px] font-bold text-[#33344c]">
+                <div className="truncate text-[13.5px] font-bold text-body">
                   {user?.fullName ?? 'Mi cuenta'}
                 </div>
-                <div className="truncate text-[11.5px] text-[#a3a4ba]">
+                <div className="truncate text-[11.5px] text-faint">
                   {user?.primaryEmailAddress?.emailAddress ?? ''}
                 </div>
               </div>
@@ -189,7 +189,7 @@ function SidebarContent({
             {collapsed ? (
               <button
                 aria-label="Iniciar sesión"
-                className="mx-auto flex size-11 cursor-pointer items-center justify-center rounded-xl border border-[#dcd9ee] text-[#33344c] transition hover:border-primary hover:text-primary"
+                className="mx-auto flex size-11 cursor-pointer items-center justify-center rounded-xl border border-line-strong text-body transition hover:border-primary hover:text-primary"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -206,7 +206,7 @@ function SidebarContent({
                 </svg>
               </button>
             ) : (
-              <button className="w-full cursor-pointer rounded-lg border border-[#dcd9ee] px-3 py-2.5 text-[14px] font-semibold text-[#33344c] transition hover:border-primary hover:text-primary">
+              <button className="w-full cursor-pointer rounded-lg border border-line-strong px-3 py-2.5 text-[14px] font-semibold text-body transition hover:border-primary hover:text-primary">
                 Iniciar sesión
               </button>
             )}
@@ -226,7 +226,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e8e6f4] bg-white transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0 pt-2 pb-5.5' : 'w-66.5 px-1.5 pt-2 pb-5.5'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-white transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0 pt-2 pb-5.5' : 'w-66.5 px-1.5 pt-2 pb-5.5'}`}
       >
         <SidebarContent
           onCollapse={() => setCollapsed(true)}
@@ -236,13 +236,13 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile launcher bar */}
-      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[#e8e6f4] bg-white/90 px-4 backdrop-blur-sm md:hidden print:hidden">
+      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line bg-white/90 px-4 backdrop-blur-sm md:hidden print:hidden">
         <button
           type="button"
           aria-label="Abrir menú"
           aria-expanded={open}
           onClick={() => setOpen(true)}
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-[#e8e6f4] text-[#33344c] transition hover:bg-gray-100"
+          className="inline-flex size-9 items-center justify-center rounded-lg border border-line text-body transition hover:bg-surface"
         >
           <svg
             viewBox="0 0 24 24"
@@ -257,7 +257,7 @@ export default function Sidebar() {
         </button>
         <Link href="/app/dashboard" className="flex items-center gap-2">
           <Logo className="h-6 w-auto" />
-          <span className="text-base font-bold tracking-[-0.02em] text-[#15162c]">
+          <span className="text-base font-bold tracking-[-0.02em] text-ink">
             VeriTrust
           </span>
         </Link>
@@ -271,7 +271,7 @@ export default function Sidebar() {
             onClick={close}
             aria-hidden="true"
           />
-          <aside className="absolute top-0 left-0 flex h-full w-70 max-w-[85%] flex-col overflow-y-auto border-r border-[#e8e6f4] bg-white px-4.5 pt-6.5 pb-5.5">
+          <aside className="absolute top-0 left-0 flex h-full w-70 max-w-[85%] flex-col overflow-y-auto border-r border-line bg-white px-4.5 pt-6.5 pb-5.5">
             <SidebarContent onNavigate={close} />
           </aside>
         </div>

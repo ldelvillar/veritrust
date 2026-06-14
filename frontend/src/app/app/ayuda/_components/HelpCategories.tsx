@@ -22,10 +22,10 @@ export default function HelpCategories({
         <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
           Explora
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#15162c]">
+        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
           Explora por categoría
         </h2>
-        <p className="mt-1 text-[13.5px] text-[#7e7f99]">
+        <p className="mt-1 text-[13.5px] text-muted">
           Seis áreas que cubren todo el ciclo: desde tu primer análisis hasta la
           facturación.
         </p>
@@ -41,7 +41,7 @@ export default function HelpCategories({
             <a
               key={category.title}
               href={`#${category.slug}`}
-              className="group flex cursor-pointer flex-col gap-3 rounded-[18px] border border-[#e8e6f4] bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d0cdf0] hover:shadow-md"
+              className="group flex cursor-pointer flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d0cdf0] hover:shadow-md"
             >
               <div
                 className="grid size-11 place-items-center rounded-[13px]"
@@ -49,10 +49,10 @@ export default function HelpCategories({
               >
                 <HelpCategoryIcon name={category.icon} />
               </div>
-              <h3 className="text-[15px] font-bold text-[#15162c]">
+              <h3 className="text-[15px] font-bold text-ink">
                 {category.title}
               </h3>
-              <p className="text-[13px] leading-relaxed text-[#7e7f99]">
+              <p className="text-[13px] leading-relaxed text-muted">
                 {category.desc}
               </p>
               <div className="mt-auto flex items-center justify-between pt-1">
@@ -60,7 +60,7 @@ export default function HelpCategories({
                   {formatArticleCount(count)}
                 </span>
                 <ArrowRightIcon
-                  className="transition group-hover:translate-x-0.5 group-hover:stroke-[#5446dc]"
+                  className="transition group-hover:translate-x-0.5 group-hover:stroke-accent"
                   width={17}
                   height={17}
                   stroke="#b0b1c8"

@@ -4,6 +4,21 @@
 @theme {
   --color-primary: #432dd7;
   --color-border: #1f1e1d26;
+
+  /* Acento secundario de marca, más claro que primary (eyebrows, nav activa) */
+  --color-accent: #5446dc;
+
+  /* Escala neutra de texto (grises con matiz violáceo de marca) */
+  --color-ink: #15162c;
+  --color-body: #33344c;
+  --color-muted: #7e7f99;
+  --color-faint: #a3a4ba;
+
+  /* Líneas y superficies */
+  --color-line: #e8e6f4;
+  --color-line-strong: #dcd9ee;
+  --color-surface: #f4f2fd;
+  --color-surface-subtle: #faf9fe;
 }
 
 /* Exportar informe a PDF vía «Imprimir → Guardar como PDF».

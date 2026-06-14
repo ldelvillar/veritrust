@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import ClockIcon from '@/assets/Clock';
 import DownloadIcon from '@/assets/Download';
+import PageHeader from './PageHeader';
 import PendingAnalysis from './PendingAnalysis';
 import AnalyzedContent from './analysis-result/AnalyzedContent';
 import ClaimsEvidence from './analysis-result/ClaimsEvidence';
@@ -25,7 +26,7 @@ interface ResultProps {
 }
 
 const SOFT_BUTTON =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-[#dcd9ee] bg-white px-4 py-2.5 text-sm font-semibold text-[#33344c] transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
+  'inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-white px-4 py-2.5 text-sm font-semibold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
 
 export default function AnalysisResult({
   result,
@@ -93,24 +94,24 @@ export default function AnalysisResult({
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <PrintHeader createdAt={result.created_at} />
 
-      <header className="flex flex-wrap items-start gap-4">
-        <div className="min-w-60 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[25px]">
-            Resultado del análisis
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-500">
-            Resultado global combinado del sistema multiagente, con la
-            explicación médica y el desglose afirmación por afirmación.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5 print:hidden">
-          <button type="button" onClick={handleExport} className={SOFT_BUTTON}>
-            <DownloadIcon className="size-4" />
-            Exportar PDF
-          </button>
-          {headerActions}
-        </div>
-      </header>
+      <PageHeader
+        title="Resultado del análisis"
+        subtitle="Resultado global combinado del sistema multiagente, con la explicación médica y el desglose afirmación por afirmación."
+        actionsClassName="print:hidden"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleExport}
+              className={SOFT_BUTTON}
+            >
+              <DownloadIcon className="size-4" />
+              Exportar PDF
+            </button>
+            {headerActions}
+          </>
+        }
+      />
 
       <ResultBand result={result} />
 
@@ -135,7 +136,7 @@ export default function AnalysisResult({
         </div>
       )}
 
-      <p className="flex items-center gap-1.5 text-xs text-slate-400 print:hidden">
+      <p className="flex items-center gap-1.5 text-xs text-faint print:hidden">
         <ClockIcon className="size-3.5" />
         Analizado el {analyzedAt}
       </p>

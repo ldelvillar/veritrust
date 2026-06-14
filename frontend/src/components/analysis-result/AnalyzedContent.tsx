@@ -45,16 +45,16 @@ function AnalyzedPdf({
   }, [analysisId, getToken]);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:hidden">
-      <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+    <div className="rounded-xl border border-line bg-white p-6 shadow-sm print:hidden">
+      <h3 className="flex items-center gap-2 text-base font-bold text-ink">
         <DocumentIcon className="size-4.5 text-primary" />
         Documento analizado
       </h3>
-      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-slate-500">
+      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
         {filename ?? 'PDF original que se verificó.'}
       </p>
       {failed ? (
-        <p className="flex items-center gap-2 text-[13px] font-medium text-slate-400">
+        <p className="flex items-center gap-2 text-[13px] font-medium text-faint">
           <WarningIcon className="size-4 shrink-0 text-amber-500" />
           No se pudo cargar el PDF.
         </p>
@@ -148,12 +148,12 @@ export default function AnalyzedContent({
   if (result.source_type === 'url') {
     if (!result.input_url) return null;
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:break-inside-avoid">
-        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-line bg-white p-6 shadow-sm print:break-inside-avoid">
+        <h3 className="flex items-center gap-2 text-base font-bold text-ink">
           <GlobeIcon className="size-4.5 text-primary" />
           Contenido analizado
         </h3>
-        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-slate-500">
+        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-muted">
           Enlace de la noticia que se verificó.
         </p>
         <a
@@ -177,9 +177,9 @@ export default function AnalyzedContent({
     result.source_type === 'file' && !isPublic ? result.analysis_id : undefined;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm print:break-inside-avoid">
+    <div className="rounded-xl border border-line bg-white p-6 shadow-sm print:break-inside-avoid">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+        <h3 className="flex items-center gap-2 text-base font-bold text-ink">
           <DocumentIcon className="size-4.5 text-primary" />
           Contenido analizado
         </h3>
@@ -205,7 +205,7 @@ export default function AnalyzedContent({
           </button>
         </div>
       </div>
-      <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+      <p className="mt-1 text-[13px] leading-relaxed text-muted">
         {originalFileId
           ? 'El texto extraído del archivo original que se verificó.'
           : 'El texto original tal y como se envió a verificar.'}
@@ -213,7 +213,7 @@ export default function AnalyzedContent({
       {/* Siempre en el DOM y colapsado con clases, para que el PDF (print:block)
           imprima el texto completo aunque esté oculto en pantalla. */}
       <div id={panelId} className={open ? 'block' : 'hidden print:block'}>
-        <p className="mt-4 max-h-96 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-sm leading-relaxed whitespace-pre-wrap text-slate-700 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0">
+        <p className="mt-4 max-h-96 overflow-y-auto rounded-xl border border-line bg-surface-subtle/70 p-4 text-sm leading-relaxed whitespace-pre-wrap text-body print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0">
           {text}
         </p>
       </div>
