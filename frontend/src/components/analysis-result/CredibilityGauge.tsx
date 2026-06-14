@@ -17,9 +17,14 @@ export default function CredibilityGauge({ score }: { score: number | null }) {
     return () => clearTimeout(id);
   }, [score, circumference]);
 
+  const ariaLabel =
+    score === null
+      ? 'Puntuación de credibilidad: sin puntuación suficiente'
+      : `Puntuación de credibilidad: ${score} de 100`;
+
   return (
-    <div className="relative size-43">
-      <svg width="172" height="172" className="-rotate-90">
+    <div className="relative size-43" role="img" aria-label={ariaLabel}>
+      <svg width="172" height="172" className="-rotate-90" aria-hidden="true">
         <circle
           cx="86"
           cy="86"

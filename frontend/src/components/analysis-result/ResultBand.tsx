@@ -26,7 +26,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
             aria-label="Qué es la puntuación de credibilidad"
             className="grid size-6 place-items-center rounded-full text-white/70 transition hover:bg-white/15 hover:text-white focus:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
-            <QuestionIcon className="size-4" />
+            <QuestionIcon className="size-4" aria-hidden="true" />
           </button>
           <span
             role="tooltip"
@@ -51,13 +51,13 @@ export default function ResultBand({ result }: { result: ReportView }) {
         <div className="mt-5 flex flex-wrap gap-2">
           {confidence && (
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
-              <ShieldIcon className="size-3.5 opacity-85" />
+              <ShieldIcon className="size-3.5 opacity-85" aria-hidden="true" />
               {confidence}
             </span>
           )}
           {claimCount > 0 && (
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
-              <BookIcon className="size-3.5 opacity-85" />
+              <BookIcon className="size-3.5 opacity-85" aria-hidden="true" />
               {coverage.backed}/{claimCount}{' '}
               {claimCount === 1 ? 'afirmación' : 'afirmaciones'} con literatura
               relacionada
