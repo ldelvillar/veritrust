@@ -26,17 +26,14 @@ async def lifespan(application: FastAPI):
     application.state.arq_pool = None
     application.state.redis = None
 
-    try:
-        settings = get_settings()
-        settings.validate_runtime()
-        await get_pool()
-        application.state.arq_pool = await create_pool(
-            RedisSettings.from_dsn(settings.redis_url)
-        )
-        application.state.redis = aioredis.from_url(settings.redis_url)
-        logger.info("Proceso web listo: pool de Redis y de base de datos abiertos")
-    except (RuntimeError, OSError, ValueError, TypeError) as exc:
-        logger.exception("No se pudo inicializar el proceso web: %s", exc)
+    settings = get_settings()
+    settings.validate_runtime()
+    await get_pool()
+    application.state.arq_pool = await create_pool(
+        RedisSettings.from_dsn(settings.redis_url)
+    )
+    application.state.redis = aioredis.from_url(settings.redis_url)
+    logger.info("Proceso web listo: pool de Redis y de base de datos abiertos")
 
     yield
 
