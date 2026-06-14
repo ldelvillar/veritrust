@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.config import Settings, SettingsValidationError, _normalize_pem_key
+from app.core.config import Settings, SettingsValidationError
 
 
 def _make_settings(**overrides) -> Settings:
@@ -12,7 +12,6 @@ def _make_settings(**overrides) -> Settings:
         "environment": "development",
         "cors_allowed_origins": "http://localhost:3000",
         "cors_allow_credentials": True,
-        "clerk_pem_public_key": None,
         "clerk_jwks_url": "https://tenant.clerk.accounts.dev/.well-known/jwks.json",
         "clerk_issuer": None,
         "clerk_audience": "my-api",
@@ -28,22 +27,6 @@ def test_analysis_queue_defaults_keep_reaper_above_job_timeout():
     assert settings.analysis_stale_after_seconds == 900
     # El reaper nunca debe correr a una fila viva: su umbral excede al job_timeout.
     assert settings.analysis_stale_after_seconds > settings.analysis_job_timeout_seconds
-
-
-def test_normalize_pem_key_returns_none_for_empty_values():
-    assert _normalize_pem_key(None) is None
-    assert _normalize_pem_key("") is None
-
-
-def test_normalize_pem_key_replaces_escaped_newlines():
-    raw_key = "-----BEGIN PUBLIC KEY-----\\nabc\\n-----END PUBLIC KEY-----"
-
-    normalized = _normalize_pem_key(raw_key)
-
-    assert normalized is not None
-    assert "\\n" not in normalized
-    assert "\n" in normalized
-    assert normalized.startswith("-----BEGIN PUBLIC KEY-----")
 
 
 def test_cors_origins_falls_back_to_localhost_only_in_development():
@@ -94,7 +77,6 @@ def test_validate_runtime_reports_missing_required_vars():
     settings = _make_settings(
         database_url="",
         clerk_jwks_url=None,
-        clerk_pem_public_key=None,
         clerk_issuer=None,
         clerk_audience="",
     )

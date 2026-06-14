@@ -21,27 +21,16 @@ def _get_jwks_client(jwks_url: str) -> PyJWKClient:
 
 
 def _get_signing_key(token: str) -> str:
-    """Obtiene la clave de firma usando JWKS de Clerk o una PEM configurada."""
+    """Obtiene la clave de firma usando JWKS de Clerk."""
     settings = get_settings()
 
-    if settings.clerk_jwks_url:
-        return (
-            _get_jwks_client(settings.clerk_jwks_url)
-            .get_signing_key_from_jwt(token)
-            .key
-        )
-
-    pem_key = settings.pem_public_key
-    if not pem_key:
+    if not settings.clerk_jwks_url:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Authentication provider is not configured. Set CLERK_JWKS_URL "
-                "or CLERK_PEM_PUBLIC_KEY."
-            ),
+            detail="Authentication provider is not configured. Set CLERK_JWKS_URL.",
         )
 
-    return pem_key
+    return _get_jwks_client(settings.clerk_jwks_url).get_signing_key_from_jwt(token).key
 
 
 def _get_expected_issuer() -> str:

@@ -13,7 +13,6 @@ def _make_settings(**overrides) -> Settings:
         "database_url": "postgresql://user:pass@localhost:5432/db",
         "environment": "development",
         "cors_allowed_origins": "http://localhost:3000",
-        "clerk_pem_public_key": None,
         "clerk_jwks_url": None,
         "clerk_issuer": None,
         "clerk_audience": "my-api",
@@ -50,26 +49,14 @@ def test_get_signing_key_uses_jwks_client_when_available(monkeypatch):
     assert get_user_module._get_signing_key("token-123") == "jwks-key"
 
 
-def test_get_signing_key_uses_pem_when_jwks_is_missing(monkeypatch):
-    _use_settings(
-        monkeypatch,
-        clerk_jwks_url=None,
-        clerk_pem_public_key="-----BEGIN PUBLIC KEY-----\\nabc\\n-----END PUBLIC KEY-----",
-    )
-
-    signing_key = get_user_module._get_signing_key("irrelevant-token")
-
-    assert signing_key == "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----"
-
-
 def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
-    _use_settings(monkeypatch, clerk_jwks_url=None, clerk_pem_public_key=None)
+    _use_settings(monkeypatch, clerk_jwks_url=None)
 
     with pytest.raises(HTTPException) as exc:
         get_user_module._get_signing_key("irrelevant-token")
 
     assert exc.value.status_code == 500
-    assert "Authentication provider is not configured" in exc.value.detail
+    assert "CLERK_JWKS_URL" in exc.value.detail
 
 
 def test_get_expected_issuer_uses_explicit_clerk_issuer(monkeypatch):

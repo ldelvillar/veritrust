@@ -9,13 +9,6 @@ class SettingsValidationError(RuntimeError):
     """La configuración de la aplicación es inválida o está incompleta."""
 
 
-def _normalize_pem_key(key: str | None) -> str | None:
-    """Normaliza claves PEM definidas en variables de entorno con \\n escapados."""
-    if not key:
-        return None
-    return key.replace("\\n", "\n").strip()
-
-
 class Settings(BaseSettings):
     """Configuración de servicio leída del entorno (y de un .env si existe)."""
 
@@ -74,7 +67,6 @@ class Settings(BaseSettings):
     max_file_bytes: int = 10 * 1024 * 1024  # 10 MB
 
     # Autenticación
-    clerk_pem_public_key: str | None = None
     clerk_jwks_url: str | None = None
     clerk_issuer: str | None = None
     clerk_audience: str | None = None
@@ -85,11 +77,6 @@ class Settings(BaseSettings):
         if not raw.strip() and self.environment.strip().lower() == "development":
             raw = "http://localhost:3000"
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
-
-    @property
-    def pem_public_key(self) -> str | None:
-        """Clave PEM normalizada, o None si no está configurada."""
-        return _normalize_pem_key(self.clerk_pem_public_key)
 
     @property
     def expected_issuer(self) -> str | None:
@@ -120,8 +107,8 @@ class Settings(BaseSettings):
 
         if not self.database_url.strip():
             missing.append("DATABASE_URL")
-        if not self.clerk_jwks_url and not self.pem_public_key:
-            missing.append("CLERK_JWKS_URL o CLERK_PEM_PUBLIC_KEY")
+        if not self.clerk_jwks_url:
+            missing.append("CLERK_JWKS_URL")
         if self.expected_issuer is None:
             missing.append("CLERK_ISSUER o un CLERK_JWKS_URL válido")
         if self.expected_audience() is None:
