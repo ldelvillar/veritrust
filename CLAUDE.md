@@ -48,7 +48,7 @@ pnpm --dir frontend generate:api-types       # Regenerate src/types/api.d.ts fro
 
 ### Request flow
 
-The pipeline is slow (3 sequential Ollama calls, Europe PMC lookups, BERT), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`.
+The pipeline is slow (multiple sequential Ollama calls, medical sources lookups, BERT), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`.
 
 ```text
 Web process (FastAPI)                          Worker process (arq, app/worker.py)
@@ -60,11 +60,11 @@ User (browser)
   → enqueue run_analysis on Redis ─────────────→ run_analysis(analysis_id, …)
   → Return {status: "pending", analysis_id}        → URL text extraction if needed (BeautifulSoup)
                                                    → LangGraph pipeline:
-GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)         → claims
-  every 2s while status == "pending")              ·  Translator    (translategemma) → EN, batched
-  → returns status + (when done) label/            ·  Investigator  (Europe PMC)     → sources + evidence_coverage
-     confidence/explanation/claims/                ·  Health Expert (llama3.2)       → label (BioBERT) + explanation;
-     sources, or error_code when                   → Confidence attenuated by evidence_coverage
+GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)              → claims
+  every 2s while status == "pending")              ·  Translator    (translategemma)      → EN, batched
+  → returns status + (when done) label/            ·  Investigator  (Europe PMC + PubMed) → sources + evidence_coverage
+     confidence/explanation/claims/                ·  Health Expert (llama3.2)            → label (BioBERT) + explanation;
+     sources, or error_code when                   → Confidence attenuated by coverage; softened if evidence contradicts
      status == "failed"                            → UPDATE row → 'done' (results) or 'failed' (error_code)
 ```
 
