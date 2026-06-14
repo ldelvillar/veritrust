@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
@@ -22,6 +23,43 @@ import type { paths } from '@/types/api';
 const PAGE_SIZE = 10;
 const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&date_sort=desc`;
 
+const SOURCE_TYPES = [
+  'all',
+  'text',
+  'file',
+  'url',
+] as const satisfies readonly SourceTypeFilter[];
+const STATUSES = [
+  'all',
+  'done',
+  'pending',
+  'failed',
+] as const satisfies readonly StatusFilter[];
+const VERDICTS = [
+  'all',
+  'real',
+  'fake',
+  'uncertain',
+] as const satisfies readonly VerdictFilter[];
+const DATE_RANGES = [
+  'all',
+  '7d',
+  '30d',
+  '90d',
+] as const satisfies readonly DateRangeFilter[];
+const DATE_SORTS = ['desc', 'asc'] as const satisfies readonly DateSortOrder[];
+
+// Acota un parámetro de la URL al conjunto permitido; cae al valor por defecto si no encaja.
+function parseParam<T extends string>(
+  value: string | null,
+  allowed: readonly T[],
+  fallback: T
+): T {
+  return value !== null && allowed.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
 type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
 type HistoryItem = HistoryPayload['items'][number];
@@ -31,16 +69,39 @@ interface HistorialClientProps {
 }
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sourceTypeFilter, setSourceTypeFilter] =
-    useState<SourceTypeFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>('all');
-  const [dateRangeFilter, setDateRangeFilter] =
-    useState<DateRangeFilter>('all');
-  const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // La URL es la fuente de verdad: refrescar o compartir el enlace conserva la vista.
+  const sourceTypeFilter = parseParam(
+    searchParams.get('source_type'),
+    SOURCE_TYPES,
+    'all'
+  );
+  const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
+  const verdictFilter = parseParam(
+    searchParams.get('verdict'),
+    VERDICTS,
+    'all'
+  );
+  const dateRangeFilter = parseParam(
+    searchParams.get('date_range'),
+    DATE_RANGES,
+    'all'
+  );
+  const dateSortOrder = parseParam(
+    searchParams.get('date_sort'),
+    DATE_SORTS,
+    'desc'
+  );
+  const urlSearch = (searchParams.get('search') ?? '').trim();
+  const parsedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
+  const currentPage =
+    Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
+  // El input se mantiene local para responder al instante; se confirma a la URL tras el debounce.
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null);
@@ -53,14 +114,35 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setError: setDeleteError,
   } = useAnalysisDeletion();
 
-  // Evita refrescar en cada pulsación
+  const updateParams = useCallback(
+    (changes: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === null) params.delete(key);
+        else params.set(key, value);
+      }
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams]
+  );
+
+  // Mantiene el input en sintonía cuando la URL cambia desde fuera (limpiar filtros, atrás/adelante).
   useEffect(() => {
+    setSearchQuery(urlSearch);
+  }, [urlSearch]);
+
+  // Confirma la búsqueda escrita a la URL cuando el usuario hace una pausa, y vuelve a la página 1.
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed === urlSearch) return;
     const handle = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1);
+      updateParams({ search: trimmed || null, page: null });
     }, 300);
     return () => clearTimeout(handle);
-  }, [searchQuery]);
+  }, [searchQuery, updateParams, urlSearch]);
 
   const path = useMemo(() => {
     const params = new URLSearchParams({
@@ -72,16 +154,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
-    const trimmedQuery = debouncedSearch.trim();
-    if (trimmedQuery) params.set('search', trimmedQuery);
+    if (urlSearch) params.set('search', urlSearch);
     return `/history?${params.toString()}`;
   }, [
     currentPage,
     dateRangeFilter,
     dateSortOrder,
-    debouncedSearch,
     sourceTypeFilter,
     statusFilter,
+    urlSearch,
     verdictFilter,
   ]);
 
@@ -92,14 +173,13 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
-    const trimmedQuery = debouncedSearch.trim();
-    if (trimmedQuery) params.set('search', trimmedQuery);
+    if (urlSearch) params.set('search', urlSearch);
     return `/history/export?${params.toString()}`;
   }, [
     dateRangeFilter,
     dateSortOrder,
-    debouncedSearch,
     sourceTypeFilter,
+    urlSearch,
     verdictFilter,
   ]);
 
@@ -151,52 +231,59 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     verdictFilter !== 'all' ||
     dateRangeFilter !== 'all';
 
+  // Los cambios de filtro vuelven a la página 1; los valores por defecto se omiten de la URL.
+  const setFilter = useCallback(
+    (key: string, value: string, defaultValue: string) => {
+      updateParams({
+        [key]: value === defaultValue ? null : value,
+        page: null,
+      });
+    },
+    [updateParams]
+  );
+
   const handleSearchQueryChange = useCallback((value: string) => {
     setSearchQuery(value);
   }, []);
 
   const handleSourceTypeFilterChange = useCallback(
-    (value: SourceTypeFilter) => {
-      setCurrentPage(1);
-      setSourceTypeFilter(value);
-    },
-    []
+    (value: SourceTypeFilter) => setFilter('source_type', value, 'all'),
+    [setFilter]
   );
 
-  const handleStatusFilterChange = useCallback((value: StatusFilter) => {
-    setCurrentPage(1);
-    setStatusFilter(value);
-  }, []);
+  const handleStatusFilterChange = useCallback(
+    (value: StatusFilter) => setFilter('status', value, 'all'),
+    [setFilter]
+  );
 
-  const handleVerdictFilterChange = useCallback((value: VerdictFilter) => {
-    setCurrentPage(1);
-    setVerdictFilter(value);
-  }, []);
+  const handleVerdictFilterChange = useCallback(
+    (value: VerdictFilter) => setFilter('verdict', value, 'all'),
+    [setFilter]
+  );
 
-  const handleDateRangeFilterChange = useCallback((value: DateRangeFilter) => {
-    setCurrentPage(1);
-    setDateRangeFilter(value);
-  }, []);
+  const handleDateRangeFilterChange = useCallback(
+    (value: DateRangeFilter) => setFilter('date_range', value, 'all'),
+    [setFilter]
+  );
 
-  const handleDateSortOrderChange = useCallback((value: DateSortOrder) => {
-    setCurrentPage(1);
-    setDateSortOrder(value);
-  }, []);
+  const handleDateSortOrderChange = useCallback(
+    (value: DateSortOrder) => setFilter('date_sort', value, 'desc'),
+    [setFilter]
+  );
 
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(Math.max(1, page));
-  }, []);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      const next = Math.max(1, page);
+      updateParams({ page: next === 1 ? null : String(next) });
+    },
+    [updateParams]
+  );
 
   const handleClearFilters = useCallback(() => {
-    // Reseteamos también debouncedSearch para no esperar al debounce de 300 ms.
+    // Reseteamos también el input para no esperar al debounce de 300 ms.
     setSearchQuery('');
-    setDebouncedSearch('');
-    setSourceTypeFilter('all');
-    setStatusFilter('all');
-    setVerdictFilter('all');
-    setDateRangeFilter('all');
-    setCurrentPage(1);
-  }, []);
+    router.replace(pathname, { scroll: false });
+  }, [pathname, router]);
 
   const handleDeleteRequest = useCallback(
     (item: HistoryItem) => {
@@ -220,8 +307,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     if (!success) return;
     setPendingDelete(null);
     if (wasLastOnPage && currentPage > 1) {
-      // Cambiar de página dispara el refetch de SWR automáticamente.
-      setCurrentPage(page => page - 1);
+      // Navegar de página dispara el refetch de SWR automáticamente.
+      handlePageChange(currentPage - 1);
     } else {
       await fetchHistory();
     }
@@ -230,6 +317,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     history.length,
     deleteAnalysis,
     currentPage,
+    handlePageChange,
     fetchHistory,
   ]);
 
