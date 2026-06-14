@@ -1,4 +1,5 @@
 import BookIcon from '@/assets/Book';
+import QuestionIcon from '@/assets/Question';
 import ShieldIcon from '@/assets/Shield';
 import { countBackedClaims } from '@/lib/evidence';
 import CredibilityGauge from './CredibilityGauge';
@@ -18,7 +19,24 @@ export default function ResultBand({ result }: { result: ReportView }) {
       className="relative grid overflow-hidden rounded-3xl text-white shadow-[0_18px_44px_rgba(0,0,0,.16)] lg:grid-cols-[272px_1fr] print:break-inside-avoid"
       style={{ background: verdict.band }}
     >
-      <div className="flex flex-col items-center justify-center gap-4 border-b border-white/20 bg-white/5 px-6 py-8 text-center lg:border-r lg:border-b-0">
+      <div className="relative flex flex-col items-center justify-center gap-4 border-b border-white/20 bg-white/5 px-6 py-8 text-center lg:border-r lg:border-b-0">
+        <span className="group absolute top-3 right-3 inline-flex print:hidden">
+          <button
+            type="button"
+            aria-label="Qué es la puntuación de credibilidad"
+            className="grid size-6 place-items-center rounded-full text-white/70 transition hover:bg-white/15 hover:text-white focus:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          >
+            <QuestionIcon className="size-4" />
+          </button>
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute top-full right-0 z-10 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-left text-xs leading-snug font-medium text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          >
+            Puntuación de credibilidad (0–100): cuanto más alta, más probable es
+            que el contenido sea veraz. Se deriva del veredicto y de la
+            confianza del modelo.
+          </span>
+        </span>
         <CredibilityGauge score={score} />
       </div>
 
