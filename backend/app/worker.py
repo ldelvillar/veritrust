@@ -179,6 +179,8 @@ class WorkerSettings:
     job_timeout = get_settings().analysis_job_timeout_seconds
     # El pipeline satura CPU/Ollama; concurrencia >1 infla la latencia por job
     max_jobs = get_settings().worker_max_jobs
+    # Heartbeat en Redis cada 30s (por defecto arq escribe 1/h); lo lee el healthcheck del contenedor.
+    health_check_interval = 30
 
 
 def main() -> None:
