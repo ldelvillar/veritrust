@@ -345,7 +345,7 @@ export default function AnalysisForm() {
           <span>
             El contenido se procesa de forma privada y no se usa para entrenar
             modelos. Las afirmaciones pueden contrastarse con literatura
-            biomédica pública (Europe PMC).
+            biomédica pública de nuestras fuentes.
           </span>
         </div>
         <div className="flex-1" />

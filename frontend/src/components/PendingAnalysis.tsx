@@ -25,7 +25,7 @@ const STEPS = [
   },
   {
     name: 'Agente Investigador',
-    description: 'Buscando evidencia biomédica en Europe PMC.',
+    description: 'Buscando evidencia en nuestras fuentes biomédicas.',
     Icon: Newspaper,
   },
   {
@@ -76,9 +76,7 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
     >
       <div className="flex flex-col items-center gap-3">
         <Spinner className="size-10 animate-spin text-primary" />
-        <h3 className="text-xl font-bold text-ink">
-          Analizando contenido…
-        </h3>
+        <h3 className="text-xl font-bold text-ink">Analizando contenido…</h3>
         <p className="max-w-md text-sm leading-relaxed text-muted">
           Nuestros agentes están analizando el contenido, buscando evidencia y
           evaluando las afirmaciones médicas. La página se actualizará

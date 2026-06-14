@@ -31,9 +31,7 @@ export default function ClaimRow({
         <ClaimIcon className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug font-bold text-ink">
-          {claim.text}
-        </p>
+        <p className="text-sm leading-snug font-bold text-ink">{claim.text}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2.5">
           <span
             className={`rounded-md px-2 py-1 text-[10.5px] font-bold tracking-wide uppercase ${style.pill}`}
@@ -88,7 +86,7 @@ export default function ClaimRow({
           ) : (
             <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-faint">
               <BookIcon className="size-3.5 shrink-0" />
-              Sin evidencia directa en Europe PMC para esta afirmación.
+              Sin evidencia directa en nuestras fuentes para esta afirmación.
             </p>
           ))}
       </div>

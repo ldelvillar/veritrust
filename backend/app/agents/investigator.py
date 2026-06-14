@@ -1,15 +1,18 @@
-"""Agente investigador: recupera evidencia biomédica de Europe PMC."""
+"""Agente investigador: recupera evidencia biomédica de Europe PMC y PubMed."""
 
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.relevance import judge_evidence
 from app.prompts.agents import Prompts
-from app.utils.europepmc import EvidenceRetrievalError, search_evidence
+from app.utils.europepmc import search_evidence as search_europepmc
+from app.utils.evidence import EvidenceRetrievalError
+from app.utils.pubmed import search_evidence as search_pubmed
 
 logger = logging.getLogger(__name__)
 
-# Cotas para acotar latencia y coste del pipeline frente a Europe PMC.
+# Cotas para acotar latencia y coste del pipeline frente a las fuentes de evidencia.
 EVIDENCE_MAX_STATEMENTS = 5
 EVIDENCE_RESULTS_PER_STATEMENT = 3
 EVIDENCE_MAX_SOURCES = 8
@@ -34,18 +37,34 @@ def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
     return list(by_url.values())
 
 
-def _search_one(query: str) -> list[dict] | None:
-    """Busca evidencia para una afirmación; devuelve ``None`` si Europe PMC falla."""
+def _dedupe_hits(hits: list[dict]) -> list[dict]:
+    """Funde duplicados entre fuentes por URL, conservando el primero visto."""
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for hit in hits:
+        url = hit.get("url")
+        if url in seen:
+            continue
+        if url:
+            seen.add(url)
+        unique.append(hit)
+    return unique
+
+
+def _search_source(
+    index: int, query: str, search: Callable[..., list[dict]]
+) -> tuple[int, list[dict] | None]:
+    """Consulta una fuente para una afirmación; ``None`` en sus hits si falla."""
     try:
-        return search_evidence(query, max_results=EVIDENCE_RESULTS_PER_STATEMENT)
+        return index, search(query, max_results=EVIDENCE_RESULTS_PER_STATEMENT)
     except EvidenceRetrievalError:
         logger.warning("[Investigador] Fallo recuperando evidencia; se continúa")
-        return None
+        return index, None
 
 
 def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
-    logger.info("[Investigador] Buscando evidencia en Europe PMC")
+    logger.info("[Investigador] Buscando evidencia en Europe PMC y PubMed")
 
     translated = state.get("translated_statements", [])
     queries = state.get("search_queries", [])
@@ -66,7 +85,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         )
         for i in range(len(translated))
     ][:EVIDENCE_MAX_STATEMENTS]
-    # Descarta consultas vacías (relleno) antes de llamar a Europe PMC.
+    # Descarta consultas vacías (relleno) antes de llamar a las fuentes.
     valid = [
         (str(query), claim, original)
         for query, claim, original in triples
@@ -76,10 +95,34 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     if not valid:
         return {"sources": [], "evidence_coverage": 0.0}
 
-    # Las consultas son I/O de red independiente: se lanzan en paralelo para que
-    # la latencia total sea ~una llamada en vez de la suma de todas.
-    with ThreadPoolExecutor(max_workers=len(valid)) as pool:
-        results = list(pool.map(_search_one, [query for query, _, _ in valid]))
+    # Se resuelven en cada llamada (no a nivel de módulo) para poder sustituirlas.
+    evidence_sources = (search_europepmc, search_pubmed)
+
+    # Cada par afirmación×fuente es I/O de red independiente: se lanzan todos en
+    # paralelo para que la latencia total sea ~una llamada, no la suma de todas.
+    tasks = [
+        (index, query, search)
+        for index, (query, _, _) in enumerate(valid)
+        for search in evidence_sources
+    ]
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
+
+    # Reagrupa por afirmación: una falla solo si TODAS sus fuentes caen.
+    per_claim_hits: list[list[dict]] = [[] for _ in valid]
+    per_claim_failures = [0] * len(valid)
+    for index, hits in outcomes:
+        if hits is None:
+            per_claim_failures[index] += 1
+        else:
+            per_claim_hits[index].extend(hits)
+
+    results: list[list[dict] | None] = [
+        None
+        if per_claim_failures[index] == len(evidence_sources)
+        else _dedupe_hits(per_claim_hits[index])
+        for index in range(len(valid))
+    ]
 
     judge_prompt = prompts.judge.text if prompts else None
 

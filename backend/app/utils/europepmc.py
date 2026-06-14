@@ -5,14 +5,11 @@ import logging
 import requests
 
 from app.core.config import get_settings
+from app.utils.evidence import EvidenceRetrievalError
 
 logger = logging.getLogger(__name__)
 
 _SEARCH_PATH = "/search"
-
-
-class EvidenceRetrievalError(Exception):
-    """Excepción lanzada cuando falla la consulta a Europe PMC."""
 
 
 def _build_article_url(result: dict) -> str:

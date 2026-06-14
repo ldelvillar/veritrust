@@ -53,14 +53,18 @@ class Settings(BaseSettings):
     europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     europepmc_timeout_seconds: int = 10
 
+    # PubMed (NCBI E-utilities); la api_key solo amplía el límite de peticiones
+    pubmed_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    pubmed_timeout_seconds: int = 10
+    pubmed_api_key: str | None = None
+
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 
     # Cola de análisis (arq)
     analysis_job_timeout_seconds: int = 600  # 10 min: cota dura del pipeline
     analysis_stale_after_seconds: int = 900  # 15 min: umbral del reaper (> timeout)
-    # Análisis concurrentes por worker; subir solo si Ollama tiene capacidad propia
-    worker_max_jobs: int = 1
+    worker_max_jobs: int = 1  # Análisis concurrentes por worker
 
     # Rate limiting (POST /analysis, por usuario)
     rate_limit_max_requests: int = 5

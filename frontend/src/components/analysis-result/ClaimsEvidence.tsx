@@ -6,7 +6,7 @@ import SourcesCard from './SourcesCard';
 import type { ClaimType, SourceType } from './types';
 
 const FLAT_SOURCES_CAPTION =
-  'Literatura biomédica recuperada de Europe PMC para contrastar el análisis. La confianza del veredicto se ajusta según cuántas afirmaciones encuentran literatura relacionada en estas fuentes.';
+  'Literatura biomédica recuperada de nuestras fuentes para contrastar el análisis. La confianza del veredicto se ajusta según cuántas afirmaciones encuentran literatura relacionada en estas fuentes.';
 
 export default function ClaimsEvidence({
   claims,
@@ -65,7 +65,7 @@ export default function ClaimsEvidence({
         </h3>
         <p className="mt-1 mb-3 text-[13px] leading-relaxed text-muted">
           Cada afirmación se evalúa con BioBERT y se enlaza con la literatura
-          biomédica de Europe PMC que la aborda, a favor o en contra.
+          biomédica de nuestras fuentes que la aborda, a favor o en contra.
         </p>
         <p className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-[13px] font-semibold text-primary">
           <BookIcon className="size-4 shrink-0" />
