@@ -5,6 +5,7 @@ import ScanIcon from '@/assets/Scan';
 import ShieldIcon from '@/assets/Shield';
 import UploadIcon from '@/assets/Upload';
 import DemoForm from './_components/DemoForm';
+import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Solicitar Demo',
@@ -37,9 +38,34 @@ const benefits = [
   },
 ];
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ContactPage',
+  '@id': `${SITE_CONFIG.domain}/demo/#webpage`,
+  url: `${SITE_CONFIG.domain}/demo`,
+  name: 'Solicitar Demo de VeriTrust',
+  description:
+    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
+  isPartOf: {
+    '@id': `${SITE_CONFIG.domain}/#website`,
+  },
+  mainEntity: {
+    '@type': 'ContactPoint',
+    contactType: 'sales',
+    email: SITE_CONFIG.email,
+    telephone: SITE_CONFIG.phone,
+    name: 'Ventas y Demostraciones VeriTrust',
+    availableLanguage: ['Spanish', 'English'],
+  },
+};
+
 export default function DemoPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ===================== SUBHEAD ===================== */}
       <section className="relative overflow-hidden bg-[linear-gradient(165deg,#5a44e8_0%,#432dd7_50%,#3722b8_100%)] pt-16 pb-30 text-center text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />

@@ -9,6 +9,7 @@ import SampleReport from './_components/SampleReport';
 import Sources from './_components/Sources';
 import Stats from './_components/Stats';
 import UseCases from './_components/UseCases';
+import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
@@ -28,16 +29,56 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'SoftwareApplication',
-      name: 'VeriTrust',
-      applicationCategory: 'HealthApplication',
-      operatingSystem: 'Web',
+      '@type': 'WebSite',
+      '@id': `${SITE_CONFIG.domain}/#website`,
+      url: SITE_CONFIG.domain,
+      name: SITE_CONFIG.name,
       description:
-        'Detector de noticias falsas de salud con un sistema multiagente de IA que verifica textos, enlaces y documentos médicos afirmación por afirmación.',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+        'Detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos con precisión.',
+      inLanguage: 'es-ES',
+      publisher: {
+        '@id': `${SITE_CONFIG.domain}/#organization`,
+      },
+    },
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_CONFIG.domain}/#organization`,
+      name: SITE_CONFIG.name,
+      url: SITE_CONFIG.domain,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_CONFIG.domain}${SITE_CONFIG.seo.defaultImage}`,
+      },
+      email: SITE_CONFIG.email,
+      telephone: SITE_CONFIG.phone,
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_CONFIG.domain}/#software`,
+      name: SITE_CONFIG.name,
+      applicationCategory: 'HealthApplication',
+      operatingSystem: 'Navegador Web (Windows, macOS, iOS, Android)',
+      url: SITE_CONFIG.domain,
+      description: SITE_CONFIG.seo.appDescription,
+      provider: {
+        '@id': `${SITE_CONFIG.domain}/#organization`,
+      },
+      featureList: [
+        'Análisis médico afirmación por afirmación',
+        'Extracción automática de artículos web y URLs',
+        'Búsqueda en literatura científica (PubMed, Europe PMC)',
+        'Soporte multi-idioma integrado',
+      ],
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'EUR',
+        availability: 'https://schema.org/InStock',
+      },
     },
     {
       '@type': 'FAQPage',
+      '@id': `${SITE_CONFIG.domain}/#faq`,
       mainEntity: faqEntries.map(({ q, plain }) => ({
         '@type': 'Question',
         name: q,
