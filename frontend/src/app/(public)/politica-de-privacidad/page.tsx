@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Política de privacidad | VeriTrust',
+  title: 'Política de Privacidad',
   description:
     'Conoce como VeriTrust recopila, utiliza y protege los datos personales de sus usuarios.',
 };

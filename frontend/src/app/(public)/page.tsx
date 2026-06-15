@@ -11,7 +11,7 @@ import Stats from './_components/Stats';
 import UseCases from './_components/UseCases';
 
 export const metadata: Metadata = {
-  title: 'VeriTrust | Detector de Noticias Falsas de Salud Impulsado por IA',
+  title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
   description:
     'VeriTrust es un detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos afirmación por afirmación, con un 88% de precisión y fuentes citadas (OMS, Cochrane, NIH).',
   keywords: [
@@ -22,14 +22,6 @@ export const metadata: Metadata = {
     'IA verificación salud',
     'comprobar noticias médicas',
   ],
-  openGraph: {
-    type: 'website',
-    siteName: 'VeriTrust',
-    locale: 'es_ES',
-    title: 'Detector de noticias falsas de salud con IA | VeriTrust',
-    description:
-      'Verifica afirmaciones médicas en segundos. Un sistema multiagente de IA analiza texto, enlaces y documentos y devuelve una puntuación de credibilidad explicada.',
-  },
 };
 
 const jsonLd = {

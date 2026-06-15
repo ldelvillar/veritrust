@@ -7,16 +7,9 @@ import UploadIcon from '@/assets/Upload';
 import DemoForm from './_components/DemoForm';
 
 export const metadata: Metadata = {
-  title: 'Solicitar demo | VeriTrust',
+  title: 'Solicitar Demo',
   description:
     'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
-  openGraph: {
-    type: 'website',
-    title: 'Solicitar demo | VeriTrust',
-    description:
-      'Descubre cómo VeriTrust verifica afirmaciones médicas con un sistema multiagente de IA. Pide tu demo personalizada.',
-    locale: 'es_ES',
-  },
 };
 
 const container = 'mx-auto w-full max-w-295 px-5 md:px-8';

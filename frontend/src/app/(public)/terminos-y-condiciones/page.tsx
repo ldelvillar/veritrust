@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Términos y condiciones | VeriTrust',
+  title: 'Términos y Condiciones',
   description:
     'Revisa los términos y condiciones de uso de la plataforma VeriTrust.',
 };
@@ -31,9 +31,7 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-ink">
-            2. Registro y cuenta
-          </h2>
+          <h2 className="text-2xl font-bold text-ink">2. Registro y cuenta</h2>
           <p className="mt-3 text-base leading-7 text-body">
             Eres responsable de la veracidad de los datos aportados y de
             mantener la confidencialidad de tus credenciales. Toda actividad
@@ -62,9 +60,7 @@ export default function TerminosYCondicionesPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-ink">
-            5. Responsabilidad
-          </h2>
+          <h2 className="text-2xl font-bold text-ink">5. Responsabilidad</h2>
           <p className="mt-3 text-base leading-7 text-body">
             No garantizamos que los resultados sean exactos al cien por cien en
             todos los casos. El usuario asume la responsabilidad de validar la

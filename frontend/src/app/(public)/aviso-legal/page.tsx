@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Aviso legal | VeriTrust',
+  title: 'Aviso Legal',
   description:
     'Consulta el aviso legal de VeriTrust con la información del titular, condiciones de uso y responsabilidades.',
 };

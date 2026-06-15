@@ -6,7 +6,7 @@ import type { paths } from '@/types/api';
 import HistorialClient from './HistorialClient';
 
 export const metadata: Metadata = {
-  title: 'Historial de Análisis | VeriTrust',
+  title: 'Historial de Análisis',
   description:
     'Revisa tu historial de análisis realizados en VeriTrust, con detalles de cada análisis y resultados obtenidos.',
 };

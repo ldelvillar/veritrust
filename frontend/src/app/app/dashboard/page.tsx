@@ -6,7 +6,7 @@ import type { paths } from '@/types/api';
 import DashboardClient from './DashboardClient';
 
 export const metadata: Metadata = {
-  title: 'Dashboard | VeriTrust',
+  title: 'Dashboard',
 };
 
 export const dynamic = 'force-dynamic';

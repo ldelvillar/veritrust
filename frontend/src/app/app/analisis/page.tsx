@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import AnalysisForm from './_components/AnalysisForm';
 
 export const metadata: Metadata = {
-  title: 'Analizar | VeriTrust',
+  title: 'Nuevo Análisis',
 };
 
 export default function AnalisisPage() {

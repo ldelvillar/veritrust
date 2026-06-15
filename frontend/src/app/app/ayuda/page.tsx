@@ -11,7 +11,7 @@ import HelpSteps from './_components/HelpSteps';
 import { ARTICLES, CATEGORIES, FAQ, POPULAR, STEPS } from './helpContent';
 
 export const metadata: Metadata = {
-  title: 'Ayuda | VeriTrust',
+  title: 'Centro de Ayuda',
   description:
     'Centro de ayuda de VeriTrust con guía de uso, preguntas frecuentes y soporte.',
 };

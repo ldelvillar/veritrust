@@ -8,7 +8,7 @@ import { fetchPublicJsonServer } from '@/lib/serverApi';
 import type { paths } from '@/types/api';
 
 export const metadata: Metadata = {
-  title: 'Informe compartido | VeriTrust',
+  title: 'Informe Compartido',
   description:
     'Informe de credibilidad compartido públicamente desde VeriTrust.',
   // No indexamos informes de usuarios en buscadores.
@@ -40,8 +40,8 @@ export default async function SharedReportPage({ params }: PageProps) {
       <div className="mx-auto mb-6 flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-sm">
         <p className="text-sm font-semibold text-body">
           Informe analizado con{' '}
-          <span className="font-bold text-primary">VeriTrust</span> · detector de
-          desinformación médica con IA
+          <span className="font-bold text-primary">VeriTrust</span> · detector
+          de desinformación médica con IA
         </p>
         <Link
           href="/"

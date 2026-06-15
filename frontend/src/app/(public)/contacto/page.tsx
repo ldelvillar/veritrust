@@ -11,16 +11,9 @@ import ContactForm from './_components/ContactForm';
 import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
-  title: 'Contacto | VeriTrust',
+  title: 'Contacto',
   description:
     'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de noticias falsas de salud con IA.',
-  openGraph: {
-    type: 'website',
-    title: 'Contacto | VeriTrust',
-    description:
-      'Habla con el equipo de VeriTrust: soporte, ventas, prensa y alianzas.',
-    locale: 'es_ES',
-  },
 };
 
 const container = 'mx-auto w-full max-w-295 px-5 md:px-8';
@@ -143,9 +136,7 @@ export default function ContactoPage() {
                 <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
                   Teléfono
                 </h4>
-                <p className="text-[13.5px] text-muted">
-                  {SITE_CONFIG.phone}
-                </p>
+                <p className="text-[13.5px] text-muted">{SITE_CONFIG.phone}</p>
               </div>
             </div>
 
