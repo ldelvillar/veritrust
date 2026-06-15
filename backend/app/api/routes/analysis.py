@@ -387,6 +387,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         sources=record.sources,
         file_filename=record.file_filename,
         share_token=record.share_token,
+        stage=record.stage,
     )
 
 
