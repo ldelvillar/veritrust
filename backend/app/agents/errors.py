@@ -1,5 +1,8 @@
 """Errores tipados del pipeline de agentes y traducción desde la capa de transporte."""
 
+from collections.abc import Awaitable, Callable
+from typing import Optional
+
 import httpx
 
 
@@ -15,9 +18,21 @@ class BertInferenceError(AgentError):
     """Falló la carga o la inferencia del modelo BERT clasificador."""
 
 
-async def ainvoke_graph(graph, state: dict) -> dict:
-    """Ejecuta el grafo de forma asíncrona y traduce excepciones de conexión."""
+async def ainvoke_graph(
+    graph,
+    state: dict,
+    on_stage: Optional[Callable[[str], Awaitable[None]]] = None,
+) -> dict:
+    """Ejecuta el grafo por streaming, notifica cada agente terminado y traduce errores de conexión."""
+    final_state = state
     try:
-        return await graph.ainvoke(state)
+        async for mode, chunk in graph.astream(
+            state, stream_mode=["updates", "values"]
+        ):
+            if mode == "values":
+                final_state = chunk
+            elif mode == "updates" and on_stage is not None:
+                await on_stage(next(iter(chunk)))
     except (ConnectionError, httpx.ConnectError) as e:
         raise OllamaConnectionError(str(e)) from e
+    return final_state

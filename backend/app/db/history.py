@@ -73,6 +73,7 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         sources=row[12],
         file_filename=row[13],
         share_token=row[14],
+        stage=row[15] if len(row) > 15 else None,
     )
 
 
@@ -256,6 +257,27 @@ async def set_analysis_input_text(*, analysis_id: str, input_text: str) -> None:
         ) from exc
 
 
+async def set_analysis_stage(*, analysis_id: str, stage: str) -> None:
+    """Registra el agente activo de un análisis en curso para el sondeo del detalle."""
+    pool = await get_pool()
+
+    query = (
+        "UPDATE public.analysis_history SET stage = %s "
+        "WHERE id = %s AND status = 'pending'"
+    )
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (stage, analysis_id))
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo actualizar la etapa del análisis en la base de datos."
+            )
+        ) from exc
+
+
 async def complete_analysis(
     *,
     analysis_id: str,
@@ -390,11 +412,15 @@ async def list_user_analysis_history(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql/safe_date_sort son valores saneados, no entrada cruda.
-                await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    count_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    list_query, (*where_params, safe_limit, safe_offset)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -464,7 +490,9 @@ async def export_user_analysis_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    export_query, (*where_params, _EXPORT_MAX_ROWS)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -498,7 +526,8 @@ async def get_user_analysis_by_id(
             claims,
             sources,
             file_filename,
-            share_token
+            share_token,
+            stage
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -605,10 +634,10 @@ async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) ->
     """Reabre a ``pending`` un análisis ``failed`` propio. Devuelve True si cambió una fila."""
     pool = await get_pool()
 
-    # created_at se reinicia a NOW()
+    # created_at se reinicia a NOW(); stage se limpia para no mostrar la etapa del intento previo.
     query = """
         UPDATE public.analysis_history
-        SET status = 'pending', error_code = NULL, created_at = NOW()
+        SET status = 'pending', error_code = NULL, stage = NULL, created_at = NOW()
         WHERE user_id = %s AND id = %s AND status = 'failed'
     """
 

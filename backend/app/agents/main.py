@@ -53,6 +53,15 @@ def _timed_run(name: str, fn: Callable[[], dict]) -> dict:
         logger.info("[%s] completado en %.2fs", name, time.perf_counter() - start)
 
 
+# Orden canónico de los nodos del grafo; el worker lo usa para reportar la etapa activa.
+PIPELINE_STAGES: tuple[str, ...] = (
+    "extractor",
+    "translator",
+    "investigator",
+    "health_expert",
+)
+
+
 def create_graph(prompts) -> CompiledStateGraph:
     """Instancia y configura el flujo de trabajo multiagente."""
     # Inicializar el grafo con el estado definido

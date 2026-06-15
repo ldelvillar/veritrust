@@ -275,6 +275,8 @@ export interface components {
             sources?: components["schemas"]["SourceItem"][] | null;
             /** Share Token */
             share_token?: string | null;
+            /** Stage */
+            stage?: string | null;
             /**
              * Verdict
              * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.

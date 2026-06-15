@@ -77,6 +77,7 @@ class AnalysisHistoryItem(BaseModel):
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None
     share_token: Optional[str] = None
+    stage: Optional[str] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

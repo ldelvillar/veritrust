@@ -19,15 +19,19 @@ def _patch_db(monkeypatch):
     async def fake_fail(**kwargs):
         failed.append(kwargs)
 
+    async def fake_set_stage(**kwargs):
+        pass
+
     monkeypatch.setattr(worker, "complete_analysis", fake_complete)
     monkeypatch.setattr(worker, "fail_analysis", fake_fail)
+    monkeypatch.setattr(worker, "set_analysis_stage", fake_set_stage)
     return completed, failed
 
 
 async def test_run_analysis_completes_on_success(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         assert state["input_text"] == "Bleach cures COVID"
         return {
             "label": "falsa",
@@ -47,11 +51,45 @@ async def test_run_analysis_completes_on_success(monkeypatch):
     assert completed[0]["confidence"] == 0.92
 
 
+async def test_run_analysis_reports_pipeline_stages_in_order(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+    stages: list[str] = []
+
+    async def fake_set_stage(*, analysis_id, stage):
+        stages.append(stage)
+
+    monkeypatch.setattr(worker, "set_analysis_stage", fake_set_stage)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        # Simula que cada agente del grafo termina en orden.
+        for node in ("extractor", "translator", "investigator", "health_expert"):
+            await on_stage(node)
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert failed == []
+    assert stages == [
+        "preparing",
+        "extractor",
+        "translator",
+        "investigator",
+        "health_expert",
+    ]
+
+
 async def test_run_analysis_neutralizes_injection_markers_in_input(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
     seen: dict[str, str] = {}
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         seen["input_text"] = state["input_text"]
         return {
             "label": "falsa",
@@ -77,7 +115,7 @@ async def test_run_analysis_forwards_per_claim_verdicts(monkeypatch):
         {"text": "S2", "label": "falsa", "confidence": 0.91},
     ]
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         return {
             "label": "falsa",
             "confidence": 0.7,
@@ -99,7 +137,7 @@ async def test_run_analysis_forwards_retrieved_sources(monkeypatch):
 
     sources = [{"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}]
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         return {
             "label": "falsa",
             "confidence": 0.7,
@@ -121,7 +159,7 @@ async def test_run_analysis_fails_with_no_medical_claims_on_empty_explanation(
 ):
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         return {"label": "verdadera", "confidence": 0.6, "medical_explanation": ""}
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
@@ -140,7 +178,7 @@ async def test_run_analysis_extracts_url_text_before_pipeline(monkeypatch):
         assert url == "https://ejemplo.com/noticia"
         return "Texto extraído de la URL"
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         assert state["input_text"] == "Texto extraído de la URL"
         return {
             "label": "verdadera",
@@ -168,7 +206,7 @@ async def test_run_analysis_fails_with_url_extraction_error(monkeypatch):
 
     invoked = []
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         invoked.append(state)
         return {}
 
@@ -199,7 +237,7 @@ async def test_run_analysis_extracts_file_text_and_persists_it(monkeypatch):
     async def fake_set_text(*, analysis_id, input_text):
         saved_text.append(input_text)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         assert state["input_text"] == "Texto extraído del archivo"
         return {
             "label": "verdadera",
@@ -231,7 +269,7 @@ async def test_run_analysis_fails_with_file_extraction_error(monkeypatch):
 
     invoked = []
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         invoked.append(state)
         return {}
 
@@ -250,7 +288,7 @@ async def test_run_analysis_fails_with_file_extraction_error(monkeypatch):
 async def test_run_analysis_fails_with_connection_on_ollama_error(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         raise OllamaConnectionError("connect call failed")
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
@@ -266,7 +304,7 @@ async def test_run_analysis_fails_with_internal_on_bert_error(monkeypatch):
     """Un fallo del detector BERT acaba en 'failed', no en un veredicto falso."""
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         raise BertInferenceError("modelo no disponible")
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
@@ -300,7 +338,7 @@ async def test_reap_stale_analyses_fails_pending_rows_past_threshold(monkeypatch
 async def test_run_analysis_fails_with_internal_on_unexpected_error(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
 
-    async def fake_ainvoke(graph, state):
+    async def fake_ainvoke(graph, state, on_stage=None):
         raise RuntimeError("graph exploded")
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)

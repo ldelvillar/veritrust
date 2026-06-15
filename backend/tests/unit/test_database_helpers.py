@@ -133,6 +133,34 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.explanation is None
     assert record.claims is None
     assert record.sources is None
+    # Filas de longitud 15 (listas) no traen stage: el mapeo lo deja en None.
+    assert record.stage is None
+
+
+def test_map_history_record_reads_stage_when_present() -> None:
+    row = (
+        123,
+        "user-1",
+        "url",
+        None,
+        "https://ejemplo.com/x",
+        None,
+        None,
+        None,
+        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "pending",
+        None,
+        None,
+        None,
+        None,
+        None,
+        "investigator",
+    )
+
+    record = history_module._map_history_record(row)
+
+    assert record.status == "pending"
+    assert record.stage == "investigator"
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:

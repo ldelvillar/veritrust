@@ -42,7 +42,10 @@ export default function AnalysisResult({
         {headerActions && (
           <div className="mb-4 flex justify-end">{headerActions}</div>
         )}
-        <PendingAnalysis createdAt={result.created_at} />
+        <PendingAnalysis
+          createdAt={result.created_at}
+          stage={result.stage ?? null}
+        />
       </div>
     );
   }

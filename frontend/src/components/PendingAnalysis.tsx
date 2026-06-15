@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
+import Scan from '@/assets/Scan';
 import Magnifier from '@/assets/Magnifier';
 import LanguageIcon from '@/assets/Language';
 import Newspaper from '@/assets/Newspaper';
@@ -10,9 +11,15 @@ import Heart from '@/assets/Heart';
 
 interface PendingAnalysisProps {
   createdAt: string;
+  stage?: string | null;
 }
 
 const STEPS = [
+  {
+    name: 'Preparando el contenido',
+    description: 'Obteniendo y preparando el texto a analizar.',
+    Icon: Scan,
+  },
   {
     name: 'Agente Extractor',
     description: 'Extrayendo las afirmaciones médicas del texto.',
@@ -35,11 +42,14 @@ const STEPS = [
   },
 ] as const;
 
-// El pipeline no informa de su progreso, así que estimamos las etapas
-const STEP_START_SECONDS = [0, 30, 60, 90];
-
-// Si el análisis supera los ~2 min habituales, tranquilizamos al usuario
-const REASSURE_AFTER_SECONDS = 120;
+// El worker reporta la etapa real; aquí la traducimos al paso visible.
+const STAGE_INDEX: Record<string, number> = {
+  preparing: 0,
+  extractor: 1,
+  translator: 2,
+  investigator: 3,
+  health_expert: 4,
+};
 
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -47,7 +57,10 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
+export default function PendingAnalysis({
+  createdAt,
+  stage,
+}: PendingAnalysisProps) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -61,12 +74,10 @@ export default function PendingAnalysis({ createdAt }: PendingAnalysisProps) {
     return () => clearInterval(id);
   }, [createdAt]);
 
-  const activeStep = Math.min(
-    STEP_START_SECONDS.filter(start => elapsed >= start).length - 1,
-    STEPS.length - 1
-  );
+  // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
+  const activeStep = stage != null ? (STAGE_INDEX[stage] ?? 0) : 0;
 
-  const showReassurance = elapsed >= REASSURE_AFTER_SECONDS;
+  const showReassurance = activeStep === STEPS.length - 1;
 
   return (
     <div

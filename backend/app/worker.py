@@ -19,7 +19,7 @@ from app.agents.errors import (
     ainvoke_graph,
 )
 from app.agents.health_expert import ensure_bert_detector_ready
-from app.agents.main import create_graph
+from app.agents.main import PIPELINE_STAGES, create_graph
 from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -29,6 +29,7 @@ from app.db.history import (
     fail_stale_pending_analyses,
     get_file_data_by_id,
     set_analysis_input_text,
+    set_analysis_stage,
 )
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
@@ -40,6 +41,21 @@ from app.utils.ollama import ensure_ollama_available
 configure_logging()
 logger = logging.getLogger(__name__)
 
+# Etapa previa al grafo (extracción de URL/archivo y preparación del texto).
+_PREPARING_STAGE = "preparing"
+# Nodo terminado -> siguiente nodo en ejecución, para mostrar la etapa activa.
+_NEXT_STAGE = dict(zip(PIPELINE_STAGES, PIPELINE_STAGES[1:]))
+
+
+async def _set_stage(analysis_id: str, stage: str) -> None:
+    """Actualiza la etapa visible del análisis; un fallo aquí nunca debe romper el pipeline."""
+    try:
+        await set_analysis_stage(analysis_id=analysis_id, stage=stage)
+    except Exception:
+        logger.warning(
+            "[Worker] No se pudo fijar la etapa %s de %s", stage, analysis_id
+        )
+
 
 async def run_analysis(
     ctx: dict,
@@ -50,6 +66,7 @@ async def run_analysis(
 ) -> None:
     """Ejecuta el pipeline para un análisis pendiente y persiste el resultado."""
     logger.info("[Worker] Procesando análisis %s", analysis_id)
+    await _set_stage(analysis_id, _PREPARING_STAGE)
 
     try:
         if source_type == "url":
@@ -100,7 +117,16 @@ async def run_analysis(
     }
 
     try:
-        result = await ainvoke_graph(ctx["verification_system"], initial_state)
+
+        async def _advance_stage(completed_node: str) -> None:
+            next_stage = _NEXT_STAGE.get(completed_node)
+            if next_stage:
+                await _set_stage(analysis_id, next_stage)
+
+        await _set_stage(analysis_id, PIPELINE_STAGES[0])
+        result = await ainvoke_graph(
+            ctx["verification_system"], initial_state, on_stage=_advance_stage
+        )
 
         label = result.get("label") or None
         confidence = result.get("confidence") or None
