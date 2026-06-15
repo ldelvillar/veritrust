@@ -49,6 +49,7 @@ const jsonLd = {
         '@type': 'ImageObject',
         url: `${SITE_CONFIG.domain}${SITE_CONFIG.seo.defaultImage}`,
       },
+      image: `${SITE_CONFIG.domain}${SITE_CONFIG.seo.defaultImage}`,
       email: SITE_CONFIG.email,
       telephone: SITE_CONFIG.phone,
     },
