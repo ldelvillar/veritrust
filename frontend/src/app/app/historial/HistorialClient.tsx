@@ -1,15 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
-import HistoryFilters, {
-  DateRangeFilter,
+import CrossIcon from '@/assets/Cross';
+import Magnifier from '@/assets/Magnifier';
+import TypeIcon from '@/assets/Type';
+import LinkIcon from '@/assets/Link';
+import DocumentIcon from '@/assets/Document';
+import PlusIcon from '@/assets/Plus';
+import SortIcon from '@/assets/Sort';
+import type {
   DateSortOrder,
   SourceTypeFilter,
-  StatusFilter,
   VerdictFilter,
 } from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
@@ -29,27 +35,14 @@ const SOURCE_TYPES = [
   'file',
   'url',
 ] as const satisfies readonly SourceTypeFilter[];
-const STATUSES = [
-  'all',
-  'done',
-  'pending',
-  'failed',
-] as const satisfies readonly StatusFilter[];
+const DATE_SORTS = ['desc', 'asc'] as const satisfies readonly DateSortOrder[];
 const VERDICTS = [
   'all',
   'real',
   'fake',
   'uncertain',
 ] as const satisfies readonly VerdictFilter[];
-const DATE_RANGES = [
-  'all',
-  '7d',
-  '30d',
-  '90d',
-] as const satisfies readonly DateRangeFilter[];
-const DATE_SORTS = ['desc', 'asc'] as const satisfies readonly DateSortOrder[];
 
-// Acota un parámetro de la URL al conjunto permitido; cae al valor por defecto si no encaja.
 function parseParam<T extends string>(
   value: string | null,
   allowed: readonly T[],
@@ -68,26 +61,71 @@ interface HistorialClientProps {
   initialData: HistoryPayload;
 }
 
+const SOURCE_TYPE_OPTIONS = [
+  { id: 'all' as SourceTypeFilter, label: 'Todos' },
+  { id: 'text' as SourceTypeFilter, label: 'Texto', Icon: TypeIcon },
+  { id: 'url' as SourceTypeFilter, label: 'Enlace', Icon: LinkIcon },
+  { id: 'file' as SourceTypeFilter, label: 'Archivo', Icon: DocumentIcon },
+];
+
+const STAT_CARDS = [
+  {
+    toneKey: 'all',
+    label: 'Análisis totales',
+    verdictValue: 'all' as VerdictFilter,
+  },
+  { toneKey: 'ok', label: 'Fiables', verdictValue: 'real' as VerdictFilter },
+  {
+    toneKey: 'warn',
+    label: 'Dudosos',
+    verdictValue: 'uncertain' as VerdictFilter,
+  },
+  {
+    toneKey: 'bad',
+    label: 'No fiables',
+    verdictValue: 'fake' as VerdictFilter,
+  },
+];
+
+const STAT_TONE_STYLES = {
+  all: {
+    numClass: 'text-primary',
+    barStyle: 'linear-gradient(90deg,#7166ef,#5446dc)',
+    activeRing: 'box-shadow: 0 0 0 2px #6356e6, var(--shadow-card)',
+    ringColor: '#6356e6',
+  },
+  ok: { numClass: 'text-[#0e8e5b]', barStyle: '#13b877', ringColor: '#13b877' },
+  warn: {
+    numClass: 'text-[#b07a16]',
+    barStyle: '#e0a13b',
+    ringColor: '#e0a13b',
+  },
+  bad: {
+    numClass: 'text-[#c23552]',
+    barStyle: '#e0556b',
+    ringColor: '#e0556b',
+  },
+} as const;
+
+function toneFromScore(score: number): 'ok' | 'warn' | 'bad' {
+  if (score >= 70) return 'ok';
+  if (score >= 45) return 'warn';
+  return 'bad';
+}
+
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  // La URL es la fuente de verdad: refrescar o compartir el enlace conserva la vista.
   const sourceTypeFilter = parseParam(
     searchParams.get('source_type'),
     SOURCE_TYPES,
     'all'
   );
-  const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
   const verdictFilter = parseParam(
     searchParams.get('verdict'),
     VERDICTS,
-    'all'
-  );
-  const dateRangeFilter = parseParam(
-    searchParams.get('date_range'),
-    DATE_RANGES,
     'all'
   );
   const dateSortOrder = parseParam(
@@ -100,7 +138,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const currentPage =
     Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-  // El input se mantiene local para responder al instante; se confirma a la URL tras el debounce.
   const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -129,12 +166,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     [pathname, router, searchParams]
   );
 
-  // Mantiene el input en sintonía cuando la URL cambia desde fuera (limpiar filtros, atrás/adelante).
   useEffect(() => {
     setSearchQuery(urlSearch);
   }, [urlSearch]);
 
-  // Confirma la búsqueda escrita a la URL cuando el usuario hace una pausa, y vuelve a la página 1.
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (trimmed === urlSearch) return;
@@ -150,38 +185,23 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       page_size: String(PAGE_SIZE),
       source_type: sourceTypeFilter,
       verdict: verdictFilter,
-      status: statusFilter,
-      date_range: dateRangeFilter,
+      status: 'all',
+      date_range: 'all',
       date_sort: dateSortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history?${params.toString()}`;
-  }, [
-    currentPage,
-    dateRangeFilter,
-    dateSortOrder,
-    sourceTypeFilter,
-    statusFilter,
-    urlSearch,
-    verdictFilter,
-  ]);
+  }, [currentPage, dateSortOrder, sourceTypeFilter, verdictFilter, urlSearch]);
 
   const exportPath = useMemo(() => {
     const params = new URLSearchParams({
       source_type: sourceTypeFilter,
       verdict: verdictFilter,
-      date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history/export?${params.toString()}`;
-  }, [
-    dateRangeFilter,
-    dateSortOrder,
-    sourceTypeFilter,
-    urlSearch,
-    verdictFilter,
-  ]);
+  }, [dateSortOrder, sourceTypeFilter, verdictFilter, urlSearch]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -216,22 +236,20 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     fallbackData: path === INITIAL_PATH ? initialData : undefined,
   });
 
-  const rawItems = data?.items;
-  const history: HistoryItem[] = Array.isArray(rawItems) ? rawItems : [];
+  const history = useMemo<HistoryItem[]>(
+    () => (Array.isArray(data?.items) ? data.items : []),
+    [data]
+  );
   const totalCount =
     typeof data?.count === 'number' ? data.count : history.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const effectivePage = Math.min(currentPage, totalPages);
 
-  // El orden por fecha no acota resultados, así que no cuenta como filtro activo.
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     sourceTypeFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    verdictFilter !== 'all' ||
-    dateRangeFilter !== 'all';
+    verdictFilter !== 'all';
 
-  // Los cambios de filtro vuelven a la página 1; los valores por defecto se omiten de la URL.
   const setFilter = useCallback(
     (key: string, value: string, defaultValue: string) => {
       updateParams({
@@ -251,18 +269,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     [setFilter]
   );
 
-  const handleStatusFilterChange = useCallback(
-    (value: StatusFilter) => setFilter('status', value, 'all'),
-    [setFilter]
-  );
-
   const handleVerdictFilterChange = useCallback(
     (value: VerdictFilter) => setFilter('verdict', value, 'all'),
-    [setFilter]
-  );
-
-  const handleDateRangeFilterChange = useCallback(
-    (value: DateRangeFilter) => setFilter('date_range', value, 'all'),
     [setFilter]
   );
 
@@ -280,7 +288,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   );
 
   const handleClearFilters = useCallback(() => {
-    // Reseteamos también el input para no esperar al debounce de 300 ms.
     setSearchQuery('');
     router.replace(pathname, { scroll: false });
   }, [pathname, router]);
@@ -301,13 +308,11 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!pendingDelete) return;
-    // history.length se evalúa antes del refetch: refleja la página actual.
     const wasLastOnPage = history.length === 1;
     const success = await deleteAnalysis(pendingDelete.analysis_id);
     if (!success) return;
     setPendingDelete(null);
     if (wasLastOnPage && currentPage > 1) {
-      // Navegar de página dispara el refetch de SWR automáticamente.
       handlePageChange(currentPage - 1);
     } else {
       await fetchHistory();
@@ -321,52 +326,228 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     fetchHistory,
   ]);
 
+  // Per-verdict counts derived from the current page (approximate for paginated results).
+  const verdictCounts = useMemo(() => {
+    const counts = { ok: 0, warn: 0, bad: 0 };
+    for (const item of history) {
+      if (item.status !== 'done' || item.credibility == null) continue;
+      counts[toneFromScore(item.credibility)]++;
+    }
+    return counts;
+  }, [history]);
+
+  // Per-type counts from current page.
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = { text: 0, url: 0, file: 0 };
+    for (const item of history) {
+      if (item.source_type in counts) counts[item.source_type]++;
+    }
+    return counts;
+  }, [history]);
+
   return (
     <>
+      {/* Page header */}
       <div className="mb-6">
         <PageHeader
           title="Análisis anteriores"
-          subtitle="Revisa y gestiona tus informes previos."
+          subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
           actions={
-            <div className="flex flex-col items-end gap-1">
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={isExporting || totalCount === 0}
-                aria-busy={isExporting}
-                className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting || totalCount === 0}
+                  aria-busy={isExporting}
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isExporting ? (
+                    <Spinner className="size-4 animate-spin text-primary" />
+                  ) : (
+                    <DownloadIcon className="size-4" aria-hidden />
+                  )}
+                  {isExporting ? 'Exportando…' : 'Exportar todo'}
+                </button>
+                {exportError ? (
+                  <p
+                    role="alert"
+                    className="text-xs font-semibold text-red-600"
+                  >
+                    {exportError}
+                  </p>
+                ) : null}
+              </div>
+              <Link
+                href="/app/analisis"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none"
               >
-                {isExporting ? (
-                  <Spinner className="size-4 animate-spin text-primary" />
-                ) : (
-                  <DownloadIcon className="size-4" aria-hidden />
-                )}
-                {isExporting ? 'Exportando…' : 'Exportar todo'}
-              </button>
-              {exportError ? (
-                <p role="alert" className="text-xs font-semibold text-red-600">
-                  {exportError}
-                </p>
-              ) : null}
+                <PlusIcon className="size-4" aria-hidden />
+                Nuevo análisis
+              </Link>
             </div>
           }
         />
       </div>
 
-      <HistoryFilters
-        searchQuery={searchQuery}
-        onSearchQueryChange={handleSearchQueryChange}
-        sourceTypeFilter={sourceTypeFilter}
-        onSourceTypeFilterChange={handleSourceTypeFilterChange}
-        statusFilter={statusFilter}
-        onStatusFilterChange={handleStatusFilterChange}
-        verdictFilter={verdictFilter}
-        onVerdictFilterChange={handleVerdictFilterChange}
-        dateRangeFilter={dateRangeFilter}
-        onDateRangeFilterChange={handleDateRangeFilterChange}
-        dateSortOrder={dateSortOrder}
-        onDateSortOrderChange={handleDateSortOrderChange}
-      />
+      {/* Stat cards — clickable verdict filters */}
+      <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        {STAT_CARDS.map(card => {
+          const isActive =
+            verdictFilter === card.verdictValue ||
+            (card.verdictValue === 'all' && verdictFilter === 'all');
+          const styles =
+            STAT_TONE_STYLES[card.toneKey as keyof typeof STAT_TONE_STYLES];
+          const count =
+            card.toneKey === 'all'
+              ? totalCount
+              : verdictCounts[card.toneKey as keyof typeof verdictCounts];
+
+          return (
+            <button
+              key={card.toneKey}
+              type="button"
+              onClick={() => handleVerdictFilterChange(card.verdictValue)}
+              aria-pressed={isActive}
+              className={`relative overflow-hidden rounded-[18px] border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                isActive ? 'border-transparent' : 'border-line'
+              }`}
+              style={
+                isActive
+                  ? {
+                      boxShadow: `0 0 0 2px ${styles.ringColor}, 0 1px 2px rgba(20,22,44,.04), 0 10px 30px rgba(92,80,200,.06)`,
+                    }
+                  : undefined
+              }
+            >
+              <div
+                className={`text-[clamp(26px,3vw,32px)] leading-none font-bold tracking-tight ${styles.numClass}`}
+              >
+                {count}
+              </div>
+              <div className="mt-2 text-[12.5px] font-bold text-muted">
+                {card.label}
+              </div>
+              <span
+                className={`absolute inset-x-0 bottom-0 transition-all ${isActive ? 'h-1' : 'h-[3px]'}`}
+                style={{ background: styles.barStyle }}
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toolbar: search + segmented type + sort */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {/* Search */}
+        <label className="relative flex h-[46px] min-w-[220px] flex-1 items-center gap-[11px] rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+          <Magnifier className="size-[18px] shrink-0 text-faint" aria-hidden />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => handleSearchQueryChange(e.target.value)}
+            placeholder="Buscar por título o fuente…"
+            className="min-w-0 flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-faint"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => handleSearchQueryChange('')}
+              aria-label="Limpiar búsqueda"
+              className="grid size-6 shrink-0 place-items-center rounded-[7px] transition hover:bg-primary/8 hover:text-body"
+            >
+              <CrossIcon className="size-[15px]" />
+            </button>
+          ) : null}
+        </label>
+
+        {/* Segmented source type filter */}
+        <div
+          className="flex h-[46px] items-center gap-[3px] rounded-[13px] border border-line bg-surface p-1"
+          role="tablist"
+          aria-label="Filtrar por tipo"
+        >
+          {SOURCE_TYPE_OPTIONS.map(opt => {
+            const isActive = sourceTypeFilter === opt.id;
+            const count =
+              opt.id === 'all' ? totalCount : (typeCounts[opt.id] ?? 0);
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleSourceTypeFilterChange(opt.id)}
+                className={`inline-flex h-[38px] items-center gap-[7px] rounded-[9px] px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition ${
+                  isActive
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-muted hover:text-body'
+                }`}
+              >
+                {opt.label}
+                <span
+                  className={`min-w-[20px] rounded-full px-[7px] py-px text-center text-[11px] font-bold ${
+                    isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-primary/5 text-faint'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sort select */}
+        <div className="relative flex items-center">
+          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
+            <SortIcon className="size-4" aria-hidden />
+          </span>
+          <select
+            value={dateSortOrder}
+            onChange={e =>
+              handleDateSortOrderChange(e.target.value as DateSortOrder)
+            }
+            aria-label="Ordenar por fecha"
+            className="h-[46px] cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-[38px] text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10"
+          >
+            <option value="desc">Más recientes</option>
+            <option value="asc">Más antiguos</option>
+          </select>
+          {/* Custom chevron */}
+          <span
+            className="pointer-events-none absolute top-1/2 right-[15px] size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
+            aria-hidden
+          />
+        </div>
+      </div>
+
+      {/* Result summary line */}
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3.5">
+        <div className="text-[13.5px] font-semibold text-muted">
+          {history.length > 0 ? (
+            <>
+              <b className="font-bold text-ink">{totalCount}</b>{' '}
+              {totalCount === 1 ? 'análisis' : 'análisis'}
+              {hasActiveFilters ? ' que coinciden' : ''}
+            </>
+          ) : isLoading ? null : (
+            <span>Ningún análisis coincide</span>
+          )}
+        </div>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="inline-flex items-center gap-[7px] rounded-[9px] bg-primary/8 px-3 py-1.5 text-[13px] font-semibold text-primary transition hover:bg-primary/15"
+          >
+            <CrossIcon className="size-3.5" aria-hidden />
+            Limpiar filtros
+          </button>
+        ) : null}
+      </div>
 
       <HistoryResultsTable
         history={history}

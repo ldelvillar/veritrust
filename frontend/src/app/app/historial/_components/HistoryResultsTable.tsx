@@ -1,14 +1,18 @@
 import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
-import Arrow from '@/assets/Arrow';
+import ArrowRightIcon from '@/assets/ArrowRight';
 import Warning from '@/assets/Warning';
 import Trash from '@/assets/Trash';
 import Magnifier from '@/assets/Magnifier';
 import FunnelIcon from '@/assets/Funnel';
+import TypeIcon from '@/assets/Type';
+import LinkIcon from '@/assets/Link';
+import DocumentIcon from '@/assets/Document';
 import type { paths } from '@/types/api';
 
-type HistoryItem =
-  paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
+type HistoryPayload =
+  paths['/history']['get']['responses']['200']['content']['application/json'];
+type HistoryItem = HistoryPayload['items'][number];
 
 interface HistoryResultsTableProps {
   history: HistoryItem[];
@@ -25,108 +29,156 @@ interface HistoryResultsTableProps {
   onClearFilters: () => void;
 }
 
-const getTitle = (item: HistoryItem): string => {
+type Tone = 'ok' | 'warn' | 'bad';
+
+const TONE_CONFIG = {
+  ok: {
+    rail: 'linear-gradient(180deg,#2bc488,#10a566)',
+    ring: '#15b878',
+    textColor: '#0e8e5b',
+    bgColor: '#def4ea',
+    label: 'Fiable',
+  },
+  warn: {
+    rail: 'linear-gradient(180deg,#e8b057,#d98e29)',
+    ring: '#dd9b2c',
+    textColor: '#b07a16',
+    bgColor: '#fbefda',
+    label: 'Dudoso',
+  },
+  bad: {
+    rail: 'linear-gradient(180deg,#e2607a,#d23c5d)',
+    ring: '#df4f6b',
+    textColor: '#c23552',
+    bgColor: '#fbe4e8',
+    label: 'No fiable',
+  },
+} satisfies Record<Tone, object>;
+
+const TYPE_META = {
+  text: { label: 'Texto', tint: '#eeebfc', color: '#6356e6', Icon: TypeIcon },
+  url: { label: 'Enlace', tint: '#e4f1fc', color: '#2c97e8', Icon: LinkIcon },
+  file: {
+    label: 'Archivo',
+    tint: '#def4ea',
+    color: '#13b877',
+    Icon: DocumentIcon,
+  },
+} as const;
+
+const STATUS_BADGES = {
+  pending: { text: 'En curso', textColor: '#5446dc', bgColor: '#eeebfc' },
+  failed_no_claims: {
+    text: 'Sin afirmaciones',
+    textColor: '#7e7f99',
+    bgColor: '#f4f2fd',
+  },
+  failed: { text: 'Fallido', textColor: '#c23552', bgColor: '#fbe4e8' },
+} as const;
+
+function toneFromItem(item: HistoryItem): Tone | null {
+  if (item.status !== 'done') return null;
+  const s = item.credibility;
+  if (s === null || s === undefined) return null;
+  if (s >= 70) return 'ok';
+  if (s >= 45) return 'warn';
+  return 'bad';
+}
+
+function getTitle(item: HistoryItem): string {
   if (item.source_type === 'url' && item.input_url) return item.input_url;
   if (item.source_type === 'file' && item.file_filename)
     return item.file_filename;
   if (item.input_text) return item.input_text;
   return 'Análisis sin título';
-};
+}
 
-const getSource = (item: HistoryItem): string => {
+function getSource(item: HistoryItem): string {
   if (item.source_type === 'file')
     return item.file_filename ?? 'Carga de archivo';
   if (item.source_type === 'text') return 'Texto pegado';
-
   if (!item.input_url) return 'Enlace';
-
   try {
     return new URL(item.input_url).hostname;
   } catch {
     return 'Enlace';
   }
-};
-
-const getTypeLabel = (sourceType: HistoryItem['source_type']): string => {
-  if (sourceType === 'file') return 'Archivo';
-  if (sourceType === 'url') return 'Enlace';
-  return 'Texto';
-};
-
-const VERDICT_BADGES: Record<
-  HistoryItem['verdict'],
-  { text: string; className: string }
-> = {
-  fake: { text: 'Falsa', className: 'bg-red-50 text-red-700' },
-  real: { text: 'Verdadera', className: 'bg-emerald-50 text-emerald-700' },
-  uncertain: { text: 'Incierta', className: 'bg-amber-50 text-amber-700' },
-};
-
-const getScoreColor = (score: number): string => {
-  if (score >= 70) return 'bg-emerald-500';
-  if (score >= 40) return 'bg-amber-500';
-  return 'bg-red-500';
-};
-
-interface RowState {
-  badge: { text: string; className: string };
-  detailLabel: string;
-  showScore: boolean;
 }
 
-// Las filas no completadas no tienen veredicto ni puntuación: muestran su estado.
-const getRowState = (item: HistoryItem): RowState => {
-  if (item.status === 'pending') {
-    return {
-      badge: { text: 'En curso', className: 'bg-[#eeebfc] text-primary' },
-      detailLabel: 'Ver estado',
-      showScore: false,
-    };
-  }
-  if (item.status === 'failed') {
-    // No es un fallo: el contenido no traía afirmaciones médicas que verificar.
-    if (item.error_code === 'NO_MEDICAL_CLAIMS') {
-      return {
-        badge: {
-          text: 'Sin afirmaciones',
-          className: 'bg-surface text-body',
-        },
-        detailLabel: 'Ver detalle',
-        showScore: false,
-      };
-    }
-    return {
-      badge: { text: 'Fallido', className: 'bg-red-50 text-red-700' },
-      detailLabel: 'Ver detalle',
-      showScore: false,
-    };
-  }
-  return {
-    badge: VERDICT_BADGES[item.verdict],
-    detailLabel: 'Ver informe',
-    showScore: true,
-  };
-};
+function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
+  const r = 19;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - score / 100);
+  const cfg = TONE_CONFIG[tone];
+  return (
+    <div
+      className="relative size-[50px] shrink-0"
+      aria-label={`Credibilidad: ${score}/100`}
+    >
+      <svg viewBox="0 0 48 48" className="size-full" aria-hidden>
+        <circle
+          cx="24"
+          cy="24"
+          r={r}
+          fill="none"
+          stroke="#ece9f7"
+          strokeWidth="4.5"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={r}
+          fill="none"
+          stroke={cfg.ring}
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform="rotate(-90 24 24)"
+        />
+      </svg>
+      <span
+        className="absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums"
+        style={{ color: cfg.textColor }}
+      >
+        {score}
+      </span>
+    </div>
+  );
+}
 
-const getVisiblePages = (
-  currentPage: number,
-  totalPages: number,
-  maxVisible: number = 5
-): number[] => {
-  if (totalPages <= maxVisible) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
+function GaugePlaceholder({ status }: { status: HistoryItem['status'] }) {
+  return (
+    <div className="relative size-[50px] shrink-0">
+      <svg viewBox="0 0 48 48" className="size-full" aria-hidden>
+        <circle
+          cx="24"
+          cy="24"
+          r={19}
+          fill="none"
+          stroke="#ece9f7"
+          strokeWidth="4.5"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center">
+        {status === 'pending' ? (
+          <Spinner className="size-4 animate-spin text-primary" />
+        ) : (
+          <span className="text-[11px] font-bold text-faint">—</span>
+        )}
+      </span>
+    </div>
+  );
+}
 
-  const half = Math.floor(maxVisible / 2);
-  let start = Math.max(1, currentPage - half);
-  const end = Math.min(totalPages, start + maxVisible - 1);
-
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1);
-  }
-
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-};
+function getVisiblePages(current: number, total: number, max = 5): number[] {
+  if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
+  const half = Math.floor(max / 2);
+  let start = Math.max(1, current - half);
+  const end = Math.min(total, start + max - 1);
+  if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
 
 export default function HistoryResultsTable({
   history,
@@ -142,41 +194,37 @@ export default function HistoryResultsTable({
   hasActiveFilters,
   onClearFilters,
 }: HistoryResultsTableProps) {
-  // Estado vacío dedicado: distingue primer uso (sin análisis) de filtros sin
-  // coincidencias, sin la cabecera ni la paginación de la tabla.
   if (!isLoading && !errorMessage && history.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-white shadow-sm">
+      <div className="rounded-[18px] border border-line bg-white shadow-sm">
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
+          <div className="flex size-[60px] items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
             {hasActiveFilters ? (
               <FunnelIcon className="size-7" />
             ) : (
               <Magnifier className="size-7" />
             )}
           </div>
-          <h2 className="mt-5 text-xl font-bold tracking-tight text-ink">
+          <h3 className="mt-[18px] text-lg font-bold tracking-tight text-ink">
+            {hasActiveFilters ? 'Sin resultados' : 'Aún no has analizado nada'}
+          </h3>
+          <p className="mt-1.5 max-w-sm text-sm font-medium text-muted">
             {hasActiveFilters
-              ? 'Sin resultados para estos filtros'
-              : 'Aún no has analizado nada'}
-          </h2>
-          <p className="mt-2 max-w-sm text-sm font-medium text-muted">
-            {hasActiveFilters
-              ? 'Ningún análisis coincide con la búsqueda o los filtros aplicados. Prueba a ajustarlos o límpialos para ver todo tu historial.'
+              ? 'No hay análisis que coincidan con los filtros seleccionados.'
               : 'Cuando verifiques tu primer contenido médico, tus informes aparecerán aquí para que puedas consultarlos y gestionarlos.'}
           </p>
           {hasActiveFilters ? (
             <button
               type="button"
               onClick={onClearFilters}
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              className="mt-[18px] inline-flex items-center gap-2 rounded-xl border border-line bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
             >
               Limpiar filtros
             </button>
           ) : (
             <Link
               href="/app/analisis"
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
+              className="mt-[18px] inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
             >
               Analizar contenido
             </Link>
@@ -187,33 +235,24 @@ export default function HistoryResultsTable({
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
-  const startRecord =
-    totalCount === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const safePage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startRecord = totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const endRecord =
-    totalCount === 0 ? 0 : Math.min(safeCurrentPage * pageSize, totalCount);
-  const visiblePages = getVisiblePages(safeCurrentPage, totalPages);
-  const isPaginationDisabled =
+    totalCount === 0 ? 0 : Math.min(safePage * pageSize, totalCount);
+  const visiblePages = getVisiblePages(safePage, totalPages);
+  const paginationDisabled =
     isLoading || Boolean(errorMessage) || totalCount === 0;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-      <div className="hidden grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border bg-surface-subtle px-5 py-4 text-xs font-bold tracking-widest text-faint uppercase md:grid">
-        <span>Título del artículo</span>
-        <span>Tipo</span>
-        <span>Fecha de análisis</span>
-        <span>Credibilidad</span>
-        <span className="text-right">Acción</span>
-      </div>
-
+    <div className="flex flex-col gap-3">
       {isLoading ? (
-        <div className="flex items-center justify-center gap-3 px-5 py-12 text-sm font-semibold text-muted">
+        <div className="flex items-center justify-center gap-3 rounded-[18px] border border-line bg-white px-5 py-12 text-sm font-semibold text-muted shadow-sm">
           <Spinner className="size-5 animate-spin text-primary" />
           Cargando análisis...
         </div>
       ) : errorMessage ? (
-        <div className="px-5 py-12">
-          <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-left">
+        <div className="rounded-[18px] border border-line bg-white px-5 py-10 shadow-sm">
+          <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 px-5 py-4">
             <div className="flex items-start gap-3">
               <Warning className="mt-0.5 size-5 shrink-0 text-red-500" />
               <div>
@@ -237,93 +276,147 @@ export default function HistoryResultsTable({
           </div>
         </div>
       ) : (
-        <ul>
+        <ul className="flex flex-col gap-3">
           {history.map(item => {
+            const tone = toneFromItem(item);
+            const toneCfg = tone ? TONE_CONFIG[tone] : null;
+            const typeMeta =
+              TYPE_META[item.source_type as keyof typeof TYPE_META] ??
+              TYPE_META.text;
+            const { Icon: SourceIcon } = typeMeta;
             const credibility = item.credibility ?? null;
-            const rowState = getRowState(item);
+            const isDeleting = deletingId === item.analysis_id;
+
+            const railStyle = toneCfg
+              ? toneCfg.rail
+              : item.status === 'pending'
+                ? 'linear-gradient(180deg,#9d96ef,#7b72e3)'
+                : 'linear-gradient(180deg,#c5c3d6,#b0adc4)';
+
+            let statusBadgeCfg: {
+              text: string;
+              textColor: string;
+              bgColor: string;
+            } | null = null;
+            let detailLabel = 'Ver informe';
+            if (item.status === 'pending') {
+              statusBadgeCfg = STATUS_BADGES.pending;
+              detailLabel = 'Ver estado';
+            } else if (item.status === 'failed') {
+              statusBadgeCfg =
+                item.error_code === 'NO_MEDICAL_CLAIMS'
+                  ? STATUS_BADGES.failed_no_claims
+                  : STATUS_BADGES.failed;
+              detailLabel = 'Ver detalle';
+            }
+
+            const badgeText = statusBadgeCfg
+              ? statusBadgeCfg.text
+              : (toneCfg?.label ?? 'Incierto');
+            const badgeTextColor = statusBadgeCfg
+              ? statusBadgeCfg.textColor
+              : (toneCfg?.textColor ?? '#7e7f99');
+            const badgeBgColor = statusBadgeCfg
+              ? statusBadgeCfg.bgColor
+              : (toneCfg?.bgColor ?? '#f4f2fd');
+
+            const formattedDate = new Date(item.created_at).toLocaleString(
+              'es-ES',
+              {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              }
+            );
 
             return (
               <li
                 key={item.analysis_id}
-                className="border-b border-border px-4 py-4 last:border-b-0 md:grid md:grid-cols-[2.2fr_0.8fr_0.9fr_1.2fr_0.9fr] md:items-center md:gap-4 md:px-5"
+                className="group relative flex items-center gap-[18px] overflow-hidden rounded-2xl border border-line bg-white py-[18px] pr-[22px] pl-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-ink">
+                {/* Left tone rail */}
+                <div
+                  className="absolute inset-y-0 left-0 w-1"
+                  style={{ background: railStyle }}
+                  aria-hidden
+                />
+
+                {/* Credibility gauge */}
+                {tone !== null && credibility !== null ? (
+                  <CredibilityGauge score={credibility} tone={tone} />
+                ) : (
+                  <GaugePlaceholder status={item.status} />
+                )}
+
+                {/* Main content */}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <span
+                      className="flex size-[22px] shrink-0 items-center justify-center rounded-[7px]"
+                      style={{
+                        background: typeMeta.tint,
+                        color: typeMeta.color,
+                      }}
+                    >
+                      <SourceIcon width={13} height={13} />
+                    </span>
+                    <span className="text-xs font-bold text-body">
+                      {typeMeta.label}
+                    </span>
+                    <span
+                      className="size-[3px] rounded-full bg-faint"
+                      aria-hidden
+                    />
+                    <span className="text-[12.5px] font-semibold whitespace-nowrap text-faint">
+                      {formattedDate}
+                    </span>
+                  </div>
+                  <p className="truncate text-[15px] font-semibold text-ink transition-colors group-hover:text-primary">
                     {getTitle(item)}
                   </p>
-                  <p className="mt-1 truncate text-xs font-semibold text-faint">
-                    Fuente: {getSource(item)}
+                  <p className="mt-1 truncate text-[12.5px] font-semibold text-muted">
+                    Fuente:{' '}
+                    <b className="font-bold text-body">{getSource(item)}</b>
                   </p>
                 </div>
 
-                <span className="mt-3 inline-flex w-fit items-center rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-body md:mt-0 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-sm md:text-body">
-                  {getTypeLabel(item.source_type)}
-                </span>
-
-                <span className="mt-3 block text-xs font-semibold text-muted md:mt-0 md:text-sm">
-                  {new Date(item.created_at).toLocaleString('es-ES', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-
-                <div className="mt-4 flex flex-col items-start gap-2 md:mt-0">
+                {/* Right column */}
+                <div className="flex shrink-0 items-center gap-[18px]">
                   <span
-                    className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase ${rowState.badge.className}`}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-[.04em] whitespace-nowrap uppercase"
+                    style={{ color: badgeTextColor, background: badgeBgColor }}
                   >
-                    {rowState.badge.text}
+                    <span
+                      className="size-[7px] rounded-full bg-current"
+                      aria-hidden
+                    />
+                    {badgeText}
                   </span>
-                  {rowState.showScore ? (
-                    <div className="flex w-full items-center gap-3">
-                      {credibility === null ? (
-                        <span className="text-sm font-semibold text-faint">
-                          Sin puntuación
-                        </span>
-                      ) : (
-                        <>
-                          <div className="h-2 w-full rounded-full bg-line md:max-w-24">
-                            <div
-                              className={`h-full rounded-full ${getScoreColor(credibility)}`}
-                              style={{ width: `${credibility}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-black text-body">
-                            {credibility}/100
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  ) : item.status === 'pending' ? (
-                    <span className="text-sm font-medium text-faint">
-                      Procesando…
-                    </span>
-                  ) : null}
-                </div>
 
-                <div className="mt-4 flex items-center gap-3 md:mt-0 md:justify-self-end">
-                  <Link
-                    href={`/app/analisis/${item.analysis_id}`}
-                    className="inline-flex w-fit items-center gap-2 text-sm font-bold text-primary"
-                  >
-                    {rowState.detailLabel}
-                    <Arrow className="size-4 rotate-270 text-primary" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(item)}
-                    disabled={deletingId === item.analysis_id}
-                    aria-label="Eliminar análisis"
-                    className="inline-flex size-8 items-center justify-center rounded-lg text-faint transition hover:bg-red-50 hover:text-red-600 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {deletingId === item.analysis_id ? (
-                      <Spinner className="size-4 animate-spin text-red-500" />
-                    ) : (
-                      <Trash className="size-4" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <Link
+                      href={`/app/analisis/${item.analysis_id}`}
+                      className="inline-flex items-center gap-1.5 rounded-[9px] px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-primary transition hover:bg-primary/8"
+                    >
+                      {detailLabel}
+                      <ArrowRightIcon className="size-[15px] transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(item)}
+                      disabled={isDeleting}
+                      aria-label="Eliminar análisis"
+                      className="flex size-[34px] items-center justify-center rounded-[9px] text-faint transition hover:bg-[#fbe4e8] hover:text-[#c23552] focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isDeleting ? (
+                        <Spinner className="size-4 animate-spin text-red-500" />
+                      ) : (
+                        <Trash className="size-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </li>
             );
@@ -331,40 +424,40 @@ export default function HistoryResultsTable({
         </ul>
       )}
 
-      <div className="flex flex-col gap-4 border-t border-border bg-surface-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <p className="text-xs font-semibold text-faint">
+      {/* Pagination footer */}
+      <div className="mt-1 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[13px] font-semibold text-muted">
           {isLoading
             ? 'Cargando registros...'
             : errorMessage
               ? 'No se pudieron cargar los registros.'
-              : `Mostrando ${startRecord} a ${endRecord} de ${totalCount} registros`}
+              : `Mostrando ${startRecord}–${endRecord} de ${totalCount} registros`}
         </p>
 
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => onPageChange(safeCurrentPage - 1)}
-            disabled={isPaginationDisabled || safeCurrentPage === 1}
+            onClick={() => onPageChange(safePage - 1)}
+            disabled={paginationDisabled || safePage === 1}
             aria-label="Página anterior"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-muted transition disabled:cursor-not-allowed disabled:text-faint"
+            className="flex size-[38px] items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             ‹
           </button>
 
           {visiblePages.map(page => {
-            const isActive = page === safeCurrentPage;
-
+            const isActive = page === safePage;
             return (
               <button
                 key={page}
                 type="button"
                 onClick={() => onPageChange(page)}
-                disabled={isPaginationDisabled}
+                disabled={paginationDisabled}
                 aria-current={isActive ? 'page' : undefined}
-                className={`size-8 rounded-lg text-sm font-bold transition ${
+                className={`flex size-[38px] items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
                   isActive
-                    ? 'bg-primary text-white'
-                    : 'border border-border bg-white text-muted hover:bg-surface disabled:cursor-not-allowed disabled:text-faint'
+                    ? 'bg-primary text-white shadow-[0_6px_16px_rgba(99,86,230,.3)]'
+                    : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
                 }`}
               >
                 {page}
@@ -374,10 +467,10 @@ export default function HistoryResultsTable({
 
           <button
             type="button"
-            onClick={() => onPageChange(safeCurrentPage + 1)}
-            disabled={isPaginationDisabled || safeCurrentPage === totalPages}
+            onClick={() => onPageChange(safePage + 1)}
+            disabled={paginationDisabled || safePage === totalPages}
             aria-label="Página siguiente"
-            className="size-8 rounded-lg border border-border bg-white text-sm font-bold text-muted transition disabled:cursor-not-allowed disabled:text-faint"
+            className="flex size-[38px] items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             ›
           </button>
