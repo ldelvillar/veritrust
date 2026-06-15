@@ -345,6 +345,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
         file_filename=None,
         share_token=None,
+        stage=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -394,6 +395,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         sources=None,
         file_filename=None,
         share_token=None,
+        stage=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
@@ -433,6 +435,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         sources=None,
         file_filename=None,
         share_token=None,
+        stage=None,
     )
 
     async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
