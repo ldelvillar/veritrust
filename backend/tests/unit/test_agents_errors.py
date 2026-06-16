@@ -54,3 +54,8 @@ async def test_ainvoke_graph_translates_connection_error() -> None:
 async def test_ainvoke_graph_translates_httpx_connect_error() -> None:
     with pytest.raises(OllamaConnectionError):
         await ainvoke_graph(_FakeGraph(error=httpx.ConnectError("down")), {})
+
+
+async def test_ainvoke_graph_translates_httpx_timeout_error() -> None:
+    with pytest.raises(OllamaConnectionError):
+        await ainvoke_graph(_FakeGraph(error=httpx.ReadTimeout("slow")), {})

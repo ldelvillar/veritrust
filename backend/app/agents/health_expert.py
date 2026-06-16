@@ -102,6 +102,9 @@ def get_health_expert_llm() -> ChatOllama:
         model=settings.ollama_health_expert_model,
         temperature=0,
         base_url=settings.ollama_base_url,
+        num_ctx=settings.ollama_health_expert_num_ctx,
+        num_predict=settings.ollama_health_expert_num_predict,
+        client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
     )
 
 

@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     ollama_health_expert_model: str = "llama3.2"
     ollama_judge_model: str = "llama3.2"
 
+    # Tope por llamada al LLM; una llamada lenta falla en vez de agotar todo el job
+    ollama_request_timeout_seconds: int = 120
+    # Ventana de contexto (num_ctx) y tope de generación (num_predict) por agente
+    ollama_extractor_num_ctx: int = 8192
+    ollama_extractor_num_predict: int = 1024
+    ollama_translator_num_ctx: int = 4096
+    ollama_translator_num_predict: int = 2048
+    ollama_health_expert_num_ctx: int = 8192
+    ollama_health_expert_num_predict: int = 2048
+    ollama_judge_num_ctx: int = 8192
+    ollama_judge_num_predict: int = 512
+
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
 

@@ -33,6 +33,6 @@ async def ainvoke_graph(
                 final_state = chunk
             elif mode == "updates" and on_stage is not None:
                 await on_stage(next(iter(chunk)))
-    except (ConnectionError, httpx.ConnectError) as e:
+    except (ConnectionError, httpx.ConnectError, httpx.TimeoutException) as e:
         raise OllamaConnectionError(str(e)) from e
     return final_state
