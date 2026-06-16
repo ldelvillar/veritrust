@@ -942,6 +942,36 @@ def test_historial_returns_user_history(monkeypatch):
         fake_list_user_analysis_history,
     )
 
+    async def fake_count_history_verdict_facets(
+        *, user_id, search_query, source_type, created_after
+    ):
+        # Los facets ignoran el filtro de veredicto; conservan el resto de filtros.
+        assert user_id == "test-user"
+        assert search_query == "vacuna"
+        assert source_type == "text"
+        assert created_after is not None
+        return {"total": 12, "real": 3, "fake": 8, "uncertain": 1}
+
+    monkeypatch.setattr(
+        "app.api.routes.history.count_history_verdict_facets",
+        fake_count_history_verdict_facets,
+    )
+
+    async def fake_count_history_source_type_facets(
+        *, user_id, search_query, verdict, created_after
+    ):
+        # Los facets de tipo ignoran el filtro de tipo; conservan el resto.
+        assert user_id == "test-user"
+        assert search_query == "vacuna"
+        assert verdict == "fake"
+        assert created_after is not None
+        return {"total": 12, "text": 7, "url": 3, "file": 2}
+
+    monkeypatch.setattr(
+        "app.api.routes.history.count_history_source_type_facets",
+        fake_count_history_source_type_facets,
+    )
+
     response = client.get(
         "/history?page=1&page_size=10&search=vacuna&source_type=text"
         "&verdict=fake&date_range=30d&date_sort=asc"
@@ -957,6 +987,20 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["items"][0]["source_type"] == "text"
     # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
     assert body["items"][0]["file_filename"] == "documento.pdf"
+    # Conteos globales por veredicto para las tarjetas (independientes de la página).
+    assert body["verdict_counts"] == {
+        "total": 12,
+        "real": 3,
+        "fake": 8,
+        "uncertain": 1,
+    }
+    # Conteos globales por tipo de fuente para los chips (independientes de la página).
+    assert body["source_type_counts"] == {
+        "total": 12,
+        "text": 7,
+        "url": 3,
+        "file": 2,
+    }
 
 
 def test_historial_forwards_status_filter(monkeypatch):
@@ -970,6 +1014,22 @@ def test_historial_forwards_status_filter(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.history.list_user_analysis_history",
         fake_list_user_analysis_history,
+    )
+
+    async def fake_count_history_verdict_facets(**kwargs):
+        return {"total": 0, "real": 0, "fake": 0, "uncertain": 0}
+
+    monkeypatch.setattr(
+        "app.api.routes.history.count_history_verdict_facets",
+        fake_count_history_verdict_facets,
+    )
+
+    async def fake_count_history_source_type_facets(**kwargs):
+        return {"total": 0, "text": 0, "url": 0, "file": 0}
+
+    monkeypatch.setattr(
+        "app.api.routes.history.count_history_source_type_facets",
+        fake_count_history_source_type_facets,
     )
 
     response = client.get("/history?status=failed")

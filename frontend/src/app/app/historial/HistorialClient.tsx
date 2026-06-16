@@ -107,11 +107,24 @@ const STAT_TONE_STYLES = {
   },
 } as const;
 
-function toneFromScore(score: number): 'ok' | 'warn' | 'bad' {
-  if (score >= 70) return 'ok';
-  if (score >= 45) return 'warn';
-  return 'bad';
-}
+type VerdictCounts = HistoryPayload['verdict_counts'];
+type SourceTypeCounts = HistoryPayload['source_type_counts'];
+
+// Cada tarjeta mapea a su conteo global por veredicto en la respuesta del historial.
+const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
+  all: 'total',
+  real: 'real',
+  uncertain: 'uncertain',
+  fake: 'fake',
+};
+
+// Cada chip de tipo mapea a su conteo global por tipo de fuente.
+const SOURCE_FACET_KEY: Record<SourceTypeFilter, keyof SourceTypeCounts> = {
+  all: 'total',
+  text: 'text',
+  url: 'url',
+  file: 'file',
+};
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const searchParams = useSearchParams();
@@ -326,24 +339,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     fetchHistory,
   ]);
 
-  // Per-verdict counts derived from the current page (approximate for paginated results).
-  const verdictCounts = useMemo(() => {
-    const counts = { ok: 0, warn: 0, bad: 0 };
-    for (const item of history) {
-      if (item.status !== 'done' || item.credibility == null) continue;
-      counts[toneFromScore(item.credibility)]++;
-    }
-    return counts;
-  }, [history]);
-
-  // Per-type counts from current page.
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { text: 0, url: 0, file: 0 };
-    for (const item of history) {
-      if (item.source_type in counts) counts[item.source_type]++;
-    }
-    return counts;
-  }, [history]);
+  // Conteos globales del backend, independientes de la página y del propio filtro.
+  const verdictFacets = data?.verdict_counts ?? null;
+  const sourceFacets = data?.source_type_counts ?? null;
 
   return (
     <>
@@ -391,17 +389,16 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       </div>
 
       {/* Stat cards — clickable verdict filters */}
-      <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+      <div className="mb-5.5 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
         {STAT_CARDS.map(card => {
           const isActive =
             verdictFilter === card.verdictValue ||
             (card.verdictValue === 'all' && verdictFilter === 'all');
           const styles =
             STAT_TONE_STYLES[card.toneKey as keyof typeof STAT_TONE_STYLES];
-          const count =
-            card.toneKey === 'all'
-              ? totalCount
-              : verdictCounts[card.toneKey as keyof typeof verdictCounts];
+          const count = verdictFacets
+            ? verdictFacets[FACET_KEY[card.verdictValue]]
+            : 0;
 
           return (
             <button
@@ -429,7 +426,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 {card.label}
               </div>
               <span
-                className={`absolute inset-x-0 bottom-0 transition-all ${isActive ? 'h-1' : 'h-[3px]'}`}
+                className={`absolute inset-x-0 bottom-0 transition-all ${isActive ? 'h-1' : 'h-0.75'}`}
                 style={{ background: styles.barStyle }}
                 aria-hidden
               />
@@ -441,8 +438,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       {/* Toolbar: search + segmented type + sort */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* Search */}
-        <label className="relative flex h-[46px] min-w-[220px] flex-1 items-center gap-[11px] rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
-          <Magnifier className="size-[18px] shrink-0 text-faint" aria-hidden />
+        <label className="relative flex h-11.5 min-w-55 flex-1 items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+          <Magnifier className="size-4.5 shrink-0 text-faint" aria-hidden />
           <input
             type="text"
             value={searchQuery}
@@ -457,21 +454,22 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               aria-label="Limpiar búsqueda"
               className="grid size-6 shrink-0 place-items-center rounded-[7px] transition hover:bg-primary/8 hover:text-body"
             >
-              <CrossIcon className="size-[15px]" />
+              <CrossIcon className="size-3.75" />
             </button>
           ) : null}
         </label>
 
         {/* Segmented source type filter */}
         <div
-          className="flex h-[46px] items-center gap-[3px] rounded-[13px] border border-line bg-surface p-1"
+          className="flex h-11.5 items-center gap-0.75 rounded-[13px] border border-line bg-surface p-1"
           role="tablist"
           aria-label="Filtrar por tipo"
         >
           {SOURCE_TYPE_OPTIONS.map(opt => {
             const isActive = sourceTypeFilter === opt.id;
-            const count =
-              opt.id === 'all' ? totalCount : (typeCounts[opt.id] ?? 0);
+            const count = sourceFacets
+              ? sourceFacets[SOURCE_FACET_KEY[opt.id]]
+              : 0;
             return (
               <button
                 key={opt.id}
@@ -479,7 +477,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => handleSourceTypeFilterChange(opt.id)}
-                className={`inline-flex h-[38px] items-center gap-[7px] rounded-[9px] px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition ${
+                className={`inline-flex h-9.5 items-center gap-1.75 rounded-[9px] px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition ${
                   isActive
                     ? 'bg-white text-primary shadow-sm'
                     : 'text-muted hover:text-body'
@@ -487,7 +485,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               >
                 {opt.label}
                 <span
-                  className={`min-w-[20px] rounded-full px-[7px] py-px text-center text-[11px] font-bold ${
+                  className={`min-w-5 rounded-full px-1.75 py-px text-center text-[11px] font-bold ${
                     isActive
                       ? 'bg-primary/10 text-primary'
                       : 'bg-primary/5 text-faint'
@@ -511,14 +509,14 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               handleDateSortOrderChange(e.target.value as DateSortOrder)
             }
             aria-label="Ordenar por fecha"
-            className="h-[46px] cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-[38px] text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10"
+            className="h-11.5 cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10"
           >
             <option value="desc">Más recientes</option>
             <option value="asc">Más antiguos</option>
           </select>
           {/* Custom chevron */}
           <span
-            className="pointer-events-none absolute top-1/2 right-[15px] size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
+            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
             aria-hidden
           />
         </div>
@@ -541,7 +539,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           <button
             type="button"
             onClick={handleClearFilters}
-            className="inline-flex items-center gap-[7px] rounded-[9px] bg-primary/8 px-3 py-1.5 text-[13px] font-semibold text-primary transition hover:bg-primary/15"
+            className="inline-flex items-center gap-1.75 rounded-[9px] bg-primary/8 px-3 py-1.5 text-[13px] font-semibold text-primary transition hover:bg-primary/15"
           >
             <CrossIcon className="size-3.5" aria-hidden />
             Limpiar filtros

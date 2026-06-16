@@ -120,6 +120,24 @@ class PublicAnalysisReport(BaseModel):
         return compute_credibility(self.label, self.confidence)
 
 
+class HistoryVerdictCounts(BaseModel):
+    """Conteos globales por veredicto del historial filtrado, para las tarjetas."""
+
+    total: int
+    real: int
+    fake: int
+    uncertain: int
+
+
+class HistorySourceTypeCounts(BaseModel):
+    """Conteos globales por tipo de fuente del historial filtrado, para los chips."""
+
+    total: int
+    text: int
+    url: int
+    file: int
+
+
 class HistoryResponse(BaseModel):
     """Modelo de datos para la respuesta del endpoint de historial de análisis."""
 
@@ -128,3 +146,5 @@ class HistoryResponse(BaseModel):
     count: int
     page: int
     page_size: int
+    verdict_counts: HistoryVerdictCounts
+    source_type_counts: HistorySourceTypeCounts

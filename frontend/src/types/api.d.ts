@@ -478,6 +478,36 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+            verdict_counts: components["schemas"]["HistoryVerdictCounts"];
+            source_type_counts: components["schemas"]["HistorySourceTypeCounts"];
+        };
+        /**
+         * HistorySourceTypeCounts
+         * @description Conteos globales por tipo de fuente del historial filtrado, para los chips.
+         */
+        HistorySourceTypeCounts: {
+            /** Total */
+            total: number;
+            /** Text */
+            text: number;
+            /** Url */
+            url: number;
+            /** File */
+            file: number;
+        };
+        /**
+         * HistoryVerdictCounts
+         * @description Conteos globales por veredicto del historial filtrado, para las tarjetas.
+         */
+        HistoryVerdictCounts: {
+            /** Total */
+            total: number;
+            /** Real */
+            real: number;
+            /** Fake */
+            fake: number;
+            /** Uncertain */
+            uncertain: number;
         };
         /**
          * PublicAnalysisReport

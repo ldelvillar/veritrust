@@ -12,7 +12,12 @@ from psycopg.types.json import Jsonb
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
-from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
+from app.schemas.history import (
+    AnalysisHistoryItem,
+    HistorySourceTypeCounts,
+    HistoryVerdictCounts,
+    PublicAnalysisReport,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -428,6 +433,118 @@ async def list_user_analysis_history(
     records = [_map_history_record(row) for row in rows]
 
     return records, total_count
+
+
+async def count_history_verdict_facets(
+    *,
+    user_id: str,
+    search_query: Optional[str] = None,
+    source_type: Optional[str] = None,
+    created_after: Optional[datetime] = None,
+) -> HistoryVerdictCounts:
+    """Cuenta el historial por veredicto, ignorando el propio filtro de veredicto.
+
+    Son conteos globales (no de la página actual): cada uno coincide con cuántas
+    filas vería la tabla al pulsar esa tarjeta, conservando el resto de filtros.
+    """
+    pool = await get_pool()
+    safe_source_type = source_type if source_type in _VALID_SOURCE_TYPES else None
+    where_sql, where_params = _build_history_where_clause(
+        user_id=user_id,
+        search_query=search_query,
+        source_type=safe_source_type,
+        created_after=created_after,
+    )
+
+    facets_query = f"""
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN {_VERDICT_REAL_SQL} THEN 1 ELSE 0 END), 0) AS real_total,
+            COALESCE(SUM(CASE WHEN {_VERDICT_FAKE_SQL} THEN 1 ELSE 0 END), 0) AS fake_total,
+            COALESCE(SUM(CASE WHEN {_VERDICT_SQL["uncertain"]} THEN 1 ELSE 0 END), 0)
+                AS uncertain_total
+        FROM public.analysis_history
+        WHERE {where_sql}
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
+                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo consultar el resumen del historial en la base de datos."
+            )
+        ) from exc
+
+    if not row:
+        return HistoryVerdictCounts(total=0, real=0, fake=0, uncertain=0)
+
+    return HistoryVerdictCounts(
+        total=int(row[0] or 0),
+        real=int(row[1] or 0),
+        fake=int(row[2] or 0),
+        uncertain=int(row[3] or 0),
+    )
+
+
+async def count_history_source_type_facets(
+    *,
+    user_id: str,
+    search_query: Optional[str] = None,
+    verdict: Optional[str] = None,
+    created_after: Optional[datetime] = None,
+) -> HistorySourceTypeCounts:
+    """Cuenta el historial por tipo de fuente, ignorando el propio filtro de tipo.
+
+    Son conteos globales (no de la página actual): cada uno coincide con cuántas
+    filas vería la tabla al pulsar ese chip, conservando el resto de filtros.
+    """
+    pool = await get_pool()
+    safe_verdict = verdict if verdict in _VALID_VERDICTS else None
+    where_sql, where_params = _build_history_where_clause(
+        user_id=user_id,
+        search_query=search_query,
+        source_type=None,
+        created_after=created_after,
+        verdict=safe_verdict,
+    )
+
+    facets_query = f"""
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN source_type = 'text' THEN 1 ELSE 0 END), 0) AS text_total,
+            COALESCE(SUM(CASE WHEN source_type = 'url' THEN 1 ELSE 0 END), 0) AS url_total,
+            COALESCE(SUM(CASE WHEN source_type = 'file' THEN 1 ELSE 0 END), 0) AS file_total
+        FROM public.analysis_history
+        WHERE {where_sql}
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
+                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo consultar el resumen del historial en la base de datos."
+            )
+        ) from exc
+
+    if not row:
+        return HistorySourceTypeCounts(total=0, text=0, url=0, file=0)
+
+    return HistorySourceTypeCounts(
+        total=int(row[0] or 0),
+        text=int(row[1] or 0),
+        url=int(row[2] or 0),
+        file=int(row[3] or 0),
+    )
 
 
 _EXPORT_MAX_ROWS = 10_000

@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.credibility import classify_verdict
 from app.core.errors import make_error_detail
-from app.db.history import export_user_analysis_history, list_user_analysis_history
+from app.db.history import (
+    count_history_source_type_facets,
+    count_history_verdict_facets,
+    export_user_analysis_history,
+    list_user_analysis_history,
+)
 from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import AnalysisHistoryItem, HistoryResponse
@@ -78,6 +83,20 @@ async def get_history(
             verdict=None if verdict == "all" else verdict,
             status=None if status == "all" else status,
         )
+        # Conteos globales por veredicto (independientes del filtro de veredicto).
+        verdict_counts = await count_history_verdict_facets(
+            user_id=user_id,
+            search_query=search,
+            source_type=None if source_type == "all" else source_type,
+            created_after=_get_date_threshold(date_range),
+        )
+        # Conteos globales por tipo de fuente (independientes del filtro de tipo).
+        source_type_counts = await count_history_source_type_facets(
+            user_id=user_id,
+            search_query=search,
+            verdict=None if verdict == "all" else verdict,
+            created_after=_get_date_threshold(date_range),
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -108,6 +127,8 @@ async def get_history(
         "count": total_count,
         "page": page,
         "page_size": page_size,
+        "verdict_counts": verdict_counts,
+        "source_type_counts": source_type_counts,
     }
 
 
