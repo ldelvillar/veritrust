@@ -14,7 +14,7 @@ import { SITE_CONFIG } from '@/config/site';
 export const metadata: Metadata = {
   title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
   description:
-    'VeriTrust es un detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos afirmación por afirmación, con un 88% de precisión y fuentes citadas (OMS, Cochrane, NIH).',
+    'Detector de noticias falsas de salud con IA. Verifica afirmaciones médicas una a una, con 88% de precisión y fuentes citadas (OMS, Cochrane, NIH).',
   keywords: [
     'detector de noticias falsas de salud',
     'verificar bulos médicos',
