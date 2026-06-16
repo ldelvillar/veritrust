@@ -59,11 +59,20 @@ class DashboardAlertItem(BaseModel):
         return compute_credibility(self.label, self.confidence)
 
 
+class DashboardVerdictDistribution(BaseModel):
+    """Reparto de análisis completados por veredicto (real/uncertain/fake)."""
+
+    real: int
+    uncertain: int
+    fake: int
+
+
 class DashboardSummaryResponse(BaseModel):
     """Modelo de datos para el resumen del dashboard."""
 
     status: str
     kpis: DashboardKpis
+    verdict_distribution: DashboardVerdictDistribution
     trend: list[DashboardTrendPoint]
     source_breakdown: list[DashboardSourceBreakdownItem]
     domain_breakdown: list[DashboardDomainBreakdownItem]

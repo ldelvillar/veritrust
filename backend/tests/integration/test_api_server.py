@@ -1069,6 +1069,11 @@ def test_dashboard_summary_returns_summary(monkeypatch):
             week_over_week_delta=15.0,
             active_alerts=7,
         ),
+        verdict_distribution=types.SimpleNamespace(
+            real=10,
+            uncertain=6,
+            fake=7,
+        ),
         trend=[
             types.SimpleNamespace(
                 date="2026-04-10",
@@ -1119,6 +1124,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     assert body["status"] == "success"
     assert body["kpis"]["total_analyses"] == 23
     assert body["kpis"]["active_alerts"] == 7
+    assert body["verdict_distribution"] == {"real": 10, "uncertain": 6, "fake": 7}
     assert body["trend"][0]["date"] == "2026-04-10"
     assert body["source_breakdown"][0]["source_type"] == "url"
     assert body["domain_breakdown"][0]["domain"] == "ejemplo.com"

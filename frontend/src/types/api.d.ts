@@ -415,6 +415,7 @@ export interface components {
             /** Status */
             status: string;
             kpis: components["schemas"]["DashboardKpis"];
+            verdict_distribution: components["schemas"]["DashboardVerdictDistribution"];
             /** Trend */
             trend: components["schemas"]["DashboardTrendPoint"][];
             /** Source Breakdown */
@@ -435,6 +436,18 @@ export interface components {
             total: number;
             /** Average Confidence */
             average_confidence: number;
+        };
+        /**
+         * DashboardVerdictDistribution
+         * @description Reparto de análisis completados por veredicto (real/uncertain/fake).
+         */
+        DashboardVerdictDistribution: {
+            /** Real */
+            real: number;
+            /** Uncertain */
+            uncertain: number;
+            /** Fake */
+            fake: number;
         };
         /**
          * ErrorCode

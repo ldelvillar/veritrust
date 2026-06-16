@@ -17,6 +17,7 @@ from app.schemas.dashboard import (
     DashboardSourceBreakdownItem,
     DashboardSummaryResponse,
     DashboardTrendPoint,
+    DashboardVerdictDistribution,
 )
 
 logger = logging.getLogger(__name__)
@@ -330,6 +331,14 @@ async def get_user_dashboard_summary(
         previous_week_total=previous_week_total,
     )
 
+    # 'incierto' es el resto: ni fiable ni no fiable. Así los tres suman el total
+    uncertain_total = max(0, total_analyses - reliable_total - active_alerts)
+    verdict_distribution = DashboardVerdictDistribution(
+        real=reliable_total,
+        uncertain=uncertain_total,
+        fake=active_alerts,
+    )
+
     trend_points = _build_trend_points(
         trend_rows=trend_rows,
         trend_start_date=trend_start_date,
@@ -348,6 +357,7 @@ async def get_user_dashboard_summary(
             week_over_week_delta=week_over_week_delta,
             active_alerts=active_alerts,
         ),
+        verdict_distribution=verdict_distribution,
         trend=trend_points,
         source_breakdown=source_breakdown,
         domain_breakdown=domain_breakdown,

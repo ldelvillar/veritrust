@@ -13,6 +13,7 @@ import EmptyState from './_components/EmptyState';
 import KpiCard from './_components/KpiCard';
 import SourcesCard from './_components/SourcesCard';
 import TrendChart from './_components/TrendChart';
+import VerdictDistributionCard from './_components/VerdictDistributionCard';
 import type { DashboardPayload } from './_components/types';
 
 interface DashboardClientProps {
@@ -90,6 +91,9 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           hint="Análisis recientes con puntuación de credibilidad baja que requieren atención."
         />
       </div>
+
+      {/* Verdict distribution */}
+      <VerdictDistributionCard distribution={dashboard.verdict_distribution} />
 
       {/* Trend + Sources row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
