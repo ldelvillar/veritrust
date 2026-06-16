@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
 import Scan from '@/assets/Scan';
@@ -42,6 +43,10 @@ const STEPS = [
   },
 ] as const;
 
+// Pasado el límite duro del pipeline (10 min), un análisis aún pendiente está
+// claramente atascado: dejamos de dar falsas garantías y ofrecemos una salida.
+const SLOW_AFTER_SECONDS = 600;
+
 // El worker reporta la etapa real; aquí la traducimos al paso visible.
 const STAGE_INDEX: Record<string, number> = {
   preparing: 0,
@@ -77,7 +82,8 @@ export default function PendingAnalysis({
   // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
   const activeStep = stage != null ? (STAGE_INDEX[stage] ?? 0) : 0;
 
-  const showReassurance = activeStep === STEPS.length - 1;
+  const isSlow = elapsed >= SLOW_AFTER_SECONDS;
+  const showReassurance = !isSlow && activeStep === STEPS.length - 1;
 
   return (
     <div
@@ -97,7 +103,7 @@ export default function PendingAnalysis({
           <span className="tabular-nums" aria-hidden="true">
             {formatElapsed(elapsed)}
           </span>{' '}
-          · Tiempo estimado: 8 min
+          · {isSlow ? 'Tardando más de lo habitual' : 'Tiempo estimado: 8 min'}
         </p>
       </div>
 
@@ -157,11 +163,37 @@ export default function PendingAnalysis({
         })}
       </ol>
 
-      {showReassurance && (
+      {isSlow ? (
+        <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
+          <p className="text-sm font-bold text-amber-800">
+            Está tardando más de lo habitual
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-700">
+            El análisis sigue en marcha y esta página se actualizará sola al
+            terminar. Puedes esperar aquí o volver más tarde: lo guardamos en tu
+            historial. Si no llegara a completarse, se marcará como fallido y
+            podrás reintentarlo.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href="/app/historial"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-300 focus:outline-none"
+            >
+              Ir al historial
+            </Link>
+            <Link
+              href="/app/analisis"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-white px-3.5 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-200 focus:outline-none"
+            >
+              Analizar otro contenido
+            </Link>
+          </div>
+        </div>
+      ) : showReassurance ? (
         <p className="rounded-lg bg-primary/5 px-3.5 py-2 text-sm font-semibold text-primary">
           Casi listo, redactando el informe…
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
