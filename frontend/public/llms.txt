@@ -1,0 +1,17 @@
+# VeriTrust
+
+> VeriTrust es un detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos afirmación por afirmación, contrastándolos con literatura científica oficial (OMS, Cochrane, NIH, PubMed) y citando las fuentes, con un 88% de precisión.
+
+VeriTrust analiza contenido sanitario mediante cuatro agentes de IA encadenados: un extractor aísla las afirmaciones, un traductor normaliza idioma y terminología clínica, un investigador reúne evidencia científica en PubMed y Europe PMC, y un experto en salud contrasta cada afirmación con esa evidencia. Devuelve una etiqueta de veracidad, un nivel de confianza, veredictos por afirmación, las fuentes consultadas y una explicación. El servicio se ofrece en español.
+
+## Páginas principales
+
+- [Inicio](https://veritrust.es): Qué es VeriTrust, cómo funciona el sistema multiagente, características, casos de uso y planes (Gratis, Pro, Clínica).
+- [Solicitar demo](https://veritrust.es/demo): Demostración del sistema multiagente en vivo, integración por API e informes exportables.
+- [Contacto](https://veritrust.es/contacto): Canales de ventas y demos, soporte, prensa y alianzas.
+
+## Legal
+
+- [Política de privacidad](https://veritrust.es/politica-de-privacidad): Cómo VeriTrust recopila, utiliza y protege los datos personales de sus usuarios.
+- [Aviso legal](https://veritrust.es/aviso-legal): Información legal del titular y condiciones de uso del sitio.
+- [Términos y condiciones](https://veritrust.es/terminos-y-condiciones): Condiciones del servicio.
