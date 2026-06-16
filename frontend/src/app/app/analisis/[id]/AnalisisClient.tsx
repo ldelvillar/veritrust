@@ -11,6 +11,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
 import { useAnalysisShare } from '@/hooks/useAnalysisShare';
+import { useCompletionNotification } from '@/hooks/useCompletionNotification';
 import type { paths } from '@/types/api';
 
 type AnalysisDetail =
@@ -50,6 +51,8 @@ export default function AnalisisClient({
   });
 
   const current = data ?? initialData;
+  // Avisa por notificación si el análisis termina con la pestaña en segundo plano.
+  useCompletionNotification(id, current.status);
   // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const shareToken = current.share_token ?? null;
