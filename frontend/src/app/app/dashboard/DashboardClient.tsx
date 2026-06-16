@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import ListIcon from '@/assets/List';
 import ShieldIcon from '@/assets/Shield';
 import SparkleIcon from '@/assets/Sparkle';
@@ -11,6 +11,10 @@ import AlertsCard from './_components/AlertsCard';
 import DomainsCard from './_components/DomainsCard';
 import EmptyState from './_components/EmptyState';
 import KpiCard from './_components/KpiCard';
+import RangeSelector, {
+  RANGE_DAYS,
+  type DashboardRange,
+} from './_components/RangeSelector';
 import SourcesCard from './_components/SourcesCard';
 import TrendChart from './_components/TrendChart';
 import VerdictDistributionCard from './_components/VerdictDistributionCard';
@@ -20,10 +24,17 @@ interface DashboardClientProps {
   initialData: DashboardPayload;
 }
 
+// El SSR carga el rango por defecto (14 d); solo ese reusa initialData como fallback.
+const DEFAULT_RANGE: DashboardRange = '14d';
+
 export default function DashboardClient({ initialData }: DashboardClientProps) {
-  const { data } = useApiQuery<DashboardPayload>('/dashboard/summary', {
-    fallbackData: initialData,
-  });
+  const [range, setRange] = useState<DashboardRange>(DEFAULT_RANGE);
+  const days = RANGE_DAYS[range];
+
+  const { data } = useApiQuery<DashboardPayload>(
+    `/dashboard/summary?trend_days=${days}`,
+    { fallbackData: range === DEFAULT_RANGE ? initialData : undefined }
+  );
   const dashboard = data ?? initialData;
 
   const sparkTotal = useMemo(
@@ -45,6 +56,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         eyebrow="Panorama general"
         title="Dashboard"
         subtitle="Actividad, credibilidad y riesgos detectados en el conjunto de tus análisis."
+        actions={<RangeSelector value={range} onChange={setRange} />}
       />
 
       {/* KPI row */}
@@ -101,7 +113,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
-                Tendencia (14 días)
+                Tendencia ({days} días)
               </h2>
               <p className="mt-1 text-[13px] leading-snug text-muted">
                 Volumen diario de análisis y confianza media del periodo.

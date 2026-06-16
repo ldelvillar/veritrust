@@ -1108,8 +1108,9 @@ def test_dashboard_summary_returns_summary(monkeypatch):
         ],
     )
 
-    async def fake_get_user_dashboard_summary(*, user_id):
+    async def fake_get_user_dashboard_summary(*, user_id, trend_days=14):
         assert user_id == "test-user"
+        assert trend_days == 14
         return summary
 
     monkeypatch.setattr(
@@ -1211,7 +1212,7 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_user_dashboard_summary(*, user_id):
+    async def fake_get_user_dashboard_summary(*, user_id, trend_days=14):
         raise DatabaseError("db down")
 
     monkeypatch.setattr(
@@ -1223,6 +1224,50 @@ def test_dashboard_summary_returns_500_when_database_fails(monkeypatch):
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "DASHBOARD_FETCH_FAILED"
+
+
+def test_dashboard_summary_forwards_trend_days(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    received: dict = {}
+
+    async def fake_get_user_dashboard_summary(*, user_id, trend_days=14):
+        received["trend_days"] = trend_days
+        return types.SimpleNamespace(
+            status="success",
+            kpis=types.SimpleNamespace(
+                total_analyses=0,
+                reliable_rate=0.0,
+                average_confidence=0.0,
+                week_over_week_delta=0.0,
+                active_alerts=0,
+            ),
+            verdict_distribution=types.SimpleNamespace(real=0, uncertain=0, fake=0),
+            trend=[],
+            source_breakdown=[],
+            domain_breakdown=[],
+            alerts=[],
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.dashboard.get_user_dashboard_summary",
+        fake_get_user_dashboard_summary,
+    )
+
+    response = client.get("/dashboard/summary", params={"trend_days": 30})
+
+    assert response.status_code == 200
+    assert received["trend_days"] == 30
+
+
+def test_dashboard_summary_rejects_out_of_range_trend_days(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get("/dashboard/summary", params={"trend_days": 365})
+
+    assert response.status_code == 422
 
 
 _MINIMAL_PDF = b"%PDF-1.4 minimal content"

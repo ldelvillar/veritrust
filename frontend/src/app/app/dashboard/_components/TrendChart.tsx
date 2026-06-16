@@ -19,6 +19,8 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
   const slot = plotW / (data.length || 1);
   const barW = slot * 0.4;
   const grid = [0, 0.25, 0.5, 0.75, 1];
+  // En rangos largos (30/90 d) hay demasiadas barras diarias para etiquetar cada una.
+  const labelStep = Math.max(1, Math.ceil(data.length / 12));
 
   const linePts = data.map((t, i) => ({
     x: padL + i * slot + slot / 2,
@@ -78,6 +80,7 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
           day: 'numeric',
           month: 'numeric',
         });
+        const showLabel = i % labelStep === 0 || i === data.length - 1;
         return (
           <g
             key={t.date}
@@ -92,17 +95,19 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
               rx={5}
               fill="url(#barGrad)"
             />
-            <text
-              x={(x + barW / 2).toFixed(1)}
-              y={H - 12}
-              fill="#a3a4ba"
-              fontFamily="Mulish,system-ui,sans-serif"
-              fontSize={11}
-              fontWeight={600}
-              textAnchor="middle"
-            >
-              {label}
-            </text>
+            {showLabel && (
+              <text
+                x={(x + barW / 2).toFixed(1)}
+                y={H - 12}
+                fill="#a3a4ba"
+                fontFamily="Mulish,system-ui,sans-serif"
+                fontSize={11}
+                fontWeight={600}
+                textAnchor="middle"
+              >
+                {label}
+              </text>
+            )}
           </g>
         );
       })}
