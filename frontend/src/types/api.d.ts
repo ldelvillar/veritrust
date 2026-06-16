@@ -1241,7 +1241,9 @@ export interface operations {
     };
     get_dashboard_summary_dashboard_summary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                trend_days?: number;
+            };
             header?: {
                 authorization?: string;
             };
