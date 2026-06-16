@@ -9,6 +9,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Solicitar Demo',
+  alternates: { canonical: '/demo' },
   description:
     'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
 };

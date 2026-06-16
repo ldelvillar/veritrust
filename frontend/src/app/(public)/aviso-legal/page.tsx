@@ -3,6 +3,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Aviso Legal',
+  alternates: { canonical: '/aviso-legal' },
   description:
     'Consulta el aviso legal de VeriTrust con la información del titular, condiciones de uso y responsabilidades.',
 };

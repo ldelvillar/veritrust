@@ -13,6 +13,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
+  alternates: { canonical: '/' },
   description:
     'Detector de noticias falsas de salud con IA. Verifica afirmaciones médicas una a una, con 88% de precisión y fuentes citadas (OMS, Cochrane, NIH).',
   keywords: [

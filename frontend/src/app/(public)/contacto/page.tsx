@@ -12,6 +12,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Contacto',
+  alternates: { canonical: '/contacto' },
   description:
     'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de noticias falsas de salud con IA.',
 };

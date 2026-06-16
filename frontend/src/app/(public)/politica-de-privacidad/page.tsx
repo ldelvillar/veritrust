@@ -3,6 +3,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad',
+  alternates: { canonical: '/politica-de-privacidad' },
   description:
     'Conoce como VeriTrust recopila, utiliza y protege los datos personales de sus usuarios.',
 };

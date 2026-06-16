@@ -3,6 +3,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones',
+  alternates: { canonical: '/terminos-y-condiciones' },
   description:
     'Revisa los términos y condiciones de uso de la plataforma VeriTrust.',
 };
