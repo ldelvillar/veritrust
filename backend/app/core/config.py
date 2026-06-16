@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     ollama_judge_model: str = "llama3.2"
 
     # Tope por llamada al LLM; una llamada lenta falla en vez de agotar todo el job
-    ollama_request_timeout_seconds: int = 120
+    ollama_request_timeout_seconds: int = 240
     # Ventana de contexto (num_ctx) y tope de generación (num_predict) por agente
     ollama_extractor_num_ctx: int = 8192
     ollama_extractor_num_predict: int = 1024
