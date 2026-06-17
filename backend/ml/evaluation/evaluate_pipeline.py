@@ -5,22 +5,18 @@ conjunto etiquetado de PubHealth y reporta métricas de clasificación.
 
 import argparse
 import asyncio
+import json
 import logging
-import sys
 from pathlib import Path
 from time import time
-from typing import TypedDict
-
-# Asegurar que al ejecutar este archivo como script, se use el código local del repositorio.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from typing import TypedDict, cast
 
 import pandas as pd
 
 from app.agents.errors import ainvoke_graph
 from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
+from app.core.credibility import classify_verdict
 from app.prompts.agents import load_prompts
 from app.utils.ollama import ensure_ollama_available
 from ml.utils.load_data import load_dataset
@@ -83,49 +79,103 @@ def _build_initial_state(text: str) -> dict[str, object]:
     }
 
 
-async def evaluate_pipeline(samples: list[Sample], graph: object) -> list[EvalRow]:
-    """Ejecuta el grafo completo sobre cada muestra y devuelve sus predicciones."""
-    rows: list[EvalRow] = []
-    total = len(samples)
-    for i, sample in enumerate(samples, start=1):
-        result = await ainvoke_graph(graph, _build_initial_state(sample["text"]))
-        label = result.get("label") or None
-        explanation = result.get("medical_explanation") or None
+def load_checkpoint(path: Path) -> dict[str, EvalRow]:
+    """Lee las filas ya evaluadas de un checkpoint JSONL; vacío si no existe."""
+    done: dict[str, EvalRow] = {}
+    if not path.exists():
+        return done
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                row = json.loads(stripped)
+            except json.JSONDecodeError:
+                # Línea corrupta (p. ej. crash a media escritura): se ignora.
+                continue
+            if isinstance(row, dict) and "text" in row:
+                done[row["text"]] = cast(EvalRow, row)
+    return done
 
-        # Sin explicación: el texto no contenía afirmaciones médicas verificables.
-        predicted = label if (label and explanation) else None
-        rows.append(
-            {
+
+async def evaluate_pipeline(
+    samples: list[Sample], graph: object, checkpoint_path: Path | None = None
+) -> list[EvalRow]:
+    """Ejecuta el grafo sobre cada muestra, con checkpoint y reanudación opcionales."""
+    done: dict[str, EvalRow] = (
+        load_checkpoint(checkpoint_path) if checkpoint_path else {}
+    )
+    pending = [s for s in samples if s["text"] not in done]
+    total = len(pending)
+    if done:
+        logger.info("Reanudando: %d ya evaluadas, %d pendientes", len(done), total)
+
+    # Solo se persisten muestras completadas; una que falla se reintenta al reanudar.
+    handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
+    try:
+        for i, sample in enumerate(pending, start=1):
+            try:
+                result = await ainvoke_graph(
+                    graph, _build_initial_state(sample["text"])
+                )
+            except Exception:
+                logger.exception(
+                    "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
+                )
+                continue
+
+            label = result.get("label") or None
+            explanation = result.get("medical_explanation") or None
+            # Sin explicación: el texto no contenía afirmaciones médicas verificables.
+            predicted = label if (label and explanation) else None
+            row: EvalRow = {
                 "text": sample["text"],
                 "expected": sample["expected"],
                 "predicted": predicted,
                 "confidence": float(result.get("confidence") or 0.0),
             }
-        )
-        logger.info(
-            "[%d/%d] esperado=%s predicho=%s",
-            i,
-            total,
-            sample["expected"],
-            predicted or "sin_afirmaciones",
-        )
-    return rows
+            done[sample["text"]] = row
+            if handle is not None:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                handle.flush()
+            logger.info(
+                "[%d/%d] esperado=%s predicho=%s",
+                i,
+                total,
+                sample["expected"],
+                predicted or "sin_afirmaciones",
+            )
+    finally:
+        if handle is not None:
+            handle.close()
+
+    # Filas de las muestras de esta ejecución, en orden; las fallidas quedan fuera.
+    return [done[s["text"]] for s in samples if s["text"] in done]
+
+
+def _is_abstention(predicted: str | None) -> bool:
+    """Sin afirmaciones (None) o veredicto no firme ('incierta') no puntúan."""
+    return predicted is None or classify_verdict(predicted) == "uncertain"
 
 
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     """Calcula la matriz de confusión y métricas tomando 'falsa' como positivo."""
-    scored = [r for r in rows if r["predicted"] is not None]
-    skipped = len(rows) - len(scored)
+    # Abstenerse ('incierta') es seguro, no un error: se excluye de las métricas.
+    scored = [r for r in rows if not _is_abstention(r["predicted"])]
+    skipped = sum(1 for r in rows if r["predicted"] is None)
+    uncertain = len(rows) - len(scored) - skipped
 
     tp = fp = tn = fn = 0
     for row in scored:
-        expected, predicted = row["expected"], row["predicted"]
-        if expected == "falsa":
-            tp += predicted == "falsa"
-            fn += predicted != "falsa"
+        expected_fake = row["expected"] == "falsa"
+        predicted_fake = classify_verdict(row["predicted"]) == "fake"
+        if expected_fake:
+            tp += predicted_fake
+            fn += not predicted_fake
         else:
-            tn += predicted == "verdadera"
-            fp += predicted != "verdadera"
+            tn += not predicted_fake
+            fp += predicted_fake
 
     total = tp + tn + fp + fn
     accuracy = (tp + tn) / total if total else 0.0
@@ -143,6 +193,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "fp": fp,
         "fn": fn,
         "evaluated": total,
+        "uncertain": uncertain,
         "skipped": skipped,
     }
 
@@ -153,6 +204,7 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
         "",
         "===== Evaluación del pipeline multiagente =====",
         f"Muestras evaluadas : {int(metrics['evaluated'])}",
+        f"Veredicto incierto : {int(metrics['uncertain'])} (abstención, excluida de las métricas)",
         f"Sin afirmaciones   : {int(metrics['skipped'])} (excluidas de las métricas)",
         f"TP={int(metrics['tp'])} TN={int(metrics['tn'])} "
         f"FP={int(metrics['fp'])} FN={int(metrics['fn'])}",
@@ -162,10 +214,12 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
         f"F1-score  : {metrics['f1_score']:.2%}",
     ]
 
+    # Solo cuentan como error los veredictos firmes que discrepan de lo esperado.
     errors = [
         r
         for r in rows
-        if r["predicted"] is not None and r["predicted"] != r["expected"]
+        if not _is_abstention(r["predicted"])
+        and (classify_verdict(r["predicted"]) == "fake") != (r["expected"] == "falsa")
     ]
     if errors:
         lines.append("")
@@ -194,7 +248,28 @@ def main() -> dict[str, float]:
     parser.add_argument(
         "--seed", type=int, default=42, help="Semilla para un muestreo reproducible."
     )
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Ruta del checkpoint JSONL (por defecto results/eval_pipeline_<partición>.jsonl).",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Ignora cualquier checkpoint previo y evalúa desde cero.",
+    )
     args = parser.parse_args()
+
+    # results/ está git-ignored; el checkpoint permite reanudar una evaluación larga.
+    default_dir = Path(__file__).resolve().parents[2] / "results"
+    checkpoint_path = (
+        Path(args.checkpoint)
+        if args.checkpoint
+        else default_dir / f"eval_pipeline_{args.partition}.jsonl"
+    )
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    if args.fresh:
+        checkpoint_path.unlink(missing_ok=True)
 
     ensure_ollama_available()
     ensure_bert_detector_ready()
@@ -206,10 +281,17 @@ def main() -> dict[str, float]:
     )
 
     start = time()
-    rows = asyncio.run(evaluate_pipeline(samples, graph))
+    rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path))
     metrics = compute_metrics(rows)
 
     print(format_report(metrics, rows))
+    failed = len(samples) - len(rows)
+    if failed:
+        logger.warning(
+            "%d muestras fallaron y no se evaluaron; vuelve a ejecutar para reintentarlas.",
+            failed,
+        )
+    logger.info("Checkpoint: %s", checkpoint_path)
     logger.info("Tiempo total: %.1f s", time() - start)
     return metrics
 
