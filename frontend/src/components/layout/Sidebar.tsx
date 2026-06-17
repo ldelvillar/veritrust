@@ -10,6 +10,7 @@ import DashboardIcon from '@/assets/Dashboard';
 import NewIcon from '@/assets/New';
 import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
+import SettingsIcon from '@/assets/Settings';
 
 const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
@@ -171,7 +172,15 @@ function SidebarContent({
           <div
             className={`flex items-center py-1.5 ${collapsed ? 'mt-2 justify-center border-t border-line pt-4' : 'gap-3 px-1.5'}`}
           >
-            <UserButton />
+            <UserButton>
+              <UserButton.MenuItems>
+                <UserButton.Link
+                  label="Cuenta y datos"
+                  labelIcon={<SettingsIcon className="size-4" />}
+                  href="/app/cuenta"
+                />
+              </UserButton.MenuItems>
+            </UserButton>
             {!collapsed && (
               <div className="min-w-0">
                 <div className="truncate text-[13.5px] font-bold text-body">
