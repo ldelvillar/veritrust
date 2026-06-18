@@ -11,7 +11,7 @@ import Magnifier from '@/assets/Magnifier';
 import TypeIcon from '@/assets/Type';
 import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
-import PlusIcon from '@/assets/Plus';
+import PlusBoxIcon from '@/assets/PlusBox';
 import SortIcon from '@/assets/Sort';
 import type {
   DateSortOrder,
@@ -351,14 +351,14 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           title="Análisis anteriores"
           subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
           actions={
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex flex-col items-end gap-1">
+            <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
+              <div className="flex flex-1 flex-col items-end gap-1 sm:flex-none">
                 <button
                   type="button"
                   onClick={handleExport}
                   disabled={isExporting || totalCount === 0}
                   aria-busy={isExporting}
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-2"
                 >
                   {isExporting ? (
                     <Spinner className="size-4 animate-spin text-primary" />
@@ -378,9 +378,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               </div>
               <Link
                 href="/app/analisis"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none sm:flex-none sm:py-2"
               >
-                <PlusIcon className="size-4" aria-hidden />
+                <PlusBoxIcon className="size-4.5" aria-hidden />
                 Nuevo análisis
               </Link>
             </div>
@@ -389,7 +389,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       </div>
 
       {/* Stat cards — clickable verdict filters */}
-      <div className="mb-5.5 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+      <div className="mb-5.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {STAT_CARDS.map(card => {
           const isActive =
             verdictFilter === card.verdictValue ||
@@ -436,9 +436,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       </div>
 
       {/* Toolbar: search + segmented type + sort */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-2.5 md:gap-3">
         {/* Search */}
-        <label className="relative flex h-11.5 min-w-55 flex-1 items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+        <label className="relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1">
           <Magnifier className="size-4.5 shrink-0 text-faint" aria-hidden />
           <input
             type="text"
@@ -461,7 +461,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
         {/* Segmented source type filter */}
         <div
-          className="flex h-11.5 items-center gap-0.75 rounded-[13px] border border-line bg-surface p-1"
+          className="scrollbar-none flex h-11 flex-1 items-center gap-0.75 overflow-x-auto rounded-[13px] border border-line bg-surface p-1 md:h-11.5 md:flex-none md:overflow-visible"
           role="tablist"
           aria-label="Filtrar por tipo"
         >
@@ -477,7 +477,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => handleSourceTypeFilterChange(opt.id)}
-                className={`inline-flex h-9.5 items-center gap-1.75 rounded-[9px] px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition ${
+                className={`inline-flex h-9 flex-1 items-center justify-center gap-1.75 rounded-[9px] px-2 text-[13.5px] font-semibold whitespace-nowrap transition md:h-9.5 md:flex-none md:px-3.5 ${
                   isActive
                     ? 'bg-white text-primary shadow-sm'
                     : 'text-muted hover:text-body'
@@ -499,7 +499,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         </div>
 
         {/* Sort select */}
-        <div className="relative flex items-center">
+        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
           <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
             <SortIcon className="size-4" aria-hidden />
           </span>
@@ -509,7 +509,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               handleDateSortOrderChange(e.target.value as DateSortOrder)
             }
             aria-label="Ordenar por fecha"
-            className="h-11.5 cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10"
+            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
           >
             <option value="desc">Más recientes</option>
             <option value="asc">Más antiguos</option>

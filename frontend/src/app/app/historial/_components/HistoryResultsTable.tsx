@@ -112,7 +112,7 @@ function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
   const cfg = TONE_CONFIG[tone];
   return (
     <div
-      className="relative size-[50px] shrink-0"
+      className="relative size-12.5 shrink-0"
       aria-label={`Credibilidad: ${score}/100`}
     >
       <svg viewBox="0 0 48 48" className="size-full" aria-hidden>
@@ -149,7 +149,7 @@ function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
 
 function GaugePlaceholder({ status }: { status: HistoryItem['status'] }) {
   return (
-    <div className="relative size-[50px] shrink-0">
+    <div className="relative size-12.5 shrink-0">
       <svg viewBox="0 0 48 48" className="size-full" aria-hidden>
         <circle
           cx="24"
@@ -198,14 +198,14 @@ export default function HistoryResultsTable({
     return (
       <div className="rounded-[18px] border border-line bg-white shadow-sm">
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <div className="flex size-[60px] items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
+          <div className="flex size-15 items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
             {hasActiveFilters ? (
               <FunnelIcon className="size-7" />
             ) : (
               <Magnifier className="size-7" />
             )}
           </div>
-          <h3 className="mt-[18px] text-lg font-bold tracking-tight text-ink">
+          <h3 className="mt-4.5 text-lg font-bold tracking-tight text-ink">
             {hasActiveFilters ? 'Sin resultados' : 'Aún no has analizado nada'}
           </h3>
           <p className="mt-1.5 max-w-sm text-sm font-medium text-muted">
@@ -217,14 +217,14 @@ export default function HistoryResultsTable({
             <button
               type="button"
               onClick={onClearFilters}
-              className="mt-[18px] inline-flex items-center gap-2 rounded-xl border border-line bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              className="mt-4.5 inline-flex items-center gap-2 rounded-xl border border-line bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
             >
               Limpiar filtros
             </button>
           ) : (
             <Link
               href="/app/analisis"
-              className="mt-[18px] inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
+              className="mt-4.5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
             >
               Analizar contenido
             </Link>
@@ -334,7 +334,7 @@ export default function HistoryResultsTable({
             return (
               <li
                 key={item.analysis_id}
-                className="group relative flex items-center gap-[18px] overflow-hidden rounded-2xl border border-line bg-white py-[18px] pr-[22px] pl-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md"
+                className="group relative flex flex-wrap items-center gap-3.5 overflow-hidden rounded-2xl border border-line bg-white py-4 pr-4 pl-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md sm:flex-nowrap sm:gap-4.5 sm:py-4.5 sm:pr-5.5 sm:pl-6"
               >
                 {/* Left tone rail */}
                 <div
@@ -351,10 +351,10 @@ export default function HistoryResultsTable({
                 )}
 
                 {/* Main content */}
-                <div className="min-w-0 flex-1">
+                <div className="min-w-35 flex-1">
                   <div className="mb-1.5 flex flex-wrap items-center gap-2">
                     <span
-                      className="flex size-[22px] shrink-0 items-center justify-center rounded-[7px]"
+                      className="flex size-5.5 shrink-0 items-center justify-center rounded-[7px]"
                       style={{
                         background: typeMeta.tint,
                         color: typeMeta.color,
@@ -366,30 +366,30 @@ export default function HistoryResultsTable({
                       {typeMeta.label}
                     </span>
                     <span
-                      className="size-[3px] rounded-full bg-faint"
+                      className="size-0.75 rounded-full bg-faint"
                       aria-hidden
                     />
                     <span className="text-[12.5px] font-semibold whitespace-nowrap text-faint">
                       {formattedDate}
                     </span>
                   </div>
-                  <p className="truncate text-[15px] font-semibold text-ink transition-colors group-hover:text-primary">
+                  <p className="text-[15px] font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
                     {getTitle(item)}
                   </p>
-                  <p className="mt-1 truncate text-[12.5px] font-semibold text-muted">
+                  <p className="mt-1 text-[12.5px] font-semibold text-muted sm:truncate">
                     Fuente:{' '}
                     <b className="font-bold text-body">{getSource(item)}</b>
                   </p>
                 </div>
 
                 {/* Right column */}
-                <div className="flex shrink-0 items-center gap-[18px]">
+                <div className="flex flex-[1_1_100%] items-center justify-between gap-2.5 border-t border-line pt-3.5 sm:flex-none sm:gap-4.5 sm:border-0 sm:pt-0">
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-[.04em] whitespace-nowrap uppercase"
                     style={{ color: badgeTextColor, background: badgeBgColor }}
                   >
                     <span
-                      className="size-[7px] rounded-full bg-current"
+                      className="size-1.75 rounded-full bg-current"
                       aria-hidden
                     />
                     {badgeText}
@@ -398,17 +398,17 @@ export default function HistoryResultsTable({
                   <div className="flex items-center gap-1">
                     <Link
                       href={`/app/analisis/${item.analysis_id}`}
-                      className="inline-flex items-center gap-1.5 rounded-[9px] px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-primary transition hover:bg-primary/8"
+                      className="inline-flex items-center gap-1.5 rounded-[9px] bg-primary/8 px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-primary transition hover:bg-primary/15 sm:bg-transparent sm:hover:bg-primary/8"
                     >
                       {detailLabel}
-                      <ArrowRightIcon className="size-[15px] transition-transform group-hover:translate-x-0.5" />
+                      <ArrowRightIcon className="size-3.75 transition-transform group-hover:translate-x-0.5" />
                     </Link>
                     <button
                       type="button"
                       onClick={() => onDelete(item)}
                       disabled={isDeleting}
                       aria-label="Eliminar análisis"
-                      className="flex size-[34px] items-center justify-center rounded-[9px] text-faint transition hover:bg-[#fbe4e8] hover:text-[#c23552] focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex size-8.5 items-center justify-center rounded-[9px] text-faint transition hover:bg-[#fbe4e8] hover:text-[#c23552] focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isDeleting ? (
                         <Spinner className="size-4 animate-spin text-red-500" />
@@ -440,7 +440,7 @@ export default function HistoryResultsTable({
             onClick={() => onPageChange(safePage - 1)}
             disabled={paginationDisabled || safePage === 1}
             aria-label="Página anterior"
-            className="flex size-[38px] items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             ‹
           </button>
@@ -454,7 +454,7 @@ export default function HistoryResultsTable({
                 onClick={() => onPageChange(page)}
                 disabled={paginationDisabled}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex size-[38px] items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
+                className={`flex size-9.5 items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
                   isActive
                     ? 'bg-primary text-white shadow-[0_6px_16px_rgba(99,86,230,.3)]'
                     : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
@@ -470,7 +470,7 @@ export default function HistoryResultsTable({
             onClick={() => onPageChange(safePage + 1)}
             disabled={paginationDisabled || safePage === totalPages}
             aria-label="Página siguiente"
-            className="flex size-[38px] items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             ›
           </button>
