@@ -88,10 +88,6 @@ export default function ContactoPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2 text-[12.5px] font-extrabold tracking-widest whitespace-nowrap text-white uppercase">
-            <span className="size-1.75 rounded-full bg-[#13b877] shadow-[0_0_0_4px_rgba(19,184,119,0.25)]" />
-            Estamos para ayudarte
-          </span>
           <h1 className="mt-5 mb-4 text-[34px] font-bold tracking-[-0.03em] text-white md:text-[44px]">
             Hablemos
           </h1>
