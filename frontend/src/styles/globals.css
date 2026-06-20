@@ -75,6 +75,28 @@ html {
   animation: floaty 5s ease-in-out infinite;
 }
 
+/* Esqueleto de carga con barrido (shimmer) usando un único elemento. */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #eceafa 25%, #f7f5fd 50%, #eceafa 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

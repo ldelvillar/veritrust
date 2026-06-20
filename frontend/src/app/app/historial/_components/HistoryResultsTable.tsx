@@ -8,6 +8,9 @@ import FunnelIcon from '@/assets/Funnel';
 import TypeIcon from '@/assets/Type';
 import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
+import RefreshIcon from '@/assets/Refresh';
+import HistoryStatePanel from './HistoryStatePanel';
+import { SkeletonRows } from './HistorySkeleton';
 import type { paths } from '@/types/api';
 
 type HistoryPayload =
@@ -246,35 +249,51 @@ export default function HistoryResultsTable({
   return (
     <div className="flex flex-col gap-3">
       {isLoading ? (
-        <div className="flex items-center justify-center gap-3 rounded-[18px] border border-line bg-white px-5 py-12 text-sm font-semibold text-muted shadow-sm">
-          <Spinner className="size-5 animate-spin text-primary" />
-          Cargando análisis...
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2.75 text-[13px] font-semibold text-muted">
+            <span
+              className="size-4.5 shrink-0 animate-spin rounded-full border-[2.5px] border-primary/20 border-t-primary"
+              aria-hidden
+            />
+            <span>Cargando análisis…</span>
+          </div>
+          <SkeletonRows count={6} />
         </div>
       ) : errorMessage ? (
-        <div className="rounded-[18px] border border-line bg-white px-5 py-10 shadow-sm">
-          <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <Warning className="mt-0.5 size-5 shrink-0 text-red-500" />
-              <div>
-                <p className="text-sm font-bold text-red-700">
-                  No se pudo cargar tu historial
-                </p>
-                <p className="mt-1 text-sm font-medium text-red-600">
-                  {errorMessage}
-                </p>
-                {onRetry ? (
-                  <button
-                    type="button"
-                    onClick={onRetry}
-                    className="mt-4 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
-                  >
-                    Reintentar
-                  </button>
-                ) : null}
-              </div>
+        <HistoryStatePanel
+          variant="red"
+          icon={<Warning className="size-9.5" />}
+          eyebrow="Error de conexión"
+          title="No se pudo cargar tu historial"
+          lead={
+            <>
+              No hemos podido recuperar tus informes guardados en este momento.
+              Tus análisis siguen <b className="font-bold text-body">a salvo</b>
+              ; solo es un problema temporal de conexión con el servidor.
+            </>
+          }
+          actions={
+            onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
+              >
+                <RefreshIcon className="size-4.5" aria-hidden />
+                Reintentar
+              </button>
+            )
+          }
+          footer={
+            <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
+              <span
+                className="size-1.75 shrink-0 rounded-full bg-[#e0556b]"
+                aria-hidden
+              />
+              <span className="truncate">{errorMessage}</span>
             </div>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {history.map(item => {
@@ -425,57 +444,55 @@ export default function HistoryResultsTable({
       )}
 
       {/* Pagination footer */}
-      <div className="mt-1 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[13px] font-semibold text-muted">
-          {isLoading
-            ? 'Cargando registros...'
-            : errorMessage
-              ? 'No se pudieron cargar los registros.'
-              : `Mostrando ${startRecord}–${endRecord} de ${totalCount} registros`}
-        </p>
+      {!isLoading && !errorMessage && (
+        <div className="mt-1 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] font-semibold text-muted">
+            {`Mostrando ${startRecord}–${endRecord} de ${totalCount} registros`}
+          </p>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onPageChange(safePage - 1)}
-            disabled={paginationDisabled || safePage === 1}
-            aria-label="Página anterior"
-            className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            ‹
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPageChange(safePage - 1)}
+              disabled={paginationDisabled || safePage === 1}
+              aria-label="Página anterior"
+              className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              ‹
+            </button>
 
-          {visiblePages.map(page => {
-            const isActive = page === safePage;
-            return (
-              <button
-                key={page}
-                type="button"
-                onClick={() => onPageChange(page)}
-                disabled={paginationDisabled}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex size-9.5 items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
-                  isActive
-                    ? 'bg-primary text-white shadow-[0_6px_16px_rgba(99,86,230,.3)]'
-                    : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
-                }`}
-              >
-                {page}
-              </button>
-            );
-          })}
+            {visiblePages.map(page => {
+              const isActive = page === safePage;
+              return (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => onPageChange(page)}
+                  disabled={paginationDisabled}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex size-9.5 items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
+                    isActive
+                      ? 'bg-primary text-white shadow-[0_6px_16px_rgba(99,86,230,.3)]'
+                      : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
 
-          <button
-            type="button"
-            onClick={() => onPageChange(safePage + 1)}
-            disabled={paginationDisabled || safePage === totalPages}
-            aria-label="Página siguiente"
-            className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            ›
-          </button>
+            <button
+              type="button"
+              onClick={() => onPageChange(safePage + 1)}
+              disabled={paginationDisabled || safePage === totalPages}
+              aria-label="Página siguiente"
+              className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              ›
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

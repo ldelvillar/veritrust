@@ -13,12 +13,14 @@ import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import PlusBoxIcon from '@/assets/PlusBox';
 import SortIcon from '@/assets/Sort';
+import HistoryIcon from '@/assets/History';
 import type {
   DateSortOrder,
   SourceTypeFilter,
   VerdictFilter,
 } from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
+import HistoryStatePanel from './_components/HistoryStatePanel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
@@ -125,6 +127,12 @@ const SOURCE_FACET_KEY: Record<SourceTypeFilter, keyof SourceTypeCounts> = {
   url: 'url',
   file: 'file',
 };
+
+const EMPTY_PRIMARY_BTN =
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none';
+
+const EMPTY_SOFT_BTN =
+  'inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-white px-6 py-3.5 text-[15px] font-bold text-body transition hover:border-primary hover:text-primary focus:ring-4 focus:ring-primary/15 focus:outline-none';
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const searchParams = useSearchParams();
@@ -342,6 +350,57 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   // Conteos globales del backend, independientes de la página y del propio filtro.
   const verdictFacets = data?.verdict_counts ?? null;
   const sourceFacets = data?.source_type_counts ?? null;
+
+  // Primera vez (sin análisis ni filtros): panel de bienvenida en vez de tabla vacía.
+  const isFirstTimeEmpty =
+    totalCount === 0 && !hasActiveFilters && !fetchError && !isLoading;
+
+  if (isFirstTimeEmpty) {
+    return (
+      <>
+        <div className="mb-6">
+          <PageHeader
+            title="Análisis anteriores"
+            subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
+            actions={
+              <Link
+                href="/app/analisis"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              >
+                <PlusBoxIcon className="size-4.5" aria-hidden />
+                Nuevo análisis
+              </Link>
+            }
+          />
+        </div>
+        <HistoryStatePanel
+          variant="violet"
+          icon={<HistoryIcon className="size-9.5" />}
+          eyebrow="Historial vacío"
+          title="Aún no has analizado nada"
+          lead={
+            <>
+              Cuando verifiques tu primer contenido, su informe de credibilidad
+              aparecerá aquí, listo para revisar, filtrar y exportar cuando lo
+              necesites.
+            </>
+          }
+          actions={
+            <>
+              <Link href="/app/analisis" className={EMPTY_PRIMARY_BTN}>
+                <PlusBoxIcon className="size-4.5" aria-hidden />
+                Analizar mi primer contenido
+              </Link>
+              <Link href="/app/ejemplo" className={EMPTY_SOFT_BTN}>
+                <DocumentIcon className="size-4.5" aria-hidden />
+                Ver un informe de ejemplo
+              </Link>
+            </>
+          }
+        />
+      </>
+    );
+  }
 
   return (
     <>
