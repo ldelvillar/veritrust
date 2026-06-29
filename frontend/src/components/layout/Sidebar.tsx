@@ -10,7 +10,7 @@ import DashboardIcon from '@/assets/Dashboard';
 import NewIcon from '@/assets/New';
 import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
-import SettingsIcon from '@/assets/Settings';
+import UserIcon from '@/assets/User';
 
 const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
@@ -176,7 +176,7 @@ function SidebarContent({
               <UserButton.MenuItems>
                 <UserButton.Link
                   label="Cuenta y datos"
-                  labelIcon={<SettingsIcon className="size-4" />}
+                  labelIcon={<UserIcon className="size-4" />}
                   href="/app/cuenta"
                 />
               </UserButton.MenuItems>
