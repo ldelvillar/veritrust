@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { esES } from '@clerk/localizations';
 import { Onest } from 'next/font/google';
 import { clientEnv } from '@/env/client';
 import '@/env/server';
@@ -57,7 +58,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${onest.className} antialiased`}>
-        <ClerkProvider publishableKey={clientEnv.clerkPublishableKey}>
+        <ClerkProvider
+          publishableKey={clientEnv.clerkPublishableKey}
+          localization={esES}
+        >
           {children}
         </ClerkProvider>
       </body>
