@@ -55,7 +55,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
           {confidence && (
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
               <ShieldIcon className="size-3.5 opacity-85" aria-hidden="true" />
-              {confidence}
+              {confidence} en el veredicto
             </span>
           )}
           {claimCount > 0 && (
