@@ -1,26 +1,103 @@
 import Link from 'next/link';
-import Magnifier from '@/assets/Magnifier';
+import GridIcon from '@/assets/Dashboard';
+import ListIcon from '@/assets/List';
+import PlusBoxIcon from '@/assets/PlusBox';
+import ShieldIcon from '@/assets/Shield';
+import SparkleIcon from '@/assets/Sparkle';
+import WarningIcon from '@/assets/Warning';
+import PageHeader from '@/components/PageHeader';
+
+const HINTS = [
+  { icon: ListIcon, label: 'Volumen de análisis' },
+  { icon: ShieldIcon, label: 'Tasa de fiabilidad' },
+  { icon: WarningIcon, label: 'Alertas de credibilidad' },
+] as const;
 
 export default function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-12">
-      <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
-          <Magnifier className="size-7" />
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader
+        eyebrow="Panorama general"
+        title="Dashboard"
+        subtitle="Actividad, credibilidad y riesgos detectados en los últimos días."
+        actions={
+          <Link
+            href="/app/analisis"
+            className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-primary focus:ring-4 focus:ring-accent/20 focus:outline-none"
+          >
+            <PlusBoxIcon className="size-4.5" />
+            Nuevo análisis
+          </Link>
+        }
+      />
+
+      <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] max-md:px-6 max-md:py-15">
+        {/* Dot grid background */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(rgba(99,86,230,.10) 1.1px, transparent 1.1px)',
+            backgroundSize: '22px 22px',
+            maskImage:
+              'radial-gradient(ellipse 60% 60% at 50% 38%, #000 0%, transparent 72%)',
+            WebkitMaskImage:
+              'radial-gradient(ellipse 60% 60% at 50% 38%, #000 0%, transparent 72%)',
+          }}
+        />
+
+        <div className="relative z-1 flex flex-col items-center">
+          {/* Icon */}
+          <div className="relative mb-6.5">
+            <div className="grid size-21 place-items-center rounded-3xl bg-linear-to-br from-[#7166ef] to-accent text-white shadow-[0_14px_30px_rgba(99,86,230,.34)]">
+              <GridIcon className="size-9.5" />
+            </div>
+            <div className="pointer-events-none absolute -inset-3.5 -z-1 rounded-4xl bg-[radial-gradient(circle,rgba(99,86,230,.22),transparent_68%)]" />
+          </div>
+
+          <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-accent uppercase">
+            Sin datos todavía
+          </p>
+          <h2 className="mb-3 text-[clamp(22px,2.6vw,27px)] leading-tight font-bold tracking-[-0.025em] text-balance text-ink">
+            Aún no hay nada que medir
+          </h2>
+          <p className="mx-auto mb-7.5 max-w-120 text-[15.5px] leading-relaxed font-medium text-pretty text-muted">
+            Tu dashboard cobra vida con tu primer análisis. A medida que
+            verifiques contenido, aquí verás tu volumen, la tasa de fiabilidad y
+            las alertas de baja credibilidad.
+          </p>
+
+          {/* CTAs */}
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/app/analisis"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-primary focus:ring-4 focus:ring-accent/20 focus:outline-none"
+            >
+              <PlusBoxIcon className="size-4.5" />
+              Analizar mi primer contenido
+            </Link>
+            <Link
+              href="/app/analisis?demo=true"
+              className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-6 py-3.5 text-[15px] font-bold text-ink shadow-sm transition hover:border-line-strong hover:shadow-md focus:ring-4 focus:ring-accent/20 focus:outline-none"
+            >
+              <SparkleIcon className="size-4.5" />
+              Ver una demostración
+            </Link>
+          </div>
+
+          {/* Hint badges */}
+          <div className="mt-9.5 flex flex-wrap justify-center gap-2.5">
+            {HINTS.map(({ icon: Icon, label }) => (
+              <span
+                key={label}
+                className="inline-flex items-center gap-2.5 rounded-xl border border-line bg-surface-subtle px-4 py-2.5 text-[13px] font-semibold text-body"
+              >
+                <Icon className="size-4.25 shrink-0 text-accent" />
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
-        <h1 className="mt-5 text-2xl font-black tracking-tight text-ink">
-          Empieza tu primer análisis
-        </h1>
-        <p className="mt-2 text-sm font-medium text-muted">
-          Tu panel se llenará con métricas, tendencias y alertas en cuanto
-          verifiques tu primer contenido médico.
-        </p>
-        <Link
-          href="/app/analisis"
-          className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#6356e6] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-[#6356e6]/20 focus:outline-none"
-        >
-          Analizar contenido
-        </Link>
       </div>
     </div>
   );
