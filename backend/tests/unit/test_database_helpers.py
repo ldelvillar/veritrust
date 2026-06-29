@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app.core.config import Settings
+from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
 from app.db import dashboard as dashboard_module
 from app.db import history as history_module
 from app.db import pool as pool_module
@@ -284,8 +285,8 @@ def test_build_history_where_clause_uncertain_excludes_real_and_fake() -> None:
     # El bucket incierto exige etiqueta no vacía para no arrastrar filas pending/failed.
     assert where_sql.endswith(
         f"AND (COALESCE(label, '') <> '' "
-        f"AND NOT {history_module._VERDICT_REAL_SQL} "
-        f"AND NOT {history_module._VERDICT_FAKE_SQL})"
+        f"AND NOT {VERDICT_REAL_SQL} "
+        f"AND NOT {VERDICT_FAKE_SQL})"
     )
     assert params == ["user-1"]
 

@@ -10,6 +10,7 @@ from typing import Any, Optional, Sequence
 import psycopg
 from psycopg.types.json import Jsonb
 
+from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.history import (
@@ -26,23 +27,13 @@ _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
 _VALID_VERDICTS = {"real", "fake", "uncertain"}
 _VALID_STATUSES = {"done", "pending", "failed"}
 
-# Espejo en SQL de classify_verdict
-_VERDICT_REAL_SQL = (
-    "(LOWER(COALESCE(label, '')) LIKE '%%verdad%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%true%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%real%%')"
-)
-_VERDICT_FAKE_SQL = (
-    "(LOWER(COALESCE(label, '')) LIKE '%%fals%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%fake%%')"
-)
 # El bucket 'incierto' exige etiqueta no vacía: las filas pending/failed no tienen veredicto.
 _VERDICT_SQL = {
-    "real": _VERDICT_REAL_SQL,
-    "fake": _VERDICT_FAKE_SQL,
+    "real": VERDICT_REAL_SQL,
+    "fake": VERDICT_FAKE_SQL,
     "uncertain": (
         f"(COALESCE(label, '') <> '' "
-        f"AND NOT {_VERDICT_REAL_SQL} AND NOT {_VERDICT_FAKE_SQL})"
+        f"AND NOT {VERDICT_REAL_SQL} AND NOT {VERDICT_FAKE_SQL})"
     ),
 }
 
@@ -459,8 +450,8 @@ async def count_history_verdict_facets(
     facets_query = f"""
         SELECT
             COUNT(*) AS total,
-            COALESCE(SUM(CASE WHEN {_VERDICT_REAL_SQL} THEN 1 ELSE 0 END), 0) AS real_total,
-            COALESCE(SUM(CASE WHEN {_VERDICT_FAKE_SQL} THEN 1 ELSE 0 END), 0) AS fake_total,
+            COALESCE(SUM(CASE WHEN {VERDICT_REAL_SQL} THEN 1 ELSE 0 END), 0) AS real_total,
+            COALESCE(SUM(CASE WHEN {VERDICT_FAKE_SQL} THEN 1 ELSE 0 END), 0) AS fake_total,
             COALESCE(SUM(CASE WHEN {_VERDICT_SQL["uncertain"]} THEN 1 ELSE 0 END), 0)
                 AS uncertain_total
         FROM public.analysis_history

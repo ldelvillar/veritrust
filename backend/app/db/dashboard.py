@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import psycopg
 
+from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.dashboard import (
     DashboardAlertItem,
@@ -192,18 +193,11 @@ async def get_user_dashboard_summary(
         alert_limit=alert_limit,
     )
 
-    kpis_query = """
+    kpis_query = f"""
         SELECT
             COUNT(*) AS total_analyses,
             AVG(confidence) AS average_confidence,
-            SUM(
-                CASE
-                    WHEN LOWER(COALESCE(label, '')) LIKE 'verdad%%'
-                      OR LOWER(COALESCE(label, '')) LIKE 'true%%'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS reliable_total,
+            SUM(CASE WHEN {VERDICT_REAL_SQL} THEN 1 ELSE 0 END) AS reliable_total,
             SUM(
                 CASE
                     WHEN created_at >= NOW() - INTERVAL '7 days'
@@ -221,8 +215,7 @@ async def get_user_dashboard_summary(
             ) AS previous_week_total,
             SUM(
                 CASE
-                    WHEN LOWER(COALESCE(label, '')) LIKE 'fals%%'
-                      OR LOWER(COALESCE(label, '')) LIKE 'fake%%'
+                    WHEN {VERDICT_FAKE_SQL} AND NOT {VERDICT_REAL_SQL}
                     THEN 1
                     ELSE 0
                 END
@@ -265,7 +258,7 @@ async def get_user_dashboard_summary(
           AND input_url IS NOT NULL
     """
 
-    alerts_query = """
+    alerts_query = f"""
         SELECT
             id,
             source_type,
@@ -277,10 +270,7 @@ async def get_user_dashboard_summary(
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
-          AND (
-              LOWER(COALESCE(label, '')) LIKE 'fals%%'
-              OR LOWER(COALESCE(label, '')) LIKE 'fake%%'
-          )
+          AND {VERDICT_FAKE_SQL} AND NOT {VERDICT_REAL_SQL}
         ORDER BY created_at DESC
         LIMIT %s
     """
