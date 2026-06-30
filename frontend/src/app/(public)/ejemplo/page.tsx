@@ -109,7 +109,7 @@ export default function EjemploPage() {
         </Button>
       </div>
 
-      <AnalysisResult result={SAMPLE_REPORT} />
+      <AnalysisResult result={SAMPLE_REPORT} isPublic={true} />
     </section>
   );
 }
