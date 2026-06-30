@@ -10,7 +10,7 @@ export default function Cta() {
       className="bg-white py-20"
     >
       <div className={container}>
-        <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(150deg,#6c5ff0,#5446dc_55%,#4838cc)] px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
+        <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(150deg,#5a44e8,#432dd7_55%,#3722b8)] px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
           <div className="pointer-events-none absolute -top-30 -right-25 size-95 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
           <div className="relative z-2 mx-auto max-w-160">
             <h2
@@ -26,7 +26,7 @@ export default function Cta() {
             <div className="flex flex-wrap justify-center gap-3.5">
               <Link
                 href="/demo"
-                className="inline-flex items-center justify-center gap-2.25 rounded-xl bg-white px-7 py-4 text-base font-semibold text-accent shadow-[0_8px_22px_rgba(20,22,44,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(20,22,44,0.18)]"
+                className="inline-flex items-center justify-center gap-2.25 rounded-xl bg-white px-7 py-4 text-base font-semibold text-primary shadow-[0_8px_22px_rgba(20,22,44,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(20,22,44,0.18)]"
               >
                 Solicitar demo
               </Link>
