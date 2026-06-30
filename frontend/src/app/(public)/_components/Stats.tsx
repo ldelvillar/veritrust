@@ -1,10 +1,10 @@
 import { container } from './container';
 
 const stats = [
-  { n: '88%', l: 'de precisión sobre más de 10.000 análisis verificados' },
-  { n: '4', l: 'agentes de IA especializados trabajando en cadena' },
-  { n: '~8 min', l: 'por análisis medio, de la entrada al informe' },
-  { n: '3', l: 'vías de entrada: texto, enlace y documento' },
+  { n: '88%', l: 'Precisión media sobre el conjunto de prueba' },
+  { n: '+10.000', l: 'Total de análisis realizados' },
+  { n: '8 min', l: 'Duración media de un análisis' },
+  { n: '3', l: 'Vías de entrada: texto, enlace y documento' },
 ];
 
 export default function Stats() {
@@ -23,7 +23,8 @@ export default function Stats() {
               <b className="block text-[42px] leading-none font-bold tracking-[-0.03em] text-primary">
                 {stat.n}
               </b>
-              <div className="mt-2.5 text-[14.5px] leading-snug font-semibold text-muted">
+              <span className="my-3.5 block h-1 w-8.5 rounded-sm bg-primary" />
+              <div className="text-[14.5px] leading-snug font-semibold text-muted">
                 {stat.l}
               </div>
             </div>

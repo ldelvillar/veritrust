@@ -9,11 +9,10 @@ import { container } from './container';
 const steps = [
   {
     n: '01',
-    accent: '#6356e6',
+    accent: '#432dd7',
     accentSoft: '#eeebfc',
     title: 'Extractor de información',
     body: 'Lee el contenido y aísla cada afirmación médica, las cifras y las fuentes citadas, sin perder el contexto.',
-    chips: ['Afirmaciones', 'Cifras', 'Referencias'],
     Icon: ExtractIcon,
   },
   {
@@ -22,16 +21,14 @@ const steps = [
     accentSoft: '#e4f1fc',
     title: 'Traductor',
     body: 'Normaliza el idioma y estandariza la terminología clínica para que cada afirmación se contraste sobre una base común.',
-    chips: ['Idioma', 'Terminología', 'Normalización'],
     Icon: TranslateIcon,
   },
   {
     n: '03',
     accent: '#e0922e',
-    accentSoft: '#fbeede',
+    accentSoft: '#fbefda',
     title: 'Investigador',
     body: 'Busca evidencia científica en la literatura biomédica y reúne las fuentes que respaldan o contradicen cada afirmación.',
-    chips: ['Evidencia', 'Fuentes', 'Literatura'],
     Icon: NewspaperIcon,
   },
   {
@@ -40,31 +37,10 @@ const steps = [
     accentSoft: '#def4ea',
     title: 'Experto en salud',
     body: 'Contrasta cada afirmación con el consenso médico y las fuentes de referencia, y calcula la puntuación de credibilidad.',
-    chips: ['Consenso', 'Fuentes', 'Puntuación'],
     Icon: MedicalCrossIcon,
   },
 ];
 
-function ConnectorNode({
-  from,
-  to,
-  className,
-}: {
-  from: string;
-  to: string;
-  className?: string;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{ '--from': from, '--to': to } as React.CSSProperties}
-      className={`absolute top-16 z-3 hidden size-8.5 place-items-center lg:grid ${className ?? ''}`}
-    >
-      <span className="absolute size-2.5 animate-ping rounded-full bg-(--from) opacity-60" />
-      <span className="relative size-2.5 rounded-full bg-[linear-gradient(135deg,var(--from),var(--to))] shadow-[0_0_12px_2px_color-mix(in_srgb,var(--from)_45%,transparent)]" />
-    </span>
-  );
-}
 
 export default function HowItWorks() {
   return (
@@ -102,24 +78,7 @@ export default function HowItWorks() {
           </span>
         </div>
 
-        <div className="relative grid gap-6.5 sm:grid-cols-2 lg:grid-cols-4">
-          {/* connector nodes (desktop) */}
-          <ConnectorNode
-            from="#6356e6"
-            to="#2c97e8"
-            className="left-[calc(25%-17px)]"
-          />
-          <ConnectorNode
-            from="#2c97e8"
-            to="#e0922e"
-            className="left-[calc(50%-17px)]"
-          />
-          <ConnectorNode
-            from="#e0922e"
-            to="#13b877"
-            className="left-[calc(75%-17px)]"
-          />
-
+        <div className="grid gap-6.5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map(step => (
             <article
               key={step.n}
@@ -145,16 +104,6 @@ export default function HowItWorks() {
               <p className="relative z-2 text-[14.5px] leading-relaxed text-muted">
                 {step.body}
               </p>
-              <div className="relative z-2 mt-4.5 flex flex-wrap gap-1.75">
-                {step.chips.map(chip => (
-                  <span
-                    key={chip}
-                    className="rounded-lg border border-line bg-surface-subtle px-2.75 py-1.5 text-[11.5px] font-bold text-body"
-                  >
-                    {chip}
-                  </span>
-                ))}
-              </div>
             </article>
           ))}
         </div>
