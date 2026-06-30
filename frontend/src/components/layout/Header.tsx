@@ -8,11 +8,9 @@ import Button from '@/components/Button';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
-  { href: '/#ejemplo', label: 'Ejemplo' },
+  { href: '/ejemplo', label: 'Ejemplo' },
   { href: '/#casos', label: 'Casos de uso' },
   { href: '/#precios', label: 'Precios' },
-  { href: '/#faq', label: 'FAQ' },
-  { href: '/contacto', label: 'Contacto' },
 ];
 
 export default function Header() {
@@ -43,7 +41,7 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full border-b bg-white/78 backdrop-blur-[14px] transition-[border-color,box-shadow] duration-200 ${
+      className={`sticky top-0 z-50 w-full border-b bg-white transition-[border-color,box-shadow] duration-200 ${
         scrolled
           ? 'border-border shadow-[0_4px_20px_rgba(40,30,90,0.05)]'
           : 'border-transparent'
@@ -83,7 +81,7 @@ export default function Header() {
                 Iniciar sesión
               </button>
             </SignInButton>
-            <Button href="/demo">Solicitar demo</Button>
+            <Button href="/contacto">Contacto</Button>
           </Show>
           <Show when="signed-in">
             <Button href="/app/analisis">Ir a la app</Button>
@@ -151,11 +149,11 @@ export default function Header() {
                   </button>
                 </SignInButton>
                 <Button
-                  href="/demo"
+                  href="/contacto"
                   className="h-11 w-full"
                   onClick={closeMenu}
                 >
-                  Solicitar demo
+                  Contacto
                 </Button>
               </Show>
               <Show when="signed-in">
