@@ -15,16 +15,16 @@ export default function Hero() {
         className={`${container} relative z-2 grid items-center gap-14 md:grid-cols-[1.05fr_0.95fr]`}
       >
         <div>
-          <h1 className="mt-5 mb-5 text-[34px] leading-[1.12] font-bold tracking-[-0.03em] text-white sm:text-[42px] md:text-[54px]">
-            El detector de noticias falsas de salud{' '}
-            <span className="bg-[linear-gradient(120deg,#c9ffea,#9be8ff)] bg-clip-text text-transparent">
+          <h1 className="mt-5 mb-5 pr-1 text-[34px] leading-[1.12] font-bold tracking-[-0.03em] text-white sm:text-[42px] md:text-[54px]">
+            El detector de desinformación en salud{' '}
+            <span className="bg-[linear-gradient(120deg,#c9ffea,#9be8ff)] bg-clip-text pr-1 text-transparent">
               impulsado por IA
             </span>
           </h1>
           <p className="max-w-140 text-[18.5px] leading-relaxed font-medium text-white/90">
-            Pega un texto, un enlace o sube un documento. Un sistema multiagente
-            de inteligencia artificial verifica cada afirmación médica y te
-            devuelve una puntuación de credibilidad explicada, con sus fuentes.
+            Comprueba la veracidad de cualquier texto médico de forma rigurosa.
+            Nuestro sistema analiza cada afirmación y genera un informe
+            respaldado por fuentes científicas.
           </p>
           <div className="mt-9 mb-6 flex flex-wrap gap-3.5">
             <Button href="/demo" variant="light" size="lg">
