@@ -25,14 +25,6 @@ function notificationsSupported(): boolean {
 export function useCompletionNotification(id: string, status: string): void {
   const previousStatus = useRef(status);
 
-  // Pedimos permiso en contexto mientras el análisis sigue pendiente.
-  useEffect(() => {
-    if (status !== 'pending' || !notificationsSupported()) return;
-    if (Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
-  }, [status]);
-
   useEffect(() => {
     const previous = previousStatus.current;
     previousStatus.current = status;

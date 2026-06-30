@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
@@ -9,6 +9,7 @@ import Magnifier from '@/assets/Magnifier';
 import LanguageIcon from '@/assets/Language';
 import Newspaper from '@/assets/Newspaper';
 import Heart from '@/assets/Heart';
+import Bell from '@/assets/Bell';
 
 interface PendingAnalysisProps {
   createdAt: string;
@@ -62,6 +63,31 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+type NotifyPermission = NotificationPermission | 'unsupported';
+
+// Notification.permission no tiene evento nativo; un store mínimo lo lee de forma
+// segura en SSR y refresca la UI cuando el usuario concede el permiso.
+const notifyListeners = new Set<() => void>();
+
+function subscribeNotifyPermission(callback: () => void): () => void {
+  notifyListeners.add(callback);
+  return () => notifyListeners.delete(callback);
+}
+
+function getNotifyPermission(): NotifyPermission {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission;
+}
+
+function requestNotifyPermission(): Promise<void> {
+  if (!('Notification' in window)) return Promise.resolve();
+  return Notification.requestPermission().then(() => {
+    for (const listener of notifyListeners) listener();
+  });
+}
+
 export default function PendingAnalysis({
   createdAt,
   stage,
@@ -78,6 +104,12 @@ export default function PendingAnalysis({
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [createdAt]);
+
+  const notifyPermission = useSyncExternalStore(
+    subscribeNotifyPermission,
+    getNotifyPermission,
+    () => 'unsupported' as NotifyPermission
+  );
 
   // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
   const activeStep = stage != null ? (STAGE_INDEX[stage] ?? 0) : 0;
@@ -189,11 +221,38 @@ export default function PendingAnalysis({
             </Link>
           </div>
         </div>
-      ) : showReassurance ? (
-        <p className="rounded-lg bg-primary/5 px-3.5 py-2 text-sm font-semibold text-primary">
-          Casi listo, redactando el informe…
-        </p>
-      ) : null}
+      ) : (
+        <div className="w-full rounded-xl border border-line bg-surface-subtle p-4 text-left">
+          {showReassurance && (
+            <p className="mb-3 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
+              <Spinner className="size-4 animate-spin" />
+              Casi listo, redactando el informe…
+            </p>
+          )}
+          <p className="text-sm font-bold text-ink">
+            Puedes cerrar esta pestaña
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            Seguimos analizando en segundo plano y guardamos el informe en tu
+            historial; no perderás el resultado.
+          </p>
+          {notifyPermission === 'granted' ? (
+            <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+              <Bell className="size-3.5 shrink-0" />
+              Te avisaremos cuando termine.
+            </p>
+          ) : notifyPermission === 'default' ? (
+            <button
+              type="button"
+              onClick={() => void requestNotifyPermission()}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 py-2 text-xs font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            >
+              <Bell className="size-3.5 shrink-0" />
+              Avísame al terminar
+            </button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
