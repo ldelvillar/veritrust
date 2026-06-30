@@ -70,8 +70,8 @@ export default function SampleReport() {
             ))}
           </div>
           <div className="mt-7.5">
-            <Button href="/app/analisis" size="lg">
-              Probar con tu propio texto <Arrow className="size-4 rotate-270" />
+            <Button href="/ejemplo" size="lg">
+              Ver análisis completo <Arrow className="size-4 rotate-270" />
             </Button>
           </div>
         </div>
