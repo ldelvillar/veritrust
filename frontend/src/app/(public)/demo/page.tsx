@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
 };
 
-const container = 'mx-auto w-full max-w-295 px-5 md:px-8';
+const container = 'mx-auto w-full max-w-345 px-5 md:px-8';
 
 const benefits = [
   {

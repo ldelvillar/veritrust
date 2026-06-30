@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de noticias falsas de salud con IA.',
 };
 
-const container = 'mx-auto w-full max-w-295 px-5 md:px-8';
+const container = 'mx-auto w-full max-w-345 px-5 md:px-8';
 
 const channels = [
   {

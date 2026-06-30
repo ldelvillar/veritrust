@@ -39,8 +39,8 @@ const bottomLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-ink pt-16 pb-[30px] text-white">
-      <div className="mx-auto w-full max-w-[1180px] px-5 md:px-8">
+    <footer className="bg-ink pt-16 pb-7.5 text-white">
+      <div className="mx-auto w-full max-w-345 px-5 md:px-8">
         <div className="mb-12 grid gap-10 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export default function Footer() {
                 VeriTrust
               </span>
             </Link>
-            <p className="mt-4 max-w-[280px] text-sm leading-relaxed text-white/60">
+            <p className="mt-4 max-w-70 text-sm leading-relaxed text-white/60">
               El detector de noticias falsas de salud impulsado por un sistema
               multiagente de IA. Verifica con rigor, cita tus fuentes.
             </p>
@@ -65,7 +65,7 @@ export default function Footer() {
                   <a
                     key={link.label}
                     href={link.href}
-                    className="mb-[11px] block text-sm text-white/60 transition duration-150 hover:text-white"
+                    className="mb-2.75 block text-sm text-white/60 transition duration-150 hover:text-white"
                   >
                     {link.label}
                   </a>
@@ -73,7 +73,7 @@ export default function Footer() {
                   <Link
                     key={link.label}
                     href={link.href}
-                    className="mb-[11px] block text-sm text-white/60 transition duration-150 hover:text-white"
+                    className="mb-2.75 block text-sm text-white/60 transition duration-150 hover:text-white"
                   >
                     {link.label}
                   </Link>
@@ -88,7 +88,7 @@ export default function Footer() {
             © 2026 VeriTrust. Información orientativa; no sustituye el consejo
             médico profesional.
           </p>
-          <div className="flex flex-wrap gap-x-[22px] gap-y-2">
+          <div className="flex flex-wrap gap-x-5.5 gap-y-2">
             {bottomLinks.map(link => (
               <Link
                 key={link.label}

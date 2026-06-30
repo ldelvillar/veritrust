@@ -50,7 +50,7 @@ export default function Header() {
     >
       <nav
         aria-label="Principal"
-        className="mx-auto flex h-18 w-full max-w-295 items-center gap-3.5 px-5 md:px-8"
+        className="mx-auto flex h-18 w-full max-w-345 items-center gap-3.5 px-5 md:px-8"
       >
         <Link
           href="/"
