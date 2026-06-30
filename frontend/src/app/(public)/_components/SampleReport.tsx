@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import Arrow from '@/assets/Arrow';
 import CheckIcon from '@/assets/Check';
 import CrossIcon from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 import { container } from './container';
 
 const highlights = [
@@ -70,12 +70,9 @@ export default function SampleReport() {
             ))}
           </div>
           <div className="mt-7.5">
-            <Link
-              href="/app/analisis"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-7 py-4 text-base font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8] hover:shadow-[0_14px_30px_rgba(67,45,215,0.42)]"
-            >
+            <Button href="/app/analisis" size="lg">
               Probar con tu propio texto <Arrow className="size-4 rotate-270" />
-            </Link>
+            </Button>
           </div>
         </div>
 

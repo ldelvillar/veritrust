@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import AnalysisResult from '@/components/AnalysisResult';
+import Button from '@/components/Button';
 import { getVerdictInfo } from '@/components/analysis-result/format';
 import { ApiError } from '@/lib/apiClient';
 import { fetchPublicJsonServer } from '@/lib/serverApi';
@@ -120,12 +120,7 @@ export default async function SharedReportPage({ params }: PageProps) {
           <span className="font-bold text-primary">VeriTrust</span> · detector
           de desinformación médica con IA
         </p>
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-[#3722b8] focus:ring-4 focus:ring-primary/20 focus:outline-none"
-        >
-          Verifica tu propio contenido
-        </Link>
+        <Button href="/">Verifica tu propio contenido</Button>
       </div>
       <AnalysisResult result={data} isPublic />
     </div>

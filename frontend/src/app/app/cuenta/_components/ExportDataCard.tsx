@@ -4,6 +4,7 @@ import DownloadIcon from '@/assets/Download';
 import ShieldIcon from '@/assets/Shield';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 
 interface ExportDataCardProps {
   totalCount: number;
@@ -57,20 +58,19 @@ export default function ExportDataCard({
           El archivo se genera al momento y se descarga en tu dispositivo. No se
           comparte con terceros.
         </p>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={onExport}
           disabled={isDisabled}
           aria-busy={isExporting}
-          className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isExporting ? (
-            <Spinner className="size-4 animate-spin text-primary" aria-hidden />
+            <Spinner className="size-4 animate-spin" aria-hidden />
           ) : (
             <DownloadIcon className="size-4" aria-hidden />
           )}
           {isExporting ? 'Exportando…' : 'Exportar todos mis datos'}
-        </button>
+        </Button>
       </div>
 
       {isEmpty ? (

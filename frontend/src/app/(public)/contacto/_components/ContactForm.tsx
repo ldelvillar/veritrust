@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import CheckIcon from '@/assets/Check';
 import ShieldIcon from '@/assets/Shield';
+import Button from '@/components/Button';
 
 type Values = {
   nombre: string;
@@ -94,12 +95,9 @@ export default function ContactForm() {
             {firstName ? `Gracias, ${firstName}` : 'Gracias por escribirnos'}.
             Nuestro equipo te responderá en menos de 24&nbsp;h laborables.
           </p>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-5.5 py-3.25 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-          >
+          <Button href="/" size="lg">
             Volver al inicio
-          </Link>
+          </Button>
         </div>
       ) : (
         <>
@@ -233,12 +231,9 @@ export default function ContactForm() {
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-4">
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-xl bg-primary px-7 py-4 text-base font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-              >
+              <Button type="submit" size="lg">
                 Enviar mensaje
-              </button>
+              </Button>
               <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
                 <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
                 Tus datos están seguros

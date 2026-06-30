@@ -1,6 +1,5 @@
-import Link from 'next/link';
-
 import BellIcon from '@/assets/Bell';
+import Button from '@/components/Button';
 
 interface HelpContactStripProps {
   email: string;
@@ -20,19 +19,13 @@ export default function HelpContactStrip({ email }: HelpContactStripProps) {
         </p>
       </div>
       <div className="relative z-10 mt-5 flex flex-wrap gap-3 md:mt-0 md:shrink-0">
-        <a
-          href={`mailto:${email}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[14px] font-semibold text-accent transition hover:-translate-y-px hover:shadow-[0_12px_26px_rgba(0,0,0,.18)]"
-        >
+        <Button href={`mailto:${email}`} variant="light">
           <BellIcon width={16} height={16} />
           Contactar con soporte
-        </a>
-        <Link
-          href="/demo"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/22 bg-white/14 px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-white/22"
-        >
+        </Button>
+        <Button href="/demo" variant="outline">
           Agendar demo
-        </Link>
+        </Button>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SidebarIcon from '@/assets/Sidebar';
 import Logo from '@/assets/Logo';
+import Button from '@/components/Button';
 import DashboardIcon from '@/assets/Dashboard';
 import NewIcon from '@/assets/New';
 import HistoryIcon from '@/assets/History';
@@ -158,13 +159,9 @@ function SidebarContent({
             <p className="mt-1 mb-3 text-xs leading-snug text-muted">
               Mejora tu plan para verificar sin límites.
             </p>
-            <Link
-              href="/#precios"
-              onClick={onNavigate}
-              className="flex w-full items-center justify-center rounded-lg bg-primary px-3 py-2 text-[13px] font-semibold text-white transition hover:bg-[#3722b8]"
-            >
+            <Button href="/#precios" onClick={onNavigate} className="w-full">
               Ver planes
-            </Link>
+            </Button>
           </div>
         )}
 

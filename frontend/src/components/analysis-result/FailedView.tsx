@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import Magnifier from '@/assets/Magnifier';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 
 const FAILURE_MESSAGES: Record<string, string> = {
   URL_EXTRACTION:
@@ -43,12 +43,9 @@ export default function FailedView({
           con un texto que afirme algo sobre un tratamiento, síntoma, alimento o
           medida de prevención.
         </p>
-        <Link
-          href="/app/analisis"
-          className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none"
-        >
+        <Button href="/app/analisis" className="mt-2">
           Analizar otro contenido
-        </Link>
+        </Button>
       </div>
     );
   }
@@ -65,27 +62,18 @@ export default function FailedView({
       <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
         {onRetry && (
-          <button
-            type="button"
+          <Button
             onClick={onRetry}
             disabled={isRetrying}
             aria-busy={isRetrying}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isRetrying && <Spinner className="size-4 animate-spin" />}
             {isRetrying ? 'Reintentando…' : 'Reintentar análisis'}
-          </button>
+          </Button>
         )}
-        <Link
-          href="/app/analisis"
-          className={
-            onRetry
-              ? 'inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100 focus:ring-4 focus:ring-red-200 focus:outline-none'
-              : 'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-4 focus:ring-primary/20 focus:outline-none'
-          }
-        >
+        <Button href="/app/analisis" variant={onRetry ? 'soft' : 'primary'}>
           Analizar otro contenido
-        </Link>
+        </Button>
       </div>
       {retryError && (
         <p role="alert" className="text-xs font-semibold text-red-600">

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 
 export default function CuentaError({
   error,
@@ -26,13 +27,9 @@ export default function CuentaError({
         <p className="mt-2 text-sm font-medium text-muted">
           {error.message || 'Ha ocurrido un error inesperado.'}
         </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
-        >
+        <Button onClick={reset} className="mt-6">
           Reintentar
-        </button>
+        </Button>
       </div>
     </section>
   );

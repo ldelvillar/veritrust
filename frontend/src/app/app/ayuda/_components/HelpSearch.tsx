@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import ArrowRightIcon from '@/assets/ArrowRight';
 import CrossIcon from '@/assets/Cross';
 import Magnifier from '@/assets/Magnifier';
+import Button from '@/components/Button';
 
 import type { HelpArticle, HelpFaqItem } from '../helpContent';
 
@@ -148,10 +149,7 @@ export default function HelpSearch({
             <CrossIcon className="size-4" />
           </button>
         )}
-        <button
-          type="submit"
-          className="flex shrink-0 items-center gap-2 rounded-[11px] bg-primary px-3 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-primary/90 sm:px-4"
-        >
+        <Button type="submit" className="shrink-0">
           <ArrowRightIcon
             width="15"
             height="15"
@@ -159,7 +157,7 @@ export default function HelpSearch({
             className="hidden sm:block"
           />
           Buscar
-        </button>
+        </Button>
       </form>
 
       {trimmedQuery.length > 0 && (

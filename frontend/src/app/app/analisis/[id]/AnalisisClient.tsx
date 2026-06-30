@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AnalysisResult from '@/components/AnalysisResult';
+import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ShareDialog from '@/components/ShareDialog';
 import Trash from '@/assets/Trash';
@@ -98,14 +99,10 @@ export default function AnalisisClient({
   };
 
   const shareButton = (
-    <button
-      type="button"
-      onClick={handleShareOpen}
-      className="inline-flex items-center gap-2 rounded-xl border border-line-strong bg-white px-3 py-2.5 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
-    >
+    <Button variant="soft" onClick={handleShareOpen}>
       <LinkIcon className="size-4" />
       Compartir
-    </button>
+    </Button>
   );
 
   const deleteButton = (

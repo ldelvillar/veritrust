@@ -7,6 +7,7 @@ import CheckIcon from '@/assets/Check';
 import InstitutionIcon from '@/assets/Institution';
 import NewspaperIcon from '@/assets/Newspaper';
 import ShieldIcon from '@/assets/Shield';
+import Button from '@/components/Button';
 
 type Values = {
   nombre: string;
@@ -161,18 +162,12 @@ export default function DemoForm() {
             agendar tu demo.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link
-              href="/app/analisis"
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-5.5 py-3.25 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-            >
+            <Button href="/app/analisis" size="lg">
               Mientras tanto, analiza gratis →
-            </Link>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center rounded-xl border border-line-strong bg-white px-5.5 py-3.25 text-[15px] font-semibold text-body transition hover:border-primary hover:text-primary"
-            >
+            </Button>
+            <Button href="/" variant="soft" size="lg">
               Volver al inicio
-            </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -379,12 +374,9 @@ export default function DemoForm() {
         </div>
 
         <div className="mt-7 flex flex-wrap items-center gap-4">
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-7 py-4 text-base font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-          >
+          <Button type="submit" size="lg">
             Solicitar demo
-          </button>
+          </Button>
           <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
             <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
             Sin compromiso · respondemos en 24&nbsp;h

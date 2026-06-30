@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Show, SignInButton } from '@clerk/nextjs';
 import Logo from '@/assets/Logo';
+import Button from '@/components/Button';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
@@ -82,20 +83,10 @@ export default function Header() {
                 Iniciar sesión
               </button>
             </SignInButton>
-            <Link
-              href="/demo"
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-5.5 py-3.25 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-            >
-              Solicitar demo
-            </Link>
+            <Button href="/demo">Solicitar demo</Button>
           </Show>
           <Show when="signed-in">
-            <Link
-              href="/app/analisis"
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-5.5 py-3.25 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] transition hover:-translate-y-0.5 hover:bg-[#3722b8]"
-            >
-              Ir a la app
-            </Link>
+            <Button href="/app/analisis">Ir a la app</Button>
           </Show>
         </div>
 
@@ -159,22 +150,22 @@ export default function Header() {
                     Iniciar sesión
                   </button>
                 </SignInButton>
-                <Link
+                <Button
                   href="/demo"
-                  className="flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white transition duration-300 hover:bg-primary/90"
+                  className="h-11 w-full"
                   onClick={closeMenu}
                 >
                   Solicitar demo
-                </Link>
+                </Button>
               </Show>
               <Show when="signed-in">
-                <Link
+                <Button
                   href="/app/analisis"
-                  className="flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white transition duration-300 hover:bg-primary/90"
+                  className="h-11 w-full"
                   onClick={closeMenu}
                 >
                   Ir a la app
-                </Link>
+                </Button>
               </Show>
             </div>
           </div>

@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import GridIcon from '@/assets/Dashboard';
 import ListIcon from '@/assets/List';
 import PlusBoxIcon from '@/assets/PlusBox';
 import ShieldIcon from '@/assets/Shield';
 import SparkleIcon from '@/assets/Sparkle';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
 
 const HINTS = [
@@ -21,13 +21,10 @@ export default function EmptyState() {
         title="Dashboard"
         subtitle="Actividad, credibilidad y riesgos detectados en los últimos días."
         actions={
-          <Link
-            href="/app/analisis"
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-primary focus:ring-4 focus:ring-accent/20 focus:outline-none"
-          >
+          <Button href="/app/analisis" size="lg">
             <PlusBoxIcon className="size-4.5" />
             Nuevo análisis
-          </Link>
+          </Button>
         }
       />
 
@@ -69,20 +66,14 @@ export default function EmptyState() {
 
           {/* CTAs */}
           <div className="flex flex-wrap justify-center gap-3">
-            <Link
-              href="/app/analisis"
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-primary focus:ring-4 focus:ring-accent/20 focus:outline-none"
-            >
+            <Button href="/app/analisis" size="lg">
               <PlusBoxIcon className="size-4.5" />
               Analizar mi primer contenido
-            </Link>
-            <Link
-              href="/app/analisis?demo=true"
-              className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-6 py-3.5 text-[15px] font-bold text-ink shadow-sm transition hover:border-line-strong hover:shadow-md focus:ring-4 focus:ring-accent/20 focus:outline-none"
-            >
+            </Button>
+            <Button href="/app/analisis?demo=true" variant="soft" size="lg">
               <SparkleIcon className="size-4.5" />
               Ver una demostración
-            </Link>
+            </Button>
           </div>
 
           {/* Hint badges */}

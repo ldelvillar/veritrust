@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
 import LinkIcon from '@/assets/Link';
+import Button from '@/components/Button';
 
 interface ShareDialogProps {
   open: boolean;
@@ -117,11 +118,7 @@ export default function ShareDialog({
                 onFocus={event => event.target.select()}
                 className="min-w-0 flex-1 rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-body focus:border-primary focus:outline-none"
               />
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-2 focus:ring-primary/20 focus:outline-none"
-              >
+              <Button onClick={handleCopy} className="shrink-0">
                 {copied ? (
                   <>
                     <Check className="size-4" />
@@ -130,7 +127,7 @@ export default function ShareDialog({
                 ) : (
                   'Copiar'
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -142,15 +139,14 @@ export default function ShareDialog({
         ) : null}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
+          <Button
             ref={closeRef}
-            type="button"
+            variant="soft"
             onClick={onClose}
             disabled={isSharing}
-            className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-bold text-body transition hover:bg-surface-subtle focus:ring-2 focus:ring-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cerrar
-          </button>
+          </Button>
           {shareUrl ? (
             <button
               type="button"
@@ -165,18 +161,16 @@ export default function ShareDialog({
               Desactivar enlace
             </button>
           ) : (
-            <button
-              type="button"
+            <Button
               onClick={onCreate}
               disabled={isSharing}
               aria-busy={isSharing}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary/90 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSharing ? (
                 <Spinner className="size-4 animate-spin text-white" />
               ) : null}
               Crear enlace público
-            </button>
+            </Button>
           )}
         </div>
       </div>

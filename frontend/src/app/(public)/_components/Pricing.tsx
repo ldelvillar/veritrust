@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import CheckIcon from '@/assets/Check';
+import Button from '@/components/Button';
 import { container } from './container';
 
 const plans = [
@@ -104,16 +104,13 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Link
+              <Button
                 href={plan.cta.href}
-                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5.5 py-3.25 text-[15px] font-semibold transition ${
-                  plan.cta.soft
-                    ? 'border border-line-strong bg-white text-body hover:border-primary hover:text-primary'
-                    : 'bg-primary text-white shadow-[0_8px_22px_rgba(67,45,215,0.32)] hover:bg-[#3722b8]'
-                }`}
+                variant={plan.cta.soft ? 'soft' : 'primary'}
+                className="w-full"
               >
                 {plan.cta.label}
-              </Link>
+              </Button>
             </article>
           ))}
         </div>

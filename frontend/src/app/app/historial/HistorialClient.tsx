@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,6 +20,7 @@ import type {
 } from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
 import HistoryStatePanel from './_components/HistoryStatePanel';
+import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
@@ -127,12 +127,6 @@ const SOURCE_FACET_KEY: Record<SourceTypeFilter, keyof SourceTypeCounts> = {
   url: 'url',
   file: 'file',
 };
-
-const EMPTY_PRIMARY_BTN =
-  'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none';
-
-const EMPTY_SOFT_BTN =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-white px-6 py-3.5 text-[15px] font-bold text-body transition hover:border-primary hover:text-primary focus:ring-4 focus:ring-primary/15 focus:outline-none';
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const searchParams = useSearchParams();
@@ -363,13 +357,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             title="Análisis anteriores"
             subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
             actions={
-              <Link
-                href="/app/analisis"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none"
-              >
+              <Button href="/app/analisis">
                 <PlusBoxIcon className="size-4.5" aria-hidden />
                 Nuevo análisis
-              </Link>
+              </Button>
             }
           />
         </div>
@@ -387,14 +378,14 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           }
           actions={
             <>
-              <Link href="/app/analisis" className={EMPTY_PRIMARY_BTN}>
+              <Button href="/app/analisis" size="lg">
                 <PlusBoxIcon className="size-4.5" aria-hidden />
                 Analizar mi primer contenido
-              </Link>
-              <Link href="/app/ejemplo" className={EMPTY_SOFT_BTN}>
+              </Button>
+              <Button href="/app/ejemplo" variant="soft" size="lg">
                 <DocumentIcon className="size-4.5" aria-hidden />
                 Ver un informe de ejemplo
-              </Link>
+              </Button>
             </>
           }
         />
@@ -412,20 +403,20 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           actions={
             <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
               <div className="flex flex-1 flex-col items-end gap-1 sm:flex-none">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={handleExport}
                   disabled={isExporting || totalCount === 0}
                   aria-busy={isExporting}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/8 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/15 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-2"
+                  className="w-full sm:w-auto"
                 >
                   {isExporting ? (
-                    <Spinner className="size-4 animate-spin text-primary" />
+                    <Spinner className="size-4 animate-spin" />
                   ) : (
                     <DownloadIcon className="size-4" aria-hidden />
                   )}
                   {isExporting ? 'Exportando…' : 'Exportar todo'}
-                </button>
+                </Button>
                 {exportError ? (
                   <p
                     role="alert"
@@ -435,13 +426,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                   </p>
                 ) : null}
               </div>
-              <Link
-                href="/app/analisis"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-2 focus:ring-primary/20 focus:outline-none sm:flex-none sm:py-2"
-              >
+              <Button href="/app/analisis" className="flex-1 sm:flex-none">
                 <PlusBoxIcon className="size-4.5" aria-hidden />
                 Nuevo análisis
-              </Link>
+              </Button>
             </div>
           }
         />

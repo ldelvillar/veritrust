@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -26,18 +27,16 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
           </p>
         </div>
         <div className="mt-3 flex gap-3">
-          <button
-            onClick={reset}
-            className="rounded-xl bg-red-50 px-6 py-3 font-semibold text-red-600 transition-colors hover:bg-red-100 focus:ring-4 focus:ring-red-100 focus:outline-none"
-          >
+          <Button onClick={reset} size="lg">
             Reintentar
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="soft"
+            size="lg"
             onClick={() => router.replace('/app/historial')}
-            className="rounded-xl bg-surface-subtle px-6 py-3 font-semibold text-body transition-colors hover:bg-surface focus:ring-4 focus:ring-line focus:outline-none"
           >
             Volver al historial
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import Arrow from '@/assets/Arrow';
+import Button from '@/components/Button';
 import { container } from './container';
 
 export default function Cta() {
@@ -24,18 +24,12 @@ export default function Cta() {
               analizar gratis ahora mismo.
             </p>
             <div className="flex flex-wrap justify-center gap-3.5">
-              <Link
-                href="/demo"
-                className="inline-flex items-center justify-center gap-2.25 rounded-xl bg-white px-7 py-4 text-base font-semibold text-primary shadow-[0_8px_22px_rgba(20,22,44,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(20,22,44,0.18)]"
-              >
+              <Button href="/demo" variant="light" size="lg">
                 Solicitar demo
-              </Link>
-              <Link
-                href="/app/analisis"
-                className="inline-flex items-center justify-center gap-2.25 rounded-xl border-[1.5px] border-white/40 px-7 py-4 text-base font-semibold text-white transition hover:border-white hover:bg-white/10"
-              >
+              </Button>
+              <Button href="/app/analisis" variant="outline" size="lg">
                 Analizar gratis <Arrow className="size-4 rotate-270" />
-              </Link>
+              </Button>
             </div>
           </div>
         </div>

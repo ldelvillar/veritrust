@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-
 import ArrowRightIcon from '@/assets/ArrowRight';
 import RefreshIcon from '@/assets/Refresh';
 import Warning from '@/assets/Warning';
+import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
 
 import HistoryStatePanel from './_components/HistoryStatePanel';
@@ -13,12 +12,6 @@ interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
 }
-
-const PRIMARY_BTN =
-  'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none';
-
-const SOFT_BTN =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-white px-6 py-3.5 text-[15px] font-bold text-body transition hover:border-primary hover:text-primary focus:ring-4 focus:ring-primary/15 focus:outline-none';
 
 export default function HistorialError({ error, reset }: ErrorProps) {
   return (
@@ -44,14 +37,14 @@ export default function HistorialError({ error, reset }: ErrorProps) {
         }
         actions={
           <>
-            <button type="button" onClick={reset} className={PRIMARY_BTN}>
+            <Button onClick={reset} size="lg">
               <RefreshIcon className="size-4.5" aria-hidden />
               Reintentar
-            </button>
-            <Link href="/app/analisis" className={SOFT_BTN}>
+            </Button>
+            <Button href="/app/analisis" variant="soft" size="lg">
               <ArrowRightIcon className="size-4.5" aria-hidden />
               Ir a nuevo análisis
-            </Link>
+            </Button>
           </>
         }
         footer={

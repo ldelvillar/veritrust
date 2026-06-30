@@ -1,9 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import ClockIcon from '@/assets/Clock';
 import DownloadIcon from '@/assets/Download';
+import Button from './Button';
 import PageHeader from './PageHeader';
 import PendingAnalysis from './PendingAnalysis';
 import AnalyzedContent from './analysis-result/AnalyzedContent';
@@ -24,9 +24,6 @@ interface ResultProps {
   retryError?: string | null;
   isPublic?: boolean;
 }
-
-const SOFT_BUTTON =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-white px-4 py-2.5 text-sm font-semibold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
 
 export default function AnalysisResult({
   result,
@@ -103,14 +100,10 @@ export default function AnalysisResult({
         actionsClassName="print:hidden"
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleExport}
-              className={SOFT_BUTTON}
-            >
+            <Button variant="soft" onClick={handleExport}>
               <DownloadIcon className="size-4" />
               Exportar PDF
-            </button>
+            </Button>
             {headerActions}
           </>
         }
@@ -130,12 +123,12 @@ export default function AnalysisResult({
       {/* Los enlaces a /app/* requieren cuenta: se ocultan en la vista pública. */}
       {!isPublic && (
         <div className="flex flex-wrap gap-3 print:hidden">
-          <Link href="/app/analisis" className={SOFT_BUTTON}>
+          <Button href="/app/analisis" variant="soft">
             Analizar otro contenido
-          </Link>
-          <Link href="/app/ayuda" className={SOFT_BUTTON}>
+          </Button>
+          <Button href="/app/ayuda" variant="soft">
             Cómo leer este informe
-          </Link>
+          </Button>
         </div>
       )}
 

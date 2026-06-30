@@ -1,6 +1,7 @@
 'use client';
 
 import Warning from '@/assets/Warning';
+import Button from '@/components/Button';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -20,13 +21,9 @@ export default function DashboardError({ error, reset }: ErrorProps) {
             <p className="mt-1 text-sm font-medium text-red-600">
               {error.message || 'Error desconocido.'}
             </p>
-            <button
-              type="button"
-              onClick={reset}
-              className="mt-4 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
-            >
+            <Button onClick={reset} className="mt-4">
               Reintentar
-            </button>
+            </Button>
           </div>
         </div>
       </div>

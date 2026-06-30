@@ -9,6 +9,7 @@ import Spinner from '@/assets/Spinner';
 import TypeIcon from '@/assets/Type';
 import UploadIcon from '@/assets/Upload';
 import WarningIcon from '@/assets/Warning';
+import Button from '@/components/Button';
 import PdfViewer from '@/components/PdfViewer';
 import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
 import type { components } from '@/types/api';
@@ -349,10 +350,11 @@ export default function AnalysisForm() {
           </span>
         </div>
         <div className="flex-1" />
-        <button
+        <Button
           type="submit"
+          size="lg"
           disabled={isLoading || !canRun}
-          className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-[15.5px] font-semibold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition-all hover:-translate-y-px hover:shadow-[0_12px_26px_rgba(99,86,230,.4)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+          className="shrink-0"
         >
           {isLoading ? (
             <>
@@ -362,7 +364,7 @@ export default function AnalysisForm() {
           ) : (
             <span>Analizar credibilidad</span>
           )}
-        </button>
+        </Button>
       </div>
     </form>
   );

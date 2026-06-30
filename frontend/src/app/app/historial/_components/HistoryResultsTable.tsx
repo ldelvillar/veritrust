@@ -9,6 +9,7 @@ import TypeIcon from '@/assets/Type';
 import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import RefreshIcon from '@/assets/Refresh';
+import Button from '@/components/Button';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
 import type { paths } from '@/types/api';
@@ -217,20 +218,13 @@ export default function HistoryResultsTable({
               : 'Cuando verifiques tu primer contenido médico, tus informes aparecerán aquí para que puedas consultarlos y gestionarlos.'}
           </p>
           {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={onClearFilters}
-              className="mt-4.5 inline-flex items-center gap-2 rounded-xl border border-line bg-white px-5 py-3 text-sm font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
-            >
+            <Button variant="soft" onClick={onClearFilters} className="mt-4.5">
               Limpiar filtros
-            </button>
+            </Button>
           ) : (
-            <Link
-              href="/app/analisis"
-              className="mt-4.5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(99,86,230,.32)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
-            >
+            <Button href="/app/analisis" className="mt-4.5">
               Analizar contenido
-            </Link>
+            </Button>
           )}
         </div>
       </div>
@@ -274,14 +268,10 @@ export default function HistoryResultsTable({
           }
           actions={
             onRetry && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(99,86,230,.28)] transition hover:bg-accent focus:ring-4 focus:ring-primary/20 focus:outline-none"
-              >
+              <Button onClick={onRetry} size="lg">
                 <RefreshIcon className="size-4.5" aria-hidden />
                 Reintentar
-              </button>
+              </Button>
             )
           }
           footer={
