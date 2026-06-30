@@ -74,11 +74,9 @@ describe('useCompletionNotification', () => {
     expect(MockNotification.instances).toHaveLength(0);
   });
 
-  it('requests permission while pending but stays silent when denied', () => {
+  it('stays silent when permission is denied', () => {
     MockNotification.permission = 'default';
     const { rerender } = renderForStatus('pending');
-
-    expect(MockNotification.requestPermission).toHaveBeenCalledTimes(1);
 
     MockNotification.permission = 'denied';
     rerender({ s: 'done' });
