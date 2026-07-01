@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     pubmed_timeout_seconds: int = 10
     pubmed_api_key: str | None = None
 
+    # openFDA (fichas de medicamentos); la api_key solo amplía el límite de peticiones
+    openfda_base_url: str = "https://api.fda.gov"
+    openfda_timeout_seconds: int = 10
+    openfda_api_key: str | None = None
+
+    # AEMPS CIMA (medicamentos españoles: ficha técnica)
+    cima_base_url: str = "https://cima.aemps.es/cima/rest"
+    cima_timeout_seconds: int = 10
+
     # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 

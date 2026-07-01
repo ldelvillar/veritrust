@@ -11,9 +11,11 @@ _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
 
 
 def _patch_sources(monkeypatch, fake):
-    """Sustituye las dos fuentes (Europe PMC y PubMed) por el mismo doble."""
+    """Sustituye las cuatro fuentes (Europe PMC, PubMed, openFDA y CIMA) por el doble."""
     monkeypatch.setattr(investigator_module, "search_europepmc", fake)
     monkeypatch.setattr(investigator_module, "search_pubmed", fake)
+    monkeypatch.setattr(investigator_module, "search_openfda", fake)
+    monkeypatch.setattr(investigator_module, "search_cima", fake)
 
 
 def test_returns_empty_without_translated_statements():
@@ -46,8 +48,13 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
     def fake_pubmed(query, *, max_results):
         return [{"title": "pubmed", "url": "https://pubmed/1"}]
 
+    def fake_empty(query, *, max_results):
+        return []
+
     monkeypatch.setattr(investigator_module, "search_europepmc", fake_europepmc)
     monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
+    monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
+    monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
     update = investigator(
         {"translated_statements": ["A"], "extracted_statements": ["a"]}
@@ -110,12 +117,17 @@ def test_one_source_down_still_uses_the_other(monkeypatch):
     def fake_pubmed(query, *, max_results):
         return [{"title": "pubmed", "url": "https://pubmed/1"}]
 
+    def fake_empty(query, *, max_results):
+        return []
+
     monkeypatch.setattr(investigator_module, "search_europepmc", fake_europepmc)
     monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
+    monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
+    monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
     update = investigator({"translated_statements": ["A"]})
 
-    # Una fuente caída no invalida la afirmación: la otra sí aporta evidencia.
+    # Una fuente caída no invalida la afirmación: las demás sí aportan evidencia.
     assert update["evidence_coverage"] == 1.0
     assert [source["url"] for source in update["sources"]] == ["https://pubmed/1"]
 
@@ -210,10 +222,10 @@ def test_evidence_gate_filters_sources_and_records_stance(monkeypatch):
 
 
 def test_runs_lookups_concurrently(monkeypatch):
-    # La barrera solo se libera si las 6 búsquedas (3 afirmaciones × 2 fuentes)
-    # coinciden en el tiempo; en ejecución secuencial la primera espera agotaría
-    # el timeout y la rompería.
-    barrier = threading.Barrier(6, timeout=5)
+    # La barrera solo se libera si las 9 búsquedas (3 afirmaciones × 3 fuentes de
+    # literatura; sin fármaco no se consulta CIMA) coinciden en el tiempo; en
+    # ejecución secuencial la primera espera agotaría el timeout y la rompería.
+    barrier = threading.Barrier(9, timeout=5)
 
     def fake_search(query, *, max_results):
         barrier.wait()
@@ -225,3 +237,64 @@ def test_runs_lookups_concurrently(monkeypatch):
 
     assert update["evidence_coverage"] == 1.0
     assert len(update["sources"]) == 3
+
+
+def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
+    topic_queried: list[str] = []
+    cima_queried: list[str] = []
+
+    def fake_topic(query, *, max_results):
+        topic_queried.append(query)
+        return []
+
+    def fake_cima(query, *, max_results):
+        cima_queried.append(query)
+        return [{"title": "ficha", "url": "https://cima/1"}]
+
+    monkeypatch.setattr(investigator_module, "search_europepmc", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_pubmed", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_openfda", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_cima", fake_cima)
+
+    update = investigator(
+        {
+            "translated_statements": ["ibuprofen cures cancer"],
+            "search_queries": ['"ibuprofen" AND "cancer"'],
+            "extracted_statements": ["el ibuprofeno cura el cáncer"],
+            "drug_terms": ["ibuprofeno"],
+        }
+    )
+
+    # CIMA usa el término en español; la literatura, la query enfocada en inglés.
+    assert cima_queried == ["ibuprofeno"]
+    assert set(topic_queried) == {'"ibuprofen" AND "cancer"'}
+    assert [source["url"] for source in update["sources"]] == ["https://cima/1"]
+
+
+def test_cima_skipped_when_no_drug_term(monkeypatch):
+    cima_called = False
+
+    def fake_topic(query, *, max_results):
+        return []
+
+    def fake_cima(query, *, max_results):
+        nonlocal cima_called
+        cima_called = True
+        return []
+
+    monkeypatch.setattr(investigator_module, "search_europepmc", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_pubmed", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_openfda", fake_topic)
+    monkeypatch.setattr(investigator_module, "search_cima", fake_cima)
+
+    investigator(
+        {
+            "translated_statements": ["a diet claim"],
+            "search_queries": ['"diet"'],
+            "extracted_statements": ["una dieta sana"],
+            "drug_terms": [""],
+        }
+    )
+
+    # Sin fármaco nombrado, CIMA no se consulta.
+    assert cima_called is False

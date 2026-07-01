@@ -25,8 +25,13 @@ extractor:
       frase entera), entrecomilla las expresiones de varias palabras y únelos con
       operadores booleanos AND/OR
       (Ej: '("garlic" OR "allium sativum") AND ("stomach cancer" OR "gastric cancer")').
-    - 'statements' y 'search_queries' deben tener el MISMO número de elementos y el
-      MISMO orden: el elemento i de 'search_queries' corresponde a la afirmación i.
+    - Para CADA afirmación indica además en 'drug_terms' el nombre del medicamento o
+      principio activo mencionado (en español, tal y como se diría en España; Ej:
+      'ibuprofeno', 'paracetamol'), o una cadena vacía '' si la afirmación no trata
+      de un fármaco concreto (dieta, hábitos, suplementos genéricos, etc.).
+    - 'statements', 'search_queries' y 'drug_terms' deben tener el MISMO número de
+      elementos y el MISMO orden: el elemento i de cada lista corresponde a la
+      afirmación i.
 
 translator:
   version: "v2"

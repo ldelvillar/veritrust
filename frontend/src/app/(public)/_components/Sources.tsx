@@ -5,7 +5,9 @@ const sources = [
   'Cochrane',
   'NIH',
   'PubMed',
+  'Europe PMC',
   'AEMPS',
+  'FDA',
   'Ministerio de Sanidad',
 ];
 

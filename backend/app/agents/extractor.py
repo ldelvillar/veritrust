@@ -36,6 +36,15 @@ class MedicalStatements(BaseModel):
             '\'("vitamin C" OR "ascorbic acid") AND ("common cold")\'.'
         ),
     )
+    drug_terms: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Para CADA afirmación, en el MISMO orden y número, el nombre del "
+            "medicamento o principio activo mencionado (en español), o cadena "
+            "vacía si la afirmación no trata de un fármaco concreto. "
+            "Ej.: 'ibuprofeno', ''."
+        ),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -81,7 +90,18 @@ def extractor(state: dict, prompts: Prompts) -> dict:
     else:
         queries = queries[: len(statements)]
 
+    # Alinea los términos de fármaco igual que las consultas.
+    drug_terms = list(result.drug_terms)
+    if len(drug_terms) < len(statements):
+        drug_terms.extend([""] * (len(statements) - len(drug_terms)))
+    else:
+        drug_terms = drug_terms[: len(statements)]
+
     logger.info("[Extractor] Se extrajeron %d afirmaciones", len(statements))
 
     # Devolver la parte del estado que este agente es responsable de actualizar
-    return {"extracted_statements": statements, "search_queries": queries}
+    return {
+        "extracted_statements": statements,
+        "search_queries": queries,
+        "drug_terms": drug_terms,
+    }

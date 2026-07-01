@@ -1,4 +1,4 @@
-"""Agente investigador: recupera evidencia biomédica de Europe PMC y PubMed."""
+"""Agente investigador: recupera evidencia de Europe PMC, PubMed, openFDA y CIMA."""
 
 import logging
 from collections.abc import Callable
@@ -6,8 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.relevance import judge_evidence
 from app.prompts.agents import Prompts
+from app.utils.cima import search_evidence as search_cima
 from app.utils.europepmc import search_evidence as search_europepmc
 from app.utils.evidence import EvidenceRetrievalError
+from app.utils.openfda import search_evidence as search_openfda
 from app.utils.pubmed import search_evidence as search_pubmed
 
 logger = logging.getLogger(__name__)
@@ -64,51 +66,63 @@ def _search_source(
 
 def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
-    logger.info("[Investigador] Buscando evidencia en Europe PMC y PubMed")
+    logger.info(
+        "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
+    )
 
     translated = state.get("translated_statements", [])
     queries = state.get("search_queries", [])
     originals = state.get("extracted_statements", [])
+    drug_terms = state.get("drug_terms", [])
 
     if not translated:
         return {"sources": [], "evidence_coverage": 0.0}
 
     # Por afirmación: consulta enfocada (con respaldo en la traducción), texto en
-    # inglés para juzgar la relevancia y original en español para enlazar la fuente.
-    triples = [
+    # inglés para juzgar la relevancia, original en español para enlazar la fuente
+    # y término de fármaco en español para consultar las fuentes de medicamentos.
+    quads = [
         (
             queries[i]
             if i < len(queries) and queries[i] and str(queries[i]).strip()
             else translated[i],
             translated[i] or "",
             originals[i] if i < len(originals) else None,
+            str(drug_terms[i]).strip() if i < len(drug_terms) and drug_terms[i] else "",
         )
         for i in range(len(translated))
     ][:EVIDENCE_MAX_STATEMENTS]
     # Descarta consultas vacías (relleno) antes de llamar a las fuentes.
     valid = [
-        (str(query), claim, original)
-        for query, claim, original in triples
+        (str(query), claim, original, drug_term)
+        for query, claim, original, drug_term in quads
         if query and str(query).strip()
     ]
     attempted = len(valid)
     if not valid:
         return {"sources": [], "evidence_coverage": 0.0}
 
+    # Fuentes de literatura: se consultan con la query enfocada en inglés.
     # Se resuelven en cada llamada (no a nivel de módulo) para poder sustituirlas.
-    evidence_sources = (search_europepmc, search_pubmed)
+    topic_sources = (search_europepmc, search_pubmed, search_openfda)
 
     # Cada par afirmación×fuente es I/O de red independiente: se lanzan todos en
     # paralelo para que la latencia total sea ~una llamada, no la suma de todas.
-    tasks = [
-        (index, query, search)
-        for index, (query, _, _) in enumerate(valid)
-        for search in evidence_sources
-    ]
+    # CIMA (medicamentos) solo se consulta cuando la afirmación nombra un fármaco.
+    tasks: list[tuple[int, str, Callable[..., list[dict]]]] = []
+    per_claim_attempts = [0] * len(valid)
+    for index, (query, _, _, drug_term) in enumerate(valid):
+        for search in topic_sources:
+            tasks.append((index, query, search))
+            per_claim_attempts[index] += 1
+        if drug_term:
+            tasks.append((index, drug_term, search_cima))
+            per_claim_attempts[index] += 1
+
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
 
-    # Reagrupa por afirmación: una falla solo si TODAS sus fuentes caen.
+    # Reagrupa por afirmación: una falla solo si TODAS sus fuentes consultadas caen.
     per_claim_hits: list[list[dict]] = [[] for _ in valid]
     per_claim_failures = [0] * len(valid)
     for index, hits in outcomes:
@@ -119,7 +133,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
 
     results: list[list[dict] | None] = [
         None
-        if per_claim_failures[index] == len(evidence_sources)
+        if per_claim_failures[index] == per_claim_attempts[index]
         else _dedupe_hits(per_claim_hits[index])
         for index in range(len(valid))
     ]
@@ -129,7 +143,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     collected: list[tuple[dict, str | None]] = []
     errored = 0
     covered = 0
-    for (query, claim, original), hits in zip(valid, results):
+    for (query, claim, original, _), hits in zip(valid, results):
         if hits is None:
             errored += 1
             continue
