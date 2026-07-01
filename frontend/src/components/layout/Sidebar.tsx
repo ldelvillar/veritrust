@@ -129,27 +129,6 @@ function SidebarContent({
         })}
       </div>
 
-      {!collapsed && (
-        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-faint uppercase">
-          Cuenta
-        </div>
-      )}
-      <div
-        className={collapsed ? 'mt-2.5 flex flex-col items-center gap-2' : ''}
-      >
-        <Link
-          href="/app/ayuda"
-          onClick={onNavigate}
-          title={collapsed ? 'Ayuda' : undefined}
-          className={`mb-0.5 flex items-center rounded-xl py-2.5 text-[14.5px] font-semibold text-muted transition hover:bg-surface hover:text-body ${
-            collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
-          }`}
-        >
-          <QuestionIcon className="size-4.75 shrink-0" />
-          {!collapsed && <span className="leading-none">Ayuda</span>}
-        </Link>
-      </div>
-
       <div className="mt-auto">
         {!collapsed && (
           <div className="mb-3.5 rounded-2xl border border-line bg-surface p-4">
@@ -175,6 +154,11 @@ function SidebarContent({
                   label="Cuenta y datos"
                   labelIcon={<UserIcon className="size-4" />}
                   href="/app/cuenta"
+                />
+                <UserButton.Link
+                  label="Ayuda"
+                  labelIcon={<QuestionIcon className="size-4" />}
+                  href="/app/ayuda"
                 />
               </UserButton.MenuItems>
             </UserButton>
