@@ -100,6 +100,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)   
 - **Color tokens & headers** — neutrals come from the semantic `@theme` tokens in `src/styles/globals.css` (`text-ink`/`body`/`muted`/`faint`, `border-line`/`line-strong`, `bg-surface`/`surface-subtle`) plus the brand `accent`/`primary`; never reintroduce `slate-*`/`gray-*` or hardcoded hex greys, nor inline `style={{ color }}`. Page titles use the shared `<PageHeader>` (`src/components/PageHeader.tsx`). Semantic state colors (success/warn/danger/info), brand purples, and purple surface tints stay as arbitrary `[#…]` values for now; `not-found.tsx` is an intentional standalone dark-palette exception.
 - **Comments & docstrings** — every code comment is **exactly one line**; never multi-line, multi-sentence, or stacked `#`/`//` blocks. Class/method docstrings are a single plain sentence. Architectural rationale belongs here or in the PR, not in code.
 - **Per-file `E402` ignore** — `app/agents/main.py`, `app/agents/health_expert.py`, and `ml/evaluation/evaluate_factcheck.py` ignore `E402` for intentional `sys.path` manipulation. Preserve it.
+- **Verdict vocabulary** — the three verdict states are always "Verdadero"/"Falso"/"Dudoso", sourced from `VERDICT_LABEL` in `frontend/src/components/analysis-result/format.ts`; never hardcode alternate wording (e.g. "Fiable", "Engañoso") in a new screen.
 
 ## Security
 
