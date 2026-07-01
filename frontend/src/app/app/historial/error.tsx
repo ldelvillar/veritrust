@@ -18,6 +18,7 @@ export default function HistorialError({ error, reset }: ErrorProps) {
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 md:px-6 lg:py-10">
       <div className="mb-6">
         <PageHeader
+          eyebrow="Historial"
           title="Análisis anteriores"
           subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
         />

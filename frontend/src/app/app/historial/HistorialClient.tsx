@@ -354,6 +354,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       <>
         <div className="mb-6">
           <PageHeader
+            eyebrow="Historial"
             title="Análisis anteriores"
             subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
             actions={
@@ -398,6 +399,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       {/* Page header */}
       <div className="mb-6">
         <PageHeader
+          eyebrow="Historial"
           title="Análisis anteriores"
           subtitle="Revisa, filtra y gestiona tus informes de credibilidad previos."
           actions={

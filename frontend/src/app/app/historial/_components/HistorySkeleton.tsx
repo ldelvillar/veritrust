@@ -35,7 +35,11 @@ export default function HistorySkeleton() {
   return (
     <div>
       <div className="mb-6">
-        <PageHeader title="Análisis anteriores" subtitle={HISTORY_SUBTITLE} />
+        <PageHeader
+          eyebrow="Historial"
+          title="Análisis anteriores"
+          subtitle={HISTORY_SUBTITLE}
+        />
       </div>
 
       <div className="mb-5 flex items-center gap-2.75 text-[13px] font-semibold text-muted">
