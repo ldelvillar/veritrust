@@ -382,7 +382,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 <PlusBoxIcon className="size-4.5" aria-hidden />
                 Analizar mi primer contenido
               </Button>
-              <Button href="/app/ejemplo" variant="soft" size="lg">
+              <Button href="/ejemplo" variant="soft" size="lg" target="_blank">
                 <DocumentIcon className="size-4.5" aria-hidden />
                 Ver un informe de ejemplo
               </Button>

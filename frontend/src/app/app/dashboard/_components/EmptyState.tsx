@@ -61,7 +61,7 @@ export default function EmptyState() {
               <PlusBoxIcon className="size-4.5" />
               Analizar mi primer contenido
             </Button>
-            <Button href="/app/analisis?demo=true" variant="soft" size="lg">
+            <Button href="/ejemplo" variant="soft" size="lg" target="_blank">
               <DocumentIcon className="size-4.5" />
               Ver una demostración
             </Button>
