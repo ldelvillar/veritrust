@@ -4,7 +4,6 @@ import { useId, useState } from 'react';
 
 import DocumentIcon from '@/assets/Document';
 import GlobeIcon from '@/assets/Globe';
-import ShieldIcon from '@/assets/Shield';
 import Spinner from '@/assets/Spinner';
 import TypeIcon from '@/assets/Type';
 import UploadIcon from '@/assets/Upload';
@@ -21,6 +20,8 @@ const EXAMPLE_TEXT_1 =
   'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común y refuerza el sistema inmunitario sin ningún riesgo, según un estudio reciente.';
 const EXAMPLE_TEXT_2 =
   'Tomar el sol 20 minutos al día sin protección es suficiente para obtener toda la vitamina D que el cuerpo necesita.';
+const EXAMPLE_URL_1 = 'www.20minutos.es/salud/actualidad/estudio-vitamina-c';
+const EXAMPLE_URL_2 = 'www.larazon.es/salud/asi-influye-la-vitamina-d';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -137,234 +138,244 @@ export default function AnalysisForm() {
 
   return (
     <form
-      className="w-full max-w-4xl rounded-2xl border border-line bg-white p-7 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
+      className="w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-[#e7e3fb] bg-white shadow-[0_0_0_1px_rgba(67,45,215,.05),0_20px_54px_rgba(83,69,216,.16)]"
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
-      {/* Header */}
-      <div className="mb-5">
-        <h2 className="text-[20px] font-bold tracking-tight text-ink">
-          Nuevo análisis
-        </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          Elige cómo quieres aportar el contenido a verificar. Procesamos texto,
-          páginas web y documentos.
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div
-        role="tablist"
-        aria-label="Método de entrada del contenido"
-        className="mb-5 flex gap-2 rounded-2xl border border-line bg-surface p-1.5"
-      >
-        {tabs.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={tabId(id)}
-            aria-selected={inputMethod === id}
-            aria-controls={panelId}
-            disabled={isLoading}
-            onClick={() => setInputMethod(id)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[14.5px] font-bold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-              inputMethod === id
-                ? 'bg-white text-primary shadow-[0_1px_2px_rgba(20,22,44,.04),0_4px_14px_rgba(92,80,200,.05)]'
-                : 'text-muted hover:text-body'
-            }`}
-          >
-            <Icon className="size-4.5" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Texto tab */}
-      {inputMethod === 'text' && (
-        <div role="tabpanel" id={panelId} aria-labelledby={tabId('text')}>
-          <label
-            htmlFor="analysis-text"
-            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body"
-          >
-            <TypeIcon className="size-3.75 text-muted" />
-            Pega el texto o la afirmación a verificar
-          </label>
-          <textarea
-            id="analysis-text"
-            name="text"
-            disabled={isLoading}
-            className="min-h-47 w-full resize-y rounded-xl border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15px] leading-relaxed text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(99,86,230,.12)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
-            value={formData.text}
-            onChange={handleChange}
-          />
-          <div className="mt-2.5 flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12.5px] font-bold text-faint">
-                Probar un ejemplo:
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({ ...formData, text: EXAMPLE_TEXT_1 })
-                }
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary"
-              >
-                Vitamina C y resfriado
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({ ...formData, text: EXAMPLE_TEXT_2 })
-                }
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary"
-              >
-                Sol y vitamina D
-              </button>
-            </div>
-            <span className="shrink-0 text-[12.5px] font-semibold text-faint">
-              {formData.text.length} caracteres
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Enlace tab */}
-      {inputMethod === 'url' && (
-        <div role="tabpanel" id={panelId} aria-labelledby={tabId('url')}>
-          <label
-            htmlFor="analysis-url"
-            className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body"
-          >
-            <GlobeIcon className="size-3.75 text-muted" />
-            Introduce la URL del artículo
-          </label>
-          <div className="flex overflow-hidden rounded-xl border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(99,86,230,.12)]">
-            <span className="flex items-center self-stretch border-r border-line bg-white px-3.5 text-[14px] font-bold text-muted">
-              https://
-            </span>
-            <input
-              id="analysis-url"
-              name="url"
-              type="text"
+      {/* Band */}
+      <div className="flex flex-col gap-3 border-b border-[#e7e3fb] bg-[linear-gradient(120deg,#efedfc,#f7f5ff)] px-4 py-3.5 sm:flex-row sm:items-center sm:px-5.5">
+        <span className="text-sm font-extrabold tracking-tight text-[#3722b8]">
+          Contenido a verificar
+        </span>
+        <div
+          role="tablist"
+          aria-label="Método de entrada del contenido"
+          className="flex gap-0.75 rounded-[11px] border border-line bg-white p-1 sm:ml-auto sm:inline-flex"
+        >
+          {tabs.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={tabId(id)}
+              aria-selected={inputMethod === id}
+              aria-controls={panelId}
               disabled={isLoading}
-              className="flex-1 border-none bg-transparent px-4 py-3.5 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="www.medio.es/salud/articulo-a-verificar"
-              value={formData.url}
+              onClick={() => setInputMethod(id)}
+              className={`flex flex-1 items-center justify-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${
+                inputMethod === id
+                  ? 'bg-[#efedfc] text-[#3722b8]'
+                  : 'text-muted hover:text-body'
+              }`}
+            >
+              <Icon className="size-3.75" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5.5">
+        {/* Texto tab */}
+        {inputMethod === 'text' && (
+          <div
+            role="tabpanel"
+            id={panelId}
+            aria-labelledby={tabId('text')}
+            className="flex min-h-50 flex-col justify-center"
+          >
+            <label htmlFor="analysis-text" className="sr-only">
+              Pega el texto o la afirmación a verificar
+            </label>
+            <textarea
+              id="analysis-text"
+              name="text"
+              disabled={isLoading}
+              className="min-h-37.5 w-full resize-y rounded-[14px] border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_#efedfc] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
+              value={formData.text}
               onChange={handleChange}
             />
-          </div>
-        </div>
-      )}
-
-      {/* Archivo tab */}
-      {inputMethod === 'file' && (
-        <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
-          <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-body">
-            <DocumentIcon className="size-3.75 text-muted" />
-            Sube un documento para analizar
-          </div>
-          <label
-            htmlFor="file-upload"
-            className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-center transition-all ${
-              isDragging
-                ? 'border-primary bg-surface'
-                : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
-            } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="mb-4 grid size-15 place-items-center rounded-2xl bg-[#efedfc] text-primary">
-              <UploadIcon className="size-6.5" />
-            </div>
-            {selectedFile ? (
-              <p className="text-[16px] font-semibold text-ink">
-                <span className="text-primary">{selectedFile.name}</span> ·
-                listo para analizar
-              </p>
-            ) : (
-              <p className="text-[16px] font-semibold text-ink">
-                Arrastra un archivo aquí o{' '}
-                <span className="text-primary">búscalo</span>
-              </p>
-            )}
-            <p className="mt-1.5 text-[13px] text-muted">
-              Documentos PDF o texto plano (.txt o .md).
-            </p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              {['PDF', 'TXT', 'MD'].map(t => (
-                <span
-                  key={t}
-                  className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
-                >
-                  {t}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[12.5px] font-bold text-faint">
+                  Prueba:
                 </span>
-              ))}
-              <span className="text-[11.5px] font-bold text-faint">
-                máx. 10 MB
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, text: EXAMPLE_TEXT_1 })
+                  }
+                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                >
+                  Vitamina C y resfriado
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, text: EXAMPLE_TEXT_2 })
+                  }
+                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                >
+                  Sol y vitamina D
+                </button>
+              </div>
+              <span className="shrink-0 text-[12.5px] font-semibold text-faint">
+                {formData.text.length} caracteres
               </span>
             </div>
-            <input
-              id="file-upload"
-              type="file"
-              className="hidden"
-              accept=".txt,.md,.pdf"
-              disabled={isLoading}
-              onChange={handleFileChange}
-            />
-          </label>
+          </div>
+        )}
 
-          {selectedFile && isPdfFile(selectedFile) && (
-            <div className="mt-4">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-body">
-                <DocumentIcon className="size-3.75 text-muted" />
-                Vista previa del PDF
-              </div>
-              <PdfViewer file={selectedFile} />
+        {/* Enlace tab */}
+        {inputMethod === 'url' && (
+          <div
+            role="tabpanel"
+            id={panelId}
+            aria-labelledby={tabId('url')}
+            className="flex min-h-50 flex-col justify-center"
+          >
+            <label htmlFor="analysis-url" className="sr-only">
+              Introduce la URL del artículo
+            </label>
+            <div className="flex overflow-hidden rounded-[14px] border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_#efedfc]">
+              <span className="flex items-center self-stretch border-r border-line bg-white px-3.5 text-[14px] font-bold text-muted">
+                https://
+              </span>
+              <input
+                id="analysis-url"
+                name="url"
+                type="text"
+                disabled={isLoading}
+                className="flex-1 border-none bg-transparent px-4 py-3.5 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="www.medio.es/salud/articulo-a-verificar"
+                value={formData.url}
+                onChange={handleChange}
+              />
             </div>
-          )}
-        </div>
-      )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[12.5px] font-bold text-faint">
+                Sugerencias:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+              >
+                20minutos.es
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+              >
+                larazon.es
+              </button>
+            </div>
+          </div>
+        )}
 
-      {/* Error */}
-      {error && (
-        <div
-          role="alert"
-          className="mt-4 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600"
-        >
-          <WarningIcon className="size-5 shrink-0" />
-          <p>{error}</p>
-        </div>
-      )}
+        {/* Archivo tab */}
+        {inputMethod === 'file' && (
+          <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
+            <div className="flex min-h-50 flex-col justify-center">
+              <label
+                htmlFor="file-upload"
+                className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed py-6 text-center transition-all ${
+                  isDragging
+                    ? 'border-primary bg-surface'
+                    : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
+                } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="mb-3 grid size-13 place-items-center rounded-2xl bg-[#efedfc] text-primary">
+                  <UploadIcon className="size-5.5" />
+                </div>
+                {selectedFile ? (
+                  <p className="text-[16px] font-semibold text-ink">
+                    <span className="text-primary">{selectedFile.name}</span> ·
+                    listo para analizar
+                  </p>
+                ) : (
+                  <p className="text-[16px] font-semibold text-ink">
+                    Arrastra un archivo aquí o{' '}
+                    <span className="text-primary">búscalo</span>
+                  </p>
+                )}
+                <p className="mt-1.5 text-[13px] text-muted">
+                  Documentos PDF o texto plano (.txt o .md).
+                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  {['PDF', 'TXT', 'MD'].map(t => (
+                    <span
+                      key={t}
+                      className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                  <span className="text-[11.5px] font-bold text-faint">
+                    máx. 10 MB
+                  </span>
+                </div>
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  accept=".txt,.md,.pdf"
+                  disabled={isLoading}
+                  onChange={handleFileChange}
+                />
+              </label>
+            </div>
 
-      {/* Footer */}
-      <div className="mt-6 flex items-center gap-4 border-t border-line pt-5">
-        <div className="flex items-center gap-2 text-[12.5px] leading-snug text-muted">
-          <ShieldIcon className="size-3.75 shrink-0 text-faint" />
-          <span>
+            {selectedFile && isPdfFile(selectedFile) && (
+              <div className="mt-4">
+                <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-body">
+                  <DocumentIcon className="size-3.75 text-muted" />
+                  Vista previa del PDF
+                </div>
+                <PdfViewer file={selectedFile} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div
+            role="alert"
+            className="mt-4 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600"
+          >
+            <WarningIcon className="size-5 shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-4.5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <p className="text-[12.5px] leading-normal font-medium text-muted sm:flex-1">
             El contenido se procesa de forma privada y no se usa para entrenar
-            modelos. Las afirmaciones pueden contrastarse con literatura
-            biomédica pública de nuestras fuentes.
-          </span>
+            modelos.
+          </p>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isLoading || !canRun}
+            className="w-full sm:w-auto sm:shrink-0"
+          >
+            {isLoading ? (
+              <>
+                <Spinner className="size-5 animate-spin" />
+                <span>Analizando...</span>
+              </>
+            ) : (
+              <span>Analizar credibilidad</span>
+            )}
+          </Button>
         </div>
-        <div className="flex-1" />
-        <Button
-          type="submit"
-          size="lg"
-          disabled={isLoading || !canRun}
-          className="shrink-0"
-        >
-          {isLoading ? (
-            <>
-              <Spinner className="size-5 animate-spin" />
-              <span>Analizando...</span>
-            </>
-          ) : (
-            <span>Analizar credibilidad</span>
-          )}
-        </Button>
       </div>
     </form>
   );
