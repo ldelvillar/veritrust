@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Show, SignInButton } from '@clerk/nextjs';
-import Logo from '@/assets/Logo';
 import Button from '@/components/Button';
+import Logo from '@/assets/Logo';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
@@ -81,11 +81,16 @@ export default function Header() {
                 Iniciar sesión
               </button>
             </SignInButton>
-            <Button href="/contacto">Contacto</Button>
           </Show>
           <Show when="signed-in">
-            <Button href="/app/analisis">Ir a la app</Button>
+            <Link
+              href="/app/analisis"
+              className="px-3.5 py-2.5 text-[14.5px] font-bold text-body transition hover:text-primary"
+            >
+              Ir a la app
+            </Link>
           </Show>
+          <Button href="/contacto">Contacto</Button>
         </div>
 
         <button
@@ -148,23 +153,23 @@ export default function Header() {
                     Iniciar sesión
                   </button>
                 </SignInButton>
-                <Button
-                  href="/contacto"
-                  className="h-11 w-full"
-                  onClick={closeMenu}
-                >
-                  Contacto
-                </Button>
               </Show>
               <Show when="signed-in">
-                <Button
+                <Link
                   href="/app/analisis"
-                  className="h-11 w-full"
+                  className="h-11 pt-2 text-center text-sm font-medium transition duration-300 hover:text-primary"
                   onClick={closeMenu}
                 >
                   Ir a la app
-                </Button>
+                </Link>
               </Show>
+              <Button
+                href="/contacto"
+                className="h-11 w-full"
+                onClick={closeMenu}
+              >
+                Contacto
+              </Button>
             </div>
           </div>
         </div>
