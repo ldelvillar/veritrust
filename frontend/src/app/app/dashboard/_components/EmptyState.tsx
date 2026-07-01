@@ -1,17 +1,8 @@
+import DocumentIcon from '@/assets/Document';
 import GridIcon from '@/assets/Dashboard';
-import ListIcon from '@/assets/List';
 import PlusBoxIcon from '@/assets/PlusBox';
-import ShieldIcon from '@/assets/Shield';
-import SparkleIcon from '@/assets/Sparkle';
-import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
-
-const HINTS = [
-  { icon: ListIcon, label: 'Volumen de análisis' },
-  { icon: ShieldIcon, label: 'Tasa de fiabilidad' },
-  { icon: WarningIcon, label: 'Alertas de credibilidad' },
-] as const;
 
 export default function EmptyState() {
   return (
@@ -71,22 +62,9 @@ export default function EmptyState() {
               Analizar mi primer contenido
             </Button>
             <Button href="/app/analisis?demo=true" variant="soft" size="lg">
-              <SparkleIcon className="size-4.5" />
+              <DocumentIcon className="size-4.5" />
               Ver una demostración
             </Button>
-          </div>
-
-          {/* Hint badges */}
-          <div className="mt-9.5 flex flex-wrap justify-center gap-2.5">
-            {HINTS.map(({ icon: Icon, label }) => (
-              <span
-                key={label}
-                className="inline-flex items-center gap-2.5 rounded-xl border border-line bg-surface-subtle px-4 py-2.5 text-[13px] font-semibold text-body"
-              >
-                <Icon className="size-4.25 shrink-0 text-accent" />
-                {label}
-              </span>
-            ))}
           </div>
         </div>
       </div>
