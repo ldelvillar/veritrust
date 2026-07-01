@@ -8,11 +8,11 @@ import { container } from './container';
 const highlights = [
   {
     b: 'Puntuación explicada',
-    p: '41/100 · «Engañoso»: mezcla un hecho real con una conclusión sin respaldo.',
+    p: '41/100 · «Falso»: mezcla un hecho real con una conclusión sin respaldo.',
   },
   {
     b: 'Cada afirmación, por separado',
-    p: 'Verificado, falso, impreciso o sin fuente: cuatro veredictos distintos en un mismo texto.',
+    p: 'Verdadero, falso o dudoso: cada afirmación recibe su propio veredicto en el mismo texto.',
   },
   {
     b: 'Fuentes para defenderlo',
@@ -24,7 +24,7 @@ const claims = [
   {
     tone: 'ok' as const,
     text: 'La vitamina C es un nutriente esencial para el sistema inmunitario.',
-    verdict: 'Verificado',
+    verdict: 'Verdadero',
   },
   {
     tone: 'bad' as const,
@@ -34,7 +34,7 @@ const claims = [
   {
     tone: 'warn' as const,
     text: 'Refuerza el sistema inmunitario «sin ningún riesgo».',
-    verdict: 'Impreciso',
+    verdict: 'Dudoso',
   },
 ];
 
@@ -93,7 +93,7 @@ export default function SampleReport() {
               </div>
               <div>
                 <span className="text-[11px] font-extrabold tracking-[0.06em] text-[#c23552] uppercase">
-                  Engañoso
+                  Falso
                 </span>
                 <h4 className="my-1.5 text-[21px] font-semibold text-ink">
                   Credibilidad baja

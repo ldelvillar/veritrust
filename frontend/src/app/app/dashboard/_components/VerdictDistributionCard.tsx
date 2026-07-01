@@ -2,9 +2,9 @@ import type { DashboardPayload } from './types';
 
 // Etiquetas y colores alineados con las tarjetas de veredicto del historial.
 const VERDICT_META = [
-  { key: 'real', label: 'Fiables', color: '#13b877' },
+  { key: 'real', label: 'Verdaderos', color: '#13b877' },
   { key: 'uncertain', label: 'Dudosos', color: '#e0a13b' },
-  { key: 'fake', label: 'No fiables', color: '#e0556b' },
+  { key: 'fake', label: 'Falsos', color: '#e0556b' },
 ] as const;
 
 export default function VerdictDistributionCard({

@@ -10,6 +10,7 @@ import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import RefreshIcon from '@/assets/Refresh';
 import Button from '@/components/Button';
+import { VERDICT_LABEL } from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
 import type { paths } from '@/types/api';
@@ -41,21 +42,21 @@ const TONE_CONFIG = {
     ring: '#15b878',
     textColor: '#0e8e5b',
     bgColor: '#def4ea',
-    label: 'Fiable',
+    label: VERDICT_LABEL.real,
   },
   warn: {
     rail: 'linear-gradient(180deg,#e8b057,#d98e29)',
     ring: '#dd9b2c',
     textColor: '#b07a16',
     bgColor: '#fbefda',
-    label: 'Dudoso',
+    label: VERDICT_LABEL.uncertain,
   },
   bad: {
     rail: 'linear-gradient(180deg,#e2607a,#d23c5d)',
     ring: '#df4f6b',
     textColor: '#c23552',
     bgColor: '#fbe4e8',
-    label: 'No fiable',
+    label: VERDICT_LABEL.fake,
   },
 } satisfies Record<Tone, object>;
 
@@ -321,7 +322,7 @@ export default function HistoryResultsTable({
 
             const badgeText = statusBadgeCfg
               ? statusBadgeCfg.text
-              : (toneCfg?.label ?? 'Incierto');
+              : (toneCfg?.label ?? VERDICT_LABEL.uncertain);
             const badgeTextColor = statusBadgeCfg
               ? statusBadgeCfg.textColor
               : (toneCfg?.textColor ?? '#7e7f99');

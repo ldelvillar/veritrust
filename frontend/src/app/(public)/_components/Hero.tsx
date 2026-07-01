@@ -95,7 +95,7 @@ export default function Hero() {
                 </div>
                 <div>
                   <span className="text-[11px] font-extrabold tracking-[0.08em] text-[#c23552] uppercase">
-                    Engañoso
+                    Falso
                   </span>
                   <h4 className="my-1.5 text-lg font-semibold text-ink">
                     Credibilidad baja

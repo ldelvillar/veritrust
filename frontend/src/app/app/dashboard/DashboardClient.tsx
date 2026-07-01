@@ -75,12 +75,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         <KpiCard
           label="Tasa de fiabilidad"
           value={`${dashboard.kpis.reliable_rate}%`}
-          sub="veredicto «fiable»"
+          sub="veredicto «verdadero»"
           icon={<ShieldIcon className="size-5" strokeWidth={2.1} />}
           tint="#def4ea"
           color="#13b877"
           spark={sparkConf.length >= 2 ? sparkConf : undefined}
-          hint="Porcentaje de tus análisis con veredicto «Verdadera» sobre el total completado."
+          hint="Porcentaje de tus análisis con veredicto «verdadero» sobre el total completado."
         />
         <KpiCard
           label="Confianza media"

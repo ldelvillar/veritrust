@@ -3,6 +3,13 @@ import Cross from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
 import type { Verdict } from './types';
 
+// Vocabulario único de veredicto para todo el producto
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  real: 'Verdadero',
+  fake: 'Falso',
+  uncertain: 'Dudoso',
+};
+
 export function getVerdictInfo(verdict: Verdict): {
   text: string;
   description: string;
@@ -10,7 +17,7 @@ export function getVerdictInfo(verdict: Verdict): {
 } {
   if (verdict === 'real') {
     return {
-      text: 'Contenido verdadero',
+      text: `Contenido ${VERDICT_LABEL.real.toLowerCase()}`,
       description:
         'El contenido muestra alta consistencia factual con fuentes médicas reputadas y bajos indicadores de información errónea.',
       band: 'linear-gradient(135deg,#2bc488,#10a566 70%,#0c9059)',
@@ -18,14 +25,14 @@ export function getVerdictInfo(verdict: Verdict): {
   }
   if (verdict === 'fake') {
     return {
-      text: 'Contenido falso',
+      text: `Contenido ${VERDICT_LABEL.fake.toLowerCase()}`,
       description:
         'El contenido contiene afirmaciones que contradicen o no pueden ser verificadas con fuentes médicas reconocidas.',
       band: 'linear-gradient(135deg,#e2607a,#d23c5d 70%,#c33051)',
     };
   }
   return {
-    text: 'Resultado incierto',
+    text: `Contenido ${VERDICT_LABEL.uncertain.toLowerCase()}`,
     description:
       'No se ha podido determinar con certeza la veracidad del contenido. Se recomienda consultar fuentes adicionales.',
     band: 'linear-gradient(135deg,#e8b057,#d98e29 70%,#c97e1c)',
@@ -55,7 +62,7 @@ export function getClaimStyle(verdict: Verdict): {
   if (verdict === 'fake') {
     return {
       Icon: Cross,
-      text: 'Falsa',
+      text: VERDICT_LABEL.fake,
       tile: 'bg-red-50 text-red-700',
       pill: 'bg-red-50 text-red-700',
     };
@@ -63,14 +70,14 @@ export function getClaimStyle(verdict: Verdict): {
   if (verdict === 'real') {
     return {
       Icon: Check,
-      text: 'Verdadera',
+      text: VERDICT_LABEL.real,
       tile: 'bg-emerald-50 text-emerald-700',
       pill: 'bg-emerald-50 text-emerald-700',
     };
   }
   return {
     Icon: WarningIcon,
-    text: 'Dudosa',
+    text: VERDICT_LABEL.uncertain,
     tile: 'bg-amber-50 text-amber-700',
     pill: 'bg-amber-50 text-amber-700',
   };

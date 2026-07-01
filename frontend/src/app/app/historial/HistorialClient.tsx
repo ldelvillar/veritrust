@@ -76,7 +76,7 @@ const STAT_CARDS = [
     label: 'Análisis totales',
     verdictValue: 'all' as VerdictFilter,
   },
-  { toneKey: 'ok', label: 'Fiables', verdictValue: 'real' as VerdictFilter },
+  { toneKey: 'ok', label: 'Verdaderos', verdictValue: 'real' as VerdictFilter },
   {
     toneKey: 'warn',
     label: 'Dudosos',
@@ -84,7 +84,7 @@ const STAT_CARDS = [
   },
   {
     toneKey: 'bad',
-    label: 'No fiables',
+    label: 'Falsos',
     verdictValue: 'fake' as VerdictFilter,
   },
 ];

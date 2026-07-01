@@ -97,9 +97,9 @@ export default function HistoryFilters({
           className="h-11 w-full min-w-44 cursor-pointer appearance-none rounded-xl border border-border bg-white px-4 pr-10 text-sm font-medium text-body transition-all outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
         >
           <option value="all">Todos los veredictos</option>
-          <option value="real">Verdadera</option>
-          <option value="fake">Falsa</option>
-          <option value="uncertain">Incierta</option>
+          <option value="real">Verdadero</option>
+          <option value="fake">Falso</option>
+          <option value="uncertain">Dudoso</option>
         </select>
         <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-faint">
           <Chevron />

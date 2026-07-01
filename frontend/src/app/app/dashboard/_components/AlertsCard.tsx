@@ -1,15 +1,17 @@
 import Link from 'next/link';
 import ArrowRightIcon from '@/assets/ArrowRight';
+import { VERDICT_LABEL } from '@/components/analysis-result/format';
 import type { DashboardAlertItem } from './types';
 
+// Estas alertas ya vienen filtradas por el backend a veredicto 'fake': el
+// texto es siempre el mismo, solo cambia el tono según la severidad.
 function alertVerdict(item: DashboardAlertItem): {
   label: string;
   tone: 'bad' | 'warn';
 } {
   const score = item.credibility ?? 0;
-  if (item.label === 'falsa' || score < 40)
-    return { label: 'Engañoso', tone: 'bad' };
-  return { label: 'Dudoso', tone: 'warn' };
+  const tone = item.label === 'falsa' || score < 40 ? 'bad' : 'warn';
+  return { label: VERDICT_LABEL.fake, tone };
 }
 
 const ALERT_STYLES = {
