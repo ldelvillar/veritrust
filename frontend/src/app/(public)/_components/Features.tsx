@@ -20,7 +20,7 @@ const features: Feature[] = [
     accent: '#6356e6',
     accentSoft: '#eeebfc',
     title: 'Tres vías de entrada',
-    body: 'Analiza texto pegado, enlaces de artículos o documentos (PDF, DOCX, TXT e imágenes) desde una sola herramienta.',
+    body: 'Analiza texto pegado, enlaces de artículos o documentos (PDF, TXT y MD) desde una sola herramienta.',
     Icon: TypeIcon,
   },
   {

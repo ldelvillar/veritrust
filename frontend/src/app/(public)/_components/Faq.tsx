@@ -39,11 +39,11 @@ export const faqEntries = [
       <>
         Puedes pegar <strong>texto</strong>, introducir un{' '}
         <strong>enlace</strong> (URL de un artículo) o subir un{' '}
-        <strong>archivo</strong>: PDF, DOCX, TXT e imágenes (PNG y JPG).
+        <strong>archivo</strong>: PDF, TXT o MD.
       </>
     ),
     plain:
-      'Texto pegado, enlaces (URL de artículos) y archivos: PDF, DOCX, TXT e imágenes (PNG y JPG).',
+      'Texto pegado, enlaces (URL de artículos) y archivos: PDF, TXT o MD.',
     open: false,
   },
   {

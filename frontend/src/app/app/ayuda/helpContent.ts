@@ -91,7 +91,7 @@ export const STEPS = [
   {
     n: '1',
     title: 'Aporta el contenido',
-    desc: 'Pega un texto, introduce un enlace o sube un documento. El extractor leerá texto, tablas y pies de imagen.',
+    desc: 'Pega un texto, introduce un enlace o sube un documento (PDF, TXT o MD). El extractor leerá su contenido.',
     tags: ['Texto', 'Enlace', 'Archivo'],
   },
   {
@@ -132,7 +132,7 @@ export const FAQ = [
   {
     cat: 'Uso',
     q: '¿Puedo analizar imágenes o capturas?',
-    a: 'Sí. El Extractor lee texto, tablas y pies de imagen en archivos PDF, DOCX, TXT, PNG y JPG (hasta 10 MB).',
+    a: 'Todavía no admitimos imágenes ni capturas como archivo. Los formatos válidos son <b>PDF, TXT y MD</b> (hasta 10 MB); si tienes una captura, copia el texto y pégalo directamente.',
   },
   {
     cat: 'Informe',
@@ -161,7 +161,7 @@ export const ARTICLES = [
     category: 'Primeros pasos',
     title: 'Elegir entre texto, enlace o archivo',
     summary:
-      'Usa texto pegado para mensajes cortos, enlaces para artículos públicos y archivos cuando necesites analizar documentos completos o capturas.',
+      'Usa texto pegado para mensajes cortos, enlaces para artículos públicos y archivos cuando necesites analizar documentos completos.',
     tags: ['Texto', 'URL', 'Archivo'],
   },
   {
@@ -170,7 +170,7 @@ export const ARTICLES = [
     title: 'Preparar documentos largos',
     summary:
       'Divide informes extensos por secciones, conserva los encabezados clínicos y evita mezclar varios temas médicos en una sola solicitud.',
-    tags: ['PDF', 'DOCX', 'Formato'],
+    tags: ['PDF', 'TXT', 'Formato'],
   },
   {
     id: 'analisis-pendiente',
@@ -369,7 +369,7 @@ export const ARTICLES = [
     category: 'Solución de problemas',
     title: 'Archivo no soportado',
     summary:
-      'Comprueba que el archivo sea PDF, DOCX, TXT, PNG o JPG y que no supere el tamaño máximo permitido antes de volver a cargarlo.',
+      'Comprueba que el archivo sea PDF, TXT o MD y que no supere el tamaño máximo permitido antes de volver a cargarlo.',
     tags: ['Archivo', 'Formato', 'Carga'],
   },
   {
