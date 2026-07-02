@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import Arrow from '@/assets/Arrow';
 import CheckIcon from '@/assets/Check';
 import CrossIcon from '@/assets/Cross';
@@ -39,12 +42,34 @@ const claims = [
 ];
 
 export default function SampleReport() {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section id="ejemplo" className="py-24 max-md:py-18">
       <div
+        ref={gridRef}
         className={`${container} grid items-center gap-12 md:grid-cols-[0.9fr_1.1fr]`}
       >
-        <div>
+        <div className={isVisible ? 'animate-slide-in-left' : 'opacity-0'}>
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Un informe real
           </span>
@@ -76,7 +101,9 @@ export default function SampleReport() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
+        <div
+          className={`overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)] ${isVisible ? 'animate-slide-in-right' : 'opacity-0'}`}
+        >
           <div className="flex items-center gap-1.75 border-b border-line bg-surface-subtle px-4.5 py-3.5">
             <i className="size-2.75 rounded-full bg-[#f0a8b4]" />
             <i className="size-2.75 rounded-full bg-[#f3d49a]" />
