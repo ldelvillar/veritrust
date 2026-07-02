@@ -3,7 +3,12 @@ Este módulo contiene las funciones necesarias para entrenar
 el modelo BERT para detectar noticias falsas en salud pública.
 """
 
+import json
 import logging
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -51,6 +56,20 @@ class PubHealthDataset(torch.utils.data.Dataset):
 
     def __len__(self) -> int:
         return len(self.labels)
+
+
+def _git_sha() -> str:
+    """Devuelve el SHA corto de git del repo, o 'unknown' si no está disponible."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
 
 
 def compute_metrics(pred: EvalPrediction) -> dict:
@@ -157,10 +176,40 @@ def run_training() -> None:
     test_results = trainer.evaluate(test_dataset)
     logger.info("Resultados finales (test): %s", test_results)
 
+    # Directorio versionado (timestamp + SHA) para no sobrescribir modelos previos
+    git_sha = _git_sha()
+    version = f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{git_sha}"
+    version_dir = Path(OUTPUT_DIR) / version
+    version_dir.mkdir(parents=True, exist_ok=True)
+
     # Guardar el modelo final y el tokenizador para su uso posterior en los agentes
-    model.save_pretrained(OUTPUT_DIR)
-    tokenizer.save_pretrained(OUTPUT_DIR)
-    logger.info("Modelo guardado en %s", OUTPUT_DIR)
+    model.save_pretrained(version_dir)
+    tokenizer.save_pretrained(version_dir)
+
+    # Registrar procedencia (datos/código/métricas) junto a los pesos del modelo
+    metadata: dict[str, Any] = {
+        "version": version,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "git_sha": git_sha,
+        "base_model": MODEL_NAME,
+        "partition_sizes": {
+            "train": len(train_df),
+            "validation": len(val_df),
+            "test": len(test_df),
+        },
+        "test_metrics": test_results,
+        "hyperparameters": {
+            "epochs": EPOCHS,
+            "batch_size": BATCH_SIZE,
+            "learning_rate": LEARNING_RATE,
+            "max_length": MAX_LENGTH,
+            "seed": SEED,
+        },
+    }
+    (version_dir / "metadata.json").write_text(
+        json.dumps(metadata, indent=2), encoding="utf-8"
+    )
+    logger.info("Modelo guardado en %s", version_dir)
 
     logger.info("Entrenamiento finalizado con éxito")
 

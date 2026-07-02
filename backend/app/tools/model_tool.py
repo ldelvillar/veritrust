@@ -83,11 +83,28 @@ class FakeNewsDetectorTool(BaseTool):
         raise ValueError("El tokenizador devolvió un tipo de entrada no compatible")
 
     @staticmethod
-    def _resolve_model_path() -> str:
+    def _latest_version_dir(container: Path) -> Path | None:
+        """Devuelve el subdirectorio de versión con modelo más reciente, si existe."""
+        if not container.is_dir():
+            return None
+        versions = sorted(
+            (
+                child
+                for child in container.iterdir()
+                if (child / "config.json").exists()
+            ),
+            reverse=True,
+        )
+        return versions[0] if versions else None
+
+    @classmethod
+    def _resolve_model_path(cls) -> str:
         """Resuelve una ruta local valida para el modelo en distintos entornos."""
         configured_path = get_settings().fake_news_model_path
         if configured_path and Path(configured_path).exists():
-            return str(Path(configured_path).resolve())
+            base = Path(configured_path)
+            resolved = cls._latest_version_dir(base) or base
+            return str(resolved.resolve())
 
         current_file = Path(__file__).resolve()
         candidates = [
@@ -98,7 +115,8 @@ class FakeNewsDetectorTool(BaseTool):
 
         for path in candidates:
             if path.exists():
-                return str(path.resolve())
+                resolved = cls._latest_version_dir(path) or path
+                return str(resolved.resolve())
 
         raise FileNotFoundError(
             "No se encontro el modelo en una ruta local valida. "

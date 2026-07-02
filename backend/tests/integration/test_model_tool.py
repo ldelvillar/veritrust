@@ -35,6 +35,22 @@ def test_resolve_model_path_uses_configured_path_when_available(
     assert tool.model_path == str(model_dir.resolve())
 
 
+def test_resolve_model_path_picks_latest_version_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    container = tmp_path / "bert_classifier"
+    older = container / "20260101-000000-aaaaaaa"
+    newer = container / "20260102-000000-bbbbbbb"
+    for version_dir in (older, newer):
+        version_dir.mkdir(parents=True)
+        (version_dir / "config.json").write_text("{}", encoding="utf-8")
+    _patch_model_path(monkeypatch, str(container))
+
+    # Apuntar al contenedor resuelve al último versionado, permitiendo rollback.
+    tool = FakeNewsDetectorTool()
+    assert tool.model_path == str(newer.resolve())
+
+
 def test_run_returns_label_and_confidence_with_mocked_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

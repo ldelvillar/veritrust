@@ -1,11 +1,29 @@
 """Tests unitarios para el modulo de entrenamiento del modelo."""
 
+import json
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 
 from ml.training import train as train_module
+
+
+def test_git_sha_returns_short_hash_from_git(monkeypatch) -> None:
+    monkeypatch.setattr(
+        train_module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout="abc1234\n"),
+    )
+    assert train_module._git_sha() == "abc1234"
+
+
+def test_git_sha_returns_unknown_when_git_unavailable(monkeypatch) -> None:
+    def _raise(*args, **kwargs):
+        raise OSError("git not found")
+
+    monkeypatch.setattr(train_module.subprocess, "run", _raise)
+    assert train_module._git_sha() == "unknown"
 
 
 def test_pubhealth_dataset_len_and_getitem_returns_expected_tensors() -> None:
@@ -45,7 +63,7 @@ def test_compute_metrics_returns_expected_scores() -> None:
     assert 0.0 <= out["recall"] <= 1.0
 
 
-def test_run_training_smoke_with_mocks(monkeypatch) -> None:
+def test_run_training_smoke_with_mocks(monkeypatch, tmp_path) -> None:
     train_df = pd.DataFrame({"text": ["a", "b"], "label": [0, 1]})
     val_df = pd.DataFrame({"text": ["c"], "label": [1]})
 
@@ -115,6 +133,10 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
 
     monkeypatch.setattr(train_module, "Trainer", _FakeTrainer)
 
+    # Escribir el modelo versionado bajo tmp_path con un SHA determinista.
+    monkeypatch.setattr(train_module, "OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setattr(train_module, "_git_sha", lambda: "testsha")
+
     train_module.run_training()
 
     assert calls["train"] == 1
@@ -125,3 +147,18 @@ def test_run_training_smoke_with_mocks(monkeypatch) -> None:
     assert seed_calls == [train_module.SEED]
     assert captured_args["seed"] == train_module.SEED
     assert captured_args["data_seed"] == train_module.SEED
+
+    # El modelo se guarda en un único directorio versionado, no sobre OUTPUT_DIR.
+    version_dirs = [child for child in tmp_path.iterdir() if child.is_dir()]
+    assert len(version_dirs) == 1
+    version_dir = version_dirs[0]
+    assert version_dir.name.endswith("-testsha")
+    assert fake_model.saved_path == version_dir
+    assert fake_tokenizer.saved_path == version_dir
+
+    # metadata.json registra procedencia: SHA, tamaños de partición y métricas.
+    metadata = json.loads((version_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["git_sha"] == "testsha"
+    assert metadata["partition_sizes"] == {"train": 2, "validation": 1, "test": 2}
+    assert metadata["test_metrics"] == {"eval_f1": 0.8}
+    assert metadata["base_model"] == train_module.MODEL_NAME

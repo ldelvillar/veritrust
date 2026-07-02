@@ -122,6 +122,8 @@ cd backend
 uv run python -m ml.training.train
 ```
 
+Training writes a versioned subdirectory (`bert_classifier/<timestamp>-<git-sha>/`) with a `metadata.json` recording the git SHA, dataset partition sizes, and test metrics. Inference auto-selects the latest version; pin a specific one by setting `FAKE_NEWS_MODEL_PATH` to that subdirectory.
+
 ## Common commands
 
 ### Backend (from `backend/`)
