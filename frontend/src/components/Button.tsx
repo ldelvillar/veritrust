@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
-export type ButtonVariant = 'primary' | 'ghost' | 'light' | 'outline' | 'soft';
+export type ButtonVariant =
+  | 'primary'
+  | 'ghost'
+  | 'light'
+  | 'outline'
+  | 'soft'
+  | 'danger';
 export type ButtonSize = 'md' | 'lg';
 
 // Fuente única de verdad para los botones del producto: estilo «Plano compacto».
@@ -20,6 +26,9 @@ const variants: Record<ButtonVariant, string> = {
   outline:
     'border-[1.5px] border-white/40 text-white hover:border-white hover:bg-white/12',
   soft: 'bg-white text-body border border-line-strong hover:border-primary hover:text-[#3722b8]',
+  // Variante autónoma: incluye su propia geometría, tipografía y foco, sin base ni size.
+  danger:
+    'inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
 };
 
 const cx = (...classes: (string | undefined | false)[]) =>
@@ -53,7 +62,10 @@ export default function Button({
   children,
   ...props
 }: ButtonProps) {
-  const classes = cx(base, sizes[size], variants[variant], className);
+  const classes =
+    variant === 'danger'
+      ? cx(variants.danger, className)
+      : cx(base, sizes[size], variants[variant], className);
 
   if (props.href !== undefined) {
     return (

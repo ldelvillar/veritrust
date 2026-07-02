@@ -148,18 +148,17 @@ export default function ShareDialog({
             Cerrar
           </Button>
           {shareUrl ? (
-            <button
-              type="button"
+            <Button
+              variant="danger"
               onClick={onRemove}
               disabled={isSharing}
               aria-busy={isSharing}
-              className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSharing ? (
                 <Spinner className="size-4 animate-spin text-red-500" />
               ) : null}
               Desactivar enlace
-            </button>
+            </Button>
           ) : (
             <Button
               onClick={onCreate}

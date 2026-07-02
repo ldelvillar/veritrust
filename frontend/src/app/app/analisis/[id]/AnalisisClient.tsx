@@ -106,17 +106,16 @@ export default function AnalisisClient({
   );
 
   const deleteButton = (
-    <button
-      type="button"
+    <Button
+      variant="danger"
       onClick={() => {
         setDeleteError(null);
         setConfirmOpen(true);
       }}
-      className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none"
     >
       <Trash className="size-4" />
       Eliminar
-    </button>
+    </Button>
   );
 
   // Solo se puede compartir un informe terminado.
