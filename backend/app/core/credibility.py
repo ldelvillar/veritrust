@@ -1,8 +1,11 @@
 """Derivación de veredicto y credibilidad a partir de etiqueta y confianza."""
 
-from typing import Literal, Optional
+from typing import Literal, Optional, get_args
 
 Verdict = Literal["real", "fake", "uncertain"]
+
+# Vocabulario único de veredicto, reutilizado en validación y persistencia.
+VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
 
 
 def classify_verdict(label: Optional[str]) -> Verdict:
@@ -13,18 +16,6 @@ def classify_verdict(label: Optional[str]) -> Verdict:
     if "fals" in normalized or "fake" in normalized:
         return "fake"
     return "uncertain"
-
-
-# Espejo en SQL de classify_verdict; mantener en lockstep con la función de arriba.
-VERDICT_REAL_SQL = (
-    "(LOWER(COALESCE(label, '')) LIKE '%%verdad%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%true%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%real%%')"
-)
-VERDICT_FAKE_SQL = (
-    "(LOWER(COALESCE(label, '')) LIKE '%%fals%%' "
-    "OR LOWER(COALESCE(label, '')) LIKE '%%fake%%')"
-)
 
 
 def compute_credibility(

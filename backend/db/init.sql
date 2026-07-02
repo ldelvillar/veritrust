@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     confidence   DOUBLE PRECISION
                  CHECK (confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)),
     explanation  TEXT,
+    -- Verdict bucket (real/fake/uncertain) derived from label at completion; NULL while pending/failed.
+    verdict      TEXT CHECK (verdict IS NULL OR verdict IN ('real', 'fake', 'uncertain')),
     -- Per-claim BERT verdicts ([{text, label, confidence}, ...]); NULL while pending.
     claims       JSONB,
     -- Retrieved biomedical sources ([{title, url, source, year, statements}, ...]); NULL while pending.
@@ -31,3 +33,7 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
 
 CREATE INDEX IF NOT EXISTS idx_analysis_history_user_created
     ON public.analysis_history (user_id, created_at DESC);
+
+-- Feeds the verdict filter and dashboard/history verdict aggregations.
+CREATE INDEX IF NOT EXISTS idx_analysis_history_user_verdict
+    ON public.analysis_history (user_id, verdict);

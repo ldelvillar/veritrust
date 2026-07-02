@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 
 import psycopg
 
-from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.dashboard import (
     DashboardAlertItem,
@@ -193,11 +192,11 @@ async def get_user_dashboard_summary(
         alert_limit=alert_limit,
     )
 
-    kpis_query = f"""
+    kpis_query = """
         SELECT
             COUNT(*) AS total_analyses,
             AVG(confidence) AS average_confidence,
-            SUM(CASE WHEN {VERDICT_REAL_SQL} THEN 1 ELSE 0 END) AS reliable_total,
+            SUM(CASE WHEN verdict = 'real' THEN 1 ELSE 0 END) AS reliable_total,
             SUM(
                 CASE
                     WHEN created_at >= NOW() - INTERVAL '7 days'
@@ -213,13 +212,7 @@ async def get_user_dashboard_summary(
                     ELSE 0
                 END
             ) AS previous_week_total,
-            SUM(
-                CASE
-                    WHEN {VERDICT_FAKE_SQL} AND NOT {VERDICT_REAL_SQL}
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS active_alerts
+            SUM(CASE WHEN verdict = 'fake' THEN 1 ELSE 0 END) AS active_alerts
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
     """
@@ -258,7 +251,7 @@ async def get_user_dashboard_summary(
           AND input_url IS NOT NULL
     """
 
-    alerts_query = f"""
+    alerts_query = """
         SELECT
             id,
             source_type,
@@ -270,7 +263,7 @@ async def get_user_dashboard_summary(
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
-          AND {VERDICT_FAKE_SQL} AND NOT {VERDICT_REAL_SQL}
+          AND verdict = 'fake'
         ORDER BY created_at DESC
         LIMIT %s
     """

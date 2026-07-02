@@ -5,7 +5,6 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app.core.config import Settings
-from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
 from app.db import dashboard as dashboard_module
 from app.db import history as history_module
 from app.db import pool as pool_module
@@ -267,13 +266,12 @@ def test_build_history_where_clause_filters_by_fake_verdict() -> None:
         verdict="fake",
     )
 
-    assert "LIKE '%%fals%%'" in where_sql
-    assert "LIKE '%%fake%%'" in where_sql
-    # La cláusula de veredicto es constante: no añade parámetros.
-    assert params == ["user-1"]
+    # Igualdad parametrizada sobre la columna verdict.
+    assert where_sql == "user_id = %s AND verdict = %s"
+    assert params == ["user-1", "fake"]
 
 
-def test_build_history_where_clause_uncertain_excludes_real_and_fake() -> None:
+def test_build_history_where_clause_filters_by_uncertain_verdict() -> None:
     where_sql, params = history_module._build_history_where_clause(
         user_id="user-1",
         search_query=None,
@@ -282,13 +280,9 @@ def test_build_history_where_clause_uncertain_excludes_real_and_fake() -> None:
         verdict="uncertain",
     )
 
-    # El bucket incierto exige etiqueta no vacía para no arrastrar filas pending/failed.
-    assert where_sql.endswith(
-        f"AND (COALESCE(label, '') <> '' "
-        f"AND NOT {VERDICT_REAL_SQL} "
-        f"AND NOT {VERDICT_FAKE_SQL})"
-    )
-    assert params == ["user-1"]
+    # Las filas pending/failed tienen verdict NULL, así que la igualdad las excluye.
+    assert where_sql == "user_id = %s AND verdict = %s"
+    assert params == ["user-1", "uncertain"]
 
 
 def test_build_history_where_clause_ignores_unknown_verdict() -> None:

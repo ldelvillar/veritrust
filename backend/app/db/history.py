@@ -10,7 +10,7 @@ from typing import Any, Optional, Sequence
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app.core.credibility import VERDICT_FAKE_SQL, VERDICT_REAL_SQL
+from app.core.credibility import VERDICTS, classify_verdict
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.history import (
@@ -24,18 +24,8 @@ logger = logging.getLogger(__name__)
 
 # Vocabulario único: derivado del enum SourceType para no divergir del contrato.
 _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
-_VALID_VERDICTS = {"real", "fake", "uncertain"}
+_VALID_VERDICTS = set(VERDICTS)
 _VALID_STATUSES = {"done", "pending", "failed"}
-
-# El bucket 'incierto' exige etiqueta no vacía: las filas pending/failed no tienen veredicto.
-_VERDICT_SQL = {
-    "real": VERDICT_REAL_SQL,
-    "fake": VERDICT_FAKE_SQL,
-    "uncertain": (
-        f"(COALESCE(label, '') <> '' "
-        f"AND NOT {VERDICT_REAL_SQL} AND NOT {VERDICT_FAKE_SQL})"
-    ),
-}
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -123,9 +113,10 @@ def _build_history_where_clause(
         where_clauses.append("source_type = %s")
         where_params.append(source_type)
 
-    # Cláusula constante (sin parámetros): el bucket ya viene validado.
+    # Igualdad sobre la columna verdict (indexable); las filas pending/failed la tienen NULL.
     if verdict in _VALID_VERDICTS:
-        where_clauses.append(_VERDICT_SQL[verdict])
+        where_clauses.append("verdict = %s")
+        where_params.append(verdict)
 
     if created_after is not None:
         where_clauses.append("created_at >= %s")
@@ -286,10 +277,13 @@ async def complete_analysis(
     """Marca un análisis pendiente como ``done`` con su resultado."""
     pool = await get_pool()
     confidence_value = _normalize_confidence(confidence)
+    # El veredicto se deriva una sola vez aquí; label queda como texto de presentación.
+    verdict_value = classify_verdict(label)
 
     query = """
         UPDATE public.analysis_history
         SET label = %s,
+            verdict = %s,
             confidence = %s,
             explanation = %s,
             claims = %s,
@@ -306,6 +300,7 @@ async def complete_analysis(
                     query,
                     (
                         label,
+                        verdict_value,
                         confidence_value,
                         explanation,
                         Jsonb(claims) if claims else None,
@@ -450,9 +445,9 @@ async def count_history_verdict_facets(
     facets_query = f"""
         SELECT
             COUNT(*) AS total,
-            COALESCE(SUM(CASE WHEN {VERDICT_REAL_SQL} THEN 1 ELSE 0 END), 0) AS real_total,
-            COALESCE(SUM(CASE WHEN {VERDICT_FAKE_SQL} THEN 1 ELSE 0 END), 0) AS fake_total,
-            COALESCE(SUM(CASE WHEN {_VERDICT_SQL["uncertain"]} THEN 1 ELSE 0 END), 0)
+            COALESCE(SUM(CASE WHEN verdict = 'real' THEN 1 ELSE 0 END), 0) AS real_total,
+            COALESCE(SUM(CASE WHEN verdict = 'fake' THEN 1 ELSE 0 END), 0) AS fake_total,
+            COALESCE(SUM(CASE WHEN verdict = 'uncertain' THEN 1 ELSE 0 END), 0)
                 AS uncertain_total
         FROM public.analysis_history
         WHERE {where_sql}

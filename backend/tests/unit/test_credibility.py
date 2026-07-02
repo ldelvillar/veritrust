@@ -1,13 +1,6 @@
 """Tests unitarios para la derivación de veredicto y credibilidad."""
 
-import re
-
-from app.core.credibility import (
-    VERDICT_FAKE_SQL,
-    VERDICT_REAL_SQL,
-    classify_verdict,
-    compute_credibility,
-)
+from app.core.credibility import VERDICTS, classify_verdict, compute_credibility
 
 
 def test_classify_verdict_buckets_labels() -> None:
@@ -19,34 +12,10 @@ def test_classify_verdict_buckets_labels() -> None:
     assert classify_verdict(None) == "uncertain"
 
 
-def _bucket_via_sql_mirror(label: str | None) -> str:
-    """Clasifica como lo haría el espejo SQL: LIKE '%token%' equivale a contención."""
-    text = (label or "").lower()
-    real_tokens = re.findall(r"%%(\w+)%%", VERDICT_REAL_SQL)
-    fake_tokens = re.findall(r"%%(\w+)%%", VERDICT_FAKE_SQL)
-    if any(token in text for token in real_tokens):
-        return "real"
-    if any(token in text for token in fake_tokens):
-        return "fake"
-    return "uncertain"
-
-
-def test_sql_verdict_mirror_matches_classify_verdict() -> None:
-    # Incluye los casos que el espejo antiguo (prefijo, sin 'real') clasificaba mal.
-    labels = [
-        "verdadera",
-        "Contenido verdadero",
-        "real",
-        "true",
-        "falsa",
-        "información falsa",
-        "fake",
-        "incierta",
-        "",
-        None,
-    ]
-    for label in labels:
-        assert _bucket_via_sql_mirror(label) == classify_verdict(label), label
+def test_classify_verdict_output_is_always_a_known_verdict() -> None:
+    # El vocabulario persistido y validado debe cubrir toda salida de classify_verdict.
+    for label in ("verdadera", "falsa", "incierta", "", None):
+        assert classify_verdict(label) in VERDICTS
 
 
 def test_compute_credibility_keeps_confidence_for_real_verdict() -> None:
