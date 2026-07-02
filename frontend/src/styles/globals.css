@@ -97,6 +97,61 @@ html {
   }
 }
 
+/* Carrusel de logotipos de fuentes médicas: desplazamiento continuo con fundido en los bordes. */
+@keyframes logoScroll {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.logo-marquee {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+.logo-track {
+  animation: logoScroll 36s linear infinite;
+}
+
+.logo-marquee:hover .logo-track {
+  animation-play-state: paused;
+}
+
+.logo-item img {
+  filter: grayscale(1);
+  opacity: 0.6;
+  transition:
+    filter 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.logo-track:hover .logo-item img {
+  opacity: 0.32;
+}
+
+.logo-track .logo-item:hover img {
+  filter: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-track {
+    animation: none;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
