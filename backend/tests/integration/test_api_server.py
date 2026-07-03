@@ -1382,6 +1382,28 @@ def test_get_file_returns_file(monkeypatch):
     assert "informe.pdf" in response.headers["content-disposition"]
 
 
+def test_get_file_handles_non_latin1_filename(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_analysis_file(*, user_id, analysis_id):
+        # Em dash y emoji no caben en latin-1: antes reventaban la respuesta.
+        return (b"%PDF-1.4 data", "informe—salud☕.pdf")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_file", fake_get_analysis_file
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/file")
+
+    assert response.status_code == 200
+    assert response.content == b"%PDF-1.4 data"
+    disposition = response.headers["content-disposition"]
+    # El nombre real viaja percent-encoded en filename*; el fallback ASCII no rompe.
+    assert "filename*=UTF-8''" in disposition
+    assert "%E2%80%94" in disposition
+
+
 def test_get_file_returns_404_when_missing(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)

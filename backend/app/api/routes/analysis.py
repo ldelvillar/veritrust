@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import (
@@ -398,6 +399,20 @@ _FILE_MEDIA_TYPES = {
 }
 
 
+def _content_disposition_inline(filename: str) -> str:
+    """Construye un Content-Disposition inline seguro (RFC 6266) para nombres no ASCII."""
+    # Cabeceras HTTP se codifican en latin-1: un nombre con em dash, emoji o CJK
+    # reventaría la respuesta con UnicodeEncodeError, así que separamos el
+    # fallback ASCII (sin comillas ni control) del nombre real percent-encoded.
+    ascii_fallback = (
+        "".join(c for c in filename if 32 <= ord(c) < 127 and c not in '"\\')
+        or "documento"
+    )
+    # surrogatepass evita un UnicodeEncodeError si el nombre trae surrogates sueltos.
+    encoded = quote(filename, safe="", errors="surrogatepass")
+    return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
+
+
 @router.get("/{analysis_id}/file", responses=_GET_FILE_ERROR_RESPONSES)
 async def get_analysis_file_content(analysis_id: str, user=Depends(get_current_user)):
     """Devuelve el archivo original de un análisis para mostrarlo en el informe."""
@@ -433,7 +448,7 @@ async def get_analysis_file_content(analysis_id: str, user=Depends(get_current_u
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+        headers={"Content-Disposition": _content_disposition_inline(safe_name)},
     )
 
 
