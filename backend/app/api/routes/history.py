@@ -37,6 +37,17 @@ _EXPORT_ERROR_RESPONSES: dict[int | str, dict] = {
 # BOM para que Excel detecte UTF-8 al abrir el CSV.
 _UTF8_BOM = "﻿"
 
+# Caracteres iniciales que Excel/Sheets interpretan como fórmula (inyección CSV).
+_CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _neutralize_csv_formula(value: str) -> str:
+    """Antepone una comilla simple si el texto podría abrirse como fórmula en Excel."""
+    if value.startswith(_CSV_FORMULA_TRIGGERS):
+        return "'" + value
+    return value
+
+
 _EXPORT_VERDICT_LABELS = {"real": "Verdadera", "fake": "Falsa", "uncertain": "Incierta"}
 _EXPORT_SOURCE_LABELS = {
     "text": "Texto pegado",
@@ -138,7 +149,7 @@ def _build_history_csv(records: list[AnalysisHistoryItem]) -> bytes:
     writer = csv.writer(buffer)
     writer.writerow(["Fecha", "Tipo", "Entrada", "Veredicto", "Credibilidad"])
     for record in records:
-        entrada = record.input_url or record.input_text or ""
+        entrada = _neutralize_csv_formula(record.input_url or record.input_text or "")
         verdict = _EXPORT_VERDICT_LABELS.get(classify_verdict(record.label), "")
         credibility = "" if record.credibility is None else str(record.credibility)
         writer.writerow(

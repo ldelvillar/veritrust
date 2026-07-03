@@ -1,6 +1,8 @@
 """Tests de integración para la API server, verificando endpoints y manejo de errores."""
 
+import csv
 import importlib
+import io
 import sys
 import types
 from pathlib import Path
@@ -1188,6 +1190,40 @@ def test_historial_export_returns_csv(monkeypatch):
     assert lines[0] == "Fecha,Tipo,Entrada,Veredicto,Credibilidad"
     assert "https://ejemplo.com/nota,Falsa,12" in lines[1]
     assert "Una afirmación médica,Verdadera,90" in lines[2]
+
+
+def test_historial_export_neutralizes_csv_formula(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    records = [
+        types.SimpleNamespace(
+            source_type="text",
+            # Payload de inyección: al abrir en Excel ejecutaría la fórmula sin el prefijo.
+            input_text="=cmd|'/c calc'!A1",
+            input_url=None,
+            label="falsa",
+            confidence=0.5,
+            credibility=10,
+            created_at="2026-04-12T09:00:00+00:00",
+        ),
+    ]
+
+    async def fake_export_user_analysis_history(**kwargs):
+        return records
+
+    monkeypatch.setattr(
+        "app.api.routes.history.export_user_analysis_history",
+        fake_export_user_analysis_history,
+    )
+
+    response = client.get("/history/export")
+
+    assert response.status_code == 200
+    body = response.content.decode("utf-8-sig")
+    rows = list(csv.reader(io.StringIO(body)))
+    # La celda "Entrada" (índice 2) queda inerte con la comilla simple antepuesta.
+    assert rows[1][2] == "'=cmd|'/c calc'!A1"
 
 
 def test_historial_export_returns_500_when_database_fails(monkeypatch):
