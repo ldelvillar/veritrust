@@ -633,3 +633,31 @@ def test_health_expert_raises_value_error_when_detector_missing_keys(
         raise AssertionError("Se esperaba ValueError por claves faltantes")
     except ValueError as exc:
         assert "Salida inesperada del detector" in str(exc)
+
+
+def test_extractor_chain_is_built_offline_and_cached(extractor_module):
+    """La cadena real se construye sin red y se reutiliza entre llamadas del grafo."""
+    chain_a = extractor_module.get_extractor_chain("prompt-cache-extractor")
+    chain_b = extractor_module.get_extractor_chain("prompt-cache-extractor")
+
+    assert chain_a is chain_b
+    assert callable(getattr(chain_a, "invoke", None))
+
+
+def test_translator_chain_is_built_offline_and_cached(translator_module):
+    chain_a = translator_module.get_translator_chain("prompt-cache-translator")
+    chain_b = translator_module.get_translator_chain("prompt-cache-translator")
+
+    assert chain_a is chain_b
+    assert callable(getattr(chain_a, "invoke", None))
+
+
+def test_health_expert_llm_is_configured_from_settings_and_cached(health_module):
+    from app.core.config import get_settings
+
+    llm_a = health_module.get_health_expert_llm()
+    llm_b = health_module.get_health_expert_llm()
+
+    assert llm_a is llm_b
+    assert llm_a.model == get_settings().ollama_health_expert_model
+    assert llm_a.base_url == get_settings().ollama_base_url

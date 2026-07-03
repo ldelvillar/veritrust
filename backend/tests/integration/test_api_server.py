@@ -1573,3 +1573,296 @@ def test_shared_report_returns_404_for_unknown_token(monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "SHARED_REPORT_NOT_FOUND"
+
+
+def test_analisis_file_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
+    """Redis caído tras guardar el archivo: la fila pasa a failed y el cliente recibe 503."""
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenArqPool(_FakeArqPool):
+        async def enqueue_job(self, *args):
+            raise RedisError("redis down")
+
+    server_module.app.state.arq_pool = _BrokenArqPool()
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_file_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    failed = []
+
+    async def fake_fail_analysis(**kwargs):
+        failed.append(kwargs)
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_file_analysis",
+        fake_create_pending_file_analysis,
+    )
+    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", fake_fail_analysis)
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+    assert failed == [
+        {
+            "analysis_id": "11111111-1111-1111-1111-111111111111",
+            "error_code": "SERVICE_UNAVAILABLE",
+        }
+    ]
+
+
+def test_analisis_file_returns_503_when_pool_unavailable(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.arq_pool = None
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_analisis_file_rejects_empty_file(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("nota.txt", b"", "text/plain")},
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"]["code"] == "INVALID_FILE"
+    assert fake_pool.jobs == []
+
+
+def test_analisis_file_rejects_pdf_without_signature(monkeypatch):
+    """Un .pdf sin firma %PDF se rechaza antes de guardar nada ni encolar trabajo."""
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("falso.pdf", b"contenido cualquiera", "application/pdf")},
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"]["code"] == "INVALID_FILE"
+    assert fake_pool.jobs == []
+
+
+def test_analisis_file_returns_save_failed_when_insert_fails(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_file_analysis(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_file_analysis",
+        fake_create_pending_file_analysis,
+    )
+
+    response = client.post(
+        "/analysis/file",
+        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
+    assert fake_pool.jobs == []
+
+
+def test_analisis_returns_503_when_enqueue_and_fail_update_both_fail(monkeypatch):
+    """Redis y la BD caídos a la vez: el cliente sigue recibiendo un 503, no un 500 opaco."""
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenArqPool(_FakeArqPool):
+        async def enqueue_job(self, *args):
+            raise ConnectionResetError("socket perdido")
+
+    server_module.app.state.arq_pool = _BrokenArqPool()
+    client = TestClient(server_module.app)
+
+    async def fake_create_pending_analysis(**kwargs):
+        return "11111111-1111-1111-1111-111111111111"
+
+    async def broken_fail_analysis(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.create_pending_analysis",
+        fake_create_pending_analysis,
+    )
+    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", broken_fail_analysis)
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_retry_returns_503_when_reenqueue_and_fail_update_both_fail(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    class _BrokenArqPool(_FakeArqPool):
+        async def enqueue_job(self, *args):
+            raise RedisError("redis down")
+
+    server_module.app.state.arq_pool = _BrokenArqPool()
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record()
+
+    async def fake_reset(*, user_id, analysis_id):
+        return True
+
+    async def broken_fail_analysis(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
+    )
+    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", broken_fail_analysis)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/retry")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_share_returns_500_when_fetch_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
+def test_share_returns_500_when_set_token_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="done")
+
+    async def fake_set(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.set_analysis_share_token", fake_set)
+
+    response = client.post(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "SHARE_FAILED"
+
+
+def test_unshare_returns_500_when_clear_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_clear(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.clear_analysis_share_token", fake_clear
+    )
+
+    response = client.delete(f"/analysis/{_SHARE_ID}/share")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "SHARE_FAILED"
+
+
+def test_unshare_returns_400_when_id_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.delete("/analysis/not-a-uuid/share")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_get_file_returns_500_when_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_analysis_file(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_file", fake_get_analysis_file
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/file")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
+async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
+    """El lifespan del proceso web abre BD + pool de arq y los cierra en orden inverso."""
+    server_module, _ = _load_server_module(monkeypatch)
+    opened: list[str] = []
+    closed: list[str] = []
+
+    class _Pool:
+        async def close(self):
+            closed.append("arq")
+
+    class _Redis:
+        async def aclose(self):
+            closed.append("redis")
+
+    async def fake_get_pool():
+        opened.append("db")
+
+    async def fake_create_pool(settings):
+        opened.append("arq")
+        return _Pool()
+
+    async def fake_close_pool():
+        closed.append("db")
+
+    monkeypatch.setattr(server_module, "get_pool", fake_get_pool)
+    monkeypatch.setattr(server_module, "create_pool", fake_create_pool)
+    monkeypatch.setattr(server_module, "close_pool", fake_close_pool)
+    monkeypatch.setattr(
+        server_module,
+        "aioredis",
+        types.SimpleNamespace(from_url=lambda url: _Redis()),
+    )
+    monkeypatch.setattr(
+        server_module,
+        "get_settings",
+        lambda: types.SimpleNamespace(
+            redis_url="redis://localhost:6379",
+            validate_runtime=lambda: None,
+        ),
+    )
+
+    app_obj = types.SimpleNamespace(state=types.SimpleNamespace())
+    async with server_module.lifespan(app_obj):
+        assert opened == ["db", "arq"]
+        assert app_obj.state.arq_pool is not None
+        assert app_obj.state.redis is not None
+
+    assert closed == ["arq", "redis", "db"]

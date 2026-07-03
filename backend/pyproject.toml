@@ -75,6 +75,9 @@ torch = [{ index = "pytorch-cpu" }]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "db: pruebas contra un PostgreSQL real (requieren Docker o TEST_DATABASE_URL)",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

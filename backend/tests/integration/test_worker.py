@@ -1,7 +1,13 @@
 """Tests del worker de arq: ejecuta el pipeline y traduce errores a estado failed."""
 
+import asyncio
+
+import pytest
+from arq.connections import RedisSettings
+
 import app.worker as worker
 from app.agents.errors import BertInferenceError, OllamaConnectionError
+from app.db.pool import DatabaseError
 from app.utils.extract_text_from_file import FileExtractionError
 from app.utils.extract_text_from_url import URLExtractionError
 
@@ -348,3 +354,182 @@ async def test_run_analysis_fails_with_internal_on_unexpected_error(monkeypatch)
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]
+
+
+async def test_run_analysis_fails_when_stored_file_is_missing(monkeypatch):
+    """Si la fila de archivo desapareció, el análisis falla sin invocar el grafo."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def fake_get_file(*, analysis_id):
+        return None
+
+    invoked = []
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        invoked.append(state)
+        return {}
+
+    monkeypatch.setattr(worker, "get_file_data_by_id", fake_get_file)
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "file", None, None)
+
+    assert completed == []
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "FILE_EXTRACTION"}]
+    assert invoked == []
+
+
+async def test_stage_update_failures_never_break_the_analysis(monkeypatch):
+    """Un fallo de BD al escribir la etapa visible no debe tumbar el pipeline."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def broken_set_stage(**kwargs):
+        raise RuntimeError("db hiccup")
+
+    monkeypatch.setattr(worker, "set_analysis_stage", broken_set_stage)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        # Cada etapa completada dispara otra escritura de etapa que también falla.
+        await on_stage("extractor")
+        await on_stage("translator")
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert failed == []
+    assert completed[0]["analysis_id"] == ANALYSIS_ID
+
+
+async def test_run_analysis_does_not_swallow_cancellation(monkeypatch):
+    """Cancelación (timeout de arq o apagado) no debe escribir INTERNAL: la fila queda pending."""
+    completed, failed = _patch_db(monkeypatch)
+    started = asyncio.Event()
+
+    async def hanging_ainvoke(graph, state, on_stage=None):
+        started.set()
+        await asyncio.sleep(30)
+
+    monkeypatch.setattr(worker, "ainvoke_graph", hanging_ainvoke)
+
+    ctx = {"verification_system": object()}
+    task = asyncio.create_task(
+        worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+    )
+    await started.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert completed == []
+    assert failed == []
+
+
+async def test_run_analysis_propagates_db_error_when_fail_analysis_fails(monkeypatch):
+    """Con Ollama y la BD caídos a la vez, el error de BD sube a arq en vez de perderse."""
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        raise OllamaConnectionError("connect call failed")
+
+    async def broken_fail(**kwargs):
+        raise DatabaseError("db down")
+
+    async def fake_set_stage(**kwargs):
+        pass
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+    monkeypatch.setattr(worker, "fail_analysis", broken_fail)
+    monkeypatch.setattr(worker, "set_analysis_stage", fake_set_stage)
+
+    ctx = {"verification_system": object()}
+    with pytest.raises(DatabaseError):
+        await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+
+async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
+    """startup deja el grafo compilado bajo la clave de ctx que lee run_analysis."""
+    sentinel_prompts = object()
+    sentinel_graph = object()
+    calls: list[str] = []
+    validated: dict = {}
+
+    class _FakeSettings:
+        def validate_runtime(self, *, require_cors=True):
+            validated["require_cors"] = require_cors
+
+    def fake_create_graph(prompts):
+        assert prompts is sentinel_prompts
+        return sentinel_graph
+
+    async def fake_get_pool():
+        calls.append("pool")
+
+    monkeypatch.setattr(worker, "get_settings", lambda: _FakeSettings())
+    monkeypatch.setattr(
+        worker, "ensure_ollama_available", lambda: calls.append("ollama")
+    )
+    monkeypatch.setattr(
+        worker, "ensure_bert_detector_ready", lambda: calls.append("bert")
+    )
+    monkeypatch.setattr(worker, "load_prompts", lambda: sentinel_prompts)
+    monkeypatch.setattr(worker, "create_graph", fake_create_graph)
+    monkeypatch.setattr(worker, "get_pool", fake_get_pool)
+
+    ctx: dict = {}
+    await worker.startup(ctx)
+
+    # El worker no sirve peticiones web: no debe exigir CORS configurado.
+    assert validated == {"require_cors": False}
+    assert ctx["verification_system"] is sentinel_graph
+    assert set(calls) == {"ollama", "bert", "pool"}
+
+
+async def test_shutdown_closes_db_pool(monkeypatch):
+    closed = []
+
+    async def fake_close_pool():
+        closed.append(True)
+
+    monkeypatch.setattr(worker, "close_pool", fake_close_pool)
+
+    await worker.shutdown()
+
+    assert closed == [True]
+
+
+def test_main_starts_arq_worker_with_configured_redis(monkeypatch):
+    """El entrypoint arranca arq con WorkerSettings y el DSN de Redis de Settings."""
+    seen: dict = {}
+
+    def fake_run_worker(settings_cls, redis_settings=None):
+        seen["cls"] = settings_cls
+        seen["redis"] = redis_settings
+
+    monkeypatch.setattr(worker, "run_worker", fake_run_worker)
+
+    worker.main()
+
+    expected = RedisSettings.from_dsn(worker.get_settings().redis_url)
+    assert seen["cls"] is worker.WorkerSettings
+    assert (seen["redis"].host, seen["redis"].port) == (expected.host, expected.port)
+
+
+def test_worker_settings_expose_the_queue_contract():
+    """Las rutas encolan por nombre: el contrato de WorkerSettings debe sostenerlo."""
+    settings = worker.get_settings()
+
+    # El proceso web encola el string "run_analysis"; renombrarlo rompería la cola.
+    assert [fn.__name__ for fn in worker.WorkerSettings.functions] == ["run_analysis"]
+    assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
+        "cron:reap_stale_analyses"
+    ]
+    assert worker.WorkerSettings.job_timeout == settings.analysis_job_timeout_seconds
+    assert worker.WorkerSettings.max_jobs == settings.worker_max_jobs
