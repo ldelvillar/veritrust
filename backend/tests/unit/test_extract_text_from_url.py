@@ -37,6 +37,19 @@ def test_unresolvable_host(mock_getaddrinfo):
         extract_text_from_url("http://unresolvable.local")
 
 
+def test_parser_differential_backslash_rejected():
+    # urlparse ve cima.aemps.es (público) pero requests conecta a 169.254.169.254;
+    # el host debe coincidir en ambos parsers o se rechaza sin tocar la red.
+    with pytest.raises(URLExtractionError, match="URLs locales"):
+        extract_text_from_url("http://169.254.169.254\\@cima.aemps.es/")
+
+
+def test_nfkc_invalid_url_rejected():
+    # urlparse lanza ValueError con un solidus fullwidth; debe traducirse a URLExtractionError.
+    with pytest.raises(URLExtractionError, match="no contiene un host válido"):
+        extract_text_from_url("http://example.com／10.0.0.1/")
+
+
 @patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("127.0.0.1", 80))])
 def test_private_ip_rejected(mock_getaddrinfo):
     with pytest.raises(URLExtractionError, match="URLs locales"):

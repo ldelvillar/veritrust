@@ -2,12 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
 from app.core.config import get_settings
 from app.utils.evidence import EvidenceRetrievalError
+from app.utils.ssrf import SSRFValidationError, resolve_public_host
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +47,46 @@ def _estado_year(result: dict) -> str | None:
     return None
 
 
+def _is_trusted_cima_url(url: str) -> bool:
+    """Confirma que ``url`` vive en el host oficial de CIMA y resuelve a una IP pública."""
+    # urlparse lanza ValueError con caracteres inválidos bajo NFKC; se trata como no fiable.
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return False
+    host = parsed.hostname.lower()
+    cima_host = (urlparse(get_settings().cima_base_url).hostname or "").lower()
+    if not cima_host or not (host == cima_host or host.endswith(f".{cima_host}")):
+        return False
+    # El allowlist de host se engaña con diferenciales de parseo (p.ej. un backslash
+    # en la autoridad), así que exigimos además que resuelva a una IP pública.
+    try:
+        resolve_public_host(url)
+    except SSRFValidationError:
+        return False
+    return True
+
+
 def _fetch_ficha_tecnica_text(url: str, timeout: int) -> str | None:
     """Descarga la ficha técnica HTML y la reduce a texto acotado para el juez.
 
     Un fallo aquí no es crítico: la fuente se conserva sin ``abstract``.
     """
+    # El urlHtml llega de la respuesta de CIMA, no del usuario; lo fijamos al host
+    # oficial y sin redirecciones para que nunca alcance direcciones internas.
+    if not _is_trusted_cima_url(url):
+        logger.warning("[CIMA] urlHtml fuera del host oficial; se omite el texto")
+        return None
+
     try:
-        response = requests.get(url, timeout=timeout, headers={"Accept": "text/html"})
+        response = requests.get(
+            url,
+            timeout=timeout,
+            headers={"Accept": "text/html"},
+            allow_redirects=False,
+        )
         response.raise_for_status()
     except requests.exceptions.RequestException:
         logger.warning(
