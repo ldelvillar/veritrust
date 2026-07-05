@@ -290,6 +290,9 @@ async def get_user_dashboard_summary(
                 await cur.execute(alerts_query, (user_id, safe_alert_limit))
                 alert_rows = await cur.fetchall()
     except psycopg.Error as exc:
+        logger.exception(
+            "Fallo al consultar el resumen del dashboard del usuario %s", user_id
+        )
         raise DatabaseError(
             _build_database_error(
                 "No se pudo consultar el resumen del dashboard en la base de datos."
