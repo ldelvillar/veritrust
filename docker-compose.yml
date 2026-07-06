@@ -1,7 +1,14 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-veritrust}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
@@ -18,17 +25,35 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    logging: *default-logging
+    labels:
+      autoheal: "true"
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: 1
+      OLLAMA_NUM_PARALLEL: 1
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
+    # maxmemory + noeviction: la cola falla ruidosamente (503 al encolar) antes que comerse la RAM de la VM.
     command:
       [
         "redis-server",
         "--requirepass",
         "${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "noeviction",
       ]
     volumes:
       - redis_data:/data
@@ -51,6 +76,9 @@ services:
       context: ./backend
     image: veritrust-backend
     restart: unless-stopped
+    logging: *default-logging
+    labels:
+      autoheal: "true"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
@@ -84,6 +112,9 @@ services:
       context: ./backend
     image: veritrust-backend
     restart: unless-stopped
+    logging: *default-logging
+    labels:
+      autoheal: "true"
     command: ["python", "-m", "app.worker"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
@@ -108,7 +139,7 @@ services:
       redis:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build:
@@ -117,14 +148,38 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost:8000
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     restart: unless-stopped
+    logging: *default-logging
+    labels:
+      autoheal: "true"
     environment:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       INTERNAL_API_URL: http://backend:8000
     ports:
       - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       backend:
         condition: service_healthy
+
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres_data:

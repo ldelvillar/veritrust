@@ -2,11 +2,22 @@
 # frontend/backend no longer published to the host. Layer it on the base file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # Requires Docker Compose v2.24+ (for the !override tag).
+#
+# mem_limit values are sized for an e2-standard-4 VM (16 GB): a runaway container
+# gets OOM-killed and restarted by its restart policy instead of taking down the
+# VM. Peak legitimate usage (~11 GB with OLLAMA_MAX_LOADED_MODELS=1) fits under
+# the caps; revisit them if the machine type or the Ollama models change.
 
 services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     ports:
       - "80:80"
       - "443:443"
@@ -22,16 +33,38 @@ services:
       - frontend
       - backend
 
+  postgres:
+    mem_limit: 1g
+
+  ollama:
+    # llama3 8B q4 + su KV cache ronda 6 GB; el margen cubre el cambio de modelo.
+    mem_limit: 9g
+
+  redis:
+    mem_limit: 512m
+
   backend:
     ports: !override []
+    mem_limit: 1g
     environment:
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      LOG_FORMAT: json
+
+  worker:
+    # torch + BioBERT + grafo; el pipeline pesado (LLM) vive en ollama, no aquí.
+    mem_limit: 3g
+    environment:
+      LOG_FORMAT: json
 
   frontend:
     ports: !override []
+    mem_limit: 768m
     build:
       args:
         NEXT_PUBLIC_API_URL: https://${API_DOMAIN:?API_DOMAIN must be set in .env}
+
+  autoheal:
+    mem_limit: 64m
 
 volumes:
   caddy_data:
