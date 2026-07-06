@@ -1,154 +1,195 @@
 # VeriTrust
 
-AI-powered medical misinformation detector. Users submit text or a URL; a LangGraph multi-agent pipeline (Extractor → Translator → Investigator → Health Expert) backed by Llama (via Ollama) and a fine-tuned BioBERT classifier returns a verdict (`verdadera`/`falsa`), confidence score, supporting biomedical sources, and medical explanation. The Investigator cross-checks each claim against Europe PMC literature, and the verdict's confidence is attenuated when no supporting evidence is found. Results are persisted in PostgreSQL and shown in a Next.js dashboard.
+[![CI](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml/badge.svg)](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**AI-powered medical misinformation detection.** Users submit a piece of health-related content — pasted text, a URL, or a document (PDF/TXT/MD) — and VeriTrust returns an evidence-grounded verdict: **Verdadero** (true), **Falso** (false), or **Dudoso** (uncertain), with a confidence score, a per-claim breakdown, the biomedical sources consulted, and a medical report explaining the verdict in plain Spanish.
+
+Health misinformation spreads faster than experts can debunk it. VeriTrust automates the first pass of that debunking: it extracts the verifiable medical claims from a text, cross-checks each one against real biomedical literature (Europe PMC, PubMed, openFDA, AEMPS CIMA), classifies them with a BioBERT model fine-tuned on the PUBHEALTH fact-checking dataset, and writes up the result — with the honesty to say *"Dudoso"* and lower its confidence when the literature is thin or contradicts the classifier.
+
+## How it works
+
+Analysis is asynchronous: the pipeline chains several LLM calls, literature lookups, and BERT inference, so it runs in a background worker instead of the HTTP request. `POST /analysis` returns a `pending` id immediately; an [arq](https://arq-docs.helpmanual.io/) worker picks the job off Redis, runs the LangGraph pipeline, and the frontend polls `GET /analysis/{id}` every 2 s (showing the live pipeline stage) until the verdict is ready.
+
+```mermaid
+flowchart TB
+    UI["Next.js frontend<br/>(Clerk auth)"]
+
+    subgraph WEB["Web process — FastAPI"]
+        API["POST /analysis → insert 'pending' row, enqueue job<br/>GET /analysis/{id} → status + result"]
+    end
+
+    PG[("PostgreSQL<br/>analyses, claims, sources")]
+    REDIS[("Redis<br/>arq job queue")]
+
+    subgraph WORKER["Worker process — arq (python -m app.worker)"]
+        PREP["Prepare input<br/>URL / file text extraction"]
+        subgraph GRAPH["LangGraph pipeline"]
+            EX["1 · Extractor<br/>claims + search queries + drug terms"]
+            TR["2 · Translator<br/>clinical English, one batched call"]
+            IN["3 · Investigator<br/>evidence retrieval + relevance judge"]
+            HE["4 · Health Expert<br/>BioBERT verdict + medical report"]
+            EX --> TR --> IN --> HE
+        end
+        PREP --> EX
+    end
+
+    OLLAMA["Ollama<br/>llama3 · translategemma · llama3.2"]
+    BERT["BioBERT fine-tuned<br/>on PUBHEALTH"]
+    LIT["Europe PMC · PubMed · openFDA · AEMPS CIMA"]
+
+    UI -- "JWT" --> API
+    API --> PG
+    API -- "enqueue" --> REDIS
+    REDIS --> PREP
+    EX -.-> OLLAMA
+    TR -.-> OLLAMA
+    IN -.-> OLLAMA
+    HE -.-> OLLAMA
+    HE -.-> BERT
+    IN --> LIT
+    HE -- "verdict · claims · sources · report" --> PG
+    UI -- "poll every 2s" --> API
+```
+
+### The four agents
+
+| Agent | Model | What it does |
+| --- | --- | --- |
+| **Extractor** | `llama3`¹ | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
+| **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the classifier and the literature sources work in English. |
+| **Investigator** | `llama3.2` (judge) | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
+| **Health Expert** | BioBERT + `llama3.2` | Classifies each translated claim with a [BioBERT](https://huggingface.co/dmis-lab/biobert-v1.1) model fine-tuned on [PUBHEALTH](https://huggingface.co/datasets/ImperialCollegeLondon/health_fact). Averages the per-claim fake probability into a three-way verdict (a band around the decision threshold maps to *uncertain*). Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
+
+¹ In the Docker stack the Extractor runs on `llama3.2` (set in `docker-compose.yml`) so the whole pipeline fits one small model plus the translator.
+
+Two guardrails temper the raw classifier (`app/core/credibility.py`):
+
+- **Evidence attenuation** — confidence is scaled down when little of the input is covered by actual literature, so the system never sounds sure about claims nobody has studied.
+- **Opposition softening** — when the retrieved literature's stance contradicts the classifier's verdict, the verdict is softened toward *Dudoso* (never inverted silently).
+
+### Product surface
+
+- **Analysis** of pasted text, URLs (SSRF-hardened fetching), and uploaded PDF/TXT/MD files (≤ 10 MB), with per-stage progress while pending and retry for failed runs.
+- **Per-claim breakdown** — each extracted claim gets its own verdict and confidence, alongside the sources that support or contradict it.
+- **History** with search, pagination, and CSV export (formula-injection safe).
+- **Dashboard** with aggregate metrics over your analyses.
+- **Public share links** — a read-only `/r/{token}` page per analysis, revocable.
+- **Auth & limits** — Clerk JWT on every API route, per-user rate limiting on submission.
 
 ## Stack
 
-- **Backend** — FastAPI (web) + arq worker, LangGraph, Ollama, Transformers (BioBERT), Europe PMC evidence retrieval, psycopg3
-- **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind v4
-- **Data** — PostgreSQL, Redis (arq job queue)
-- **ML** — BioBERT fine-tuned on PUBHEALTH
-
-Analysis is asynchronous: `POST /analysis` returns immediately with a `pending`
-id, an arq worker runs the pipeline, and the frontend polls `GET /analysis/{id}`
-until the verdict is ready.
+- **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Ollama, Transformers (BioBERT), raw async SQL via psycopg3 (no ORM)
+- **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
+- **Data** — PostgreSQL 16, Redis 7 (job queue)
+- **ML** — BioBERT (`dmis-lab/biobert-v1.1`) fine-tuned on PUBHEALTH; training and evaluation pipeline in `backend/ml/`
+- **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
 
 ## Repository layout
 
-```
+```text
 backend/
-  app/        FastAPI service (routes, agents, db, schemas)
-  ml/         BioBERT training and evaluation
-  tests/      App test suite
+  app/            FastAPI service: routes, agents, db, schemas, prompts
+  ml/             BioBERT training + evaluation (separate test suite)
+  data/           PUBHEALTH train/validation/test parquet files (committed)
+  models/         BioBERT weights (gitignored — see "BioBERT model" below)
+  db/init.sql     Database schema (applied to a fresh Postgres)
 frontend/
-  src/        Next.js App Router
+  src/            Next.js App Router app
+docs/             Production runbooks (secrets, backups, monitoring, ops)
+docker-compose.yml           Local/full stack
+docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 ```
 
-## Prerequisites
+## Running it
 
-- Python 3.11+ and [`uv`](https://docs.astral.sh/uv/)
-- Node.js 22+ and `pnpm` 9+
-- [Ollama](https://ollama.com/) running locally on `:11434` with the models `llama3`, `llama3.2`, and `translategemma` pulled
-- A PostgreSQL database (the Docker Compose stack provides one)
-- A Redis instance on `:6379` (job queue for the analysis worker)
-- A [Clerk](https://clerk.com/) application for auth
+### Prerequisites
 
-## Onboarding
+- Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), an [Ollama](https://ollama.com/) install, PostgreSQL, and Redis
+- A free [Clerk](https://clerk.com/) application (authentication) — copy its JWKS URL, issuer, audience, secret key, and publishable key into `.env`
+- The BioBERT weights (next section) — **the worker refuses to start without them**
 
-### Quick start — Docker (recommended)
+### BioBERT model
+
+`backend/models/` is not in git. Either copy an existing checkpoint into `backend/models/bert_classifier/`, or train one from the committed PUBHEALTH data (CPU works; a GPU is much faster):
 
 ```bash
-cp .env.example .env             # fill in Clerk values
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-docker compose up --build
-docker compose exec ollama ollama pull llama3
+uv sync --directory backend --frozen --extra ml
+uv run --directory backend python -m ml.training.train
+```
+
+Training writes a versioned subdirectory (`bert_classifier/<timestamp>-<git-sha>/`) with a `metadata.json` recording the git SHA, dataset sizes, and test metrics. Inference auto-selects the latest version; pin one by setting `FAKE_NEWS_MODEL_PATH`.
+
+### Quick start — Docker
+
+```bash
+cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, and the Clerk values
+docker compose up -d --build
 docker compose exec ollama ollama pull llama3.2
 docker compose exec ollama ollama pull translategemma
 ```
 
-Frontend at `http://localhost:3000`, backend at `http://localhost:8000`. The BioBERT weights under `backend/models/bert_classifier/` are mounted into the backend container read-only.
+Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker (BioBERT weights mounted read-only), the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
-### Production deployment (Caddy + TLS)
-
-For an internet-facing host, `docker-compose.prod.yml` adds a [Caddy](https://caddyserver.com/) reverse proxy that terminates TLS (automatic Let's Encrypt) and routes two subdomains to the stack. With this overlay the frontend, backend, and data services are no longer published to the host — only Caddy's `80`/`443` are.
-
-Prerequisites:
-
-- Two DNS `A` records pointing at the host's public IP: `app.<domain>` and `api.<domain>`.
-- Inbound `80` and `443` allowed (and `22` restricted to your IP). On GCP these are VPC firewall rules.
-- A repo-root `.env` with strong `POSTGRES_PASSWORD`/`REDIS_PASSWORD`, your Clerk keys, and:
+### Local development (processes on your machine)
 
 ```bash
-APP_DOMAIN=app.example.com
-API_DOMAIN=api.example.com
-ACME_EMAIL=you@example.com
+cp backend/.env.example backend/.env      # fill in DATABASE_URL, REDIS_URL, Clerk values
+cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_API_URL + Clerk keys
+
+ollama pull llama3 && ollama pull llama3.2 && ollama pull translategemma
+
+uv sync --directory backend --frozen
+uv run --directory backend python -m app.main      # API → http://localhost:8000
+uv run --directory backend python -m app.worker    # worker (separate terminal)
+
+pnpm --dir frontend install
+pnpm --dir frontend dev                            # → http://localhost:3000
 ```
 
-Then build and start the stack with the overlay:
+Required backend env: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE` (and `CORS_ALLOWED_ORIGINS` outside `ENVIRONMENT=development`). Missing config surfaces at startup and as a `/healthz` 503, not as per-request 500s. See `backend/.env.example` for every knob (Ollama models/timeouts, evidence-source URLs, queue tuning, rate limits).
+
+### Production (GCP VM + Caddy TLS)
+
+The production deployment is the same compose stack on a single GCP Compute Engine VM, behind a Caddy reverse proxy that terminates TLS (automatic Let's Encrypt) for two subdomains — `app.<domain>` (frontend) and `api.<domain>` (backend). The overlay unpublishes every port except Caddy's 80/443 and adds per-container memory caps.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Caddy provisions and renews certificates automatically once DNS resolves to the host. `NEXT_PUBLIC_API_URL` is baked into the frontend **at build time** from `API_DOMAIN`, so changing the domain needs a rebuild (`--build`), not just a restart. Add `https://app.<domain>` as an allowed origin in your Clerk application.
+Requires DNS `A` records for both subdomains, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://app.<domain>` as an allowed origin in Clerk.
 
-### Local development (without Docker)
+**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VM, renders the production `.env` from GCP Secret Manager, and redeploys the stack. Operational runbooks live in [docs/](docs/):
 
-#### 1. Configure environment
+- [deploy-secrets.md](docs/deploy-secrets.md) — production `.env` in Secret Manager (source of truth)
+- [deploy-env.md](docs/deploy-env.md) — env bootstrap before the secret exists
+- [deploy-model.md](docs/deploy-model.md) — copying the BioBERT weights to the VM
+- [deploy-backups.md](docs/deploy-backups.md) — automated `pg_dump` backups
+- [deploy-monitoring.md](docs/deploy-monitoring.md) — uptime checks + alerting
+- [deploy-ops.md](docs/deploy-ops.md) — hardening, log rotation, day-2 operations
 
-Copy the example env files and fill in real values:
+## Development
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-Backend needs at minimum: `DATABASE_URL`, `REDIS_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `OLLAMA_BASE_URL`.
-Frontend needs: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`.
-
-#### 2. Backend
+All commands run from the repo root. CI enforces every gate below.
 
 ```bash
-cd backend
-uv sync --frozen                      # install serving + api deps
-uv sync --frozen --extra ml           # add the ML stack (only if training/evaluating)
-uv run python -m app.main             # web API at http://localhost:8000
-uv run python -m app.worker           # analysis worker (separate terminal; needs Redis + Ollama)
+# Backend
+uv run --directory backend pytest tests --cov=app --cov-fail-under=80    # app tests
+uv run --directory backend pytest ml/tests --cov=ml --cov-fail-under=80  # ML tests (needs --extra ml)
+uv run --directory backend ruff check app ml tests                       # lint
+uv run --directory backend ruff format app ml tests                      # format
+uv run --directory backend mypy                                          # type-check
+
+# Frontend
+pnpm --dir frontend lint
+pnpm --dir frontend test                # vitest
+pnpm --dir frontend build               # production build (also type-checks)
 ```
 
-#### 3. Frontend
-
-```bash
-cd frontend
-pnpm install
-pnpm dev                        # http://localhost:3000
-```
-
-#### 4. Pull the Ollama models
-
-```bash
-ollama pull llama3
-ollama pull llama3.2
-ollama pull translategemma
-```
-
-#### 5. BioBERT model
-
-The detector loads weights from `backend/models/bert_classifier/`. Either copy a pre-trained checkpoint there or run the training pipeline:
-
-```bash
-cd backend
-uv run python -m ml.training.train
-```
-
-Training writes a versioned subdirectory (`bert_classifier/<timestamp>-<git-sha>/`) with a `metadata.json` recording the git SHA, dataset partition sizes, and test metrics. Inference auto-selects the latest version; pin a specific one by setting `FAKE_NEWS_MODEL_PATH` to that subdirectory.
-
-## Common commands
-
-### Backend (from `backend/`)
-
-```bash
-uv run pytest tests --cov=app --cov-fail-under=80     # app tests
-uv run pytest ml/tests --cov=ml --cov-fail-under=80   # ML tests
-uv run ruff check app ml tests                        # lint
-uv run ruff format app ml tests                       # format
-uv run mypy                                           # type-check
-```
-
-### Frontend (from `frontend/`)
-
-```bash
-pnpm lint
-pnpm test
-pnpm build
-pnpm generate:api-types         # regenerate src/types/api.d.ts (backend must be running)
-```
-
-## Notes
-
-- After changing a backend Pydantic schema, regenerate the frontend types with `pnpm generate:api-types`. Never edit `frontend/src/types/api.d.ts` by hand.
-- The database schema lives in `backend/db/init.sql`, applied once to a fresh database (mounted into the Postgres container's `docker-entrypoint-initdb.d`). There is no migration framework yet — pre-launch, recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
+- **Typed API contract** — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec. After any backend schema change run `pnpm --dir frontend generate:api-types` (backend running); never edit it by hand.
+- **Database schema** — `backend/db/init.sql`, applied once to a fresh database. No migration framework yet: recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
+- **Prompts** — all agent system prompts live in `backend/app/prompts/prompts.yaml`, never inline in Python.
+- **ML evaluation** — `ml/evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled PUBHEALTH samples and reports classification metrics; `ml/evaluation/evaluate_factcheck.py` compares against Google's Fact Check API (needs `GOOGLE_API_KEY`).
 
 ## License
 

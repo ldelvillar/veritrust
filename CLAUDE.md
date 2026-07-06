@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VeriTrust is an AI-powered medical misinformation detection system: users submit medical text or URLs, a LangGraph multi-agent pipeline analyzes them, and results (label, confidence, per-claim verdicts, sources, explanation) are persisted in PostgreSQL and surfaced via a Next.js dashboard. `backend/` is Python (FastAPI + arq worker), `frontend/` is Next.js; they communicate over a typed contract — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec.
+VeriTrust is an AI-powered medical misinformation detection system: users submit medical text, URLs, or files (PDF/TXT/MD), a LangGraph multi-agent pipeline analyzes them, and results (label, confidence, per-claim verdicts, sources, explanation) are persisted in PostgreSQL and surfaced via a Next.js dashboard. `backend/` is Python (FastAPI + arq worker), `frontend/` is Next.js; they communicate over a typed contract — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec.
 
 ## Always verify before declaring done
 
@@ -58,11 +58,11 @@ User (browser)
   → POST /analysis
   → INSERT 'pending' row (returns analysis_id)
   → enqueue run_analysis on Redis ─────────────→ run_analysis(analysis_id, …)
-  → Return {status: "pending", analysis_id}        → URL text extraction if needed (BeautifulSoup)
+  → Return {status: "pending", analysis_id}        → URL/file text extraction if needed
                                                    → LangGraph pipeline:
 GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)              → claims
   every 2s while status == "pending")              ·  Translator    (translategemma)      → EN, batched
-  → returns status + (when done) label/            ·  Investigator  (Europe PMC + PubMed) → sources + evidence_coverage
+  → returns status + (when done) label/            ·  Investigator  (4 sources + judge)   → sources + evidence_coverage
      confidence/explanation/claims/                ·  Health Expert (llama3.2)            → label (BioBERT) + explanation;
      sources, or error_code when                   → Confidence attenuated by coverage; softened if evidence contradicts
      status == "failed"                            → UPDATE row → 'done' (results) or 'failed' (error_code)
@@ -72,9 +72,9 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)   
 
 - **`app/main.py`** — Web-process lifespan: DB pool + arq Redis pool (enqueue only; the graph lives in the worker).
 - **`app/worker.py`** — arq worker: builds the graph at startup, runs `run_analysis`, maps pipeline errors to a `failed` row + stable `error_code`.
-- **`app/api/routes/`** — `analysis.py`, `dashboard.py`, `history.py`; each declares `responses=` for the OpenAPI error contract.
+- **`app/api/routes/`** — `analysis.py`, `dashboard.py`, `history.py`, `share.py`; each declares `responses=` for the OpenAPI error contract.
 - **`app/api/dependencies/`** — Clerk JWT validation, rate limiting.
-- **`app/agents/`** — LangGraph orchestration (`main.py`) + agent nodes; Europe PMC retrieval in `app/utils/europepmc.py`; evidence-attenuated confidence in `app/core/credibility.py`; typed pipeline errors and `ainvoke_graph` in `errors.py`.
+- **`app/agents/`** — LangGraph orchestration (`main.py`) + agent nodes; evidence retrieval in `app/utils/` (`europepmc.py`, `pubmed.py`, `openfda.py`, `cima.py`; CIMA only for drug claims) filtered by an LLM relevance judge (`agents/relevance.py`); evidence-attenuated confidence in `app/core/credibility.py`; typed pipeline errors and `ainvoke_graph` in `errors.py`.
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`). Prompts live here, never inline in Python.
 - **`app/db/`** — Raw psycopg3 async SQL: `pool.py` (shared `AsyncConnectionPool` + `DatabaseError`), `history.py` (CRUD + pagination; claims/sources as JSONB), `dashboard.py` (metrics).
 - **`app/core/config.py`** — Centralised `Settings` (pydantic-settings), cached `get_settings()`, `validate_runtime()` startup check.
@@ -83,7 +83,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)   
 
 ### Frontend (`frontend/src/`)
 
-- **`app/`** — App Router pages: `/`, `/analisis`, `/dashboard`, `/historial`, static legal pages.
+- **`app/`** — App Router pages: `/`, `/analisis`, `/dashboard`, `/historial`, the public share page `/r/[token]`, static legal pages.
 - **`lib/apiClient.ts`** — Authenticated fetch wrapper (Clerk JWT); throws `ApiError` with `{code, message, status}` on non-2xx.
 - **`hooks/useApiQuery.ts`** — Generic data-fetching hook over `apiClient`.
 - **`types/api.d.ts`** — Generated from OpenAPI; never edit by hand.
