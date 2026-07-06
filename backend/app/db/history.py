@@ -336,19 +336,13 @@ async def fail_analysis(*, analysis_id: str, error_code: str) -> None:
         ) from exc
 
 
-async def fail_stale_pending_analyses(
-    *, older_than_seconds: int, error_code: str
-) -> int:
-    """Marca como ``failed`` las filas ``pending`` más antiguas que el umbral.
-
-    Devuelve cuántas filas se reciclaron. Es la red de seguridad para análisis
-    encolados cuyo worker murió o cuyo trabajo expiró sin actualizar la fila.
-    """
+async def list_stale_pending_analysis_ids(*, older_than_seconds: int) -> list[str]:
+    """Lista los ids de filas ``pending`` más antiguas que el umbral (candidatas del reaper)."""
     pool = await get_pool()
 
     query = """
-        UPDATE public.analysis_history
-        SET status = 'failed', error_code = %s
+        SELECT id::text
+        FROM public.analysis_history
         WHERE status = 'pending'
           AND created_at < NOW() - make_interval(secs => %s)
     """
@@ -356,7 +350,46 @@ async def fail_stale_pending_analyses(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, (error_code, older_than_seconds))
+                await cur.execute(query, (older_than_seconds,))
+                rows = await cur.fetchall()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo consultar análisis atascados en la base de datos."
+            )
+        ) from exc
+
+    return [str(row[0]) for row in rows]
+
+
+async def fail_stale_pending_analyses(
+    *, analysis_ids: Sequence[str], older_than_seconds: int, error_code: str
+) -> int:
+    """Marca como ``failed`` las filas indicadas si siguen ``pending`` y estancadas.
+
+    Devuelve cuántas filas se reciclaron. Re-verifica estado y antigüedad para no
+    pisar un análisis reabierto (retry reinicia ``created_at``) entre la lectura
+    de candidatas y esta escritura.
+    """
+    if not analysis_ids:
+        return 0
+
+    pool = await get_pool()
+
+    query = """
+        UPDATE public.analysis_history
+        SET status = 'failed', error_code = %s
+        WHERE id::text = ANY(%s)
+          AND status = 'pending'
+          AND created_at < NOW() - make_interval(secs => %s)
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    query, (error_code, list(analysis_ids), older_than_seconds)
+                )
                 return cur.rowcount
     except psycopg.Error as exc:
         raise DatabaseError(

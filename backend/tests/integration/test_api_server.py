@@ -21,9 +21,11 @@ class _FakeArqPool:
 
     def __init__(self):
         self.jobs = []
+        self.job_ids = []
 
-    async def enqueue_job(self, *args):
+    async def enqueue_job(self, *args, **kwargs):
         self.jobs.append(args)
+        self.job_ids.append(kwargs.get("_job_id"))
 
     async def close(self):
         pass
@@ -148,6 +150,8 @@ def test_analisis_enqueues_job_and_returns_pending(monkeypatch):
     assert job[2] == "text"
     assert job[3] == "Bleach cures COVID"
     assert job[4] is None
+    # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
+    assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
 
 
 def test_analisis_enqueues_url_job(monkeypatch):
@@ -179,7 +183,7 @@ def test_analisis_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args):
+        async def enqueue_job(self, *args, **kwargs):
             raise RedisError("redis down")
 
     server_module.app.state.arq_pool = _BrokenArqPool()
@@ -626,6 +630,8 @@ def test_retry_reopens_failed_analysis_and_enqueues_text(monkeypatch):
     assert job[2] == "text"
     assert job[3] == "Bleach cures COVID"
     assert job[4] is None
+    # _job_id=analysis_id: si el job previo sigue vivo en arq, el retry no lo duplica.
+    assert fake_pool.job_ids == [_RETRY_ID]
 
 
 def test_retry_enqueues_url_with_stored_link(monkeypatch):
@@ -735,7 +741,7 @@ def test_retry_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args):
+        async def enqueue_job(self, *args, **kwargs):
             raise RedisError("redis down")
 
     server_module.app.state.arq_pool = _BrokenArqPool()
@@ -1337,6 +1343,8 @@ def test_analisis_file_enqueues_job_and_returns_pending(monkeypatch):
     assert job[2] == "file"
     assert job[3] is None
     assert job[4] is None
+    # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
+    assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
 
 
 def test_analisis_file_accepts_plain_text(monkeypatch):
@@ -1638,7 +1646,7 @@ def test_analisis_file_fails_row_and_returns_503_when_enqueue_fails(monkeypatch)
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args):
+        async def enqueue_job(self, *args, **kwargs):
             raise RedisError("redis down")
 
     server_module.app.state.arq_pool = _BrokenArqPool()
@@ -1743,7 +1751,7 @@ def test_analisis_returns_503_when_enqueue_and_fail_update_both_fail(monkeypatch
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args):
+        async def enqueue_job(self, *args, **kwargs):
             raise ConnectionResetError("socket perdido")
 
     server_module.app.state.arq_pool = _BrokenArqPool()
@@ -1771,7 +1779,7 @@ def test_retry_returns_503_when_reenqueue_and_fail_update_both_fail(monkeypatch)
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args):
+        async def enqueue_job(self, *args, **kwargs):
             raise RedisError("redis down")
 
     server_module.app.state.arq_pool = _BrokenArqPool()

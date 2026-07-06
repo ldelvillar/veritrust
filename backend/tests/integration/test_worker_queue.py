@@ -84,7 +84,12 @@ async def test_enqueued_job_round_trips_through_real_arq_worker(monkeypatch, arq
 
     # Misma forma exacta de encolado que usan las rutas del proceso web.
     await arq_pool.enqueue_job(
-        "run_analysis", ANALYSIS_ID, "text", "Bleach cures COVID", None
+        "run_analysis",
+        ANALYSIS_ID,
+        "text",
+        "Bleach cures COVID",
+        None,
+        _job_id=ANALYSIS_ID,
     )
 
     worker = _make_worker(arq_pool, on_startup=startup)
@@ -97,6 +102,86 @@ async def test_enqueued_job_round_trips_through_real_arq_worker(monkeypatch, arq
     assert failed == []
     assert completed[0]["analysis_id"] == ANALYSIS_ID
     assert completed[0]["label"] == "falsa"
+
+
+async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(
+    monkeypatch, arq_pool
+):
+    """Dos encolados del mismo analysis_id (p. ej. reaper + retry en carrera) corren una sola vez."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+        }
+
+    monkeypatch.setattr(worker_module, "ainvoke_graph", fake_ainvoke)
+
+    async def startup(ctx):
+        ctx["verification_system"] = object()
+
+    first = await arq_pool.enqueue_job(
+        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
+    )
+    second = await arq_pool.enqueue_job(
+        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
+    )
+
+    assert first is not None
+    assert second is None
+
+    worker = _make_worker(arq_pool, on_startup=startup)
+    await worker.main()
+
+    assert (worker.jobs_complete, worker.jobs_failed) == (1, 0)
+    assert len(completed) == 1
+    assert failed == []
+
+
+async def test_finished_job_without_kept_result_can_be_reenqueued(
+    monkeypatch, arq_pool
+):
+    """Con keep_result=0 (retry tras un fallo), el mismo _job_id puede reencolarse al acabar."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+        }
+
+    monkeypatch.setattr(worker_module, "ainvoke_graph", fake_ainvoke)
+
+    async def startup(ctx):
+        ctx["verification_system"] = object()
+
+    await arq_pool.enqueue_job(
+        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
+    )
+    worker = _make_worker(
+        arq_pool,
+        on_startup=startup,
+        keep_result=worker_module.WorkerSettings.keep_result,
+    )
+    await worker.main()
+
+    # Una clave arq:result: residual haría de este segundo encolado un no-op.
+    reenqueued = await arq_pool.enqueue_job(
+        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
+    )
+
+    assert reenqueued is not None
+    worker = _make_worker(
+        arq_pool,
+        on_startup=startup,
+        keep_result=worker_module.WorkerSettings.keep_result,
+    )
+    await worker.main()
+
+    assert len(completed) == 2
 
 
 async def test_job_exceeding_timeout_is_cancelled_without_writing_a_verdict(

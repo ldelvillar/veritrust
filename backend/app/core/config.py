@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # Entorno y CORS
     environment: str = "production"
+    log_format: str = "text"  # "json" emite una línea JSON por registro (Cloud Logging)
     cors_allowed_origins: str = ""
     cors_allow_credentials: bool = True
 
@@ -77,7 +78,7 @@ class Settings(BaseSettings):
 
     # Cola de análisis (arq)
     analysis_job_timeout_seconds: int = 600  # 10 min: cota dura del pipeline
-    analysis_stale_after_seconds: int = 900  # 15 min: umbral del reaper (> timeout)
+    analysis_stale_after_seconds: int = 300  # 5 min: reaper, solo filas sin job vivo
     worker_max_jobs: int = 1  # Análisis concurrentes por worker
 
     # Rate limiting (POST /analysis, por usuario)

@@ -12,6 +12,7 @@ import logging
 
 from arq import cron, run_worker
 from arq.connections import RedisSettings
+from arq.constants import job_key_prefix
 
 from app.agents.errors import (
     BertInferenceError,
@@ -28,6 +29,7 @@ from app.db.history import (
     fail_analysis,
     fail_stale_pending_analyses,
     get_file_data_by_id,
+    list_stale_pending_analysis_ids,
     set_analysis_input_text,
     set_analysis_stage,
 )
@@ -166,17 +168,29 @@ async def run_analysis(
 
 
 async def reap_stale_analyses(ctx: dict) -> None:
-    """Cron: marca como ``failed`` los análisis ``pending`` atascados.
+    """Cron: marca como ``failed`` los análisis ``pending`` huérfanos."""
+    threshold = get_settings().analysis_stale_after_seconds
+    stale_ids = await list_stale_pending_analysis_ids(older_than_seconds=threshold)
+    if not stale_ids:
+        return
 
-    Red de seguridad para filas cuyo worker murió a mitad o cuyo trabajo expiró
-    sin actualizar la fila, que de otro modo quedarían ``pending`` para siempre.
-    """
+    # Las rutas encolan con _job_id=analysis_id, así que la clave del job es derivable.
+    redis = ctx["redis"]
+    orphan_ids = [
+        analysis_id
+        for analysis_id in stale_ids
+        if not await redis.exists(job_key_prefix + analysis_id)
+    ]
+    if not orphan_ids:
+        return
+
     count = await fail_stale_pending_analyses(
-        older_than_seconds=get_settings().analysis_stale_after_seconds,
+        analysis_ids=orphan_ids,
+        older_than_seconds=threshold,
         error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
     )
     if count:
-        logger.warning("[Worker] Reaper marcó %d análisis atascados como failed", count)
+        logger.warning("[Worker] Reaper marcó %d análisis huérfanos como failed", count)
 
 
 async def startup(ctx: dict) -> None:
@@ -205,6 +219,8 @@ class WorkerSettings:
     job_timeout = get_settings().analysis_job_timeout_seconds
     # El pipeline satura CPU/Ollama; concurrencia >1 infla la latencia por job
     max_jobs = get_settings().worker_max_jobs
+    # Sin resultados en Redis: una clave arq:result: residual bloquearía el reencolado del retry.
+    keep_result = 0
     # Heartbeat en Redis cada 30s (por defecto arq escribe 1/h); lo lee el healthcheck del contenedor.
     health_check_interval = 30
 

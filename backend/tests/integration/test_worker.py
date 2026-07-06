@@ -322,23 +322,73 @@ async def test_run_analysis_fails_with_internal_on_bert_error(monkeypatch):
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]
 
 
-async def test_reap_stale_analyses_fails_pending_rows_past_threshold(monkeypatch):
+class _FakeReaperRedis:
+    """Redis de mentira: solo conoce las claves arq:job: que se le declaran vivas."""
+
+    def __init__(self, live_job_ids):
+        self.live_keys = {f"arq:job:{job_id}" for job_id in live_job_ids}
+
+    async def exists(self, key):
+        return 1 if key in self.live_keys else 0
+
+
+async def test_reap_stale_analyses_fails_only_rows_without_a_live_job(monkeypatch):
+    """Una fila pending con job aún encolado (backlog) no debe reciclarse como failed."""
     calls = []
+
+    async def fake_list_stale(**kwargs):
+        assert (
+            kwargs["older_than_seconds"]
+            == worker.get_settings().analysis_stale_after_seconds
+        )
+        return ["huerfana-1", "encolada-2", "huerfana-3"]
 
     async def fake_fail_stale(**kwargs):
         calls.append(kwargs)
-        return 3
+        return len(kwargs["analysis_ids"])
 
+    monkeypatch.setattr(worker, "list_stale_pending_analysis_ids", fake_list_stale)
     monkeypatch.setattr(worker, "fail_stale_pending_analyses", fake_fail_stale)
 
-    await worker.reap_stale_analyses({})
+    await worker.reap_stale_analyses({"redis": _FakeReaperRedis(["encolada-2"])})
 
     assert len(calls) == 1
+    assert calls[0]["analysis_ids"] == ["huerfana-1", "huerfana-3"]
     assert calls[0]["error_code"] == "SERVICE_UNAVAILABLE"
     assert (
         calls[0]["older_than_seconds"]
         == worker.get_settings().analysis_stale_after_seconds
     )
+
+
+async def test_reap_stale_analyses_skips_db_write_when_all_jobs_are_alive(monkeypatch):
+    """Si todas las filas estancadas tienen job vivo, el reaper no escribe nada."""
+    calls = []
+
+    async def fake_list_stale(**kwargs):
+        return ["encolada-1"]
+
+    async def fake_fail_stale(**kwargs):
+        calls.append(kwargs)
+        return 0
+
+    monkeypatch.setattr(worker, "list_stale_pending_analysis_ids", fake_list_stale)
+    monkeypatch.setattr(worker, "fail_stale_pending_analyses", fake_fail_stale)
+
+    await worker.reap_stale_analyses({"redis": _FakeReaperRedis(["encolada-1"])})
+
+    assert calls == []
+
+
+async def test_reap_stale_analyses_skips_redis_when_nothing_is_stale(monkeypatch):
+    """Sin candidatas no se consulta Redis: un ctx sin redis no debe romper el cron."""
+
+    async def fake_list_stale(**kwargs):
+        return []
+
+    monkeypatch.setattr(worker, "list_stale_pending_analysis_ids", fake_list_stale)
+
+    await worker.reap_stale_analyses({})
 
 
 async def test_run_analysis_fails_with_internal_on_unexpected_error(monkeypatch):
@@ -533,3 +583,5 @@ def test_worker_settings_expose_the_queue_contract():
     ]
     assert worker.WorkerSettings.job_timeout == settings.analysis_job_timeout_seconds
     assert worker.WorkerSettings.max_jobs == settings.worker_max_jobs
+    # Sin resultados en Redis: una clave arq:result: residual bloquearía el retry.
+    assert worker.WorkerSettings.keep_result == 0

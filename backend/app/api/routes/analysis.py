@@ -139,12 +139,14 @@ async def analyze_news(
         ) from e
 
     try:
+        # _job_id=analysis_id: arq deduplica, un doble encolado del mismo análisis es un no-op.
         await arq_pool.enqueue_job(
             "run_analysis",
             analysis_id,
             body.source_type.value,
             body.text,
             str(body.url) if body.url else None,
+            _job_id=analysis_id,
         )
     except (OSError, RedisError) as e:
         # Sin encolado, marcamos la fila como failed para que no quede pending indefinidamente
@@ -320,7 +322,10 @@ async def analyze_file(
         ) from e
 
     try:
-        await arq_pool.enqueue_job("run_analysis", analysis_id, "file", None, None)
+        # _job_id=analysis_id: arq deduplica, un doble encolado del mismo análisis es un no-op.
+        await arq_pool.enqueue_job(
+            "run_analysis", analysis_id, "file", None, None, _job_id=analysis_id
+        )
     except (OSError, RedisError) as e:
         logger.exception("No se pudo encolar el análisis %s", analysis_id)
         try:
@@ -560,12 +565,14 @@ async def retry_analysis(
         text_arg, url_arg = record.input_text, None
 
     try:
+        # _job_id=analysis_id: si el job previo sigue vivo, arq no encola un duplicado.
         await arq_pool.enqueue_job(
             "run_analysis",
             analysis_id,
             record.source_type,
             text_arg,
             url_arg,
+            _job_id=analysis_id,
         )
     except (OSError, RedisError) as e:
         # Sin encolado, se devuelve la fila a failed para que no quede pending.

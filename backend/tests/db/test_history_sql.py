@@ -15,6 +15,7 @@ from app.db.history import (
     get_file_data_by_id,
     get_shared_analysis_by_token,
     get_user_analysis_by_id,
+    list_stale_pending_analysis_ids,
     list_user_analysis_history,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
@@ -176,8 +177,16 @@ async def test_reaper_recycles_only_stale_pending_rows(db_pool):
     await fail_analysis(analysis_id=old_failed, error_code="URL_EXTRACTION")
     await _age_row(db_pool, old_failed, 1000)
 
+    stale_ids = await list_stale_pending_analysis_ids(older_than_seconds=900)
+    assert stale_pending in stale_ids
+    assert fresh_pending not in stale_ids
+    assert old_done not in stale_ids
+    assert old_failed not in stale_ids
+
     count = await fail_stale_pending_analyses(
-        older_than_seconds=900, error_code="SERVICE_UNAVAILABLE"
+        analysis_ids=[stale_pending],
+        older_than_seconds=900,
+        error_code="SERVICE_UNAVAILABLE",
     )
 
     assert count == 1
@@ -199,8 +208,13 @@ async def test_retry_restarts_the_reaper_grace_period(db_pool):
 
     assert await reset_failed_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
 
+    assert await list_stale_pending_analysis_ids(older_than_seconds=900) == []
+
+    # Aun con una candidata leída antes del retry, la re-verificación de edad la protege.
     count = await fail_stale_pending_analyses(
-        older_than_seconds=900, error_code="SERVICE_UNAVAILABLE"
+        analysis_ids=[analysis_id],
+        older_than_seconds=900,
+        error_code="SERVICE_UNAVAILABLE",
     )
 
     assert count == 0
