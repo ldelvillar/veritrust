@@ -10,7 +10,10 @@ In GCP Console → VPC network → Firewall, edit the SSH rule (port 22) and set
 
 ### Log rotation
 
-Prevent Docker logs from growing unbounded. Edit `/etc/docker/daemon.json`:
+`docker-compose.yml` already caps every service's logs (json-file, 20 MB × 3
+files), so no action is needed for the stack itself. The daemon-level default
+below only matters for containers started outside compose. Edit
+`/etc/docker/daemon.json`:
 
 ```json
 {
@@ -55,7 +58,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --
 
 ## Capacity & scaling
 
-The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`) plus BioBERT, and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s); rows still `pending` after `ANALYSIS_STALE_AFTER_SECONDS` (900s) are reaped to `failed`.
+The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`) plus BioBERT, and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
+
+**Memory budget (e2-standard-4, 16 GB).** `docker-compose.prod.yml` caps each
+service with `mem_limit` (ollama 9g, worker 3g, postgres/backend 1g each,
+frontend 768m, redis 512m, caddy 256m); a runaway container is OOM-killed and
+restarted by its restart policy instead of triggering a VM-level OOM where the
+kernel picks the victim. Ollama runs with `OLLAMA_MAX_LOADED_MODELS=1` — the
+pipeline uses one model at a time, so peak RAM tracks the largest model (~6 GB
+for `llama3` at 8k ctx) at the cost of a model swap between stages. If you
+change the machine type or the models, revisit both.
 
 What this means for scaling:
 
