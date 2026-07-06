@@ -138,7 +138,7 @@ export default function AnalysisForm() {
 
   return (
     <form
-      className="w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-[#e7e3fb] bg-white shadow-[0_0_0_1px_rgba(67,45,215,.05),0_20px_54px_rgba(83,69,216,.16)]"
+      className="relative w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-[#e7e3fb] bg-white shadow-[0_0_0_1px_rgba(67,45,215,.05),0_20px_54px_rgba(83,69,216,.16)]"
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
