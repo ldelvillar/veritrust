@@ -57,6 +57,10 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.UNAUTHENTICATED: "Falta la cabecera de autenticación.",
     ErrorCode.INVALID_TOKEN: "El token de autenticación no es válido.",
     ErrorCode.EXPIRED_TOKEN: "El token de autenticación ha expirado.",
+    ErrorCode.AUTH_MISCONFIGURED: (
+        "El proveedor de autenticación no está configurado correctamente. "
+        "Si el problema persiste, contacta al soporte técnico."
+    ),
 }
 
 

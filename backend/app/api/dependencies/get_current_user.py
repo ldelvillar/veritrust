@@ -3,6 +3,7 @@ Dependencia para obtener el usuario actual a partir
 del token de autenticación en el header Authorization.
 """
 
+import logging
 from functools import lru_cache
 
 import jwt
@@ -12,6 +13,8 @@ from jwt import PyJWKClient
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
 from app.schemas.errors import ErrorCode
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -25,9 +28,10 @@ def _get_signing_key(token: str) -> str:
     settings = get_settings()
 
     if not settings.clerk_jwks_url:
+        logger.error("Autenticación mal configurada: falta CLERK_JWKS_URL")
         raise HTTPException(
             status_code=500,
-            detail="Authentication provider is not configured. Set CLERK_JWKS_URL.",
+            detail=make_error_detail(ErrorCode.AUTH_MISCONFIGURED),
         )
 
     return _get_jwks_client(settings.clerk_jwks_url).get_signing_key_from_jwt(token).key
@@ -39,12 +43,12 @@ def _get_expected_issuer() -> str:
     if issuer:
         return issuer
 
+    logger.error(
+        "Autenticación mal configurada: falta CLERK_ISSUER o un CLERK_JWKS_URL válido"
+    )
     raise HTTPException(
         status_code=500,
-        detail=(
-            "Authentication provider is not fully configured. Set CLERK_ISSUER "
-            "or a valid CLERK_JWKS_URL."
-        ),
+        detail=make_error_detail(ErrorCode.AUTH_MISCONFIGURED),
     )
 
 
@@ -52,9 +56,10 @@ def _get_expected_audience() -> str | list[str]:
     """Obtiene la audiencia esperada de Clerk para validar el claim aud."""
     audience = get_settings().expected_audience()
     if audience is None:
+        logger.error("Autenticación mal configurada: falta CLERK_AUDIENCE")
         raise HTTPException(
             status_code=500,
-            detail="Authentication provider is not fully configured. Set CLERK_AUDIENCE.",
+            detail=make_error_detail(ErrorCode.AUTH_MISCONFIGURED),
         )
 
     return audience
@@ -94,9 +99,10 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
             detail=make_error_detail(ErrorCode.EXPIRED_TOKEN),
         ) from e
     except (TypeError, ValueError) as e:
+        logger.exception("Autenticación mal configurada: clave de firma inválida")
         raise HTTPException(
             status_code=500,
-            detail="Authentication provider is configured with an invalid key.",
+            detail=make_error_detail(ErrorCode.AUTH_MISCONFIGURED),
         ) from e
     except jwt.InvalidTokenError as e:
         raise HTTPException(

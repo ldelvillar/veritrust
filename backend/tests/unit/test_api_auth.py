@@ -56,7 +56,7 @@ def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
         get_user_module._get_signing_key("irrelevant-token")
 
     assert exc.value.status_code == 500
-    assert "CLERK_JWKS_URL" in exc.value.detail
+    assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
 
 
 def test_get_expected_issuer_uses_explicit_clerk_issuer(monkeypatch):
@@ -86,7 +86,7 @@ def test_get_expected_issuer_raises_500_when_not_configured(monkeypatch):
         get_user_module._get_expected_issuer()
 
     assert exc.value.status_code == 500
-    assert "Authentication provider is not fully configured" in exc.value.detail
+    assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
 
 
 def test_get_expected_audience_parses_single_audience(monkeypatch):
@@ -108,7 +108,7 @@ def test_get_expected_audience_raises_500_when_not_configured(monkeypatch):
         get_user_module._get_expected_audience()
 
     assert exc.value.status_code == 500
-    assert "Authentication provider is not fully configured" in exc.value.detail
+    assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
 
 
 def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
@@ -210,6 +210,4 @@ def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
         get_user_module.get_current_user("Bearer token")
 
     assert exc.value.status_code == 500
-    assert (
-        exc.value.detail == "Authentication provider is configured with an invalid key."
-    )
+    assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
