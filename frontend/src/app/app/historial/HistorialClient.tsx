@@ -12,12 +12,9 @@ import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import PlusBoxIcon from '@/assets/PlusBox';
 import SortIcon from '@/assets/Sort';
+import FunnelIcon from '@/assets/Funnel';
+import CalendarIcon from '@/assets/Calendar';
 import HistoryIcon from '@/assets/History';
-import type {
-  DateSortOrder,
-  SourceTypeFilter,
-  VerdictFilter,
-} from './_components/HistoryFilters';
 import HistoryResultsTable from './_components/HistoryResultsTable';
 import HistoryStatePanel from './_components/HistoryStatePanel';
 import Button from '@/components/Button';
@@ -27,6 +24,12 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
+
+type DateSortOrder = 'desc' | 'asc';
+type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
+type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
+type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
+type StatusFilter = 'all' | 'done' | 'pending' | 'failed';
 
 const PAGE_SIZE = 10;
 const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&date_sort=desc`;
@@ -44,6 +47,18 @@ const VERDICTS = [
   'fake',
   'uncertain',
 ] as const satisfies readonly VerdictFilter[];
+const STATUSES = [
+  'all',
+  'done',
+  'pending',
+  'failed',
+] as const satisfies readonly StatusFilter[];
+const DATE_RANGES = [
+  'all',
+  '7d',
+  '30d',
+  '90d',
+] as const satisfies readonly DateRangeFilter[];
 
 function parseParam<T extends string>(
   value: string | null,
@@ -148,6 +163,12 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     DATE_SORTS,
     'desc'
   );
+  const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
+  const dateRangeFilter = parseParam(
+    searchParams.get('date_range'),
+    DATE_RANGES,
+    'all'
+  );
   const urlSearch = (searchParams.get('search') ?? '').trim();
   const parsedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
   const currentPage =
@@ -200,23 +221,39 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       page_size: String(PAGE_SIZE),
       source_type: sourceTypeFilter,
       verdict: verdictFilter,
-      status: 'all',
-      date_range: 'all',
+      status: statusFilter,
+      date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history?${params.toString()}`;
-  }, [currentPage, dateSortOrder, sourceTypeFilter, verdictFilter, urlSearch]);
+  }, [
+    currentPage,
+    dateSortOrder,
+    sourceTypeFilter,
+    verdictFilter,
+    statusFilter,
+    dateRangeFilter,
+    urlSearch,
+  ]);
 
   const exportPath = useMemo(() => {
+    // /history/export no acepta 'status'; solo se propaga el rango de fechas.
     const params = new URLSearchParams({
       source_type: sourceTypeFilter,
       verdict: verdictFilter,
+      date_range: dateRangeFilter,
       date_sort: dateSortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history/export?${params.toString()}`;
-  }, [dateSortOrder, sourceTypeFilter, verdictFilter, urlSearch]);
+  }, [
+    dateSortOrder,
+    sourceTypeFilter,
+    verdictFilter,
+    dateRangeFilter,
+    urlSearch,
+  ]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -263,7 +300,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     sourceTypeFilter !== 'all' ||
-    verdictFilter !== 'all';
+    verdictFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    dateRangeFilter !== 'all';
 
   const setFilter = useCallback(
     (key: string, value: string, defaultValue: string) => {
@@ -291,6 +330,16 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   const handleDateSortOrderChange = useCallback(
     (value: DateSortOrder) => setFilter('date_sort', value, 'desc'),
+    [setFilter]
+  );
+
+  const handleStatusFilterChange = useCallback(
+    (value: StatusFilter) => setFilter('status', value, 'all'),
+    [setFilter]
+  );
+
+  const handleDateRangeFilterChange = useCallback(
+    (value: DateRangeFilter) => setFilter('date_range', value, 'all'),
     [setFilter]
   );
 
@@ -484,7 +533,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         })}
       </div>
 
-      {/* Toolbar: search + segmented type + sort */}
+      {/* Toolbar: search + segmented type + status + date range + sort */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5 md:gap-3">
         {/* Search */}
         <label className="relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1">
@@ -545,6 +594,56 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               </button>
             );
           })}
+        </div>
+
+        {/* Status filter */}
+        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
+          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
+            <FunnelIcon className="size-4" aria-hidden />
+          </span>
+          <select
+            value={statusFilter}
+            onChange={e =>
+              handleStatusFilterChange(e.target.value as StatusFilter)
+            }
+            aria-label="Filtrar por estado"
+            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
+          >
+            <option value="all">Todos los estados</option>
+            <option value="done">Completado</option>
+            <option value="pending">En curso</option>
+            <option value="failed">Fallido</option>
+          </select>
+          {/* Custom chevron */}
+          <span
+            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
+            aria-hidden
+          />
+        </div>
+
+        {/* Date range filter */}
+        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
+          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
+            <CalendarIcon className="size-4" aria-hidden />
+          </span>
+          <select
+            value={dateRangeFilter}
+            onChange={e =>
+              handleDateRangeFilterChange(e.target.value as DateRangeFilter)
+            }
+            aria-label="Filtrar por rango de fechas"
+            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
+          >
+            <option value="all">Todo el periodo</option>
+            <option value="7d">Últimos 7 días</option>
+            <option value="30d">Últimos 30 días</option>
+            <option value="90d">Últimos 90 días</option>
+          </select>
+          {/* Custom chevron */}
+          <span
+            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
+            aria-hidden
+          />
         </div>
 
         {/* Sort select */}
