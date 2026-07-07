@@ -75,7 +75,7 @@ async def get_history(
     verdict: Literal["all", "real", "fake", "uncertain"] = "all",
     status: Literal["all", "done", "pending", "failed"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
-    date_sort: Literal["desc", "asc"] = "desc",
+    sort: Literal["recent", "oldest", "credibility_high", "credibility_low"] = "recent",
     user=Depends(get_current_user),
 ):
     """Endpoint para listar el historial de análisis del usuario autenticado."""
@@ -90,7 +90,7 @@ async def get_history(
             search_query=search,
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
-            date_sort_order=date_sort,
+            sort=sort,
             verdict=None if verdict == "all" else verdict,
             status=None if status == "all" else status,
         )
@@ -170,7 +170,7 @@ async def export_history(
     source_type: Literal["all", "text", "file", "url"] = "all",
     verdict: Literal["all", "real", "fake", "uncertain"] = "all",
     date_range: Literal["all", "7d", "30d", "90d"] = "all",
-    date_sort: Literal["desc", "asc"] = "desc",
+    sort: Literal["recent", "oldest", "credibility_high", "credibility_low"] = "recent",
     user=Depends(get_current_user),
 ):
     """Exporta todo el historial filtrado del usuario como un fichero CSV."""
@@ -182,7 +182,7 @@ async def export_history(
             search_query=search,
             source_type=None if source_type == "all" else source_type,
             created_after=_get_date_threshold(date_range),
-            date_sort_order=date_sort,
+            sort=sort,
             verdict=None if verdict == "all" else verdict,
         )
     except DatabaseError as e:

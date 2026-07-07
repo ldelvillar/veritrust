@@ -164,35 +164,52 @@ def test_map_history_record_reads_stage_when_present() -> None:
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_date_sort = (
+    safe_limit, safe_offset, safe_source_type, safe_order_by = (
         history_module._sanitize_history_query_params(
             limit=500,
             offset=-10,
             source_type="audio",
-            date_sort_order="zzz",
+            sort="zzz",
         )
     )
 
     assert safe_limit == 100
     assert safe_offset == 0
     assert safe_source_type is None
-    assert safe_date_sort == "DESC"
+    # Un sort desconocido cae al orden por defecto (más recientes primero).
+    assert safe_order_by == "created_at DESC"
 
 
 def test_sanitize_history_query_params_preserves_valid_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_date_sort = (
+    safe_limit, safe_offset, safe_source_type, safe_order_by = (
         history_module._sanitize_history_query_params(
             limit=25,
             offset=5,
             source_type="url",
-            date_sort_order="asc",
+            sort="oldest",
         )
     )
 
     assert safe_limit == 25
     assert safe_offset == 5
     assert safe_source_type == "url"
-    assert safe_date_sort == "ASC"
+    assert safe_order_by == "created_at ASC"
+
+
+def test_sanitize_history_query_params_credibility_sort_uses_computed_expression() -> (
+    None
+):
+    _, _, _, order_high = history_module._sanitize_history_query_params(
+        limit=10, offset=0, source_type=None, sort="credibility_high"
+    )
+    _, _, _, order_low = history_module._sanitize_history_query_params(
+        limit=10, offset=0, source_type=None, sort="credibility_low"
+    )
+
+    # La credibilidad se computa en SQL desde verdict/confidence; incierto va al final.
+    assert "verdict = 'fake'" in order_high
+    assert order_high.endswith("DESC NULLS LAST, created_at DESC")
+    assert order_low.endswith("ASC NULLS LAST, created_at DESC")
 
 
 def test_build_history_where_clause_with_only_user_id() -> None:
@@ -301,7 +318,7 @@ def test_build_history_where_clause_ignores_unknown_verdict() -> None:
 def test_build_history_queries_includes_ordering_and_where() -> None:
     count_query, list_query = history_module._build_history_queries(
         "user_id = %s",
-        "ASC",
+        "created_at ASC",
     )
 
     assert "SELECT COUNT(*)" in count_query

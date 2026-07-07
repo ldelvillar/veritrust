@@ -25,14 +25,14 @@ import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import type { paths } from '@/types/api';
 
-type DateSortOrder = 'desc' | 'asc';
+type SortOrder = 'recent' | 'oldest' | 'credibility_high' | 'credibility_low';
 type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
 type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
 type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
 type StatusFilter = 'all' | 'done' | 'pending' | 'failed';
 
 const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&date_sort=desc`;
+const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&sort=recent`;
 
 const SOURCE_TYPES = [
   'all',
@@ -40,7 +40,12 @@ const SOURCE_TYPES = [
   'file',
   'url',
 ] as const satisfies readonly SourceTypeFilter[];
-const DATE_SORTS = ['desc', 'asc'] as const satisfies readonly DateSortOrder[];
+const SORTS = [
+  'recent',
+  'oldest',
+  'credibility_high',
+  'credibility_low',
+] as const satisfies readonly SortOrder[];
 const VERDICTS = [
   'all',
   'real',
@@ -158,11 +163,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     VERDICTS,
     'all'
   );
-  const dateSortOrder = parseParam(
-    searchParams.get('date_sort'),
-    DATE_SORTS,
-    'desc'
-  );
+  const sortOrder = parseParam(searchParams.get('sort'), SORTS, 'recent');
   const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
   const dateRangeFilter = parseParam(
     searchParams.get('date_range'),
@@ -223,13 +224,13 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       verdict: verdictFilter,
       status: statusFilter,
       date_range: dateRangeFilter,
-      date_sort: dateSortOrder,
+      sort: sortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history?${params.toString()}`;
   }, [
     currentPage,
-    dateSortOrder,
+    sortOrder,
     sourceTypeFilter,
     verdictFilter,
     statusFilter,
@@ -243,17 +244,11 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       source_type: sourceTypeFilter,
       verdict: verdictFilter,
       date_range: dateRangeFilter,
-      date_sort: dateSortOrder,
+      sort: sortOrder,
     });
     if (urlSearch) params.set('search', urlSearch);
     return `/history/export?${params.toString()}`;
-  }, [
-    dateSortOrder,
-    sourceTypeFilter,
-    verdictFilter,
-    dateRangeFilter,
-    urlSearch,
-  ]);
+  }, [sortOrder, sourceTypeFilter, verdictFilter, dateRangeFilter, urlSearch]);
 
   const handleExport = useCallback(async () => {
     setExportError(null);
@@ -328,8 +323,8 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     [setFilter]
   );
 
-  const handleDateSortOrderChange = useCallback(
-    (value: DateSortOrder) => setFilter('date_sort', value, 'desc'),
+  const handleSortOrderChange = useCallback(
+    (value: SortOrder) => setFilter('sort', value, 'recent'),
     [setFilter]
   );
 
@@ -652,15 +647,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             <SortIcon className="size-4" aria-hidden />
           </span>
           <select
-            value={dateSortOrder}
-            onChange={e =>
-              handleDateSortOrderChange(e.target.value as DateSortOrder)
-            }
-            aria-label="Ordenar por fecha"
+            value={sortOrder}
+            onChange={e => handleSortOrderChange(e.target.value as SortOrder)}
+            aria-label="Ordenar"
             className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
           >
-            <option value="desc">Más recientes</option>
-            <option value="asc">Más antiguos</option>
+            <option value="recent">Más recientes</option>
+            <option value="oldest">Más antiguos</option>
+            <option value="credibility_high">Mayor credibilidad</option>
+            <option value="credibility_low">Menor credibilidad</option>
           </select>
           {/* Custom chevron */}
           <span

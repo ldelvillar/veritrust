@@ -929,7 +929,7 @@ def test_historial_returns_user_history(monkeypatch):
         search_query,
         source_type,
         created_after,
-        date_sort_order,
+        sort,
         verdict,
         status,
     ):
@@ -940,7 +940,7 @@ def test_historial_returns_user_history(monkeypatch):
         assert search_query == "vacuna"
         assert source_type == "text"
         assert created_after is not None
-        assert date_sort_order == "asc"
+        assert sort == "credibility_high"
         # Sin parámetro 'status' explícito el filtro de estado queda en None (todos).
         assert status is None
         return [types.SimpleNamespace(**row) for row in history_rows], 12
@@ -982,7 +982,7 @@ def test_historial_returns_user_history(monkeypatch):
 
     response = client.get(
         "/history?page=1&page_size=10&search=vacuna&source_type=text"
-        "&verdict=fake&date_range=30d&date_sort=asc"
+        "&verdict=fake&date_range=30d&sort=credibility_high"
     )
 
     assert response.status_code == 200
@@ -1166,13 +1166,13 @@ def test_historial_export_returns_csv(monkeypatch):
     ]
 
     async def fake_export_user_analysis_history(
-        *, user_id, search_query, source_type, created_after, date_sort_order, verdict
+        *, user_id, search_query, source_type, created_after, sort, verdict
     ):
         assert user_id == "test-user"
         assert search_query == "vacuna"
         assert source_type == "url"
         assert created_after is not None
-        assert date_sort_order == "asc"
+        assert sort == "credibility_low"
         assert verdict == "real"
         return records
 
@@ -1183,7 +1183,7 @@ def test_historial_export_returns_csv(monkeypatch):
 
     response = client.get(
         "/history/export?search=vacuna&source_type=url"
-        "&verdict=real&date_range=30d&date_sort=asc"
+        "&verdict=real&date_range=30d&sort=credibility_low"
     )
 
     assert response.status_code == 200

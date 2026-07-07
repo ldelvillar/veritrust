@@ -1300,7 +1300,7 @@ export interface operations {
                 verdict?: "all" | "real" | "fake" | "uncertain";
                 status?: "all" | "done" | "pending" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
-                date_sort?: "desc" | "asc";
+                sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";
             };
             header?: {
                 authorization?: string;
@@ -1355,7 +1355,7 @@ export interface operations {
                 source_type?: "all" | "text" | "file" | "url";
                 verdict?: "all" | "real" | "fake" | "uncertain";
                 date_range?: "all" | "7d" | "30d" | "90d";
-                date_sort?: "desc" | "asc";
+                sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";
             };
             header?: {
                 authorization?: string;

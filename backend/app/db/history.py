@@ -27,6 +27,26 @@ _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
 _VALID_VERDICTS = set(VERDICTS)
 _VALID_STATUSES = {"done", "pending", "failed"}
 
+# Credibilidad [0, 1] reproducida en SQL para ordenar; incierto/sin confianza → NULL.
+_CREDIBILITY_ORDER_EXPR = (
+    "CASE "
+    "WHEN confidence IS NULL OR verdict = 'uncertain' THEN NULL "
+    "WHEN verdict = 'fake' "
+    "THEN 1 - (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
+    "ELSE (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
+    "END"
+)
+
+# Cláusulas ORDER BY saneadas por clave; nunca se interpola entrada cruda del usuario.
+_SORT_ORDER_BY = {
+    "recent": "created_at DESC",
+    "oldest": "created_at ASC",
+    "credibility_high": f"{_CREDIBILITY_ORDER_EXPR} DESC NULLS LAST, created_at DESC",
+    "credibility_low": f"{_CREDIBILITY_ORDER_EXPR} ASC NULLS LAST, created_at DESC",
+}
+
+_DEFAULT_SORT = "recent"
+
 
 def _normalize_confidence(confidence: Any) -> float:
     """Convierte confidence a float y valida el rango [0, 1]."""
@@ -68,14 +88,14 @@ def _sanitize_history_query_params(
     limit: int,
     offset: int,
     source_type: Optional[str],
-    date_sort_order: str,
+    sort: str,
 ) -> tuple[int, int, Optional[str], str]:
     """Normaliza límites, filtros y orden para consultas de historial."""
     safe_limit = max(1, min(limit, 100))
     safe_offset = max(0, offset)
     safe_source_type = source_type if source_type in _VALID_SOURCE_TYPES else None
-    safe_date_sort = "ASC" if date_sort_order.lower() == "asc" else "DESC"
-    return safe_limit, safe_offset, safe_source_type, safe_date_sort
+    safe_order_by = _SORT_ORDER_BY.get(sort, _SORT_ORDER_BY[_DEFAULT_SORT])
+    return safe_limit, safe_offset, safe_source_type, safe_order_by
 
 
 def _build_history_where_clause(
@@ -125,7 +145,7 @@ def _build_history_where_clause(
     return " AND ".join(where_clauses), where_params
 
 
-def _build_history_queries(where_sql: str, safe_date_sort: str) -> tuple[str, str]:
+def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str]:
     """Genera consultas SQL para conteo y listado de historial."""
     count_query = f"""
         SELECT COUNT(*)
@@ -152,9 +172,9 @@ def _build_history_queries(where_sql: str, safe_date_sort: str) -> tuple[str, st
             share_token
         FROM public.analysis_history
         WHERE {where_sql}
-        ORDER BY created_at {safe_date_sort}
+        ORDER BY {order_by}
         LIMIT %s OFFSET %s
-    """.format(where_sql=where_sql, safe_date_sort=safe_date_sort)
+    """.format(where_sql=where_sql, order_by=safe_order_by)
 
     return count_query, list_query
 
@@ -407,19 +427,19 @@ async def list_user_analysis_history(
     search_query: Optional[str] = None,
     source_type: Optional[str] = None,
     created_after: Optional[datetime] = None,
-    date_sort_order: str = "desc",
+    sort: str = "recent",
     verdict: Optional[str] = None,
     status: Optional[str] = None,
 ) -> tuple[list[AnalysisHistoryItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
     pool = await get_pool()
 
-    safe_limit, safe_offset, safe_source_type, safe_date_sort = (
+    safe_limit, safe_offset, safe_source_type, safe_order_by = (
         _sanitize_history_query_params(
             limit=limit,
             offset=offset,
             source_type=source_type,
-            date_sort_order=date_sort_order,
+            sort=sort,
         )
     )
     where_sql, where_params = _build_history_where_clause(
@@ -430,12 +450,12 @@ async def list_user_analysis_history(
         verdict=verdict,
         status=status,
     )
-    count_query, list_query = _build_history_queries(where_sql, safe_date_sort)
+    count_query, list_query = _build_history_queries(where_sql, safe_order_by)
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                # where_sql/safe_date_sort son valores saneados, no entrada cruda.
+                # where_sql/safe_order_by son valores saneados, no entrada cruda.
                 await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
@@ -575,17 +595,17 @@ async def export_user_analysis_history(
     search_query: Optional[str] = None,
     source_type: Optional[str] = None,
     created_after: Optional[datetime] = None,
-    date_sort_order: str = "desc",
+    sort: str = "recent",
     verdict: Optional[str] = None,
 ) -> list[AnalysisHistoryItem]:
     """Lista todo el historial filtrado del usuario para exportarlo (sin paginar)."""
     pool = await get_pool()
 
-    _, _, safe_source_type, safe_date_sort = _sanitize_history_query_params(
+    _, _, safe_source_type, safe_order_by = _sanitize_history_query_params(
         limit=1,
         offset=0,
         source_type=source_type,
-        date_sort_order=date_sort_order,
+        sort=sort,
     )
     where_sql, where_params = _build_history_where_clause(
         user_id=user_id,
@@ -615,9 +635,9 @@ async def export_user_analysis_history(
             share_token
         FROM public.analysis_history
         WHERE {where_sql}
-        ORDER BY created_at {safe_date_sort}
+        ORDER BY {order_by}
         LIMIT %s
-    """.format(where_sql=where_sql, safe_date_sort=safe_date_sort)
+    """.format(where_sql=where_sql, order_by=safe_order_by)
 
     try:
         async with pool.connection() as conn:
