@@ -90,6 +90,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL}
+      APP_BASE_URL: ${APP_BASE_URL}
     ports:
       - "8000:8000"
     healthcheck:
