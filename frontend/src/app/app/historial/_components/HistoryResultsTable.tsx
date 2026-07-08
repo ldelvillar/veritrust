@@ -8,6 +8,7 @@ import FunnelIcon from '@/assets/Funnel';
 import TypeIcon from '@/assets/Type';
 import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
+import GlobeIcon from '@/assets/Globe';
 import RefreshIcon from '@/assets/Refresh';
 import Button from '@/components/Button';
 import { VERDICT_LABEL } from '@/components/analysis-result/format';
@@ -70,6 +71,15 @@ const TYPE_META = {
     Icon: DocumentIcon,
   },
 } as const;
+
+// El worker reporta la etapa real; aquí la traducimos a una etiqueta compacta.
+const STAGE_LABEL: Record<string, string> = {
+  preparing: 'Preparando el contenido',
+  extractor: 'Extrayendo afirmaciones',
+  translator: 'Traduciendo al inglés clínico',
+  investigator: 'Buscando evidencia',
+  health_expert: 'Evaluando y redactando',
+};
 
 const STATUS_BADGES = {
   pending: { text: 'En curso', textColor: '#5446dc', bgColor: '#eeebfc' },
@@ -296,6 +306,10 @@ export default function HistoryResultsTable({
             const { Icon: SourceIcon } = typeMeta;
             const credibility = item.credibility ?? null;
             const isDeleting = deletingId === item.analysis_id;
+            const stageLabel =
+              item.status === 'pending' && item.stage
+                ? (STAGE_LABEL[item.stage] ?? null)
+                : null;
 
             const railStyle = toneCfg
               ? toneCfg.rail
@@ -382,6 +396,15 @@ export default function HistoryResultsTable({
                     <span className="text-[12.5px] font-semibold whitespace-nowrap text-faint">
                       {formattedDate}
                     </span>
+                    {item.share_token && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-[#eeebfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[.03em] text-primary uppercase"
+                        title="Este informe tiene un enlace público activo"
+                      >
+                        <GlobeIcon className="size-3" />
+                        Compartido
+                      </span>
+                    )}
                   </div>
                   <p className="text-[15px] font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
                     {getTitle(item)}
@@ -390,6 +413,12 @@ export default function HistoryResultsTable({
                     Fuente:{' '}
                     <b className="font-bold text-body">{getSource(item)}</b>
                   </p>
+                  {stageLabel && (
+                    <p className="mt-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+                      <Spinner className="size-3 shrink-0 animate-spin" />
+                      {stageLabel}
+                    </p>
+                  )}
                 </div>
 
                 {/* Right column */}

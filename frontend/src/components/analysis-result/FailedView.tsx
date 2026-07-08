@@ -12,6 +12,8 @@ const FAILURE_MESSAGES: Record<string, string> = {
     'El servicio de análisis no estaba disponible y no se pudo procesar la noticia. Inténtalo de nuevo.',
   INTERNAL:
     'Ocurrió un error inesperado al procesar el análisis. Inténtalo de nuevo.',
+  ANALYSIS_SAVE_FAILED:
+    'No se pudo registrar el análisis. Inténtalo de nuevo en unos momentos.',
   FILE_EXTRACTION:
     'No se pudo extraer texto del archivo. Puede estar protegido, dañado, vacío o ser un documento escaneado sin texto seleccionable.',
 };
