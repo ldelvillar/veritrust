@@ -148,6 +148,8 @@ class Settings(BaseSettings):
             and not self.cors_origins()
         ):
             missing.append("CORS_ALLOWED_ORIGINS")
+        if not self.app_base_url:
+            missing.append("APP_BASE_URL")
 
         if missing:
             raise SettingsValidationError(

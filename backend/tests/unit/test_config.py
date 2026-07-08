@@ -15,6 +15,7 @@ def _make_settings(**overrides) -> Settings:
         "clerk_jwks_url": "https://tenant.clerk.accounts.dev/.well-known/jwks.json",
         "clerk_issuer": None,
         "clerk_audience": "my-api",
+        "app_base_url": "https://veritrust.es",
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
@@ -78,6 +79,7 @@ def test_validate_runtime_reports_missing_required_vars():
         clerk_jwks_url=None,
         clerk_issuer=None,
         clerk_audience="",
+        app_base_url="",
     )
 
     with pytest.raises(SettingsValidationError) as exc:
@@ -86,6 +88,7 @@ def test_validate_runtime_reports_missing_required_vars():
     message = str(exc.value)
     assert "DATABASE_URL" in message
     assert "CLERK_AUDIENCE" in message
+    assert "APP_BASE_URL" in message
 
 
 def test_validate_runtime_requires_cors_origins_in_production():
