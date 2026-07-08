@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 _EMAILS_PATH = "/emails"
 _REQUEST_TIMEOUT_SECONDS = 10
+# Logo de marca sobre fondo transparente, servido por el frontend.
+_LOGO_PATH = "/images/logo-1316x1316-no-bg.png"
 
 
 def _build_report_url(base_url: str, analysis_id: str) -> str:
@@ -17,23 +19,66 @@ def _build_report_url(base_url: str, analysis_id: str) -> str:
     return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
 
 
-async def _send_email(*, to: str | None, subject: str, html: str) -> None:
+def _render_email_html(
+    *, base_url: str, report_url: str, heading: str, body_text: str, cta_label: str
+) -> str:
+    """Compone el HTML del email con tablas y estilos inline compatibles con clientes de correo."""
+    logo_url = f"{base_url.rstrip('/')}{_LOGO_PATH}"
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#f4f4f7;padding:32px 0;'
+        'font-family:Helvetica,Arial,sans-serif;">'
+        '<tr><td align="center">'
+        '<table role="presentation" width="480" cellpadding="0" cellspacing="0" '
+        'style="max-width:480px;background:#ffffff;border:1px solid #ececf1;'
+        'border-radius:12px;">'
+        '<tr><td style="padding:32px 40px 0;text-align:center;">'
+        f'<img src="{logo_url}" alt="VeriTrust" width="64" height="64" '
+        'style="display:inline-block;border:0;">'
+        "</td></tr>"
+        '<tr><td style="padding:20px 40px 8px;text-align:center;">'
+        f'<h1 style="margin:0;font-size:20px;color:#15162c;">{heading}</h1>'
+        "</td></tr>"
+        '<tr><td style="padding:0 40px 24px;text-align:center;">'
+        f'<p style="margin:0;font-size:15px;line-height:1.6;color:#4b4b5a;">{body_text}</p>'
+        "</td></tr>"
+        '<tr><td style="padding:0 40px 32px;text-align:center;">'
+        f'<a href="{report_url}" style="display:inline-block;background:#432dd7;'
+        "color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;"
+        f'padding:13px 30px;border-radius:8px;">{cta_label}</a>'
+        "</td></tr>"
+        '<tr><td style="padding:20px 40px;background:#fafafc;'
+        'border-top:1px solid #ececf1;border-radius:0 0 12px 12px;text-align:center;">'
+        '<p style="margin:0;font-size:12px;color:#9a9aa8;">'
+        "VeriTrust · Verificación de información médica con IA</p>"
+        "</td></tr>"
+        "</table></td></tr></table>"
+    )
+
+
+async def _send_email(
+    *, to: str | None, subject: str, html: str, text: str | None = None
+) -> None:
     """Envía un email por Resend; un fallo aquí nunca debe romper el análisis."""
     settings = get_settings()
     if not (settings.resend_api_key and settings.resend_from_email and to):
         return
+
+    payload: dict[str, object] = {
+        "from": settings.resend_from_email,
+        "to": [to],
+        "subject": subject,
+        "html": html,
+    }
+    if text:
+        payload["text"] = text
 
     try:
         async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
             response = await client.post(
                 f"{settings.resend_base_url}{_EMAILS_PATH}",
                 headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-                json={
-                    "from": settings.resend_from_email,
-                    "to": [to],
-                    "subject": subject,
-                    "html": html,
-                },
+                json=payload,
             )
             response.raise_for_status()
     except Exception:
@@ -47,11 +92,23 @@ async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None
         return
 
     report_url = _build_report_url(settings.app_base_url, analysis_id)
-    html = (
-        "<p>Tu análisis de VeriTrust está listo.</p>"
-        f'<p><a href="{report_url}">Ver el informe</a></p>'
+    html = _render_email_html(
+        base_url=settings.app_base_url,
+        report_url=report_url,
+        heading="Tu análisis está listo",
+        body_text=(
+            "Hemos terminado de verificar tu contenido. Ya puedes consultar el "
+            "veredicto, las fuentes y la explicación."
+        ),
+        cta_label="Ver el informe",
     )
-    await _send_email(to=to, subject="Tu análisis de VeriTrust está listo", html=html)
+    text = f"Tu análisis de VeriTrust está listo. Consúltalo aquí: {report_url}"
+    await _send_email(
+        to=to,
+        subject="Tu análisis de VeriTrust está listo",
+        html=html,
+        text=text,
+    )
 
 
 async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> None:
@@ -61,10 +118,20 @@ async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> Non
         return
 
     report_url = _build_report_url(settings.app_base_url, analysis_id)
-    html = (
-        "<p>No pudimos completar tu análisis de VeriTrust.</p>"
-        f'<p><a href="{report_url}">Ver los detalles</a></p>'
+    html = _render_email_html(
+        base_url=settings.app_base_url,
+        report_url=report_url,
+        heading="No pudimos completar tu análisis",
+        body_text=(
+            "Ha surgido un problema al verificar tu contenido. Abre el informe "
+            "para ver los detalles o volver a intentarlo."
+        ),
+        cta_label="Ver los detalles",
     )
+    text = f"Tu análisis de VeriTrust no pudo completarse. Más detalles: {report_url}"
     await _send_email(
-        to=to, subject="Tu análisis de VeriTrust no pudo completarse", html=html
+        to=to,
+        subject="Tu análisis de VeriTrust no pudo completarse",
+        html=html,
+        text=text,
     )

@@ -78,6 +78,7 @@ async def test_ready_email_posts_to_resend(monkeypatch):
     assert req["json"]["to"] == ["user@example.com"]
     assert req["json"]["subject"]
     assert f"https://veritrust.test/app/analisis/{ANALYSIS_ID}" in req["json"]["html"]
+    assert f"https://veritrust.test/app/analisis/{ANALYSIS_ID}" in req["json"]["text"]
 
 
 async def test_failed_email_uses_failure_subject(monkeypatch):
