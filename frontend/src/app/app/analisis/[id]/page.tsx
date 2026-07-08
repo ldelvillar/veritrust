@@ -6,7 +6,7 @@ import type { paths } from '@/types/api';
 import AnalisisClient from './AnalisisClient';
 
 export const metadata: Metadata = {
-  title: 'Resultado del análisis | VeriTrust',
+  title: 'Resultado del análisis',
   description:
     'Resultado del análisis, incluyendo veredicto global, confianza y explicación médica.',
 };
