@@ -22,6 +22,8 @@ interface ResultProps {
   onRetry?: () => void;
   isRetrying?: boolean;
   retryError?: string | null;
+  pollError?: string | null;
+  onRetryPoll?: () => void;
   isPublic?: boolean;
 }
 
@@ -31,6 +33,8 @@ export default function AnalysisResult({
   onRetry,
   isRetrying,
   retryError,
+  pollError,
+  onRetryPoll,
   isPublic = false,
 }: ResultProps) {
   if (result.status === 'pending') {
@@ -42,6 +46,8 @@ export default function AnalysisResult({
         <PendingAnalysis
           createdAt={result.created_at}
           stage={result.stage ?? null}
+          connectionError={pollError ?? null}
+          onRetry={onRetryPoll}
         />
       </div>
     );

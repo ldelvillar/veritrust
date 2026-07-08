@@ -14,6 +14,8 @@ import Bell from '@/assets/Bell';
 interface PendingAnalysisProps {
   createdAt: string;
   stage?: string | null;
+  connectionError?: string | null;
+  onRetry?: () => void;
 }
 
 const STEPS = [
@@ -91,6 +93,8 @@ function requestNotifyPermission(): Promise<void> {
 export default function PendingAnalysis({
   createdAt,
   stage,
+  connectionError,
+  onRetry,
 }: PendingAnalysisProps) {
   const [elapsed, setElapsed] = useState(0);
 
@@ -138,6 +142,29 @@ export default function PendingAnalysis({
           · {isSlow ? 'Tardando más de lo habitual' : 'Tiempo estimado: 8 min'}
         </p>
       </div>
+
+      {connectionError ? (
+        <div
+          role="alert"
+          className="w-full rounded-xl border border-red-200 bg-red-50 p-4 text-left"
+        >
+          <p className="text-sm font-bold text-red-800">
+            Se ha interrumpido la conexión
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-red-700">
+            {connectionError}
+          </p>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-3.5 py-2 text-xs font-bold text-red-800 transition hover:bg-red-100 focus:ring-2 focus:ring-red-300 focus:outline-none"
+            >
+              Reintentar ahora
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <ol className="flex w-full flex-col gap-2.5 text-left">
         {STEPS.map((step, index) => {

@@ -281,6 +281,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     refetch: fetchHistory,
   } = useApiQuery<HistoryPayload>(path, {
     fallbackData: path === INITIAL_PATH ? initialData : undefined,
+    // Mientras haya análisis en curso, refrescamos para que pasen a hecho/fallido solos.
+    refreshInterval: latest =>
+      latest?.items?.some(item => item.status === 'pending') ? 5000 : 0,
   });
 
   const history = useMemo<HistoryItem[]>(

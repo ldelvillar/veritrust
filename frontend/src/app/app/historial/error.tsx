@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import ArrowRightIcon from '@/assets/ArrowRight';
 import RefreshIcon from '@/assets/Refresh';
 import Warning from '@/assets/Warning';
@@ -14,6 +15,10 @@ interface ErrorProps {
 }
 
 export default function HistorialError({ error, reset }: ErrorProps) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 md:px-6 lg:py-10">
       <div className="mb-6">
@@ -55,8 +60,7 @@ export default function HistorialError({ error, reset }: ErrorProps) {
               aria-hidden
             />
             <span className="truncate">
-              {error.message ||
-                'No se pudo contactar con el servicio de historial'}
+              No se pudo contactar con el servicio de historial
             </span>
           </div>
         }

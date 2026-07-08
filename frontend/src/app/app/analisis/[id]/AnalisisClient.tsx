@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AnalysisResult from '@/components/AnalysisResult';
+import { ApiError } from '@/lib/apiClient';
 import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ShareDialog from '@/components/ShareDialog';
@@ -45,13 +46,24 @@ export default function AnalisisClient({
     setError: setShareError,
   } = useAnalysisShare();
 
-  const { data, refetch } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
+  const {
+    data,
+    error: pollError,
+    refetch,
+  } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
     fallbackData: initialData,
     // Hacemos polling cada 2s mientras el análisis siga 'pending'
     refreshInterval: latest => (latest?.status === 'pending' ? 2000 : 0),
   });
 
   const current = data ?? initialData;
+  // Un fallo de polling deja la pantalla de espera congelada: lo mostramos.
+  const pollErrorMessage =
+    current.status === 'pending' && pollError
+      ? pollError instanceof ApiError
+        ? pollError.message
+        : 'Sin conexión con el servidor. Seguiremos reintentando automáticamente.'
+      : null;
   // Avisa por notificación si el análisis termina con la pestaña en segundo plano.
   useCompletionNotification(id, current.status);
   // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
@@ -134,6 +146,8 @@ export default function AnalisisClient({
         onRetry={handleRetry}
         isRetrying={isRetrying}
         retryError={retryError}
+        pollError={pollErrorMessage}
+        onRetryPoll={refetch}
       />
 
       <ConfirmDialog

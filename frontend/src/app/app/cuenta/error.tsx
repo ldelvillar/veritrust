@@ -25,7 +25,8 @@ export default function CuentaError({
           No se pudo cargar tu cuenta
         </h1>
         <p className="mt-2 text-sm font-medium text-muted">
-          {error.message || 'Ha ocurrido un error inesperado.'}
+          Ha ocurrido un problema temporal al cargar tu cuenta. Inténtalo de
+          nuevo.
         </p>
         <Button onClick={reset} className="mt-6">
           Reintentar

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
@@ -12,6 +13,10 @@ interface ErrorProps {
 export default function AnalisisError({ error, reset }: ErrorProps) {
   const router = useRouter();
 
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-12">
       <div className="flex w-full max-w-2xl flex-col items-center gap-5 rounded-2xl border border-red-100 bg-white p-8 text-center shadow-2xl shadow-red-100/50 md:p-12">
@@ -23,7 +28,8 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
             No se pudo cargar el análisis
           </h2>
           <p className="text-base text-body">
-            {error.message || 'Error desconocido.'}
+            No hemos podido cargar este análisis. Puede ser un problema temporal
+            de conexión; inténtalo de nuevo.
           </p>
         </div>
         <div className="mt-3 flex gap-3">
