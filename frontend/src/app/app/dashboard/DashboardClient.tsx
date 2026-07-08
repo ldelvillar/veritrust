@@ -119,14 +119,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           hint="Porcentaje de tus análisis con veredicto «verdadero» sobre el total completado."
         />
         <KpiCard
-          label="Confianza media"
+          label="Credibilidad media"
           value={`${dashboard.kpis.average_confidence}%`}
-          sub="todos tus análisis"
+          sub="excluye los dudosos"
           icon={<SparkleIcon className="size-5" />}
           tint="#e4f1fc"
           color="#2c97e8"
           spark={sparkConf.length >= 2 ? sparkConf : undefined}
-          hint="Seguridad media del modelo en sus veredictos, promediada sobre todos tus análisis."
+          hint="Credibilidad media de tu contenido (0 = falso, 100 = verdadero), sobre los análisis con veredicto verdadero o falso."
         />
         <KpiCard
           label="Alertas activas"
@@ -152,7 +152,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 Tendencia ({days} días)
               </h2>
               <p className="mt-1 text-[13px] leading-snug text-muted">
-                Volumen diario de análisis y confianza media del periodo.
+                Volumen diario de análisis y credibilidad media del periodo.
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -167,7 +167,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               </span>
               <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
                 <span className="inline-block h-0.75 w-4.5 rounded-full bg-accent" />
-                Confianza
+                Credibilidad
               </span>
             </div>
           </div>

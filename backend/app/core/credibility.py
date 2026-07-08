@@ -30,6 +30,17 @@ def compute_credibility(
     return max(0, min(100, round(credibility * 100)))
 
 
+# Misma credibilidad [0, 1] reproducida en SQL para ordenar y agregar; incierto/sin confianza → NULL.
+CREDIBILITY_SQL_EXPR = (
+    "CASE "
+    "WHEN confidence IS NULL OR verdict = 'uncertain' THEN NULL "
+    "WHEN verdict = 'fake' "
+    "THEN 1 - (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
+    "ELSE (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
+    "END"
+)
+
+
 # Atenuación máxima de la confianza cuando no se halla evidencia que respalde el veredicto
 EVIDENCE_MAX_PENALTY = 0.25
 

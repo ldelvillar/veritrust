@@ -10,7 +10,7 @@ from typing import Any, Optional, Sequence
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app.core.credibility import VERDICTS, classify_verdict
+from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS, classify_verdict
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.history import (
@@ -27,22 +27,12 @@ _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
 _VALID_VERDICTS = set(VERDICTS)
 _VALID_STATUSES = {"done", "pending", "failed"}
 
-# Credibilidad [0, 1] reproducida en SQL para ordenar; incierto/sin confianza → NULL.
-_CREDIBILITY_ORDER_EXPR = (
-    "CASE "
-    "WHEN confidence IS NULL OR verdict = 'uncertain' THEN NULL "
-    "WHEN verdict = 'fake' "
-    "THEN 1 - (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
-    "ELSE (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
-    "END"
-)
-
 # Cláusulas ORDER BY saneadas por clave; nunca se interpola entrada cruda del usuario.
 _SORT_ORDER_BY = {
     "recent": "created_at DESC",
     "oldest": "created_at ASC",
-    "credibility_high": f"{_CREDIBILITY_ORDER_EXPR} DESC NULLS LAST, created_at DESC",
-    "credibility_low": f"{_CREDIBILITY_ORDER_EXPR} ASC NULLS LAST, created_at DESC",
+    "credibility_high": f"{CREDIBILITY_SQL_EXPR} DESC NULLS LAST, created_at DESC",
+    "credibility_low": f"{CREDIBILITY_SQL_EXPR} ASC NULLS LAST, created_at DESC",
 }
 
 _DEFAULT_SORT = "recent"

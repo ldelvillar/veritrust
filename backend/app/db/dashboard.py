@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import psycopg
 
+from app.core.credibility import CREDIBILITY_SQL_EXPR
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.dashboard import (
     DashboardAlertItem,
@@ -140,12 +141,14 @@ def _build_domain_breakdown(
         if not domain:
             continue
 
-        confidence = float(row[1] or 0.0)
         if domain not in domain_aggregates:
-            domain_aggregates[domain] = {"total": 0.0, "sum_confidence": 0.0}
+            domain_aggregates[domain] = {"total": 0.0, "sum_cred": 0.0, "n_cred": 0.0}
 
         domain_aggregates[domain]["total"] += 1
-        domain_aggregates[domain]["sum_confidence"] += confidence
+        # Los veredictos inciertos no tienen credibilidad; cuentan como frecuencia pero no en la media.
+        if row[1] is not None:
+            domain_aggregates[domain]["sum_cred"] += float(row[1])
+            domain_aggregates[domain]["n_cred"] += 1
 
     sorted_domains = sorted(
         domain_aggregates.items(),
@@ -158,7 +161,7 @@ def _build_domain_breakdown(
             domain=domain,
             total=int(values["total"]),
             average_confidence=_round_percentage(
-                values["sum_confidence"] / values["total"]
+                values["sum_cred"] / values["n_cred"] if values["n_cred"] else 0.0
             ),
         )
         for domain, values in sorted_domains
@@ -192,10 +195,10 @@ async def get_user_dashboard_summary(
         alert_limit=alert_limit,
     )
 
-    kpis_query = """
+    kpis_query = f"""
         SELECT
             COUNT(*) AS total_analyses,
-            AVG(confidence) AS average_confidence,
+            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence,
             SUM(CASE WHEN verdict = 'real' THEN 1 ELSE 0 END) AS reliable_total,
             SUM(
                 CASE
@@ -217,11 +220,11 @@ async def get_user_dashboard_summary(
         WHERE user_id = %s AND status = 'done'
     """
 
-    trend_query = """
+    trend_query = f"""
         SELECT
             DATE(created_at) AS day,
             COUNT(*) AS total,
-            AVG(confidence) AS average_confidence
+            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
@@ -230,21 +233,21 @@ async def get_user_dashboard_summary(
         ORDER BY day ASC
     """
 
-    source_query = """
+    source_query = f"""
         SELECT
             source_type,
             COUNT(*) AS total,
-            AVG(confidence) AS average_confidence
+            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
         GROUP BY source_type
         ORDER BY total DESC
     """
 
-    domain_query = """
+    domain_query = f"""
         SELECT
             input_url,
-            confidence
+            {CREDIBILITY_SQL_EXPR} AS credibility
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'

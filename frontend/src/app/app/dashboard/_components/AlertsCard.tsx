@@ -121,7 +121,7 @@ export default function AlertsCard({
 
           <div className="mt-4 flex justify-center">
             <Link
-              href="/app/historial"
+              href="/app/historial?verdict=fake"
               className="font-display inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent"
             >
               Ver todas las alertas{' '}

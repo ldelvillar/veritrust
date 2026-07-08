@@ -457,6 +457,20 @@ def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
     assert result[0].average_confidence == 80.0
 
 
+def test_build_domain_breakdown_excludes_uncertain_from_credibility() -> None:
+    # La fila incierta (credibilidad NULL) cuenta como frecuencia pero no en la media.
+    domain_rows = [
+        ("https://a.com/one", 0.8),
+        ("https://a.com/two", None),
+    ]
+
+    result = dashboard_module._build_domain_breakdown(domain_rows=domain_rows, limit=5)
+
+    assert len(result) == 1
+    assert result[0].total == 2
+    assert result[0].average_confidence == 80.0
+
+
 def test_build_alerts_maps_rows_to_alert_items() -> None:
     alert_rows = [
         (

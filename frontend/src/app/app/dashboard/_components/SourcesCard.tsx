@@ -90,7 +90,7 @@ export default function SourcesCard({
       {items.length > 0 && (
         <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
           <span className="text-[12.5px] font-semibold text-muted">
-            Confianza media del periodo
+            Credibilidad media del periodo
           </span>
           <span className="text-[13.5px] font-bold text-ink">{wavg}%</span>
         </div>
