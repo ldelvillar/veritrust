@@ -73,7 +73,7 @@ production secret, edit that copy, push it back as a new version, redeploy:
 
 ```bash
 gcloud secrets versions access latest --secret=veritrust-env > /tmp/veritrust-env.prod
-# edit /tmp/veritrust-env.prod
+nano /tmp/veritrust-env.prod   # add or change the KEY=VALUE lines you need; leave the rest intact
 gcloud secrets versions add veritrust-env --data-file=/tmp/veritrust-env.prod
 rm /tmp/veritrust-env.prod
 gh workflow run Deploy
