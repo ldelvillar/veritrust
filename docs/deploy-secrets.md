@@ -15,7 +15,7 @@ the project that owns the VM.
 
 The VM's `.env` is the live production config; the repo-root `.env` on your laptop
 holds **development** values (e.g. Clerk test keys) and must never become the
-secret. Copy the VM file to a temp path *outside the repo* (so it can't be
+secret. Copy the VM file to a temp path _outside the repo_ (so it can't be
 committed), create the secret from it, and delete the copy:
 
 ```bash
@@ -69,7 +69,7 @@ ssh USER@VM_IP "gcloud secrets versions access latest --secret=veritrust-env | h
 
 Never edit `~/veritrust/.env` on the VM by hand (the next deploy overwrites it),
 and never push the repo-root `.env` (development values). Pull the current
-production secret, edit that copy, push it back as a new version, redeploy:
+production secret, edit that copy, push it back as a new version, redeploy. Run this in cloud shell or on your laptop with `gcloud` authenticated against the project that owns the VM:
 
 ```bash
 gcloud secrets versions access latest --secret=veritrust-env > /tmp/veritrust-env.prod
@@ -85,7 +85,7 @@ gh workflow run Deploy
   `.env.example` at the repo root for the expected variables).
 - After migration there are exactly two configs: the repo-root `.env` (local
   development, Clerk test keys) and the `veritrust-env` secret (production).
-  They are *supposed* to differ — never sync one from the other.
+  They are _supposed_ to differ — never sync one from the other.
 - `backend/.env` and `frontend/.env` remain local-development files; they are not
   used in production and must never be uploaded.
 - Old secret versions stay readable by default; disable them after rotating a
