@@ -37,6 +37,7 @@ def _patch_db(monkeypatch):
     # Sin recipient real ni Resend configurado; el envío se neutraliza en los tests.
     monkeypatch.setattr(worker, "send_analysis_ready_email", fake_send)
     monkeypatch.setattr(worker, "send_analysis_failed_email", fake_send)
+    monkeypatch.setattr(worker, "send_analysis_no_claims_email", fake_send)
     return completed, failed
 
 
@@ -86,13 +87,18 @@ async def test_run_analysis_sends_ready_email_on_success(monkeypatch):
     assert ready_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
 
 
-async def test_run_analysis_sends_failed_email_on_no_medical_claims(monkeypatch):
+async def test_run_analysis_sends_neutral_email_on_no_medical_claims(monkeypatch):
     completed, failed = _patch_db(monkeypatch)
+    no_claims_calls: list[dict] = []
     failed_calls: list[dict] = []
+
+    async def fake_no_claims(**kwargs):
+        no_claims_calls.append(kwargs)
 
     async def fake_failed(**kwargs):
         failed_calls.append(kwargs)
 
+    monkeypatch.setattr(worker, "send_analysis_no_claims_email", fake_no_claims)
     monkeypatch.setattr(worker, "send_analysis_failed_email", fake_failed)
 
     async def fake_ainvoke(graph, state, on_stage=None):
@@ -107,7 +113,9 @@ async def test_run_analysis_sends_failed_email_on_no_medical_claims(monkeypatch)
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
-    assert failed_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+    # Sin afirmaciones médicas se avisa en tono neutro, nunca con el email de error.
+    assert no_claims_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+    assert failed_calls == []
 
 
 async def test_run_analysis_sends_failed_email_on_pipeline_error(monkeypatch):

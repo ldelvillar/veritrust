@@ -95,6 +95,22 @@ async def test_failed_email_uses_failure_subject(monkeypatch):
     assert f"/app/analisis/{ANALYSIS_ID}" in recorder[0]["json"]["html"]
 
 
+async def test_no_claims_email_uses_neutral_subject(monkeypatch):
+    _configure(monkeypatch)
+    recorder: list[dict] = []
+    _patch_client(monkeypatch, recorder)
+
+    await email.send_analysis_no_claims_email(
+        to="user@example.com", analysis_id=ANALYSIS_ID
+    )
+
+    assert len(recorder) == 1
+    subject = recorder[0]["json"]["subject"].lower()
+    assert "afirmaciones médicas" in subject
+    assert "no pudo" not in subject
+    assert f"/app/analisis/{ANALYSIS_ID}" in recorder[0]["json"]["html"]
+
+
 async def test_no_send_without_api_key(monkeypatch):
     _configure(monkeypatch, api_key=None)
     recorder: list[dict] = []

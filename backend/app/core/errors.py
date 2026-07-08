@@ -19,7 +19,7 @@ _MESSAGES: dict[ErrorCode, str] = {
         "No se detectaron afirmaciones medicas verificables en el texto."
     ),
     ErrorCode.ANALYSIS_SAVE_FAILED: (
-        "El análisis se completó pero no se pudo guardar. "
+        "No se pudo registrar el análisis. "
         "Por favor, inténtalo de nuevo en unos momentos."
     ),
     ErrorCode.SERVICE_UNAVAILABLE: (

@@ -36,7 +36,11 @@ from app.db.history import (
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
-from app.utils.email import send_analysis_failed_email, send_analysis_ready_email
+from app.utils.email import (
+    send_analysis_failed_email,
+    send_analysis_no_claims_email,
+    send_analysis_ready_email,
+)
 from app.utils.extract_text_from_file import FileExtractionError, extract_text_from_file
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 from app.utils.ollama import ensure_ollama_available
@@ -137,7 +141,12 @@ async def run_analysis(
 
         # Sin explicación: el texto no contenía afirmaciones médicas verificables.
         if not explanation:
-            await _fail_and_notify(ErrorCode.NO_MEDICAL_CLAIMS.value)
+            await fail_analysis(
+                analysis_id=analysis_id, error_code=ErrorCode.NO_MEDICAL_CLAIMS.value
+            )
+            await send_analysis_no_claims_email(
+                to=recipient_email, analysis_id=analysis_id
+            )
             return
 
         await complete_analysis(

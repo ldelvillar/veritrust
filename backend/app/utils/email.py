@@ -111,6 +111,35 @@ async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None
     )
 
 
+async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> None:
+    """Notifica, en tono neutro, que el texto no contenía afirmaciones médicas verificables."""
+    settings = get_settings()
+    if not settings.app_base_url:
+        return
+
+    report_url = _build_report_url(settings.app_base_url, analysis_id)
+    html = _render_email_html(
+        base_url=settings.app_base_url,
+        report_url=report_url,
+        heading="No encontramos afirmaciones médicas",
+        body_text=(
+            "Hemos revisado tu contenido, pero no contenía afirmaciones médicas "
+            "que pudiéramos verificar. Prueba con otro texto o enlace."
+        ),
+        cta_label="Ver el análisis",
+    )
+    text = (
+        "Revisamos tu contenido, pero no encontramos afirmaciones médicas "
+        f"verificables. Consúltalo aquí: {report_url}"
+    )
+    await _send_email(
+        to=to,
+        subject="No encontramos afirmaciones médicas en tu contenido",
+        html=html,
+        text=text,
+    )
+
+
 async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> None:
     """Notifica que un análisis no pudo completarse y enlaza a su estado."""
     settings = get_settings()
