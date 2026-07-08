@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     rate_limit_max_requests: int = 5
     rate_limit_window_seconds: int = 60
 
+    # Rate limiting (POST /contact, por IP; perfil anti-spam de email)
+    contact_rate_limit_max_requests: int = 5
+    contact_rate_limit_window_seconds: int = 3600
+
     # Subida de archivos (POST /analysis/file)
     max_file_bytes: int = 10 * 1024 * 1024  # 10 MB
 
@@ -99,6 +103,8 @@ class Settings(BaseSettings):
     resend_base_url: str = "https://api.resend.com"
     # Origen público del frontend, para construir el enlace al informe en el email
     app_base_url: str | None = None
+    # Buzón del equipo al que llegan los formularios de contacto y demo
+    contact_to_email: str = ""
 
     def cors_origins(self) -> list[str]:
         """Lista de orígenes permitidos; cae a localhost solo en desarrollo."""

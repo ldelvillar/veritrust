@@ -1,4 +1,4 @@
-"""Dependencia para comprobar el límite de tasa del usuario."""
+"""Dependencias para comprobar límites de tasa (por usuario y por IP)."""
 
 import logging
 import time
@@ -15,35 +15,21 @@ from app.schemas.errors import ErrorCode
 logger = logging.getLogger(__name__)
 
 
-async def check_rate_limit(
-    request: Request,
-    user: dict = Depends(get_current_user),
-) -> dict:
-    """Dependencia que verifica el rate limit del usuario autenticado."""
-    user_id = user["sub"]
-    if not user_id:
-        raise HTTPException(
-            status_code=401,
-            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
-        )
-
+async def _enforce_sliding_window(
+    request: Request, key: str, max_requests: int, window: int
+) -> None:
+    """Aplica un rate limit de ventana deslizante sobre `key`; falla cerrado si Redis no responde."""
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
-        # Fail-closed: este endpoint encola un pipeline caro (3 LLM + BERT). Sin
-        # Redis no hay control de abuso, así que rechazamos en vez de dejar pasar.
-        logger.warning("Redis no disponible; se rechaza el análisis (fail-closed)")
+        # Fail-closed: sin Redis no hay control de abuso, así que rechazamos.
+        logger.warning("Redis no disponible; se rechaza la petición (fail-closed)")
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
         )
 
-    settings = get_settings()
-    window = settings.rate_limit_window_seconds
-    max_requests = settings.rate_limit_max_requests
-
     now = time.time()
     cutoff = now - window
-    key = f"rate_limit:{user_id}"
 
     try:
         # Poda las marcas fuera de ventana y cuenta las que quedan.
@@ -70,4 +56,43 @@ async def check_rate_limit(
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
         ) from exc
 
+
+async def check_rate_limit(
+    request: Request,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Dependencia que verifica el rate limit del usuario autenticado."""
+    user_id = user["sub"]
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
+        )
+
+    settings = get_settings()
+    await _enforce_sliding_window(
+        request,
+        key=f"rate_limit:{user_id}",
+        max_requests=settings.rate_limit_max_requests,
+        window=settings.rate_limit_window_seconds,
+    )
     return user
+
+
+def _client_ip(request: Request) -> str:
+    """IP del cliente: primer salto de X-Forwarded-For (tras el proxy) o la conexión directa."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def check_public_rate_limit(request: Request) -> None:
+    """Dependencia que limita por IP los endpoints públicos (sin autenticación)."""
+    settings = get_settings()
+    await _enforce_sliding_window(
+        request,
+        key=f"contact_rate_limit:{_client_ip(request)}",
+        max_requests=settings.contact_rate_limit_max_requests,
+        window=settings.contact_rate_limit_window_seconds,
+    )

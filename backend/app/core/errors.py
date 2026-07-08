@@ -52,6 +52,9 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.HISTORY_FETCH_FAILED: "No se pudo recuperar el historial de análisis.",
     ErrorCode.HISTORY_DELETE_FAILED: "No se pudo eliminar el historial de análisis.",
     ErrorCode.DASHBOARD_FETCH_FAILED: "No se pudo recuperar el dashboard.",
+    ErrorCode.CONTACT_SEND_FAILED: (
+        "No se pudo enviar tu mensaje. Por favor, inténtalo de nuevo en unos momentos."
+    ),
     ErrorCode.RATE_LIMIT: (
         "Has superado el límite de peticiones. Intenta de nuevo en un minuto."
     ),

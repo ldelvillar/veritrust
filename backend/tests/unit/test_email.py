@@ -159,3 +159,88 @@ async def test_send_swallows_http_errors(monkeypatch):
     )
 
     assert len(recorder) == 1
+
+
+def _configure_contact(
+    monkeypatch,
+    *,
+    api_key="test-key",
+    from_email="VeriTrust <noreply@veritrust.test>",
+    to_email="equipo@veritrust.test",
+    base_url="https://api.resend.com",
+):
+    settings = types.SimpleNamespace(
+        resend_api_key=api_key,
+        resend_from_email=from_email,
+        contact_to_email=to_email,
+        resend_base_url=base_url,
+    )
+    monkeypatch.setattr(email, "get_settings", lambda: settings)
+
+
+async def test_contact_email_posts_to_resend_with_reply_to(monkeypatch):
+    _configure_contact(monkeypatch)
+    recorder: list[dict] = []
+    _patch_client(monkeypatch, recorder)
+
+    await email.send_contact_email(
+        name="Ana <b>",
+        email="ana@medio.es",
+        subject="Solicitud de demo",
+        message="Nos interesa la API.\nGracias.",
+        metadata={"Organización": "Medio S.L."},
+        contact_type="demo",
+    )
+
+    assert len(recorder) == 1
+    req = recorder[0]
+    assert req["url"] == "https://api.resend.com/emails"
+    assert req["headers"]["Authorization"] == "Bearer test-key"
+    assert req["json"]["to"] == ["equipo@veritrust.test"]
+    assert req["json"]["reply_to"] == ["ana@medio.es"]
+    assert "Nueva solicitud de demo" in req["json"]["subject"]
+    html = req["json"]["html"]
+    assert "Medio S.L." in html
+    assert "Nos interesa la API." in html
+    # El nombre se escapa para no inyectar HTML del usuario en el email.
+    assert "Ana &lt;b&gt;" in html
+
+
+async def test_contact_email_raises_when_unconfigured(monkeypatch):
+    _configure_contact(monkeypatch, api_key=None)
+    recorder: list[dict] = []
+    _patch_client(monkeypatch, recorder)
+
+    try:
+        await email.send_contact_email(
+            name="Ana",
+            email="ana@medio.es",
+            subject="Hola",
+            message="Mensaje",
+            metadata=None,
+            contact_type="contact",
+        )
+        raise AssertionError("debía lanzar ContactEmailNotConfigured")
+    except email.ContactEmailNotConfigured:
+        pass
+
+    assert recorder == []
+
+
+async def test_contact_email_raises_on_transport_error(monkeypatch):
+    _configure_contact(monkeypatch)
+    recorder: list[dict] = []
+    _patch_client(monkeypatch, recorder, post_exc=httpx.ConnectError("boom"))
+
+    try:
+        await email.send_contact_email(
+            name="Ana",
+            email="ana@medio.es",
+            subject="Hola",
+            message="Mensaje",
+            metadata=None,
+            contact_type="contact",
+        )
+        raise AssertionError("debía lanzar ContactEmailError")
+    except email.ContactEmailError:
+        pass

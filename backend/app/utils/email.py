@@ -1,6 +1,7 @@
 """Envío de notificaciones por email vía la API de Resend (best-effort)."""
 
 import logging
+from html import escape
 
 import httpx
 
@@ -12,6 +13,19 @@ _EMAILS_PATH = "/emails"
 _REQUEST_TIMEOUT_SECONDS = 10
 # Logo de marca sobre fondo transparente, servido por el frontend.
 _LOGO_PATH = "/images/logo-1316x1316-no-bg.png"
+# Prefijo del asunto según el tipo de formulario que originó el mensaje.
+_CONTACT_SUBJECT_PREFIX = {
+    "contact": "Nuevo mensaje de contacto",
+    "demo": "Nueva solicitud de demo",
+}
+
+
+class ContactEmailNotConfigured(RuntimeError):
+    """El envío de mensajes de contacto no está configurado (falta Resend o el buzón)."""
+
+
+class ContactEmailError(RuntimeError):
+    """El mensaje de contacto no se pudo entregar a través de Resend."""
 
 
 def _build_report_url(base_url: str, analysis_id: str) -> str:
@@ -164,3 +178,83 @@ async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> Non
         html=html,
         text=text,
     )
+
+
+def _render_contact_html(
+    *,
+    name: str,
+    email: str,
+    subject: str,
+    message: str | None,
+    metadata: dict[str, str] | None,
+) -> str:
+    """Compone un email plano con los datos del formulario, para lectura del equipo."""
+    rows = [("Nombre", name), ("Email", email), ("Asunto", subject)]
+    if metadata:
+        rows.extend(metadata.items())
+    fields = "".join(
+        "<tr>"
+        '<td style="padding:4px 12px 4px 0;color:#6b6b7a;font-weight:600;'
+        f'white-space:nowrap;vertical-align:top;">{escape(label)}</td>'
+        f'<td style="padding:4px 0;color:#15162c;">{escape(value)}</td>'
+        "</tr>"
+        for label, value in rows
+    )
+    body = escape(message or "(sin mensaje)").replace("\n", "<br>")
+    return (
+        '<div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        f'style="font-size:14px;line-height:1.5;">{fields}</table>'
+        '<p style="margin:16px 0 4px;color:#6b6b7a;font-weight:600;font-size:14px;">'
+        "Mensaje</p>"
+        f'<p style="margin:0;color:#15162c;font-size:14px;line-height:1.6;">{body}</p>'
+        "</div>"
+    )
+
+
+async def send_contact_email(
+    *,
+    name: str,
+    email: str,
+    subject: str,
+    message: str | None,
+    metadata: dict[str, str] | None,
+    contact_type: str,
+) -> None:
+    """Envía un mensaje de formulario al buzón del equipo; propaga fallos para poder reintentar."""
+    settings = get_settings()
+    if not (
+        settings.resend_api_key
+        and settings.resend_from_email
+        and settings.contact_to_email
+    ):
+        raise ContactEmailNotConfigured
+
+    prefix = _CONTACT_SUBJECT_PREFIX.get(
+        contact_type, _CONTACT_SUBJECT_PREFIX["contact"]
+    )
+    payload = {
+        "from": settings.resend_from_email,
+        "to": [settings.contact_to_email],
+        "reply_to": [email],
+        "subject": f"[VeriTrust] {prefix} — {subject}",
+        "html": _render_contact_html(
+            name=name,
+            email=email,
+            subject=subject,
+            message=message,
+            metadata=metadata,
+        ),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{settings.resend_base_url}{_EMAILS_PATH}",
+                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+                json=payload,
+            )
+            response.raise_for_status()
+    except Exception as exc:
+        logger.warning("[Email] No se pudo enviar el mensaje de contacto")
+        raise ContactEmailError from exc

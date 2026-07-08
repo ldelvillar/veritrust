@@ -127,6 +127,25 @@ export async function fetchJsonWithAuth<TResponse>(
   return (await response.json()) as TResponse;
 }
 
+// POST público sin autenticación (formularios accesibles por visitantes sin sesión).
+export async function postJsonPublic<TResponse>(
+  path: string,
+  body: unknown,
+  options: { errorContextMessage?: string } = {}
+): Promise<TResponse> {
+  const { errorContextMessage = 'Error al conectar con el servidor' } = options;
+
+  const response = await fetch(buildApiUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  await throwIfNotOk(response, errorContextMessage);
+
+  return (await response.json()) as TResponse;
+}
+
 export async function postFormWithAuth<TResponse>(
   getToken: GetTokenFn,
   path: string,

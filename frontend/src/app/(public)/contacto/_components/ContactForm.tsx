@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 import CheckIcon from '@/assets/Check';
 import ShieldIcon from '@/assets/Shield';
+import Spinner from '@/assets/Spinner';
+import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
+import { useContactSubmission } from '@/hooks/useContactSubmission';
 
 type Values = {
   nombre: string;
@@ -51,6 +54,7 @@ export default function ContactForm() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [sent, setSent] = useState(false);
   const [firstName, setFirstName] = useState('');
+  const { submit, isLoading, error } = useContactSubmission();
 
   const update = <K extends keyof Values>(key: K, value: Values[K]) => {
     setValues(prev => ({ ...prev, [key]: value }));
@@ -62,7 +66,7 @@ export default function ContactForm() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const next: FieldErrors = {};
     if (!values.nombre.trim()) next.nombre = true;
@@ -73,6 +77,15 @@ export default function ContactForm() {
 
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+
+    const ok = await submit({
+      type: 'contact',
+      name: values.nombre.trim(),
+      email: values.email.trim(),
+      subject: values.asunto,
+      message: values.mensaje.trim(),
+    });
+    if (!ok) return;
 
     setFirstName(values.nombre.trim().split(' ')[0]);
     setSent(true);
@@ -230,9 +243,26 @@ export default function ContactForm() {
               </div>
             </div>
 
+            {error && (
+              <div
+                role="alert"
+                className="mt-6 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600"
+              >
+                <WarningIcon className="size-5 shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
+
             <div className="mt-7 flex flex-wrap items-center gap-4">
-              <Button type="submit" size="lg">
-                Enviar mensaje
+              <Button type="submit" size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Spinner className="size-5 animate-spin" />
+                    Enviando…
+                  </>
+                ) : (
+                  'Enviar mensaje'
+                )}
               </Button>
               <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
                 <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
