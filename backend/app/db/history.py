@@ -780,6 +780,25 @@ async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
         ) from exc
 
 
+async def delete_all_user_analyses(*, user_id: str) -> int:
+    """Elimina todos los análisis propios del usuario. Devuelve cuántas filas borró."""
+    pool = await get_pool()
+
+    query = "DELETE FROM public.analysis_history WHERE user_id = %s"
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id,))
+                return cur.rowcount
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo eliminar el historial en la base de datos."
+            )
+        ) from exc
+
+
 async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) -> bool:
     """Reabre a ``pending`` un análisis ``failed`` propio. Devuelve True si cambió una fila."""
     pool = await get_pool()

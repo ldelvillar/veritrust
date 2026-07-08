@@ -148,3 +148,10 @@ class HistoryResponse(BaseModel):
     page_size: int
     verdict_counts: HistoryVerdictCounts
     source_type_counts: HistorySourceTypeCounts
+
+
+class DeleteAllResponse(BaseModel):
+    """Respuesta al eliminar todo el historial de análisis del usuario."""
+
+    status: str
+    deleted_count: int

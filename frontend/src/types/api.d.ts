@@ -166,7 +166,11 @@ export interface paths {
         get: operations["get_history_history_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete History
+         * @description Elimina todo el historial de análisis del usuario autenticado.
+         */
+        delete: operations["delete_history_history_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -450,11 +454,21 @@ export interface components {
             fake: number;
         };
         /**
+         * DeleteAllResponse
+         * @description Respuesta al eliminar todo el historial de análisis del usuario.
+         */
+        DeleteAllResponse: {
+            /** Status */
+            status: string;
+            /** Deleted Count */
+            deleted_count: number;
+        };
+        /**
          * ErrorCode
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "HISTORY_DELETE_FAILED" | "DASHBOARD_FETCH_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -1317,6 +1331,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_history_history_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteAllResponse"];
                 };
             };
             /** @description Unauthorized */

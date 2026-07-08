@@ -577,6 +577,63 @@ def test_delete_analisis_returns_500_when_database_fails(monkeypatch):
     assert response.json()["detail"]["code"] == "ANALYSIS_DELETE_FAILED"
 
 
+def test_delete_history_returns_200_with_deleted_count(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_all_user_analyses(*, user_id):
+        assert user_id == "test-user"
+        return 3
+
+    monkeypatch.setattr(
+        "app.api.routes.history.delete_all_user_analyses",
+        fake_delete_all_user_analyses,
+    )
+
+    response = client.delete("/history")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "deleted"
+    assert body["deleted_count"] == 3
+
+
+def test_delete_history_returns_200_when_nothing_to_delete(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_all_user_analyses(*, user_id):
+        return 0
+
+    monkeypatch.setattr(
+        "app.api.routes.history.delete_all_user_analyses",
+        fake_delete_all_user_analyses,
+    )
+
+    response = client.delete("/history")
+
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 0
+
+
+def test_delete_history_returns_500_when_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_all_user_analyses(*, user_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.history.delete_all_user_analyses",
+        fake_delete_all_user_analyses,
+    )
+
+    response = client.delete("/history")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "HISTORY_DELETE_FAILED"
+
+
 _RETRY_ID = "11111111-1111-1111-1111-111111111111"
 
 

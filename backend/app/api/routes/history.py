@@ -13,12 +13,17 @@ from app.core.errors import make_error_detail
 from app.db.history import (
     count_history_source_type_facets,
     count_history_verdict_facets,
+    delete_all_user_analyses,
     export_user_analysis_history,
     list_user_analysis_history,
 )
 from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode, ErrorResponse
-from app.schemas.history import AnalysisHistoryItem, HistoryResponse
+from app.schemas.history import (
+    AnalysisHistoryItem,
+    DeleteAllResponse,
+    HistoryResponse,
+)
 
 router = APIRouter()
 
@@ -30,6 +35,11 @@ _GET_HISTORY_ERROR_RESPONSES: dict[int | str, dict] = {
 
 _EXPORT_ERROR_RESPONSES: dict[int | str, dict] = {
     200: {"content": {"text/csv": {}}, "description": "Historial en formato CSV."},
+    401: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+}
+
+_DELETE_ALL_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
@@ -198,3 +208,21 @@ async def export_history(
             "Content-Disposition": 'attachment; filename="historial-veritrust.csv"'
         },
     )
+
+
+@router.delete(
+    "", response_model=DeleteAllResponse, responses=_DELETE_ALL_ERROR_RESPONSES
+)
+async def delete_history(user=Depends(get_current_user)):
+    """Elimina todo el historial de análisis del usuario autenticado."""
+    user_id = user["sub"]
+
+    try:
+        deleted_count = await delete_all_user_analyses(user_id=user_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.HISTORY_DELETE_FAILED),
+        ) from e
+
+    return {"status": "deleted", "deleted_count": deleted_count}

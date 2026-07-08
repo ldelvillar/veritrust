@@ -8,6 +8,7 @@ from app.db.history import (
     count_history_verdict_facets,
     create_pending_analysis,
     create_pending_file_analysis,
+    delete_all_user_analyses,
     delete_user_analysis,
     fail_analysis,
     fail_stale_pending_analyses,
@@ -279,6 +280,26 @@ async def test_rows_are_isolated_per_user(db_pool):
     assert (rows, total) == ([], 0)
 
     assert await delete_user_analysis(user_id=USER, analysis_id=analysis_id)
+
+
+async def test_delete_all_removes_only_own_rows(db_pool):
+    """delete_all borra todas las filas del usuario y respeta las de otros usuarios."""
+    await _pending()
+    await _pending("El paracetamol reduce la fiebre")
+    other_id = await create_pending_analysis(
+        user_id="user-b", request=AnalysisRequest(text="Otro usuario")
+    )
+
+    assert await delete_all_user_analyses(user_id=USER) == 2
+
+    rows, total = await list_user_analysis_history(user_id=USER)
+    assert (rows, total) == ([], 0)
+    assert await get_user_analysis_by_id(user_id="user-b", analysis_id=other_id)
+
+
+async def test_delete_all_returns_zero_when_history_empty(db_pool):
+    """Sin filas que borrar, delete_all devuelve 0 sin error."""
+    assert await delete_all_user_analyses(user_id="user-sin-actividad") == 0
 
 
 async def test_file_bytes_round_trip_exactly(db_pool):

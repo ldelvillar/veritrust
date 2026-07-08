@@ -50,6 +50,7 @@ _MESSAGES: dict[ErrorCode, str] = {
         "Este informe compartido no existe o ya no está disponible."
     ),
     ErrorCode.HISTORY_FETCH_FAILED: "No se pudo recuperar el historial de análisis.",
+    ErrorCode.HISTORY_DELETE_FAILED: "No se pudo eliminar el historial de análisis.",
     ErrorCode.DASHBOARD_FETCH_FAILED: "No se pudo recuperar el dashboard.",
     ErrorCode.RATE_LIMIT: (
         "Has superado el límite de peticiones. Intenta de nuevo en un minuto."

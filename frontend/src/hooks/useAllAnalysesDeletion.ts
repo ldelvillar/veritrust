@@ -4,10 +4,9 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import type { components } from '@/types/api';
 
-interface DeleteAllResponse {
-  deleted_count?: number;
-}
+type DeleteAllResponse = components['schemas']['DeleteAllResponse'];
 
 const CONNECTION_ERROR =
   'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
