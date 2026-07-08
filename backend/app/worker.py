@@ -36,6 +36,7 @@ from app.db.history import (
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
+from app.utils.email import send_analysis_failed_email, send_analysis_ready_email
 from app.utils.extract_text_from_file import FileExtractionError, extract_text_from_file
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 from app.utils.ollama import ensure_ollama_available
@@ -65,37 +66,36 @@ async def run_analysis(
     source_type: str,
     text: str | None,
     url: str | None,
+    recipient_email: str | None = None,
 ) -> None:
     """Ejecuta el pipeline para un análisis pendiente y persiste el resultado."""
     logger.info("[Worker] Procesando análisis %s", analysis_id)
     await _set_stage(analysis_id, _PREPARING_STAGE)
+
+    async def _fail_and_notify(error_code: str) -> None:
+        await fail_analysis(analysis_id=analysis_id, error_code=error_code)
+        await send_analysis_failed_email(to=recipient_email, analysis_id=analysis_id)
 
     try:
         if source_type == "url":
             text = await asyncio.to_thread(extract_text_from_url, str(url))
     except URLExtractionError:
         logger.info("[Worker] Extracción de URL fallida para %s", analysis_id)
-        await fail_analysis(
-            analysis_id=analysis_id, error_code=ErrorCode.URL_EXTRACTION.value
-        )
+        await _fail_and_notify(ErrorCode.URL_EXTRACTION.value)
         return
 
     if source_type == "file":
         stored = await get_file_data_by_id(analysis_id=analysis_id)
         if stored is None:
             logger.warning("[Worker] Archivo no encontrado para %s", analysis_id)
-            await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.FILE_EXTRACTION.value
-            )
+            await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
             return
         data, filename = stored
         try:
             text = await asyncio.to_thread(extract_text_from_file, data, filename or "")
         except FileExtractionError:
             logger.info("[Worker] Extracción de archivo fallida para %s", analysis_id)
-            await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.FILE_EXTRACTION.value
-            )
+            await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
             return
         # Persistimos el texto para que la búsqueda del historial funcione aunque
         # el pipeline falle después.
@@ -118,6 +118,7 @@ async def run_analysis(
         "claims": [],
     }
 
+    completed_ok = False
     try:
 
         async def _advance_stage(completed_node: str) -> None:
@@ -136,9 +137,7 @@ async def run_analysis(
 
         # Sin explicación: el texto no contenía afirmaciones médicas verificables.
         if not explanation:
-            await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.NO_MEDICAL_CLAIMS.value
-            )
+            await _fail_and_notify(ErrorCode.NO_MEDICAL_CLAIMS.value)
             return
 
         await complete_analysis(
@@ -150,21 +149,19 @@ async def run_analysis(
             sources=result.get("sources") or [],
         )
         logger.info("[Worker] Análisis %s completado (%s)", analysis_id, label)
+        completed_ok = True
     except OllamaConnectionError:
         logger.exception("[Worker] No se pudo conectar a Ollama para %s", analysis_id)
-        await fail_analysis(
-            analysis_id=analysis_id, error_code=ErrorCode.CONNECTION.value
-        )
+        await _fail_and_notify(ErrorCode.CONNECTION.value)
     except BertInferenceError:
         logger.exception("[Worker] Fallo del detector BERT para %s", analysis_id)
-        await fail_analysis(
-            analysis_id=analysis_id, error_code=ErrorCode.INTERNAL.value
-        )
+        await _fail_and_notify(ErrorCode.INTERNAL.value)
     except Exception:
         logger.exception("[Worker] Error inesperado analizando %s", analysis_id)
-        await fail_analysis(
-            analysis_id=analysis_id, error_code=ErrorCode.INTERNAL.value
-        )
+        await _fail_and_notify(ErrorCode.INTERNAL.value)
+
+    if completed_ok:
+        await send_analysis_ready_email(to=recipient_email, analysis_id=analysis_id)
 
 
 async def reap_stale_analyses(ctx: dict) -> None:

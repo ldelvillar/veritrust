@@ -93,6 +93,13 @@ class Settings(BaseSettings):
     clerk_issuer: str | None = None
     clerk_audience: str | None = None
 
+    # Notificaciones por email (Resend); sin api_key el envío es un no-op silencioso
+    resend_api_key: str | None = None
+    resend_from_email: str = ""
+    resend_base_url: str = "https://api.resend.com"
+    # Origen público del frontend, para construir el enlace al informe en el email
+    app_base_url: str | None = None
+
     def cors_origins(self) -> list[str]:
         """Lista de orígenes permitidos; cae a localhost solo en desarrollo."""
         raw = self.cors_allowed_origins

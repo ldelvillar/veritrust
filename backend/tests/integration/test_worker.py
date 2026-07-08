@@ -28,9 +28,15 @@ def _patch_db(monkeypatch):
     async def fake_set_stage(**kwargs):
         pass
 
+    async def fake_send(**kwargs):
+        pass
+
     monkeypatch.setattr(worker, "complete_analysis", fake_complete)
     monkeypatch.setattr(worker, "fail_analysis", fake_fail)
     monkeypatch.setattr(worker, "set_analysis_stage", fake_set_stage)
+    # Sin recipient real ni Resend configurado; el envío se neutraliza en los tests.
+    monkeypatch.setattr(worker, "send_analysis_ready_email", fake_send)
+    monkeypatch.setattr(worker, "send_analysis_failed_email", fake_send)
     return completed, failed
 
 
@@ -55,6 +61,100 @@ async def test_run_analysis_completes_on_success(monkeypatch):
     assert completed[0]["analysis_id"] == ANALYSIS_ID
     assert completed[0]["label"] == "falsa"
     assert completed[0]["confidence"] == 0.92
+
+
+async def test_run_analysis_sends_ready_email_on_success(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+    ready_calls: list[dict] = []
+
+    async def fake_ready(**kwargs):
+        ready_calls.append(kwargs)
+
+    monkeypatch.setattr(worker, "send_analysis_ready_email", fake_ready)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"label": "falsa", "confidence": 0.9, "medical_explanation": "Informe."}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(
+        ctx, ANALYSIS_ID, "text", "Texto", None, "user@example.com"
+    )
+
+    assert len(completed) == 1
+    assert ready_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+
+
+async def test_run_analysis_sends_failed_email_on_no_medical_claims(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+    failed_calls: list[dict] = []
+
+    async def fake_failed(**kwargs):
+        failed_calls.append(kwargs)
+
+    monkeypatch.setattr(worker, "send_analysis_failed_email", fake_failed)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"label": "verdadera", "confidence": 0.6, "medical_explanation": ""}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(
+        ctx, ANALYSIS_ID, "text", "Texto sin claim", None, "user@example.com"
+    )
+
+    assert completed == []
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
+    assert failed_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+
+
+async def test_run_analysis_sends_failed_email_on_pipeline_error(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+    failed_calls: list[dict] = []
+
+    async def fake_failed(**kwargs):
+        failed_calls.append(kwargs)
+
+    monkeypatch.setattr(worker, "send_analysis_failed_email", fake_failed)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        raise OllamaConnectionError("connect call failed")
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(
+        ctx, ANALYSIS_ID, "text", "Texto", None, "user@example.com"
+    )
+
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
+    assert failed_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+
+
+async def test_run_analysis_completes_even_if_email_send_raises(monkeypatch):
+    """Un fallo del envío best-effort no debe reabrir la rama de error ni fallar la fila."""
+    completed, failed = _patch_db(monkeypatch)
+
+    async def boom_send(**kwargs):
+        raise RuntimeError("resend down")
+
+    monkeypatch.setattr(worker, "send_analysis_ready_email", boom_send)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"label": "falsa", "confidence": 0.9, "medical_explanation": "Informe."}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    with pytest.raises(RuntimeError):
+        await worker.run_analysis(
+            ctx, ANALYSIS_ID, "text", "Texto", None, "user@example.com"
+        )
+
+    assert len(completed) == 1
+    assert failed == []
 
 
 async def test_run_analysis_reports_pipeline_stages_in_order(monkeypatch):

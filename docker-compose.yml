@@ -125,6 +125,9 @@ services:
       CLERK_JWKS_URL: ${CLERK_JWKS_URL}
       CLERK_ISSUER: ${CLERK_ISSUER}
       CLERK_AUDIENCE: ${CLERK_AUDIENCE}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      APP_BASE_URL: ${APP_BASE_URL}
     volumes:
       - ./backend/models/bert_classifier:/app/models/bert_classifier:ro
     healthcheck:

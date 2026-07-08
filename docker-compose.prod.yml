@@ -2,11 +2,6 @@
 # frontend/backend no longer published to the host. Layer it on the base file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # Requires Docker Compose v2.24+ (for the !override tag).
-#
-# mem_limit values are sized for an e2-standard-4 VM (16 GB): a runaway container
-# gets OOM-killed and restarted by its restart policy instead of taking down the
-# VM. Peak legitimate usage (~11 GB with OLLAMA_MAX_LOADED_MODELS=1) fits under
-# the caps; revisit them if the machine type or the Ollama models change.
 
 services:
   caddy:
@@ -51,10 +46,10 @@ services:
       LOG_FORMAT: json
 
   worker:
-    # torch + BioBERT + grafo; el pipeline pesado (LLM) vive en ollama, no aquí.
     mem_limit: 3g
     environment:
       LOG_FORMAT: json
+      APP_BASE_URL: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
 
   frontend:
     ports: !override []

@@ -61,7 +61,8 @@ def _load_server_module(monkeypatch):
     # Redis de mentira fresco por test: el rate limit no se acumula entre tests.
     server_module.app.state.redis = _LoopSafeFakeRedis()
     server_module.app.dependency_overrides[get_current_user] = lambda: {
-        "sub": "test-user"
+        "sub": "test-user",
+        "email": "test-user@example.com",
     }
 
     return server_module, fake_pool
@@ -150,6 +151,8 @@ def test_analisis_enqueues_job_and_returns_pending(monkeypatch):
     assert job[2] == "text"
     assert job[3] == "Bleach cures COVID"
     assert job[4] is None
+    # El email del JWT se pasa al worker para notificar al terminar.
+    assert job[5] == "test-user@example.com"
     # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
     assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
 
@@ -630,6 +633,7 @@ def test_retry_reopens_failed_analysis_and_enqueues_text(monkeypatch):
     assert job[2] == "text"
     assert job[3] == "Bleach cures COVID"
     assert job[4] is None
+    assert job[5] == "test-user@example.com"
     # _job_id=analysis_id: si el job previo sigue vivo en arq, el retry no lo duplica.
     assert fake_pool.job_ids == [_RETRY_ID]
 
@@ -1343,6 +1347,7 @@ def test_analisis_file_enqueues_job_and_returns_pending(monkeypatch):
     assert job[2] == "file"
     assert job[3] is None
     assert job[4] is None
+    assert job[5] == "test-user@example.com"
     # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
     assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
 

@@ -146,6 +146,7 @@ async def analyze_news(
             body.source_type.value,
             body.text,
             str(body.url) if body.url else None,
+            user.get("email"),
             _job_id=analysis_id,
         )
     except (OSError, RedisError) as e:
@@ -324,7 +325,13 @@ async def analyze_file(
     try:
         # _job_id=analysis_id: arq deduplica, un doble encolado del mismo análisis es un no-op.
         await arq_pool.enqueue_job(
-            "run_analysis", analysis_id, "file", None, None, _job_id=analysis_id
+            "run_analysis",
+            analysis_id,
+            "file",
+            None,
+            None,
+            user.get("email"),
+            _job_id=analysis_id,
         )
     except (OSError, RedisError) as e:
         logger.exception("No se pudo encolar el análisis %s", analysis_id)
@@ -572,6 +579,7 @@ async def retry_analysis(
             record.source_type,
             text_arg,
             url_arg,
+            user.get("email"),
             _job_id=analysis_id,
         )
     except (OSError, RedisError) as e:
