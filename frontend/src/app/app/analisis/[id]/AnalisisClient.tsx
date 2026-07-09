@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AnalysisResult from '@/components/AnalysisResult';
 import { ApiError } from '@/lib/apiClient';
@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import ShareDialog from '@/components/ShareDialog';
 import Trash from '@/assets/Trash';
 import LinkIcon from '@/assets/Link';
+import { SITE_CONFIG } from '@/config/site';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
@@ -66,6 +67,19 @@ export default function AnalisisClient({
       : null;
   // Avisa por notificación si el análisis termina con la pestaña en segundo plano.
   useCompletionNotification(id, current.status);
+
+  useEffect(() => {
+    if (current.status !== 'pending' && current.status !== 'failed') return;
+    const originalTitle = document.title;
+    document.title =
+      current.status === 'pending'
+        ? `Analizando... | ${SITE_CONFIG.name}`
+        : `Análisis fallido | ${SITE_CONFIG.name}`;
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [current.status]);
+
   // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const shareToken = current.share_token ?? null;
