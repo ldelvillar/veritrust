@@ -86,7 +86,7 @@ export default function AlertsCard({
                     className="flex size-12 shrink-0 flex-col items-center justify-center rounded-[13px] text-white"
                     style={{ background: st.score }}
                   >
-                    <span className="font-display text-[17px] leading-none font-bold">
+                    <span className="text-[17px] leading-none font-bold">
                       {score}
                     </span>
                     <span className="mt-0.5 text-[9px] font-semibold opacity-85">
@@ -122,7 +122,7 @@ export default function AlertsCard({
           <div className="mt-4 flex justify-center">
             <Link
               href="/app/historial?verdict=fake"
-              className="font-display inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent"
+              className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent"
             >
               Ver todas las alertas{' '}
               <ArrowRightIcon className="size-4" strokeWidth={2.1} />

@@ -82,7 +82,7 @@ export default function Hero() {
               <i className="size-2.75 rounded-full bg-[#f3d49a]" />
               <i className="size-2.75 rounded-full bg-[#a8e0c4]" />
               <span className="ml-2.5 font-mono text-[11.5px] text-faint">
-                https://veriTrust.es/analizar
+                https://veritrust.es/analizar
               </span>
             </div>
             <div className="p-5.5">

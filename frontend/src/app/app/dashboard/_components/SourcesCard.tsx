@@ -79,7 +79,7 @@ export default function SourcesCard({
                   }}
                 />
               </div>
-              <span className="font-display w-7 shrink-0 text-right text-[14px] font-bold text-ink">
+              <span className="w-7 shrink-0 text-right text-[14px] font-bold text-ink">
                 {s.total}
               </span>
             </div>

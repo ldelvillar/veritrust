@@ -43,7 +43,7 @@ export default function KpiCard({
         </div>
       </div>
 
-      <p className="font-display text-[34px] leading-none font-bold tracking-[-0.03em] text-ink">
+      <p className="text-[34px] leading-none font-bold tracking-[-0.03em] text-ink">
         {value}
       </p>
 

@@ -17,7 +17,7 @@ interface CuentaClientProps {
 }
 
 const EXPORT_ALL_PATH =
-  '/history/export?source_type=all&verdict=all&date_sort=desc';
+  '/history/export?source_type=all&verdict=all&sort=recent';
 
 const EXPORT_FALLBACK_ERROR =
   'No se pudieron exportar tus datos. Inténtalo de nuevo.';

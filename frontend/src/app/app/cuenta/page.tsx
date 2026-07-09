@@ -17,7 +17,7 @@ type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
 
 const COUNT_PATH =
-  '/history?page=1&page_size=1&source_type=all&verdict=all&status=all&date_range=all&date_sort=desc';
+  '/history?page=1&page_size=1&source_type=all&verdict=all&status=all&date_range=all';
 
 export default async function CuentaPage() {
   const data = await fetchJsonServer<HistoryPayload>(COUNT_PATH);

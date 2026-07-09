@@ -47,7 +47,7 @@ export default function DomainsCard({
                 key={item.domain}
                 className="flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0 first:pt-0.5"
               >
-                <div className="font-display grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-subtle text-[14px] font-bold text-muted uppercase">
+                <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-subtle text-[14px] font-bold text-muted uppercase">
                   {init}
                 </div>
                 <div className="min-w-0 flex-1">
