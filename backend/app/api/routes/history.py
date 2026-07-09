@@ -138,6 +138,7 @@ async def get_history(
             error_code=record.error_code,
             created_at=record.created_at,
             file_filename=record.file_filename,
+            share_token=record.share_token,
         )
         for record in records
     ]

@@ -979,6 +979,7 @@ def test_historial_returns_user_history(monkeypatch):
             "error_code": None,
             "created_at": "2026-04-10T12:00:00+00:00",
             "file_filename": "documento.pdf",
+            "share_token": "tok_share_xyz",
         }
     ]
 
@@ -1056,6 +1057,8 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["items"][0]["source_type"] == "text"
     # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
     assert body["items"][0]["file_filename"] == "documento.pdf"
+    # El token de compartición debe llegar para pintar la insignia "Compartido".
+    assert body["items"][0]["share_token"] == "tok_share_xyz"
     # Conteos globales por veredicto para las tarjetas (independientes de la página).
     assert body["verdict_counts"] == {
         "total": 12,
