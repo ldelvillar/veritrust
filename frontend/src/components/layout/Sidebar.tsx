@@ -216,7 +216,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-white transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0 pt-2 pb-5.5' : 'w-66.5 px-1.5 pt-2 pb-5.5'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-white pt-2 pb-2 transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0' : 'w-66.5 px-1.5'}`}
       >
         <SidebarContent
           onCollapse={() => setCollapsed(true)}
