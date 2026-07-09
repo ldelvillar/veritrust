@@ -18,6 +18,9 @@ const FAILURE_MESSAGES: Record<string, string> = {
     'No se pudo extraer texto del archivo. Puede estar protegido, dañado, vacío o ser un documento escaneado sin texto seleccionable.',
 };
 
+// Fallos ligados a la entrada: reintentar el mismo enlace o archivo suele volver a fallar.
+const INPUT_ERROR_CODES = new Set(['URL_EXTRACTION', 'FILE_EXTRACTION']);
+
 export default function FailedView({
   errorCode,
   onRetry,
@@ -54,6 +57,32 @@ export default function FailedView({
 
   const message =
     (errorCode && FAILURE_MESSAGES[errorCode]) ?? FAILURE_MESSAGES.INTERNAL;
+  const isInputError = !!errorCode && INPUT_ERROR_CODES.has(errorCode);
+
+  const retryButton = onRetry ? (
+    <Button
+      onClick={onRetry}
+      disabled={isRetrying}
+      aria-busy={isRetrying}
+      variant={isInputError ? 'soft' : 'primary'}
+    >
+      {isRetrying && <Spinner className="size-4 animate-spin" />}
+      {isRetrying
+        ? 'Reintentando…'
+        : isInputError
+          ? 'Reintentar de todos modos'
+          : 'Reintentar análisis'}
+    </Button>
+  ) : null;
+
+  const analyzeOtherButton = (
+    <Button
+      href="/app/analisis"
+      variant={onRetry && !isInputError ? 'soft' : 'primary'}
+    >
+      Analizar otro contenido
+    </Button>
+  );
 
   return (
     <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-red-100 bg-red-50 p-10 text-center shadow-sm">
@@ -63,19 +92,17 @@ export default function FailedView({
       </h3>
       <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-        {onRetry && (
-          <Button
-            onClick={onRetry}
-            disabled={isRetrying}
-            aria-busy={isRetrying}
-          >
-            {isRetrying && <Spinner className="size-4 animate-spin" />}
-            {isRetrying ? 'Reintentando…' : 'Reintentar análisis'}
-          </Button>
+        {isInputError ? (
+          <>
+            {analyzeOtherButton}
+            {retryButton}
+          </>
+        ) : (
+          <>
+            {retryButton}
+            {analyzeOtherButton}
+          </>
         )}
-        <Button href="/app/analisis" variant={onRetry ? 'soft' : 'primary'}>
-          Analizar otro contenido
-        </Button>
       </div>
       {retryError && (
         <p role="alert" className="text-xs font-semibold text-red-600">
