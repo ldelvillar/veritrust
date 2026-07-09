@@ -148,6 +148,12 @@ async def run_analysis(
         label = result.get("label") or None
         confidence = result.get("confidence") or None
         explanation = result.get("medical_explanation") or None
+        sources = result.get("sources") or []
+
+        # Cobertura 1.0 sin fuentes es el centinela de caída total: no es una medición real.
+        evidence_coverage = result.get("evidence_coverage")
+        if evidence_coverage == 1.0 and not sources:
+            evidence_coverage = None
 
         # Sin explicación: el texto no contenía afirmaciones médicas verificables.
         if not explanation:
@@ -165,7 +171,8 @@ async def run_analysis(
             confidence=confidence,
             explanation=str(explanation),
             claims=result.get("claims") or [],
-            sources=result.get("sources") or [],
+            sources=sources,
+            evidence_coverage=evidence_coverage,
         )
         logger.info("[Worker] Análisis %s completado (%s)", analysis_id, label)
         completed_ok = True

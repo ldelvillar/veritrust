@@ -51,6 +51,21 @@ def _normalize_confidence(confidence: Any) -> float:
     return value
 
 
+def _coerce_optional_fraction(value: Any) -> float | None:
+    """Convierte una fracción opcional a float validando [0, 1]; ``None`` pasa tal cual."""
+    if value is None:
+        return None
+    try:
+        fraction = float(value)
+    except (TypeError, ValueError) as exc:
+        raise DatabaseError(f"Fraccion no es numerica: {value!r}.") from exc
+
+    if not 0.0 <= fraction <= 1.0:
+        raise DatabaseError(f"Fraccion fuera de rango [0, 1]: {fraction}.")
+
+    return fraction
+
+
 def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
     """Mapea una fila SQL a un registro de historial tipado."""
     return AnalysisHistoryItem(
@@ -61,15 +76,16 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         input_url=row[4],
         label=str(row[5]) if row[5] is not None else None,
         confidence=float(row[6]) if row[6] is not None else None,
-        explanation=str(row[7]) if row[7] is not None else None,
-        created_at=str(row[8]),
-        status=str(row[9]),
-        error_code=row[10],
-        claims=row[11],
-        sources=row[12],
-        file_filename=row[13],
-        share_token=row[14],
-        stage=row[15] if len(row) > 15 else None,
+        evidence_coverage=float(row[7]) if row[7] is not None else None,
+        explanation=str(row[8]) if row[8] is not None else None,
+        created_at=str(row[9]),
+        status=str(row[10]),
+        error_code=row[11],
+        claims=row[12],
+        sources=row[13],
+        file_filename=row[14],
+        share_token=row[15],
+        stage=row[16] if len(row) > 16 else None,
     )
 
 
@@ -152,6 +168,7 @@ def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str
             input_url,
             label,
             confidence,
+            evidence_coverage,
             explanation,
             created_at,
             status,
@@ -283,10 +300,12 @@ async def complete_analysis(
     explanation: str,
     claims: Optional[list[dict]] = None,
     sources: Optional[list[dict]] = None,
+    evidence_coverage: Any = None,
 ) -> None:
     """Marca un análisis pendiente como ``done`` con su resultado."""
     pool = await get_pool()
     confidence_value = _normalize_confidence(confidence)
+    coverage_value = _coerce_optional_fraction(evidence_coverage)
     # El veredicto se deriva una sola vez aquí; label queda como texto de presentación.
     verdict_value = classify_verdict(label)
 
@@ -295,6 +314,7 @@ async def complete_analysis(
         SET label = %s,
             verdict = %s,
             confidence = %s,
+            evidence_coverage = %s,
             explanation = %s,
             claims = %s,
             sources = %s,
@@ -312,6 +332,7 @@ async def complete_analysis(
                         label,
                         verdict_value,
                         confidence_value,
+                        coverage_value,
                         explanation,
                         Jsonb(claims) if claims else None,
                         Jsonb(sources) if sources else None,
@@ -615,6 +636,7 @@ async def export_user_analysis_history(
             input_url,
             label,
             confidence,
+            evidence_coverage,
             explanation,
             created_at,
             status,
@@ -659,6 +681,7 @@ async def get_user_analysis_by_id(
             input_url,
             label,
             confidence,
+            evidence_coverage,
             explanation,
             created_at,
             status,
@@ -876,6 +899,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
             input_url,
             label,
             confidence,
+            evidence_coverage,
             explanation,
             created_at,
             status,
@@ -908,10 +932,11 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         input_url=row[2],
         label=str(row[3]) if row[3] is not None else None,
         confidence=float(row[4]) if row[4] is not None else None,
-        explanation=str(row[5]) if row[5] is not None else None,
-        created_at=str(row[6]),
-        status=str(row[7]),
-        claims=row[8],
-        sources=row[9],
-        file_filename=row[10],
+        evidence_coverage=float(row[5]) if row[5] is not None else None,
+        explanation=str(row[6]) if row[6] is not None else None,
+        created_at=str(row[7]),
+        status=str(row[8]),
+        claims=row[9],
+        sources=row[10],
+        file_filename=row[11],
     )

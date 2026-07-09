@@ -69,6 +69,7 @@ class AnalysisHistoryItem(BaseModel):
     input_url: Optional[str] = None
     label: Optional[str] = None
     confidence: Optional[float] = None
+    evidence_coverage: Optional[float] = None
     explanation: Optional[str] = None
     status: str = "done"
     error_code: Optional[str] = None
@@ -100,6 +101,7 @@ class PublicAnalysisReport(BaseModel):
     input_url: Optional[str] = None
     label: Optional[str] = None
     confidence: Optional[float] = None
+    evidence_coverage: Optional[float] = None
     explanation: Optional[str] = None
     status: str = "done"
     created_at: str

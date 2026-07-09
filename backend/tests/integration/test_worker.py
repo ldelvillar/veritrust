@@ -51,6 +51,8 @@ async def test_run_analysis_completes_on_success(monkeypatch):
             "label": "falsa",
             "confidence": 0.92,
             "medical_explanation": "No hay evidencia clínica sólida.",
+            "evidence_coverage": 0.5,
+            "sources": [{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
         }
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
@@ -63,6 +65,29 @@ async def test_run_analysis_completes_on_success(monkeypatch):
     assert completed[0]["analysis_id"] == ANALYSIS_ID
     assert completed[0]["label"] == "falsa"
     assert completed[0]["confidence"] == 0.92
+    assert completed[0]["evidence_coverage"] == 0.5
+
+
+async def test_run_analysis_nulls_outage_coverage(monkeypatch):
+    completed, failed = _patch_db(monkeypatch)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        # Centinela de caída total: cobertura 1.0 sin fuentes se persiste como None.
+        return {
+            "label": "falsa",
+            "confidence": 0.9,
+            "medical_explanation": "Informe.",
+            "evidence_coverage": 1.0,
+            "sources": [],
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+
+    assert len(completed) == 1
+    assert completed[0]["evidence_coverage"] is None
 
 
 async def test_run_analysis_sends_ready_email_on_success(monkeypatch):

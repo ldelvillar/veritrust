@@ -346,6 +346,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         input_url=None,
         label="falsa",
         confidence=0.88,
+        evidence_coverage=0.6,
         explanation="Explicación de ejemplo",
         status="done",
         error_code=None,
@@ -374,6 +375,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
     assert body["user_id"] == "test-user"
     assert body["status"] == "done"
+    assert body["evidence_coverage"] == 0.6
     assert body["claims"] == [
         {
             "text": "Afirmación",
@@ -396,6 +398,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         input_url=None,
         label=None,
         confidence=None,
+        evidence_coverage=None,
         explanation=None,
         status="pending",
         error_code=None,
@@ -422,6 +425,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
     assert body["status"] == "pending"
     assert body["label"] is None
     assert body["confidence"] is None
+    assert body["evidence_coverage"] is None
 
 
 def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
@@ -436,6 +440,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         input_url=None,
         label=None,
         confidence=None,
+        evidence_coverage=None,
         explanation=None,
         status="failed",
         error_code="NO_MEDICAL_CLAIMS",
@@ -974,6 +979,7 @@ def test_historial_returns_user_history(monkeypatch):
             "input_url": None,
             "label": "falsa",
             "confidence": 0.88,
+            "evidence_coverage": 0.75,
             "explanation": "Explicación de ejemplo",
             "status": "done",
             "error_code": None,
@@ -1055,6 +1061,7 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["page_size"] == 10
     assert body["items"][0]["user_id"] == "test-user"
     assert body["items"][0]["source_type"] == "text"
+    assert body["items"][0]["evidence_coverage"] == 0.75
     # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
     assert body["items"][0]["file_filename"] == "documento.pdf"
     # El token de compartición debe llegar para pintar la insignia "Compartido".
@@ -1140,6 +1147,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
             average_confidence=74.2,
             week_over_week_delta=15.0,
             active_alerts=7,
+            average_evidence_coverage=61.0,
         ),
         verdict_distribution=types.SimpleNamespace(
             real=10,
@@ -1197,6 +1205,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     assert body["status"] == "success"
     assert body["kpis"]["total_analyses"] == 23
     assert body["kpis"]["active_alerts"] == 7
+    assert body["kpis"]["average_evidence_coverage"] == 61.0
     assert body["verdict_distribution"] == {"real": 10, "uncertain": 6, "fake": 7}
     assert body["trend"][0]["date"] == "2026-04-10"
     assert body["source_breakdown"][0]["source_type"] == "url"
@@ -1348,6 +1357,7 @@ def test_dashboard_summary_forwards_trend_days(monkeypatch):
                 average_confidence=0.0,
                 week_over_week_delta=0.0,
                 active_alerts=0,
+                average_evidence_coverage=0.0,
             ),
             verdict_distribution=types.SimpleNamespace(real=0, uncertain=0, fake=0),
             trend=[],

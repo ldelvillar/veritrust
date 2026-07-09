@@ -15,11 +15,6 @@ export interface GroupedEvidence {
   unmatched: SourceType[];
 }
 
-export interface EvidenceCoverage {
-  backed: number;
-  total: number;
-}
-
 const normalize = (text: string): string => text.trim();
 
 /**
@@ -59,17 +54,4 @@ export function groupSourcesByClaim(
   }
 
   return { groups, unmatched };
-}
-
-/**
- * Cuenta cuántas afirmaciones tienen al menos una fuente que las respalda,
- * derivado del mismo emparejamiento que usa `groupSourcesByClaim`.
- */
-export function countBackedClaims(
-  claims: ClaimType[],
-  sources: SourceType[]
-): EvidenceCoverage {
-  const { groups } = groupSourcesByClaim(claims, sources);
-  const backed = groups.filter(group => group.sources.length > 0).length;
-  return { backed, total: claims.length };
 }

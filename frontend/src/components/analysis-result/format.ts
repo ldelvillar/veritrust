@@ -71,6 +71,10 @@ export function normalizeFraction(value: number): number {
   return value <= 1 ? value : value / 100;
 }
 
+export function formatCoverage(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 export function confidenceLabel(
   confidence: number | null | undefined
 ): string | null {

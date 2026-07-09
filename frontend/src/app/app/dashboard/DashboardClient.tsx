@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import BookIcon from '@/assets/Book';
 import ListIcon from '@/assets/List';
 import RefreshIcon from '@/assets/Refresh';
 import ShieldIcon from '@/assets/Shield';
@@ -96,7 +97,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       />
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="Análisis totales"
           value={String(dashboard.kpis.total_analyses)}
@@ -137,6 +138,15 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           color="#e0556b"
           spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
           hint="Análisis recientes con puntuación de credibilidad baja que requieren atención."
+        />
+        <KpiCard
+          label="Cobertura de evidencia"
+          value={`${dashboard.kpis.average_evidence_coverage}%`}
+          sub="media con literatura"
+          icon={<BookIcon className="size-5" />}
+          tint="#d9f2ee"
+          color="#0f9e8e"
+          hint="Porcentaje medio de afirmaciones con literatura biomédica relacionada, sobre tus análisis completados."
         />
       </div>
 

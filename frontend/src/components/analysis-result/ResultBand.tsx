@@ -2,18 +2,15 @@ import BookIcon from '@/assets/Book';
 import QuestionIcon from '@/assets/Question';
 import ShieldIcon from '@/assets/Shield';
 import Tooltip from '@/components/Tooltip';
-import { countBackedClaims } from '@/lib/evidence';
 import CredibilityGauge from './CredibilityGauge';
-import { confidenceLabel, getVerdictInfo } from './format';
+import { confidenceLabel, formatCoverage, getVerdictInfo } from './format';
 import type { ReportView } from './types';
 
 export default function ResultBand({ result }: { result: ReportView }) {
   const score = result.credibility ?? null;
   const verdict = getVerdictInfo(result.verdict);
   const confidence = confidenceLabel(result.confidence);
-  const claimCount = result.claims?.length ?? 0;
-  const sources = result.sources ?? [];
-  const coverage = countBackedClaims(result.claims ?? [], sources);
+  const coverage = result.evidence_coverage ?? null;
 
   return (
     <div
@@ -53,12 +50,10 @@ export default function ResultBand({ result }: { result: ReportView }) {
               {confidence} en el veredicto
             </span>
           )}
-          {claimCount > 0 && (
+          {coverage != null && (
             <span className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold">
               <BookIcon className="size-3.5 opacity-85" aria-hidden="true" />
-              {coverage.backed}/{claimCount}{' '}
-              {claimCount === 1 ? 'afirmación' : 'afirmaciones'} con literatura
-              relacionada
+              {formatCoverage(coverage)} cobertura de evidencia
             </span>
           )}
         </div>

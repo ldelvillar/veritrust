@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     label        TEXT,
     confidence   DOUBLE PRECISION
                  CHECK (confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)),
+    -- Fracción [0, 1] de afirmaciones con literatura relacionada; NULL si no se pudo medir (outage).
+    evidence_coverage DOUBLE PRECISION
+                 CHECK (evidence_coverage IS NULL OR (evidence_coverage >= 0.0 AND evidence_coverage <= 1.0)),
     explanation  TEXT,
     -- Verdict bucket (real/fake/uncertain) derived from label at completion; NULL while pending/failed.
     verdict      TEXT CHECK (verdict IS NULL OR verdict IN ('real', 'fake', 'uncertain')),

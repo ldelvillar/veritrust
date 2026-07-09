@@ -280,6 +280,8 @@ export interface components {
             label?: string | null;
             /** Confidence */
             confidence?: number | null;
+            /** Evidence Coverage */
+            evidence_coverage?: number | null;
             /** Explanation */
             explanation?: string | null;
             /**
@@ -452,6 +454,8 @@ export interface components {
             week_over_week_delta: number;
             /** Active Alerts */
             active_alerts: number;
+            /** Average Evidence Coverage */
+            average_evidence_coverage: number;
         };
         /**
          * DashboardSourceBreakdownItem
@@ -605,6 +609,8 @@ export interface components {
             label?: string | null;
             /** Confidence */
             confidence?: number | null;
+            /** Evidence Coverage */
+            evidence_coverage?: number | null;
             /** Explanation */
             explanation?: string | null;
             /**

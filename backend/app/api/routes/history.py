@@ -133,6 +133,7 @@ async def get_history(
             input_url=record.input_url,
             label=record.label,
             confidence=record.confidence,
+            evidence_coverage=record.evidence_coverage,
             explanation=record.explanation,
             status=record.status,
             error_code=record.error_code,

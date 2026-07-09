@@ -71,6 +71,16 @@ def test_normalize_confidence_rejects_out_of_range_values() -> None:
         history_module._normalize_confidence(-0.01)
 
 
+def test_coerce_optional_fraction_passes_none_and_validates_range() -> None:
+    assert history_module._coerce_optional_fraction(None) is None
+    assert history_module._coerce_optional_fraction(0.0) == 0.0
+    assert history_module._coerce_optional_fraction(1.0) == 1.0
+    with pytest.raises(DatabaseError):
+        history_module._coerce_optional_fraction(1.5)
+    with pytest.raises(DatabaseError):
+        history_module._coerce_optional_fraction("no-num")
+
+
 def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     row = (
         123,
@@ -80,6 +90,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         None,
         "falsa",
         0.81,
+        0.5,
         "explicacion",
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "done",
@@ -96,6 +107,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert record.analysis_id == "123"
     assert record.user_id == "user-1"
     assert record.confidence == 0.81
+    assert record.evidence_coverage == 0.5
     assert record.status == "done"
     assert record.error_code is None
     assert record.created_at.startswith("2026-04-10")
@@ -116,6 +128,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         None,
         None,
         None,
+        None,
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
         "pending",
         None,
@@ -130,10 +143,11 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.status == "pending"
     assert record.label is None
     assert record.confidence is None
+    assert record.evidence_coverage is None
     assert record.explanation is None
     assert record.claims is None
     assert record.sources is None
-    # Filas de longitud 15 (listas) no traen stage: el mapeo lo deja en None.
+    # Filas de longitud 16 (listas) no traen stage: el mapeo lo deja en None.
     assert record.stage is None
 
 
@@ -144,6 +158,7 @@ def test_map_history_record_reads_stage_when_present() -> None:
         "url",
         None,
         "https://ejemplo.com/x",
+        None,
         None,
         None,
         None,
@@ -160,6 +175,7 @@ def test_map_history_record_reads_stage_when_present() -> None:
     record = history_module._map_history_record(row)
 
     assert record.status == "pending"
+    assert record.evidence_coverage is None
     assert record.stage == "investigator"
 
 
@@ -338,14 +354,15 @@ def test_sanitize_dashboard_params_clamps_values() -> None:
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:
-    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0, 0)
-    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3)) == (
+    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0, 0, 0.0)
+    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3, 0.62)) == (
         10,
         0.83,
         7,
         4,
         2,
         3,
+        0.62,
     )
 
 

@@ -15,6 +15,7 @@ class DashboardKpis(BaseModel):
     average_confidence: float
     week_over_week_delta: float
     active_alerts: int
+    average_evidence_coverage: float
 
 
 class DashboardTrendPoint(BaseModel):

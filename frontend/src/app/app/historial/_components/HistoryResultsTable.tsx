@@ -10,8 +10,12 @@ import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import GlobeIcon from '@/assets/Globe';
 import RefreshIcon from '@/assets/Refresh';
+import BookIcon from '@/assets/Book';
 import Button from '@/components/Button';
-import { VERDICT_LABEL } from '@/components/analysis-result/format';
+import {
+  formatCoverage,
+  VERDICT_LABEL,
+} from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
 import type { paths } from '@/types/api';
@@ -396,6 +400,19 @@ export default function HistoryResultsTable({
                     <span className="text-[12.5px] font-semibold whitespace-nowrap text-faint">
                       {formattedDate}
                     </span>
+                    {item.status === 'done' &&
+                      item.evidence_coverage != null && (
+                        <>
+                          <span
+                            className="size-0.75 rounded-full bg-faint"
+                            aria-hidden
+                          />
+                          <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold whitespace-nowrap text-muted">
+                            <BookIcon className="size-3.25" />
+                            {formatCoverage(item.evidence_coverage)} cobertura
+                          </span>
+                        </>
+                      )}
                     {item.share_token && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-[#eeebfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[.03em] text-primary uppercase"
