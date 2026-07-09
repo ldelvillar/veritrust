@@ -1,6 +1,7 @@
 import BookIcon from '@/assets/Book';
 import QuestionIcon from '@/assets/Question';
 import ShieldIcon from '@/assets/Shield';
+import Tooltip from '@/components/Tooltip';
 import { countBackedClaims } from '@/lib/evidence';
 import CredibilityGauge from './CredibilityGauge';
 import { confidenceLabel, getVerdictInfo } from './format';
@@ -23,23 +24,17 @@ export default function ResultBand({ result }: { result: ReportView }) {
         <h2 className="absolute top-3 left-5 z-10 flex h-7 items-center text-[13px] font-bold tracking-[.06em] text-white/92 uppercase">
           Veracidad
         </h2>
-        <span className="group absolute top-3 right-3 inline-flex print:hidden">
-          <button
-            type="button"
-            aria-label="Qué es la puntuación de credibilidad"
-            className="grid size-7 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          >
-            <QuestionIcon className="size-4.25" aria-hidden="true" />
-          </button>
-          <span
-            role="tooltip"
-            className="pointer-events-none absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-[#1c2434] px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-[#e8edf6] opacity-0 shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-[#1c2434] before:content-['']"
-          >
-            Puntuación de credibilidad (0-100): cuanto más alta, más probable es
-            que el contenido sea veraz. Se deriva del veredicto y de la
-            confianza del modelo.
-          </span>
-        </span>
+        <Tooltip
+          className="absolute top-3 right-3 inline-flex print:hidden"
+          ariaLabel="Qué es la puntuación de credibilidad"
+          trigger={<QuestionIcon className="size-4.25" aria-hidden="true" />}
+          buttonClassName="grid size-7 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-[#1c2434] px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-[#e8edf6] shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-[#1c2434] before:content-['']"
+        >
+          Puntuación de credibilidad (0-100): cuanto más alta, más probable es
+          que el contenido sea veraz. Se deriva del veredicto y de la confianza
+          del modelo.
+        </Tooltip>
         <CredibilityGauge score={score} />
       </div>
 
