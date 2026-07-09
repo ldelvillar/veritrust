@@ -1,6 +1,7 @@
 """Tests del worker de arq: ejecuta el pipeline y traduce errores a estado failed."""
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from arq.connections import RedisSettings
@@ -138,6 +139,38 @@ async def test_run_analysis_sends_failed_email_on_pipeline_error(monkeypatch):
     )
 
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
+    assert failed_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
+
+
+async def test_run_analysis_notifies_on_pipeline_timeout(monkeypatch):
+    """El timeout interno se traduce a fila failed + email, no a un job cancelado."""
+    completed, failed = _patch_db(monkeypatch)
+    failed_calls: list[dict] = []
+
+    async def fake_failed(**kwargs):
+        failed_calls.append(kwargs)
+
+    monkeypatch.setattr(worker, "send_analysis_failed_email", fake_failed)
+    # Presupuesto ínfimo para forzar el timeout sin esperar el real de 15 min.
+    monkeypatch.setattr(
+        worker,
+        "get_settings",
+        lambda: SimpleNamespace(analysis_job_timeout_seconds=0.01),
+    )
+
+    async def slow_ainvoke(graph, state, on_stage=None):
+        await asyncio.sleep(30)
+        return {"label": "falsa", "confidence": 0.9, "medical_explanation": "Informe."}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", slow_ainvoke)
+
+    ctx = {"verification_system": object()}
+    await worker.run_analysis(
+        ctx, ANALYSIS_ID, "text", "Texto", None, "user@example.com"
+    )
+
+    assert completed == []
+    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "SERVICE_UNAVAILABLE"}]
     assert failed_calls == [{"to": "user@example.com", "analysis_id": ANALYSIS_ID}]
 
 
@@ -689,7 +722,11 @@ def test_worker_settings_expose_the_queue_contract():
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
         "cron:reap_stale_analyses"
     ]
-    assert worker.WorkerSettings.job_timeout == settings.analysis_job_timeout_seconds
+    # arq corta por encima del presupuesto interno; el margen deja notificar el fallo antes.
+    assert (
+        worker.WorkerSettings.job_timeout
+        == settings.analysis_job_timeout_seconds + worker._JOB_TIMEOUT_GRACE_SECONDS
+    )
     assert worker.WorkerSettings.max_jobs == settings.worker_max_jobs
     # Sin resultados en Redis: una clave arq:result: residual bloquearía el retry.
     assert worker.WorkerSettings.keep_result == 0

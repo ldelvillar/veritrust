@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     # Cola de análisis (arq)
-    analysis_job_timeout_seconds: int = 600  # 10 min: cota dura del pipeline
+    analysis_job_timeout_seconds: int = 900  # 15 min: presupuesto del pipeline
     analysis_stale_after_seconds: int = 300  # 5 min: reaper, solo filas sin job vivo
     worker_max_jobs: int = 1  # Análisis concurrentes por worker
 

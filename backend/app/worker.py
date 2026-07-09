@@ -52,6 +52,8 @@ logger = logging.getLogger(__name__)
 _PREPARING_STAGE = "preparing"
 # Nodo terminado -> siguiente nodo en ejecución, para mostrar la etapa activa.
 _NEXT_STAGE = dict(zip(PIPELINE_STAGES, PIPELINE_STAGES[1:]))
+# Margen del job_timeout de arq sobre el presupuesto interno; deja notificar antes del corte duro.
+_JOB_TIMEOUT_GRACE_SECONDS = 30
 
 
 async def _set_stage(analysis_id: str, stage: str) -> None:
@@ -131,9 +133,17 @@ async def run_analysis(
                 await _set_stage(analysis_id, next_stage)
 
         await _set_stage(analysis_id, PIPELINE_STAGES[0])
-        result = await ainvoke_graph(
-            ctx["verification_system"], initial_state, on_stage=_advance_stage
-        )
+        try:
+            result = await asyncio.wait_for(
+                ainvoke_graph(
+                    ctx["verification_system"], initial_state, on_stage=_advance_stage
+                ),
+                timeout=get_settings().analysis_job_timeout_seconds,
+            )
+        except TimeoutError:
+            logger.warning("[Worker] El pipeline agotó el tiempo para %s", analysis_id)
+            await _fail_and_notify(ErrorCode.SERVICE_UNAVAILABLE.value)
+            return
 
         label = result.get("label") or None
         confidence = result.get("confidence") or None
@@ -222,7 +232,9 @@ class WorkerSettings:
     cron_jobs = [cron(reap_stale_analyses, second=0)]  # ~una vez por minuto
     on_startup = startup
     on_shutdown = shutdown
-    job_timeout = get_settings().analysis_job_timeout_seconds
+    job_timeout = (
+        get_settings().analysis_job_timeout_seconds + _JOB_TIMEOUT_GRACE_SECONDS
+    )
     # El pipeline satura CPU/Ollama; concurrencia >1 infla la latencia por job
     max_jobs = get_settings().worker_max_jobs
     # Sin resultados en Redis: una clave arq:result: residual bloquearía el reencolado del retry.

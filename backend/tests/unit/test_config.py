@@ -24,7 +24,7 @@ def _make_settings(**overrides) -> Settings:
 def test_analysis_queue_defaults():
     settings = _make_settings()
 
-    assert settings.analysis_job_timeout_seconds == 600
+    assert settings.analysis_job_timeout_seconds == 900
     # El reaper solo toca filas sin job vivo: puede bajar del job_timeout sin riesgo.
     assert settings.analysis_stale_after_seconds == 300
 
