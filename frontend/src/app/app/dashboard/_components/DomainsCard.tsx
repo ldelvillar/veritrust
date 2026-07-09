@@ -10,9 +10,18 @@ function domainCredibility(avgConf: number): {
 }
 
 const CRED_STYLES = {
-  ok: { color: '#0e8e5b', background: '#def4ea' },
-  warn: { color: '#b07a16', background: '#fbefda' },
-  bad: { color: '#c23552', background: '#fbe4e8' },
+  ok: {
+    color: 'var(--color-verdict-real-ink)',
+    background: 'var(--color-verdict-real-soft)',
+  },
+  warn: {
+    color: 'var(--color-verdict-uncertain-ink)',
+    background: 'var(--color-verdict-uncertain-soft)',
+  },
+  bad: {
+    color: 'var(--color-verdict-fake-ink)',
+    background: 'var(--color-verdict-fake-soft)',
+  },
 };
 
 export default function DomainsCard({

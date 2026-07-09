@@ -19,6 +19,25 @@
   --color-line-strong: #dcd9ee;
   --color-surface: #f4f2fd;
   --color-surface-subtle: #faf9fe;
+
+  /* Veredicto: verde (verdadero), ámbar (dudoso), rojo (falso) — sólido, fondo suave y tinta */
+  --color-verdict-real: #13b877;
+  --color-verdict-real-soft: #def4ea;
+  --color-verdict-real-ink: #0e8e5b;
+  --color-verdict-uncertain: #e0a13b;
+  --color-verdict-uncertain-soft: #fbefda;
+  --color-verdict-uncertain-ink: #b07a16;
+  --color-verdict-fake: #e0556b;
+  --color-verdict-fake-soft: #fbe4e8;
+  --color-verdict-fake-ink: #c23552;
+
+  /* Paradas de degradado (claro → oscuro) para raíles y medidores renderizados en navegador */
+  --color-verdict-real-g1: #2bc488;
+  --color-verdict-real-g2: #10a566;
+  --color-verdict-uncertain-g1: #e8b057;
+  --color-verdict-uncertain-g2: #d98e29;
+  --color-verdict-fake-g1: #e2607a;
+  --color-verdict-fake-g2: #d23c5d;
 }
 
 /* Exportar informe a PDF vía «Imprimir → Guardar como PDF».

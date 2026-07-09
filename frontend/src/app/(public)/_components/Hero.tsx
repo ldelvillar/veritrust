@@ -87,14 +87,14 @@ export default function Hero() {
             </div>
             <div className="p-5.5">
               <div className="flex items-center gap-4">
-                <div className="flex size-24 shrink-0 flex-col items-center justify-center rounded-[18px] bg-[linear-gradient(150deg,#e2607a,#d23c5d)] text-white shadow-[0_10px_22px_rgba(210,60,93,0.3)]">
+                <div className="flex size-24 shrink-0 flex-col items-center justify-center rounded-[18px] bg-[linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))] text-white shadow-[0_10px_22px_rgba(210,60,93,0.3)]">
                   <b className="text-[30px] leading-none font-bold">41</b>
                   <small className="mt-0.5 text-[10px] tracking-wide opacity-85">
                     / 100
                   </small>
                 </div>
                 <div>
-                  <span className="text-[11px] font-extrabold tracking-[0.08em] text-[#c23552] uppercase">
+                  <span className="text-[11px] font-extrabold tracking-[0.08em] text-verdict-fake-ink uppercase">
                     Falso
                   </span>
                   <h4 className="my-1.5 text-lg font-semibold text-ink">
@@ -128,10 +128,10 @@ export default function Hero() {
                     <span
                       className={`mt-px grid size-5.5 shrink-0 place-items-center rounded-md ${
                         claim.tone === 'ok'
-                          ? 'bg-[#def4ea] text-[#0e8e5b]'
+                          ? 'bg-verdict-real-soft text-verdict-real-ink'
                           : claim.tone === 'bad'
-                            ? 'bg-[#fbe4e8] text-[#c23552]'
-                            : 'bg-[#fbefda] text-[#b07a16]'
+                            ? 'bg-verdict-fake-soft text-verdict-fake-ink'
+                            : 'bg-verdict-uncertain-soft text-verdict-uncertain-ink'
                       }`}
                     >
                       {claim.tone === 'ok' ? (

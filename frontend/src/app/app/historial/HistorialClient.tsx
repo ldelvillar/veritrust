@@ -116,16 +116,20 @@ const STAT_TONE_STYLES = {
     activeRing: 'box-shadow: 0 0 0 2px #6356e6, var(--shadow-card)',
     ringColor: '#6356e6',
   },
-  ok: { numClass: 'text-[#0e8e5b]', barStyle: '#13b877', ringColor: '#13b877' },
+  ok: {
+    numClass: 'text-verdict-real-ink',
+    barStyle: 'var(--color-verdict-real)',
+    ringColor: 'var(--color-verdict-real)',
+  },
   warn: {
-    numClass: 'text-[#b07a16]',
-    barStyle: '#e0a13b',
-    ringColor: '#e0a13b',
+    numClass: 'text-verdict-uncertain-ink',
+    barStyle: 'var(--color-verdict-uncertain)',
+    ringColor: 'var(--color-verdict-uncertain)',
   },
   bad: {
-    numClass: 'text-[#c23552]',
-    barStyle: '#e0556b',
-    ringColor: '#e0556b',
+    numClass: 'text-verdict-fake-ink',
+    barStyle: 'var(--color-verdict-fake)',
+    ringColor: 'var(--color-verdict-fake)',
   },
 } as const;
 

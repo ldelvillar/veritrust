@@ -39,24 +39,24 @@ type Tone = 'ok' | 'warn' | 'bad';
 
 const TONE_CONFIG = {
   ok: {
-    rail: 'linear-gradient(180deg,#2bc488,#10a566)',
-    ring: '#15b878',
-    textColor: '#0e8e5b',
-    bgColor: '#def4ea',
+    rail: 'linear-gradient(180deg,var(--color-verdict-real-g1),var(--color-verdict-real-g2))',
+    ring: 'var(--color-verdict-real)',
+    textColor: 'var(--color-verdict-real-ink)',
+    bgColor: 'var(--color-verdict-real-soft)',
     label: VERDICT_LABEL.real,
   },
   warn: {
-    rail: 'linear-gradient(180deg,#e8b057,#d98e29)',
-    ring: '#dd9b2c',
-    textColor: '#b07a16',
-    bgColor: '#fbefda',
+    rail: 'linear-gradient(180deg,var(--color-verdict-uncertain-g1),var(--color-verdict-uncertain-g2))',
+    ring: 'var(--color-verdict-uncertain)',
+    textColor: 'var(--color-verdict-uncertain-ink)',
+    bgColor: 'var(--color-verdict-uncertain-soft)',
     label: VERDICT_LABEL.uncertain,
   },
   bad: {
-    rail: 'linear-gradient(180deg,#e2607a,#d23c5d)',
-    ring: '#df4f6b',
-    textColor: '#c23552',
-    bgColor: '#fbe4e8',
+    rail: 'linear-gradient(180deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
+    ring: 'var(--color-verdict-fake)',
+    textColor: 'var(--color-verdict-fake-ink)',
+    bgColor: 'var(--color-verdict-fake-soft)',
     label: VERDICT_LABEL.fake,
   },
 } satisfies Record<Tone, object>;

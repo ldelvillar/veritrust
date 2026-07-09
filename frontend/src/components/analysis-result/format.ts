@@ -3,11 +3,39 @@ import Cross from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
 import type { Verdict } from './types';
 
+// Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
+export const VERDICT_META: Record<
+  Verdict,
+  { label: string; solid: string; soft: string; ink: string; pill: string }
+> = {
+  real: {
+    label: 'Verdadero',
+    solid: 'bg-verdict-real',
+    soft: 'bg-verdict-real-soft',
+    ink: 'text-verdict-real-ink',
+    pill: 'bg-verdict-real-soft text-verdict-real-ink',
+  },
+  fake: {
+    label: 'Falso',
+    solid: 'bg-verdict-fake',
+    soft: 'bg-verdict-fake-soft',
+    ink: 'text-verdict-fake-ink',
+    pill: 'bg-verdict-fake-soft text-verdict-fake-ink',
+  },
+  uncertain: {
+    label: 'Dudoso',
+    solid: 'bg-verdict-uncertain',
+    soft: 'bg-verdict-uncertain-soft',
+    ink: 'text-verdict-uncertain-ink',
+    pill: 'bg-verdict-uncertain-soft text-verdict-uncertain-ink',
+  },
+};
+
 // Vocabulario único de veredicto para todo el producto
 export const VERDICT_LABEL: Record<Verdict, string> = {
-  real: 'Verdadero',
-  fake: 'Falso',
-  uncertain: 'Dudoso',
+  real: VERDICT_META.real.label,
+  fake: VERDICT_META.fake.label,
+  uncertain: VERDICT_META.uncertain.label,
 };
 
 export function getVerdictInfo(verdict: Verdict): {
@@ -60,27 +88,20 @@ export function getClaimStyle(verdict: Verdict): {
   pill: string;
 } {
   if (verdict === 'fake') {
-    return {
-      Icon: Cross,
-      text: VERDICT_LABEL.fake,
-      tile: 'bg-red-50 text-red-700',
-      pill: 'bg-red-50 text-red-700',
-    };
+    return { Icon: Cross, text: VERDICT_META.fake.label, ...pillFor('fake') };
   }
   if (verdict === 'real') {
-    return {
-      Icon: Check,
-      text: VERDICT_LABEL.real,
-      tile: 'bg-emerald-50 text-emerald-700',
-      pill: 'bg-emerald-50 text-emerald-700',
-    };
+    return { Icon: Check, text: VERDICT_META.real.label, ...pillFor('real') };
   }
   return {
     Icon: WarningIcon,
-    text: VERDICT_LABEL.uncertain,
-    tile: 'bg-amber-50 text-amber-700',
-    pill: 'bg-amber-50 text-amber-700',
+    text: VERDICT_META.uncertain.label,
+    ...pillFor('uncertain'),
   };
+}
+
+function pillFor(verdict: Verdict): { tile: string; pill: string } {
+  return { tile: VERDICT_META[verdict].pill, pill: VERDICT_META[verdict].pill };
 }
 
 // Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.
@@ -93,13 +114,13 @@ export function getStanceInfo(
   stance: string | null | undefined
 ): { text: string; className: string } | null {
   if (stance === 'supports') {
-    return { text: 'Respalda', className: 'bg-emerald-50 text-emerald-700' };
+    return { text: 'Respalda', className: VERDICT_META.real.pill };
   }
   if (stance === 'contradicts') {
-    return { text: 'Contradice', className: 'bg-red-50 text-red-700' };
+    return { text: 'Contradice', className: VERDICT_META.fake.pill };
   }
   if (stance === 'inconclusive') {
-    return { text: 'No concluyente', className: 'bg-amber-50 text-amber-700' };
+    return { text: 'No concluyente', className: VERDICT_META.uncertain.pill };
   }
   return null;
 }

@@ -17,13 +17,21 @@ function alertVerdict(item: DashboardAlertItem): {
 const ALERT_STYLES = {
   bad: {
     card: { background: '#fdf3f5', borderColor: '#f3d2da' },
-    score: 'linear-gradient(150deg,#e2607a,#d23c5d)',
-    verdict: { color: '#c23552', background: '#fbe4e8' },
+    score:
+      'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
+    verdict: {
+      color: 'var(--color-verdict-fake-ink)',
+      background: 'var(--color-verdict-fake-soft)',
+    },
   },
   warn: {
     card: { background: '#fdf8ef', borderColor: '#f1e2c2' },
-    score: 'linear-gradient(150deg,#e8b057,#d98e29)',
-    verdict: { color: '#b07a16', background: '#fbefda' },
+    score:
+      'linear-gradient(150deg,var(--color-verdict-uncertain-g1),var(--color-verdict-uncertain-g2))',
+    verdict: {
+      color: 'var(--color-verdict-uncertain-ink)',
+      background: 'var(--color-verdict-uncertain-soft)',
+    },
   },
 };
 
