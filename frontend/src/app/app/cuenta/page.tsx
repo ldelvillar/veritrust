@@ -6,7 +6,7 @@ import type { paths } from '@/types/api';
 import CuentaClient from './CuentaClient';
 
 export const metadata: Metadata = {
-  title: 'Cuenta y datos',
+  title: 'Datos Personales',
   description:
     'Consulta tu cuenta de VeriTrust, exporta tu historial de análisis y gestiona tus datos personales.',
 };

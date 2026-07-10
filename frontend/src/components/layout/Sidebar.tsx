@@ -151,7 +151,7 @@ function SidebarContent({
             <UserButton>
               <UserButton.MenuItems>
                 <UserButton.Link
-                  label="Cuenta y datos"
+                  label="Datos personales"
                   labelIcon={<UserIcon className="size-4" />}
                   href="/app/cuenta"
                 />
