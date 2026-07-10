@@ -246,7 +246,7 @@ export default function ContactForm() {
             {error && (
               <div
                 role="alert"
-                className="mt-6 flex w-full items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600"
+                className="mt-6 flex w-full items-center gap-2 rounded-xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger-ink"
               >
                 <WarningIcon className="size-5 shrink-0" />
                 <p>{error}</p>

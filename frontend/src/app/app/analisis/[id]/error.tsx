@@ -19,8 +19,8 @@ export default function AnalisisError({ error, reset }: ErrorProps) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-12">
-      <div className="flex w-full max-w-2xl flex-col items-center gap-5 rounded-2xl border border-red-100 bg-white p-8 text-center shadow-2xl shadow-red-100/50 md:p-12">
-        <div className="flex size-16 items-center justify-center rounded-full bg-red-100 text-red-500">
+      <div className="flex w-full max-w-2xl flex-col items-center gap-5 rounded-2xl border border-danger/20 bg-white p-8 text-center shadow-2xl shadow-danger-soft/50 md:p-12">
+        <div className="flex size-16 items-center justify-center rounded-full bg-danger-soft text-danger-ink">
           <WarningIcon className="size-8" />
         </div>
         <div>

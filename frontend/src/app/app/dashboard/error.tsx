@@ -31,7 +31,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
-              'radial-gradient(rgba(220,68,51,.10) 1.1px, transparent 1.1px)',
+              'radial-gradient(color-mix(in srgb, var(--color-danger) 10%, transparent) 1.1px, transparent 1.1px)',
             backgroundSize: '22px 22px',
             maskImage:
               'radial-gradient(ellipse 60% 60% at 50% 38%, #000 0%, transparent 72%)',
@@ -42,7 +42,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
 
         <div className="relative z-1 flex flex-col items-center">
           {/* Icon */}
-          <div className="mb-6.5 grid size-21 place-items-center rounded-3xl bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] text-white shadow-[0_14px_30px_rgba(199,56,36,.30)]">
+          <div className="mb-6.5 grid size-21 place-items-center rounded-3xl bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] text-white shadow-[0_14px_30px_var(--tw-shadow-color)] shadow-danger-g2/30">
             <Warning className="size-9.5" />
           </div>
 

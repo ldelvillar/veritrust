@@ -15,7 +15,7 @@ interface HistoryStatePanelProps {
 const ICON_STYLES: Record<Variant, string> = {
   violet:
     'bg-[linear-gradient(155deg,#7166ef,#5446dc)] shadow-[0_14px_30px_rgba(99,86,230,.34)]',
-  red: 'bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] shadow-[0_14px_30px_rgba(199,56,36,.30)]',
+  red: 'bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] shadow-[0_14px_30px_var(--tw-shadow-color)] shadow-danger-g2/30',
 };
 
 const EYEBROW_STYLES: Record<Variant, string> = {
@@ -27,7 +27,7 @@ const EYEBROW_STYLES: Record<Variant, string> = {
 const DOTS_STYLES: Record<Variant, string> = {
   violet:
     '[background-image:radial-gradient(rgba(99,86,230,0.10)_1.1px,transparent_1.1px)]',
-  red: '[background-image:radial-gradient(rgba(220,68,51,0.10)_1.1px,transparent_1.1px)]',
+  red: '[background-image:radial-gradient(color-mix(in_srgb,var(--color-danger)_10%,transparent)_1.1px,transparent_1.1px)]',
 };
 
 const DOTS_MASK =

@@ -18,7 +18,7 @@ export default function CuentaError({
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-4 py-16">
       <div className="w-full max-w-md rounded-2xl border border-line bg-white p-8 text-center shadow-sm">
-        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger-ink">
           <WarningIcon className="size-6" aria-hidden />
         </span>
         <h1 className="mt-5 text-xl font-black tracking-tight text-ink">

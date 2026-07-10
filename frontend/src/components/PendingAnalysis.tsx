@@ -146,19 +146,19 @@ export default function PendingAnalysis({
       {connectionError ? (
         <div
           role="alert"
-          className="w-full rounded-xl border border-red-200 bg-red-50 p-4 text-left"
+          className="w-full rounded-xl border border-danger/30 bg-danger-soft p-4 text-left"
         >
-          <p className="text-sm font-bold text-red-800">
+          <p className="text-sm font-bold text-danger-ink">
             Se ha interrumpido la conexión
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-red-700">
+          <p className="mt-1 text-xs leading-relaxed text-danger-ink">
             {connectionError}
           </p>
           {onRetry ? (
             <button
               type="button"
               onClick={onRetry}
-              className="mt-3 inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-3.5 py-2 text-xs font-bold text-red-800 transition hover:bg-red-100 focus:ring-2 focus:ring-red-300 focus:outline-none"
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-danger/40 bg-white px-3.5 py-2 text-xs font-bold text-danger-ink transition hover:bg-danger-soft focus:ring-2 focus:ring-danger/40 focus:outline-none"
             >
               Reintentar ahora
             </button>
@@ -178,7 +178,7 @@ export default function PendingAnalysis({
               aria-current={isActive ? 'step' : undefined}
               className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
                 isDone
-                  ? 'border-emerald-100 bg-emerald-50'
+                  ? 'border-success-soft bg-success-soft/50'
                   : isActive
                     ? 'border-primary/30 bg-primary/5'
                     : 'border-line bg-white'
@@ -187,7 +187,7 @@ export default function PendingAnalysis({
               <span
                 className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
                   isDone
-                    ? 'bg-emerald-100 text-emerald-600'
+                    ? 'bg-success-soft text-success-ink'
                     : isActive
                       ? 'bg-primary/10 text-primary'
                       : 'bg-surface text-faint'
@@ -264,7 +264,7 @@ export default function PendingAnalysis({
             historial; no perderás el resultado.
           </p>
           {notifyPermission === 'granted' ? (
-            <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+            <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-success-ink">
               <Bell className="size-3.5 shrink-0" />
               Te avisaremos cuando termine.
             </p>

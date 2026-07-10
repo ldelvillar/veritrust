@@ -64,8 +64,8 @@ function DeleteAllDialogInner({
         className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-xl"
       >
         <div className="flex items-start gap-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-            <WarningIcon className="size-5 text-red-600" />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger-soft">
+            <WarningIcon className="size-5 text-danger-ink" />
           </span>
           <div className="min-w-0">
             <h2
@@ -90,7 +90,7 @@ function DeleteAllDialogInner({
         <label className="mt-5 block">
           <span className="mb-2 block text-[13px] font-bold text-body">
             Escribe{' '}
-            <span className="font-extrabold tracking-wide text-red-600">
+            <span className="font-extrabold tracking-wide text-danger-ink">
               {CONFIRM_PHRASE}
             </span>{' '}
             para confirmar
@@ -105,12 +105,15 @@ function DeleteAllDialogInner({
             spellCheck={false}
             aria-label={`Escribe ${CONFIRM_PHRASE} para confirmar la eliminación total`}
             placeholder={CONFIRM_PHRASE}
-            className="w-full rounded-xl border border-line-strong bg-surface-subtle px-3.5 py-2.5 text-sm font-semibold tracking-wide text-ink transition outline-none placeholder:font-semibold placeholder:tracking-wide placeholder:text-faint focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/15 disabled:opacity-50"
+            className="w-full rounded-xl border border-line-strong bg-surface-subtle px-3.5 py-2.5 text-sm font-semibold tracking-wide text-ink transition outline-none placeholder:font-semibold placeholder:tracking-wide placeholder:text-faint focus:border-danger focus:bg-white focus:ring-4 focus:ring-danger/15 disabled:opacity-50"
           />
         </label>
 
         {errorMessage ? (
-          <p role="alert" className="mt-4 text-sm font-semibold text-red-600">
+          <p
+            role="alert"
+            className="mt-4 text-sm font-semibold text-danger-ink"
+          >
             {errorMessage}
           </p>
         ) : null}
@@ -129,7 +132,7 @@ function DeleteAllDialogInner({
             onClick={onConfirm}
             disabled={isConfirming || !matches}
             aria-busy={isConfirming}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 focus:ring-2 focus:ring-red-300 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-bold text-white transition hover:bg-danger-ink focus:ring-2 focus:ring-danger/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isConfirming ? (
               <Spinner className="size-4 animate-spin text-white" />

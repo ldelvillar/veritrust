@@ -473,7 +473,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 {exportError ? (
                   <p
                     role="alert"
-                    className="text-xs font-semibold text-red-600"
+                    className="text-xs font-semibold text-danger-ink"
                   >
                     {exportError}
                   </p>

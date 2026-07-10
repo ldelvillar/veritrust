@@ -85,12 +85,14 @@ export default function FailedView({
   );
 
   return (
-    <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-red-100 bg-red-50 p-10 text-center shadow-sm">
-      <WarningIcon className="size-10 text-red-500" />
-      <h3 className="text-xl font-bold text-red-700">
+    <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-danger/20 bg-danger-soft p-10 text-center shadow-sm">
+      <WarningIcon className="size-10 text-danger" />
+      <h3 className="text-xl font-bold text-danger-ink">
         No se pudo completar el análisis
       </h3>
-      <p className="max-w-md text-sm leading-relaxed text-red-600">{message}</p>
+      <p className="max-w-md text-sm leading-relaxed text-danger-ink">
+        {message}
+      </p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
         {isInputError ? (
           <>
@@ -105,7 +107,7 @@ export default function FailedView({
         )}
       </div>
       {retryError && (
-        <p role="alert" className="text-xs font-semibold text-red-600">
+        <p role="alert" className="text-xs font-semibold text-danger-ink">
           {retryError}
         </p>
       )}

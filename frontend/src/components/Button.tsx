@@ -28,7 +28,7 @@ const variants: Record<ButtonVariant, string> = {
   soft: 'bg-white text-body border border-line-strong hover:border-primary hover:text-[#3722b8]',
   // Variante autónoma: incluye su propia geometría, tipografía y foco, sin base ni size.
   danger:
-    'inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+    'inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-white px-4 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger-soft focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
 };
 
 const cx = (...classes: (string | undefined | false)[]) =>

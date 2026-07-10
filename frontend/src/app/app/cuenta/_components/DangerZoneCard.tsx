@@ -23,12 +23,12 @@ export default function DangerZoneCard({
   return (
     <section
       aria-labelledby="cuenta-danger-title"
-      className="rounded-2xl border border-red-200 bg-[linear-gradient(180deg,#fdf5f6,#fff_120px)] p-6 shadow-sm md:p-7"
+      className="rounded-2xl border border-danger/30 bg-[linear-gradient(180deg,#fdf5f6,#fff_120px)] p-6 shadow-sm md:p-7"
     >
       <div className="flex items-start gap-3.5">
         <span
           aria-hidden
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-600"
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-danger-soft text-danger-ink"
         >
           <WarningIcon className="size-5" />
         </span>
@@ -47,11 +47,11 @@ export default function DangerZoneCard({
         </div>
       </div>
 
-      <div className="mt-5 border-t border-red-200/70 pt-5">
+      <div className="mt-5 border-t border-danger/20 pt-5">
         {justDeleted ? (
           <p
             role="status"
-            className="mb-4 flex items-start gap-2 rounded-xl bg-emerald-50 px-3.5 py-3 text-[13px] font-semibold text-emerald-700"
+            className="mb-4 flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-[13px] font-semibold text-success-ink"
           >
             <CheckIcon className="mt-px size-4 shrink-0" aria-hidden />
             Se han eliminado {numberFormatter.format(deletedCount)} análisis. Tu
@@ -74,7 +74,7 @@ export default function DangerZoneCard({
             onClick={onRequestDelete}
             disabled={isEmpty}
             aria-haspopup="dialog"
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_rgba(220,38,38,.24)] transition hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_var(--tw-shadow-color)] shadow-danger/25 transition hover:bg-danger-ink focus-visible:ring-2 focus-visible:ring-danger/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
           >
             <TrashIcon className="size-4" aria-hidden />
             Eliminar toda mi actividad

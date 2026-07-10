@@ -64,8 +64,8 @@ export default function ConfirmDialog({
         className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-xl"
       >
         <div className="flex items-start gap-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-            <Warning className="size-5 text-red-600" />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger-soft">
+            <Warning className="size-5 text-danger-ink" />
           </span>
           <div className="min-w-0">
             <h2
@@ -84,7 +84,10 @@ export default function ConfirmDialog({
         </div>
 
         {errorMessage ? (
-          <p role="alert" className="mt-4 text-sm font-semibold text-red-600">
+          <p
+            role="alert"
+            className="mt-4 text-sm font-semibold text-danger-ink"
+          >
             {errorMessage}
           </p>
         ) : null}
@@ -104,7 +107,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={isConfirming}
             aria-busy={isConfirming}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 focus:ring-2 focus:ring-red-300 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-bold text-white transition hover:bg-danger-ink focus:ring-2 focus:ring-danger/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isConfirming ? (
               <Spinner className="size-4 animate-spin text-white" />

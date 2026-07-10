@@ -83,7 +83,7 @@ export default function ExportDataCard({
       {errorMessage ? (
         <p
           role="alert"
-          className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-3 text-[13px] font-semibold text-red-600"
+          className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-3 text-[13px] font-semibold text-danger-ink"
         >
           <WarningIcon className="mt-px size-4 shrink-0" aria-hidden />
           {errorMessage}

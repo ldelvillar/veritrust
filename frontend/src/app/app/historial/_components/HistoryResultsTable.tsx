@@ -485,7 +485,7 @@ export default function HistoryResultsTable({
                       className="flex size-8.5 items-center justify-center rounded-[9px] text-faint transition hover:bg-danger-soft hover:text-danger-ink focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isDeleting ? (
-                        <Spinner className="size-4 animate-spin text-red-500" />
+                        <Spinner className="size-4 animate-spin text-danger" />
                       ) : (
                         <Trash className="size-4" />
                       )}

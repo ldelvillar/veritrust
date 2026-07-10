@@ -133,7 +133,10 @@ export default function ShareDialog({
         ) : null}
 
         {error ? (
-          <p role="alert" className="mt-4 text-sm font-semibold text-red-600">
+          <p
+            role="alert"
+            className="mt-4 text-sm font-semibold text-danger-ink"
+          >
             {error}
           </p>
         ) : null}
@@ -155,7 +158,7 @@ export default function ShareDialog({
               aria-busy={isSharing}
             >
               {isSharing ? (
-                <Spinner className="size-4 animate-spin text-red-500" />
+                <Spinner className="size-4 animate-spin text-danger" />
               ) : null}
               Desactivar enlace
             </Button>

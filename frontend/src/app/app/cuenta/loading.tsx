@@ -9,7 +9,7 @@ export default function Loading() {
       <div className="flex animate-pulse flex-col gap-5">
         <div className="h-56 rounded-2xl border border-line bg-white" />
         <div className="h-40 rounded-2xl border border-line bg-white" />
-        <div className="h-40 rounded-2xl border border-red-200 bg-white" />
+        <div className="h-40 rounded-2xl border border-danger/30 bg-white" />
       </div>
     </section>
   );
