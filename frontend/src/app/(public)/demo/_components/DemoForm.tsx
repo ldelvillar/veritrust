@@ -47,13 +47,13 @@ const inputBase =
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
-    invalid ? 'border-[#e0556b] bg-[#fbe4e8]' : 'border-line-strong bg-surface-subtle'
+    invalid ? 'border-danger bg-danger-soft' : 'border-line-strong bg-surface-subtle'
   }`;
 }
 
 const labelClass =
   'flex items-center gap-1.5 text-[13px] font-bold text-body';
-const errClass = 'text-[12px] font-semibold text-[#c23552]';
+const errClass = 'text-[12px] font-semibold text-danger-ink';
 const reqMark = <span className="text-primary">*</span>;
 const optMark = (
   <span className="text-[11.5px] font-semibold text-faint">(opcional)</span>
@@ -174,7 +174,7 @@ export default function DemoForm() {
     return (
       <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
-          <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-[#def4ea] text-[#0e8e5b]">
+          <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-success-soft text-success-ink">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
           <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-ink">

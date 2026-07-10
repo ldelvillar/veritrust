@@ -31,6 +31,18 @@
   --color-verdict-fake-soft: #fbe4e8;
   --color-verdict-fake-ink: #c23552;
 
+  /* Danger/error: estados de fallo del sistema (no veredictos) — rojo anaranjado, distinto del rosa de "falso" */
+  --color-danger: #dc4433;
+  --color-danger-soft: #fce4e0;
+  --color-danger-ink: #b23223;
+  --color-danger-g1: #e2604a;
+  --color-danger-g2: #c73824;
+
+  /* Success: confirmaciones de UI (no veredictos) — verde hierba, distinto del verde-teal de "verdadero" */
+  --color-success: #2fa84f;
+  --color-success-soft: #e1f5e6;
+  --color-success-ink: #217a3c;
+
   /* Paradas de degradado (claro → oscuro) para raíles y medidores renderizados en navegador */
   --color-verdict-real-g1: #2bc488;
   --color-verdict-real-g2: #10a566;

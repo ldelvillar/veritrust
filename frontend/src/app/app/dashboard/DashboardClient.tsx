@@ -61,7 +61,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           actions={<RangeSelector value={range} onChange={setRange} />}
         />
         <div className="flex flex-col items-center gap-4 rounded-[20px] border border-line bg-white px-8 py-16 text-center shadow-sm">
-          <div className="grid size-14 place-items-center rounded-2xl bg-[#fbe4e8] text-[#c23552]">
+          <div className="grid size-14 place-items-center rounded-2xl bg-danger-soft text-danger-ink">
             <WarningIcon className="size-7" />
           </div>
           <div>

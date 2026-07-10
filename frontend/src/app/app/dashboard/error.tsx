@@ -31,7 +31,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
-              'radial-gradient(rgba(224,85,107,.10) 1.1px, transparent 1.1px)',
+              'radial-gradient(rgba(220,68,51,.10) 1.1px, transparent 1.1px)',
             backgroundSize: '22px 22px',
             maskImage:
               'radial-gradient(ellipse 60% 60% at 50% 38%, #000 0%, transparent 72%)',
@@ -42,11 +42,11 @@ export default function DashboardError({ error, reset }: ErrorProps) {
 
         <div className="relative z-1 flex flex-col items-center">
           {/* Icon */}
-          <div className="mb-6.5 grid size-21 place-items-center rounded-3xl bg-[linear-gradient(155deg,#e2607a,#d23c5d)] text-white shadow-[0_14px_30px_rgba(210,60,93,.30)]">
+          <div className="mb-6.5 grid size-21 place-items-center rounded-3xl bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] text-white shadow-[0_14px_30px_rgba(199,56,36,.30)]">
             <Warning className="size-9.5" />
           </div>
 
-          <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-[#c23552] uppercase">
+          <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-danger-ink uppercase">
             Error al cargar las métricas
           </p>
           <h2 className="mb-3 text-[clamp(22px,2.6vw,27px)] leading-tight font-bold tracking-[-0.025em] text-balance text-ink">
@@ -72,7 +72,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
 
           <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
             <span
-              className="size-1.75 shrink-0 rounded-full bg-[#e0556b]"
+              className="size-1.75 shrink-0 rounded-full bg-danger"
               aria-hidden
             />
             <span className="truncate">

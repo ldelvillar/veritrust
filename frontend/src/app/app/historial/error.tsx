@@ -56,7 +56,7 @@ export default function HistorialError({ error, reset }: ErrorProps) {
         footer={
           <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
             <span
-              className="size-1.75 shrink-0 rounded-full bg-[#e0556b]"
+              className="size-1.75 shrink-0 rounded-full bg-danger"
               aria-hidden
             />
             <span className="truncate">

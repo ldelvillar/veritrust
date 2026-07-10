@@ -92,7 +92,11 @@ const STATUS_BADGES = {
     textColor: '#7e7f99',
     bgColor: '#f4f2fd',
   },
-  failed: { text: 'Fallido', textColor: '#c23552', bgColor: '#fbe4e8' },
+  failed: {
+    text: 'Fallido',
+    textColor: 'var(--color-danger-ink)',
+    bgColor: 'var(--color-danger-soft)',
+  },
 } as const;
 
 function toneFromItem(item: HistoryItem): Tone | null {
@@ -306,7 +310,7 @@ export default function HistoryResultsTable({
           footer={
             <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
               <span
-                className="size-1.75 shrink-0 rounded-full bg-[#e0556b]"
+                className="size-1.75 shrink-0 rounded-full bg-danger"
                 aria-hidden
               />
               <span className="truncate">{errorMessage}</span>
@@ -478,7 +482,7 @@ export default function HistoryResultsTable({
                       onClick={() => onDelete(item)}
                       disabled={isDeleting}
                       aria-label="Eliminar análisis"
-                      className="flex size-8.5 items-center justify-center rounded-[9px] text-faint transition hover:bg-[#fbe4e8] hover:text-[#c23552] focus:ring-2 focus:ring-red-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex size-8.5 items-center justify-center rounded-[9px] text-faint transition hover:bg-danger-soft hover:text-danger-ink focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isDeleting ? (
                         <Spinner className="size-4 animate-spin text-red-500" />

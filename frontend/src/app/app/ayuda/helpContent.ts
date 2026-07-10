@@ -79,8 +79,8 @@ export const CATEGORIES = [
   },
   {
     slug: 'solucion-problemas',
-    tint: '#fbe4e8',
-    color: '#e0556b',
+    tint: '#fce4e0',
+    color: '#dc4433',
     title: 'Solución de problemas',
     desc: 'Errores frecuentes y cómo resolverlos.',
     icon: 'warning',
