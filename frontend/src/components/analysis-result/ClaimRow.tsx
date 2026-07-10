@@ -4,7 +4,12 @@ import { useId, useState } from 'react';
 import BookIcon from '@/assets/Book';
 import Chevron from '@/assets/Chevron';
 import SourceRow from './SourceRow';
-import { getClaimStyle, normalizeFraction } from './format';
+import {
+  getClaimStyle,
+  normalizeFraction,
+  STANCE_SUMMARY_META,
+} from './format';
+import { summarizeStances } from '@/lib/evidence';
 import type { ClaimType, SourceType } from './types';
 
 export default function ClaimRow({
@@ -22,6 +27,11 @@ export default function ClaimRow({
   const ClaimIcon = style.Icon;
   const confidencePct = Math.round(normalizeFraction(claim.confidence) * 100);
   const sourceCount = sources.length;
+  const stances = summarizeStances(claim, sources);
+  const stanceItems = STANCE_SUMMARY_META.map(meta => ({
+    ...meta,
+    count: stances[meta.key],
+  })).filter(item => item.count > 0);
 
   return (
     <div className="flex gap-3 border-t border-line py-4 first:border-t-0 first:pt-0.5 print:break-inside-avoid">
@@ -46,21 +56,39 @@ export default function ClaimRow({
         {showEvidence &&
           (sourceCount > 0 ? (
             <>
-              <button
-                type="button"
-                onClick={() => setOpen(value => !value)}
-                aria-expanded={open}
-                aria-controls={panelId}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none print:hidden"
-              >
-                <BookIcon className="size-3.5" />
-                {open ? 'Ocultar' : 'Ver'} {sourceCount}{' '}
-                {sourceCount === 1 ? 'fuente' : 'fuentes'}
-                <Chevron
-                  className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
-                  aria-hidden
-                />
-              </button>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(value => !value)}
+                  aria-expanded={open}
+                  aria-controls={panelId}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none print:hidden"
+                >
+                  <BookIcon className="size-3.5" />
+                  {open ? 'Ocultar' : 'Ver'} {sourceCount}{' '}
+                  {sourceCount === 1 ? 'fuente' : 'fuentes'}
+                  <Chevron
+                    className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                {stanceItems.length > 0 && (
+                  <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-semibold text-faint">
+                    {stanceItems.map(item => (
+                      <span
+                        key={item.key}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${item.dot}`}
+                          aria-hidden
+                        />
+                        {item.count} {item.label}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
               {/* Siempre en el DOM y colapsado con clases, para que el PDF
                   (print:block) muestre toda la evidencia aunque esté oculta. */}
               <ul

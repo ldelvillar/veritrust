@@ -113,6 +113,17 @@ export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));
 }
 
+// Resumen "a favor / en contra" de las fuentes de una afirmación, en orden.
+export const STANCE_SUMMARY_META = [
+  { key: 'supports', label: 'a favor', dot: VERDICT_META.real.solid },
+  { key: 'contradicts', label: 'en contra', dot: VERDICT_META.fake.solid },
+  {
+    key: 'inconclusive',
+    label: 'no concluyente',
+    dot: VERDICT_META.uncertain.solid,
+  },
+] as const;
+
 // Postura de una fuente sobre la afirmación que tiene enlazada.
 export function getStanceInfo(
   stance: string | null | undefined

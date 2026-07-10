@@ -15,6 +15,12 @@ export interface GroupedEvidence {
   unmatched: SourceType[];
 }
 
+export interface StanceSummary {
+  supports: number;
+  contradicts: number;
+  inconclusive: number;
+}
+
 const normalize = (text: string): string => text.trim();
 
 /**
@@ -54,4 +60,32 @@ export function groupSourcesByClaim(
   }
 
   return { groups, unmatched };
+}
+
+/**
+ * Cuenta la postura de las fuentes ya enlazadas a una afirmación, para el
+ * resumen "a favor / en contra" de la fila. La postura es por par
+ * (afirmación, fuente), así que se re-resuelve casando `statement.text`.
+ */
+export function summarizeStances(
+  claim: ClaimType,
+  sources: SourceType[]
+): StanceSummary {
+  const summary: StanceSummary = {
+    supports: 0,
+    contradicts: 0,
+    inconclusive: 0,
+  };
+  const claimText = normalize(claim.text);
+
+  for (const source of sources) {
+    const stance = source.statements?.find(
+      statement => statement?.text && normalize(statement.text) === claimText
+    )?.stance;
+    if (stance === 'supports') summary.supports += 1;
+    else if (stance === 'contradicts') summary.contradicts += 1;
+    else if (stance === 'inconclusive') summary.inconclusive += 1;
+  }
+
+  return summary;
 }
