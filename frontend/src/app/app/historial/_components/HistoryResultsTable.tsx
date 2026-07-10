@@ -98,7 +98,7 @@ const STATUS_BADGES = {
 function toneFromItem(item: HistoryItem): Tone | null {
   if (item.status !== 'done') return null;
   const s = item.credibility;
-  if (s === null || s === undefined) return null;
+  if (s === null || s === undefined) return 'warn';
   if (s >= 70) return 'ok';
   if (s >= 45) return 'warn';
   return 'bad';
@@ -166,7 +166,14 @@ function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
   );
 }
 
-function GaugePlaceholder({ status }: { status: HistoryItem['status'] }) {
+function GaugePlaceholder({
+  status,
+  tone,
+}: {
+  status: HistoryItem['status'];
+  tone: Tone | null;
+}) {
+  const cfg = tone ? TONE_CONFIG[tone] : null;
   return (
     <div className="relative size-12.5 shrink-0">
       <svg viewBox="0 0 48 48" className="size-full" aria-hidden>
@@ -175,7 +182,7 @@ function GaugePlaceholder({ status }: { status: HistoryItem['status'] }) {
           cy="24"
           r={19}
           fill="none"
-          stroke="#ece9f7"
+          stroke={cfg?.ring ?? '#ece9f7'}
           strokeWidth="4.5"
         />
       </svg>
@@ -183,7 +190,14 @@ function GaugePlaceholder({ status }: { status: HistoryItem['status'] }) {
         {status === 'pending' ? (
           <Spinner className="size-4 animate-spin text-primary" />
         ) : (
-          <span className="text-[11px] font-bold text-faint">—</span>
+          <span
+            className={
+              cfg ? 'text-[11px] font-bold' : 'text-[11px] font-bold text-faint'
+            }
+            style={cfg ? { color: cfg.textColor } : undefined}
+          >
+            —
+          </span>
         )}
       </span>
     </div>
@@ -375,7 +389,7 @@ export default function HistoryResultsTable({
                 {tone !== null && credibility !== null ? (
                   <CredibilityGauge score={credibility} tone={tone} />
                 ) : (
-                  <GaugePlaceholder status={item.status} />
+                  <GaugePlaceholder status={item.status} tone={tone} />
                 )}
 
                 {/* Main content */}
