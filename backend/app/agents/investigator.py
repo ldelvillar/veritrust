@@ -64,6 +64,21 @@ def _search_source(
         return index, None
 
 
+def _judge_claim(
+    judge_prompt: str | None, query: str, claim: str, hits: list[dict]
+) -> list[dict]:
+    """Juzga las fuentes de una afirmación; falla en abierto conservándolas todas."""
+    if not judge_prompt:
+        return hits
+    try:
+        return judge_evidence(judge_prompt, claim or query, hits)
+    except Exception:
+        logger.warning(
+            "[Investigador] Fallo juzgando la evidencia; se conservan las fuentes"
+        )
+        return hits
+
+
 def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
     logger.info(
@@ -140,17 +155,32 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
 
     judge_prompt = prompts.judge.text if prompts else None
 
+    # Afirmaciones con evidencia recuperada; una caída total (hits None) es un error.
+    judgeable = [
+        (query, claim, original, hits)
+        for (query, claim, original, _), hits in zip(valid, results)
+        if hits is not None
+    ]
+    errored = attempted - len(judgeable)
+
+    # Cada juicio es una llamada bloqueante a Ollama (antes en serie, el único paso
+    # sin paralelizar): se lanzan a la vez y el fallo de una no bloquea a las demás.
+    if judge_prompt and judgeable:
+        with ThreadPoolExecutor(max_workers=len(judgeable)) as pool:
+            judged = list(
+                pool.map(
+                    lambda item: _judge_claim(judge_prompt, item[0], item[1], item[3]),
+                    judgeable,
+                )
+            )
+    else:
+        judged = [hits for _, _, _, hits in judgeable]
+
+    # Se reensambla en el orden original de las afirmaciones: _merge_sources depende
+    # del primer orden visto por URL, así que la salida es idéntica a la secuencial.
     collected: list[tuple[dict, str | None]] = []
-    errored = 0
     covered = 0
-    for (query, claim, original, _), hits in zip(valid, results):
-        if hits is None:
-            errored += 1
-            continue
-        # Juzga la evidencia (relevancia + postura); sin prompt se conservan todas.
-        relevant = (
-            judge_evidence(judge_prompt, claim or query, hits) if judge_prompt else hits
-        )
+    for (_, _, original, _), relevant in zip(judgeable, judged):
         if relevant:
             covered += 1
             collected.extend((hit, original) for hit in relevant)

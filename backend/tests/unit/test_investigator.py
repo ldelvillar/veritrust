@@ -298,3 +298,66 @@ def test_cima_skipped_when_no_drug_term(monkeypatch):
 
     # Sin fármaco nombrado, CIMA no se consulta.
     assert cima_called is False
+
+
+def test_judge_runs_concurrently(monkeypatch):
+    def fake_search(query, *, max_results):
+        return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
+
+    _patch_sources(monkeypatch, fake_search)
+
+    # La barrera solo se libera si los 3 juicios coinciden en el tiempo; en ejecución
+    # secuencial el primero agotaría el timeout de la barrera y rompería la prueba.
+    barrier = threading.Barrier(3, timeout=5)
+
+    def fake_judge(prompt_text, claim, hits):
+        barrier.wait()
+        return [{**h, "stance": "supports"} for h in hits]
+
+    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
+
+    update = investigator(
+        {
+            "translated_statements": ["A", "B", "C"],
+            "extracted_statements": ["a", "b", "c"],
+        },
+        _PROMPTS,
+    )
+
+    assert update["evidence_coverage"] == 1.0
+    assert len(update["sources"]) == 3
+
+
+def test_parallel_judge_isolates_one_failure(monkeypatch):
+    def fake_search(query, *, max_results):
+        return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
+
+    _patch_sources(monkeypatch, fake_search)
+
+    # El juez casca para una sola afirmación; en paralelo no debe arrastrar al resto.
+    def fake_judge(prompt_text, claim, hits):
+        if claim == "B-en":
+            raise RuntimeError("judge down")
+        return [{**h, "stance": "supports"} for h in hits]
+
+    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
+
+    update = investigator(
+        {
+            "translated_statements": ["A-en", "B-en"],
+            "extracted_statements": ["a", "b"],
+        },
+        _PROMPTS,
+    )
+
+    # La afirmación cuyo juez falló conserva su evidencia (falla en abierto) y la sana
+    # se juzga con normalidad: ambas cuentan para la cobertura.
+    assert update["evidence_coverage"] == 1.0
+    by_url = {source["url"]: source for source in update["sources"]}
+    assert set(by_url) == {"https://x/A-en", "https://x/B-en"}
+    # La afirmación sana no se ve afectada por el fallo de la otra.
+    assert by_url["https://x/A-en"]["statements"] == [
+        {"text": "a", "stance": "supports"}
+    ]
+    # La que falló conserva la fuente sin postura juzgada.
+    assert by_url["https://x/B-en"]["statements"] == [{"text": "b", "stance": None}]
