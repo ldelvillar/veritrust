@@ -25,27 +25,46 @@ export default function Loading() {
         </span>
       </div>
 
-      {/* KPI skeletons */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="flex flex-col gap-3 rounded-[20px] border border-line bg-white p-5 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Sk className="size-9.5 shrink-0 rounded-[11px]" />
-              <Sk className="h-2.5 w-[58%] rounded-md" />
-            </div>
-            <Sk className="my-0.5 h-8.5 w-21 rounded-[9px]" />
-            <div className="flex items-end justify-between gap-2.5">
-              <div className="flex flex-col gap-2">
-                <Sk className="h-5.5 w-16 rounded-full" />
-                <Sk className="h-2.5 w-22.5 rounded-md" />
+      {/* KPI tier skeletons */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2.25">
+          <Sk className="h-2.75 w-30 rounded-md" />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {Array.from({ length: 2 }, (_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-5 rounded-[20px] border border-line bg-white p-5.5 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
+              >
+                <Sk className="size-11.5 shrink-0 rounded-[13px]" />
+                <div className="flex flex-1 flex-col gap-2.5">
+                  <Sk className="h-2.75 w-[48%] rounded-md" />
+                  <Sk className="h-9.5 w-24 rounded-[9px]" />
+                  <Sk className="h-2.75 w-[40%] rounded-md" />
+                </div>
+                <Sk className="h-8.5 w-22 shrink-0 rounded-lg" />
               </div>
-              <Sk className="h-7.5 w-18.5 shrink-0 rounded-lg" />
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        <div className="flex flex-col gap-2.25">
+          <Sk className="h-2.75 w-37.5 rounded-md" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div
+                key={i}
+                className="flex flex-col gap-2.75 rounded-[20px] border border-line bg-white p-5 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]"
+              >
+                <div className="flex items-center gap-2.75">
+                  <Sk className="size-8.5 shrink-0 rounded-[10px]" />
+                  <Sk className="h-2.75 w-[62%] rounded-md" />
+                </div>
+                <Sk className="h-7.5 w-18.5 rounded-[9px]" />
+                <Sk className="h-2.75 w-[46%] rounded-md" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Trend + Sources skeleton row */}

@@ -11,9 +11,10 @@ import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import AlertsCard from './_components/AlertsCard';
+import CompactKpiCard from './_components/CompactKpiCard';
 import DomainsCard from './_components/DomainsCard';
 import EmptyState from './_components/EmptyState';
-import KpiCard from './_components/KpiCard';
+import FeaturedKpiCard from './_components/FeaturedKpiCard';
 import RangeSelector, {
   RANGE_DAYS,
   type DashboardRange,
@@ -43,10 +44,6 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
   const sparkTotal = useMemo(
     () => dashboard.trend.slice(-7).map(t => t.total),
-    [dashboard.trend]
-  );
-  const sparkConf = useMemo(
-    () => dashboard.trend.slice(-7).map(t => t.average_confidence),
     [dashboard.trend]
   );
   const delta = dashboard.kpis.week_over_week_delta;
@@ -96,58 +93,71 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         actions={<RangeSelector value={range} onChange={setRange} />}
       />
 
-      {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <KpiCard
-          label="Análisis totales"
-          value={String(dashboard.kpis.total_analyses)}
-          sub="en total"
-          icon={<ListIcon className="size-5" />}
-          tint="#eeebfc"
-          color="#6356e6"
-          delta={{ dir: delta >= 0 ? 'up' : 'down', value: deltaStr }}
-          spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
-          hint="Número total de análisis que has completado."
-        />
-        <KpiCard
-          label="Tasa de fiabilidad"
-          value={`${dashboard.kpis.reliable_rate}%`}
-          sub="veredicto «verdadero»"
-          icon={<ShieldIcon className="size-5" strokeWidth={2.1} />}
-          tint="#def4ea"
-          color="#13b877"
-          spark={sparkConf.length >= 2 ? sparkConf : undefined}
-          hint="Porcentaje de tus análisis con veredicto «verdadero» sobre el total completado."
-        />
-        <KpiCard
-          label="Credibilidad media"
-          value={`${dashboard.kpis.average_confidence}%`}
-          sub="excluye los dudosos"
-          icon={<SparkleIcon className="size-5" />}
-          tint="#e4f1fc"
-          color="#2c97e8"
-          spark={sparkConf.length >= 2 ? sparkConf : undefined}
-          hint="Credibilidad media de tu contenido (0 = falso, 100 = verdadero), sobre los análisis con veredicto verdadero o falso."
-        />
-        <KpiCard
-          label="Alertas activas"
-          value={String(dashboard.kpis.active_alerts)}
-          sub="baja credibilidad"
-          icon={<WarningIcon className="size-5" strokeWidth={2.2} />}
-          tint="#fbe4e8"
-          color="#e0556b"
-          spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
-          hint="Análisis recientes con puntuación de credibilidad baja que requieren atención."
-        />
-        <KpiCard
-          label="Cobertura de evidencia"
-          value={`${dashboard.kpis.average_evidence_coverage}%`}
-          sub="media con literatura"
-          icon={<BookIcon className="size-5" />}
-          tint="#d9f2ee"
-          color="#0f9e8e"
-          hint="Porcentaje medio de afirmaciones con literatura biomédica relacionada, sobre tus análisis completados."
-        />
+      {/* KPI tiers */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2.25">
+          <p className="pl-0.5 text-[10.5px] font-extrabold tracking-[.11em] text-faint uppercase">
+            Volumen y riesgo
+          </p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <FeaturedKpiCard
+              label="Análisis totales"
+              value={String(dashboard.kpis.total_analyses)}
+              sub="en total"
+              icon={<ListIcon className="size-5.75" />}
+              tint="#eeebfc"
+              color="#6356e6"
+              delta={{ dir: delta >= 0 ? 'up' : 'down', value: deltaStr }}
+              spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
+              hint="Número total de análisis que has completado."
+            />
+            <FeaturedKpiCard
+              label="Alertas activas"
+              value={String(dashboard.kpis.active_alerts)}
+              sub="baja credibilidad"
+              icon={<WarningIcon className="size-5.75" strokeWidth={2.2} />}
+              tint="#fbe4e8"
+              color="#e0556b"
+              spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
+              hint="Análisis recientes con puntuación de credibilidad baja que requieren atención."
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2.25">
+          <p className="pl-0.5 text-[10.5px] font-extrabold tracking-[.11em] text-faint uppercase">
+            Calidad de la evidencia
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <CompactKpiCard
+              label="Tasa de fiabilidad"
+              value={`${dashboard.kpis.reliable_rate}%`}
+              sub="veredicto «verdadero»"
+              icon={<ShieldIcon className="size-4.75" strokeWidth={2.1} />}
+              tint="#def4ea"
+              color="#13b877"
+              hint="Porcentaje de tus análisis con veredicto «verdadero» sobre el total completado."
+            />
+            <CompactKpiCard
+              label="Credibilidad media"
+              value={`${dashboard.kpis.average_confidence}%`}
+              sub="excluye los dudosos"
+              icon={<SparkleIcon className="size-4.75" />}
+              tint="#e4f1fc"
+              color="#2c97e8"
+              hint="Credibilidad media de tu contenido (0 = falso, 100 = verdadero), sobre los análisis con veredicto verdadero o falso."
+            />
+            <CompactKpiCard
+              label="Cobertura de evidencia"
+              value={`${dashboard.kpis.average_evidence_coverage}%`}
+              sub="media con literatura"
+              icon={<BookIcon className="size-4.75" />}
+              tint="#d9f2ee"
+              color="#0f9e8e"
+              hint="Porcentaje medio de afirmaciones con literatura biomédica relacionada, sobre tus análisis completados."
+            />
+          </div>
+        </div>
       </div>
 
       {/* Verdict distribution */}
