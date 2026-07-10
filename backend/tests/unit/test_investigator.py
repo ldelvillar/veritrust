@@ -4,7 +4,7 @@ import threading
 from types import SimpleNamespace
 
 from app.agents import investigator as investigator_module
-from app.agents.investigator import investigator
+from app.agents.investigator import EVIDENCE_MAX_STATEMENTS, investigator
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
@@ -95,6 +95,39 @@ def test_merges_statements_for_shared_url(monkeypatch):
         {"text": "a", "stance": None},
         {"text": "b", "stance": None},
     ]
+
+
+def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
+    queried: set[str] = set()
+
+    def fake_search(query, *, max_results):
+        queried.add(query)
+        return [{"title": query, "url": f"https://x/{query}"}]
+
+    _patch_sources(monkeypatch, fake_search)
+
+    total = EVIDENCE_MAX_STATEMENTS + 2
+    statements = [f"S{i}" for i in range(total)]
+    update = investigator({"translated_statements": statements})
+
+    # Solo se buscan las primeras N afirmaciones; las recortadas cuentan como no cubiertas.
+    assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
+    assert update["evidence_coverage"] == EVIDENCE_MAX_STATEMENTS / total
+    assert len(update["sources"]) == EVIDENCE_MAX_STATEMENTS
+
+
+def test_total_outage_with_cap_penalizes_only_dropped_statements(monkeypatch):
+    def fake_search(query, *, max_results):
+        raise EvidenceRetrievalError("down")
+
+    _patch_sources(monkeypatch, fake_search)
+
+    total = EVIDENCE_MAX_STATEMENTS + 2
+    update = investigator({"translated_statements": [f"S{i}" for i in range(total)]})
+
+    # La caída total no castiga lo buscado, pero lo recortado por la cota sigue contando.
+    assert update["sources"] == []
+    assert update["evidence_coverage"] == EVIDENCE_MAX_STATEMENTS / total
 
 
 def test_total_outage_does_not_penalize_confidence(monkeypatch):
