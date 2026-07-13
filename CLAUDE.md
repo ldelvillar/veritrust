@@ -24,6 +24,7 @@ Run every command from the **repo root** — never `cd` into a subdirectory. Bac
 ```bash
 uv sync --directory backend --frozen                                         # Serving/API deps + app tests (excludes ml stack)
 uv sync --directory backend --frozen --extra ml                              # Add ml stack for ml/ and its tests
+uv sync --directory backend --frozen --extra ml --no-group cpu --group gpu   # ml stack with CUDA torch (local GPU training only)
 uv run --directory backend python -m app.main                                # API server (http://localhost:8000)
 uv run --directory backend python -m app.worker                              # Analysis worker (needs Redis + Ollama)
 uv run --directory backend pytest tests --cov=app --cov-fail-under=80        # App tests
