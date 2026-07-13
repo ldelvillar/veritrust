@@ -16,6 +16,7 @@ from transformers import (
     BatchEncoding,
     BertForSequenceClassification,
     BertTokenizer,
+    EarlyStoppingCallback,
     EvalPrediction,
     Trainer,
     TrainingArguments,
@@ -36,6 +37,8 @@ BATCH_SIZE = 16
 EPOCHS = 3
 LEARNING_RATE = 2e-5
 LABEL_SMOOTHING = 0.1  # Reduce veredictos erróneos con confianza extrema
+EVAL_STEPS = 200  # Evaluación frecuente para capturar el pico antes del sobreajuste
+EARLY_STOPPING_PATIENCE = 3  # Detiene tras 3 evaluaciones sin mejorar el macro-F1
 SEED = 42  # Semilla fija para entrenamientos reproducibles
 
 # Detectar si hay una GPU disponible y usarla, sino usar CPU
@@ -175,16 +178,19 @@ def run_training() -> None:
     training_args = TrainingArguments(
         output_dir="./results",  # Directorio temporal para checkpoints
         num_train_epochs=EPOCHS,
+        learning_rate=LEARNING_RATE,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE * 2,
         warmup_steps=500,  # Calentamiento del learning rate
         weight_decay=0.01,  # Regularización para evitar overfitting
         logging_dir="./logs",
         logging_steps=100,
-        eval_strategy="epoch",  # Evaluar al final de cada época
-        save_strategy="epoch",  # Guardar checkpoint al final de cada época
+        eval_strategy="steps",  # Evaluar cada EVAL_STEPS para una selección más fina
+        eval_steps=EVAL_STEPS,
+        save_strategy="steps",  # Guardar al mismo ritmo que se evalúa
+        save_steps=EVAL_STEPS,
         load_best_model_at_end=True,  # Quedarse con el mejor modelo al final
-        metric_for_best_model="f1",  # Optimizar para F1-Score
+        metric_for_best_model="f1",  # Optimizar para F1-Score (macro)
         save_total_limit=2,  # No llenar el disco duro, guardar solo los 2 últimos
         seed=SEED,  # Semilla del Trainer (init de pesos, optimizador)
         data_seed=SEED,  # Semilla del muestreo/shuffle de datos
@@ -201,6 +207,7 @@ def run_training() -> None:
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(EARLY_STOPPING_PATIENCE)],
     )
 
     trainer.train()
@@ -238,6 +245,8 @@ def run_training() -> None:
             "batch_size": BATCH_SIZE,
             "learning_rate": LEARNING_RATE,
             "label_smoothing": LABEL_SMOOTHING,
+            "eval_steps": EVAL_STEPS,
+            "early_stopping_patience": EARLY_STOPPING_PATIENCE,
             "max_length": MAX_LENGTH,
             "seed": SEED,
         },
