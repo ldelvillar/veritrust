@@ -86,6 +86,49 @@ def test_run_returns_label_and_confidence_with_mocked_model(
     assert 0.0 <= out["confidence"] <= 1.0
 
 
+def test_predict_batch_applies_decision_margins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_model_path(monkeypatch, "C:/tmp/model")
+    monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
+
+    class _FakeTokenizer:
+        def __call__(self, *args, **kwargs):
+            return {"input_ids": [1, 2, 3]}
+
+    class _FakeModel:
+        def __call__(self, **kwargs):
+            return types.SimpleNamespace(logits="fake_logits")
+
+    monkeypatch.setattr(
+        "app.tools.model_tool.BertTokenizer.from_pretrained",
+        lambda *args, **kwargs: _FakeTokenizer(),
+    )
+    monkeypatch.setattr(
+        "app.tools.model_tool.BertForSequenceClassification.from_pretrained",
+        lambda *args, **kwargs: _FakeModel(),
+    )
+    monkeypatch.setattr(
+        "app.tools.model_tool.F.softmax",
+        lambda logits, dim: [
+            [_Score(0.10), _Score(0.90), _Score(0.00)],  # margen amplio -> falsa
+            [_Score(0.35), _Score(0.50), _Score(0.15)],  # margen corto -> abstiene
+            [_Score(0.55), _Score(0.30), _Score(0.15)],  # margen amplio -> verdadera
+            [_Score(0.45), _Score(0.40), _Score(0.15)],  # margen corto -> abstiene
+            [_Score(0.10), _Score(0.20), _Score(0.70)],  # incierta gana -> incierta
+        ],
+    )
+
+    tool = FakeNewsDetectorTool()
+    results = tool.predict_batch(["t1", "t2", "t3", "t4", "t5"])
+
+    labels = [r["label"] for r in results]
+    assert labels == ["falsa", "incierta", "verdadera", "incierta", "incierta"]
+    # La confianza es la probabilidad más alta y las probs se exponen por clase.
+    assert results[0]["confidence"] == pytest.approx(0.90)
+    assert results[1]["probs"] == {"verdadera": 0.35, "falsa": 0.50, "incierta": 0.15}
+
+
 def test_run_raises_bert_inference_error_when_model_loading_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

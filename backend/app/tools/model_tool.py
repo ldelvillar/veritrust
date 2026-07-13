@@ -20,6 +20,10 @@ from ml.utils.text import CLASS_LABELS, MAX_SEQUENCE_LENGTH, clean_text
 
 logger = logging.getLogger(__name__)
 
+# Diferencia mínima entre p(falsa) y p(verdadera) para emitir un veredicto firme.
+FAKE_MARGIN = 0.25
+REAL_MARGIN = 0.10
+
 
 class DetectorInput(BaseModel):
     """Esquema de entrada para la herramienta de detección de Fake News."""
@@ -30,10 +34,24 @@ class DetectorInput(BaseModel):
 
 
 class DetectorResult(TypedDict):
-    """Resultado de una clasificación: etiqueta y confianza."""
+    """Resultado de una clasificación: etiqueta, confianza y probabilidades por clase."""
 
     label: str
     confidence: float
+    probs: dict[str, float]
+
+
+def _decide_label(probs_by_label: dict[str, float]) -> str:
+    """Decide la etiqueta exigiendo un margen entre falsa y verdadera; si no, abstiene."""
+    best = max(probs_by_label, key=lambda label: probs_by_label[label])
+    if best == "incierta":
+        return "incierta"
+    diff = probs_by_label.get("falsa", 0.0) - probs_by_label.get("verdadera", 0.0)
+    if diff > FAKE_MARGIN:
+        return "falsa"
+    if -diff > REAL_MARGIN:
+        return "verdadera"
+    return "incierta"
 
 
 class FakeNewsDetectorTool(BaseTool):
@@ -163,13 +181,17 @@ class FakeNewsDetectorTool(BaseTool):
                 logits = self._model(**model_inputs_dict).logits
                 probs = F.softmax(logits, dim=1)
 
-            # La clase ganadora se mapea por índice: 0=verdadera, 1=falsa, 2=incierta.
+            # Las probabilidades se mapean por índice: 0=verdadera, 1=falsa, 2=incierta.
             results: list[DetectorResult] = []
             for row in probs:
-                scores = [value.item() for value in row]
-                best = max(range(len(scores)), key=scores.__getitem__)
+                scores = [round(value.item(), 4) for value in row]
+                probs_by_label = dict(zip(CLASS_LABELS, scores))
                 results.append(
-                    {"label": CLASS_LABELS[best], "confidence": round(scores[best], 4)}
+                    {
+                        "label": _decide_label(probs_by_label),
+                        "confidence": max(scores),
+                        "probs": probs_by_label,
+                    }
                 )
 
             return results
