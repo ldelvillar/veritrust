@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from ml.training import train as train_module
 
@@ -39,6 +40,22 @@ def test_pubhealth_dataset_len_and_getitem_returns_expected_tensors() -> None:
     item = dataset[1]
     assert set(item.keys()) == {"input_ids", "attention_mask", "labels"}
     assert item["labels"].item() == 1
+
+
+def test_compute_class_weights_inverse_to_frequency() -> None:
+    # Clase 2 con la mitad de muestras que la 0: recibe el doble de peso.
+    weights = train_module.compute_class_weights([0, 0, 1, 1, 2])
+
+    assert weights.shape == (3,)
+    assert weights[2].item() == pytest.approx(2 * weights[0].item())
+    assert weights[0].item() == pytest.approx(weights[1].item())
+
+
+def test_compute_class_weights_handles_absent_class() -> None:
+    # Una clase sin muestras no debe producir división por cero ni pesos infinitos.
+    weights = train_module.compute_class_weights([0, 1])
+
+    assert all(w > 0 for w in weights.tolist())
 
 
 def test_compute_metrics_returns_expected_scores() -> None:
@@ -122,6 +139,7 @@ def test_run_training_smoke_with_mocks(monkeypatch, tmp_path) -> None:
     class _FakeTrainer:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
+            calls["class_weights"] = kwargs.get("class_weights")
 
         def train(self):
             calls["train"] += 1
@@ -131,7 +149,7 @@ def test_run_training_smoke_with_mocks(monkeypatch, tmp_path) -> None:
             calls["evaluate_dataset"] = eval_dataset
             return {"eval_f1": 0.8}
 
-    monkeypatch.setattr(train_module, "Trainer", _FakeTrainer)
+    monkeypatch.setattr(train_module, "WeightedTrainer", _FakeTrainer)
 
     # Escribir el modelo versionado bajo tmp_path con un SHA determinista.
     monkeypatch.setattr(train_module, "OUTPUT_DIR", str(tmp_path))
@@ -141,6 +159,8 @@ def test_run_training_smoke_with_mocks(monkeypatch, tmp_path) -> None:
 
     assert calls["train"] == 1
     assert calls["evaluate"] == 1
+    # La pérdida ponderada recibe los pesos calculados sobre el train set.
+    assert calls["class_weights"] is not None
     # La métrica final se calcula sobre test (2 filas), no sobre validación (1 fila).
     assert len(calls["evaluate_dataset"]) == 2
     # Entrenamiento reproducible: semilla fijada y propagada al Trainer.

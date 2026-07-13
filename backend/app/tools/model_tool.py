@@ -16,7 +16,7 @@ from transformers import BertForSequenceClassification, BertTokenizer
 
 from app.agents.errors import BertInferenceError
 from app.core.config import get_settings
-from ml.utils.text import MAX_SEQUENCE_LENGTH, clean_text
+from ml.utils.text import CLASS_LABELS, MAX_SEQUENCE_LENGTH, clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -163,14 +163,14 @@ class FakeNewsDetectorTool(BaseTool):
                 logits = self._model(**model_inputs_dict).logits
                 probs = F.softmax(logits, dim=1)
 
-            # 0=verdadera, 1=falsa
+            # La clase ganadora se mapea por índice: 0=verdadera, 1=falsa, 2=incierta.
             results: list[DetectorResult] = []
             for row in probs:
-                real_prob = row[0].item()
-                fake_prob = row[1].item()
-                label = "falsa" if fake_prob > real_prob else "verdadera"
-                confidence = max(fake_prob, real_prob)
-                results.append({"label": label, "confidence": round(confidence, 4)})
+                scores = [value.item() for value in row]
+                best = max(range(len(scores)), key=scores.__getitem__)
+                results.append(
+                    {"label": CLASS_LABELS[best], "confidence": round(scores[best], 4)}
+                )
 
             return results
 

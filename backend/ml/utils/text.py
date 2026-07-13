@@ -4,14 +4,14 @@ import re
 
 MAX_SEQUENCE_LENGTH = 128
 
+# Etiquetas de clase del clasificador, en el orden de sus índices de salida.
+CLASS_LABELS: tuple[str, ...] = ("verdadera", "falsa", "incierta")
+
 
 def clean_text(text: str) -> str:
     """Limpia el texto para el entrenamiento del modelo BERT."""
     if not isinstance(text, str):
         return ""
-
-    # Convertir el texto a minúsculas
-    text = text.lower()
 
     # Quitar URLs
     text = re.sub(r"http\S+|www\S+|https\S+", "", text, flags=re.MULTILINE)

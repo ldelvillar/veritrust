@@ -481,6 +481,8 @@ def test_health_expert_handles_empty_llm_output_without_exception(
         ("verdadera", 0.65, "incierta", 0.65),
         # fake_avg = 0.10 (< 0.30) -> verdadera decisiva.
         ("verdadera", 0.90, "verdadera", 0.90),
+        # Una afirmación 'incierta' aporta señal neutra (0.40) -> incierta global.
+        ("incierta", 0.80, "incierta", 0.60),
     ],
 )
 def test_health_expert_marks_borderline_verdicts_as_uncertain(

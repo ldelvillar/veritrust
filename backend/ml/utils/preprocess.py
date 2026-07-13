@@ -43,10 +43,10 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     # Descartar noticias con la etiqueta 'unproven'
     df = df[df["label"].isin([0, 1, 3])].copy()
 
-    # Convertir la etiqueta 'mixture' en 'false'
+    # Convertir la etiqueta 'mixture' (3) en la clase 'incierta' (2).
     df["label"] = df["label"].replace(
         {
-            3: 1,
+            3: 2,
         }
     )
 

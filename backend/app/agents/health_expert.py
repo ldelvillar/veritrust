@@ -158,7 +158,12 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         label, confidence = result["label"], result["confidence"]
 
         # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global
-        fake_prob = confidence if label == "falsa" else (1.0 - confidence)
+        if label == "falsa":
+            fake_prob = confidence
+        elif label == "verdadera":
+            fake_prob = 1.0 - confidence
+        else:
+            fake_prob = FAKE_THRESHOLD
         total_fake_prob += fake_prob
 
         safe_original = _neutralize_delimiters(str(original))
@@ -169,7 +174,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
 
         # La evidencia se alinea o se opone según la dirección que da BioBERT.
         counts = stance_counts.get(str(original))
-        if counts:
+        if counts and label in ("verdadera", "falsa"):
             aligned = (
                 counts["supports"] if label == "verdadera" else counts["contradicts"]
             )

@@ -24,7 +24,7 @@ from transformers import (
 
 from ml.utils.load_data import load_dataset
 from ml.utils.preprocess import preprocess_data
-from ml.utils.text import MAX_SEQUENCE_LENGTH
+from ml.utils.text import CLASS_LABELS, MAX_SEQUENCE_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ MAX_LENGTH = MAX_SEQUENCE_LENGTH
 BATCH_SIZE = 16
 EPOCHS = 3
 LEARNING_RATE = 2e-5
+LABEL_SMOOTHING = 0.1  # Reduce veredictos erróneos con confianza extrema
 SEED = 42  # Semilla fija para entrenamientos reproducibles
 
 # Detectar si hay una GPU disponible y usarla, sino usar CPU
@@ -77,12 +78,37 @@ def compute_metrics(pred: EvalPrediction) -> dict:
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)  # type: ignore[union-attr]
 
+    # Promedio macro: seleccionar por la clase 'falsa' premiaría el sesgo hacia ella.
     precision, recall, f1, _ = precision_recall_fscore_support(
-        labels, preds, average="binary"
+        labels, preds, average="macro", zero_division=0
     )
     acc = accuracy_score(labels, preds)
 
     return {"accuracy": acc, "f1": f1, "precision": precision, "recall": recall}
+
+
+def compute_class_weights(labels: list[int]) -> torch.Tensor:
+    """Calcula pesos por frecuencia inversa para compensar el desbalance de clases."""
+    counts = torch.bincount(torch.tensor(labels), minlength=len(CLASS_LABELS)).clamp(
+        min=1
+    )
+    return counts.sum().float() / (len(CLASS_LABELS) * counts.float())
+
+
+class WeightedTrainer(Trainer):
+    """Trainer con pérdida ponderada por clase y suavizado de etiquetas."""
+
+    def __init__(self, class_weights: torch.Tensor, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._loss_fn = torch.nn.CrossEntropyLoss(
+            weight=class_weights.to(DEVICE), label_smoothing=LABEL_SMOOTHING
+        )
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        loss = self._loss_fn(outputs.logits, labels)
+        return (loss, outputs) if return_outputs else loss
 
 
 def run_training() -> None:
@@ -137,7 +163,12 @@ def run_training() -> None:
     # Configuración del modelo
     logger.info("Inicializando modelo. Usando dispositivo: %s", DEVICE)
 
-    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    model = BertForSequenceClassification.from_pretrained(
+        MODEL_NAME,
+        num_labels=len(CLASS_LABELS),
+        id2label=dict(enumerate(CLASS_LABELS)),
+        label2id={label: i for i, label in enumerate(CLASS_LABELS)},
+    )
     model.to(DEVICE)  # type: ignore[arg-type]
 
     # Argumentos de entrenamiento
@@ -161,7 +192,10 @@ def run_training() -> None:
 
     # Entrenar el modelo
     logger.info("Entrenando el modelo...")
-    trainer = Trainer(
+    class_weights = compute_class_weights(train_labels)
+    logger.info("Pesos por clase: %s", class_weights.tolist())
+    trainer = WeightedTrainer(
+        class_weights=class_weights,
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -192,6 +226,7 @@ def run_training() -> None:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha,
         "base_model": MODEL_NAME,
+        "label_names": list(CLASS_LABELS),
         "partition_sizes": {
             "train": len(train_df),
             "validation": len(val_df),
@@ -202,6 +237,7 @@ def run_training() -> None:
             "epochs": EPOCHS,
             "batch_size": BATCH_SIZE,
             "learning_rate": LEARNING_RATE,
+            "label_smoothing": LABEL_SMOOTHING,
             "max_length": MAX_LENGTH,
             "seed": SEED,
         },

@@ -11,8 +11,9 @@ def test_clean_text_returns_empty_for_non_string_input() -> None:
 
 
 def test_clean_text_normalizes_text_url_spaces_and_quotes() -> None:
-    raw = '  ""HELLO   https://example.com  WORLD""  '
-    assert clean_text(raw) == "hello world"
+    # La capitalización se conserva: el modelo base es cased.
+    raw = '  ""Hello   https://example.com  WORLD""  '
+    assert clean_text(raw) == "Hello WORLD"
 
 
 def test_clean_list_string_normalizes_separators() -> None:
@@ -30,7 +31,7 @@ def test_preprocess_data_filters_maps_and_renames_columns() -> None:
         {
             "claim_id": [1, 2, 3, 4],
             "subjects": ["a", "b", "c", "d"],
-            "label": [0, 3, 2, 1],
+            "label": [3, 0, 2, 1],
             "explanation": ["EXPLANATION", None, "x", "ok"],
             "main_text": ["MAIN", "text", "y", "z"],
             "claim": ["A valid claim", '  ""   ""  ', "drop me", "Another claim"],
@@ -52,8 +53,10 @@ def test_preprocess_data_filters_maps_and_renames_columns() -> None:
     assert "claim" not in out.columns
     assert "text" in out.columns
 
-    assert set(out["label"].unique()).issubset({0, 1})
+    # 'mixture' (3) pasa a la clase 'incierta' (2); 'unproven' (2 crudo) se descarta.
+    assert set(out["label"].unique()).issubset({0, 1, 2})
     assert (out["label"] == 3).sum() == 0
+    assert 2 in out["label"].values
 
     assert all(text != "" for text in out["text"])
     assert pd.api.types.is_datetime64_any_dtype(out["date_published"])
