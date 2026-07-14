@@ -179,12 +179,15 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
 
     total = tp + tn + fp + fn
     accuracy = (tp + tn) / total if total else 0.0
+    # Cobertura: veredictos firmes sobre las muestras que sí tenían afirmaciones.
+    coverage = total / (total + uncertain) if (total + uncertain) else 0.0
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
     return {
         "accuracy": accuracy,
+        "coverage": coverage,
         "precision": precision,
         "recall": recall,
         "f1_score": f1,
@@ -209,6 +212,7 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
         f"TP={int(metrics['tp'])} TN={int(metrics['tn'])} "
         f"FP={int(metrics['fp'])} FN={int(metrics['fn'])}",
         f"Accuracy  : {metrics['accuracy']:.2%}",
+        f"Cobertura : {metrics['coverage']:.2%} (veredictos firmes / muestras con afirmaciones)",
         f"Precision : {metrics['precision']:.2%}",
         f"Recall    : {metrics['recall']:.2%}",
         f"F1-score  : {metrics['f1_score']:.2%}",

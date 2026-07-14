@@ -32,6 +32,7 @@ def test_compute_metrics_perfect_classification() -> None:
     assert metrics["f1_score"] == 1.0
     assert metrics["evaluated"] == 2
     assert metrics["skipped"] == 0
+    assert metrics["coverage"] == 1.0
 
 
 def test_compute_metrics_counts_confusion_and_skips() -> None:
@@ -65,6 +66,8 @@ def test_compute_metrics_treats_incierta_as_abstention() -> None:
     assert metrics["skipped"] == 1
     # Abstenerse no penaliza: el único veredicto firme es correcto.
     assert metrics["accuracy"] == 1.0
+    # La cobertura sí refleja las abstenciones: 1 firme de 3 con afirmaciones.
+    assert metrics["coverage"] == pytest.approx(1 / 3)
 
 
 def test_format_report_excludes_abstentions_from_errors() -> None:
@@ -85,6 +88,7 @@ def test_compute_metrics_empty_rows_are_zero() -> None:
     assert metrics["recall"] == 0.0
     assert metrics["f1_score"] == 0.0
     assert metrics["evaluated"] == 0
+    assert metrics["coverage"] == 0.0
 
 
 def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
