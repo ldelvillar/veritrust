@@ -3,6 +3,7 @@ Este módulo contiene las funciones necesarias para entrenar
 el modelo BERT para detectar noticias falsas en salud pública.
 """
 
+import argparse
 import json
 import logging
 import subprocess
@@ -13,9 +14,9 @@ from typing import Any
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
     BatchEncoding,
-    BertForSequenceClassification,
-    BertTokenizer,
     EarlyStoppingCallback,
     EvalPrediction,
     Trainer,
@@ -114,7 +115,7 @@ class WeightedTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-def run_training() -> None:
+def run_training(model_name: str = MODEL_NAME) -> None:
     """Función principal para ejecutar el entrenamiento del modelo BERT."""
     # Fijar semillas (Python, NumPy, PyTorch) para reproducibilidad
     set_seed(SEED)
@@ -145,8 +146,8 @@ def run_training() -> None:
     test_labels = test_df["label"].tolist()
 
     # Tokenización
-    logger.info("Tokenizando con %s", MODEL_NAME)
-    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
+    logger.info("Tokenizando con %s", model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     train_encodings = tokenizer(
         train_texts, truncation=True, padding=True, max_length=MAX_LENGTH
@@ -166,13 +167,14 @@ def run_training() -> None:
     # Configuración del modelo
     logger.info("Inicializando modelo. Usando dispositivo: %s", DEVICE)
 
-    model = BertForSequenceClassification.from_pretrained(
-        MODEL_NAME,
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
         num_labels=len(CLASS_LABELS),
         id2label=dict(enumerate(CLASS_LABELS)),
         label2id={label: i for i, label in enumerate(CLASS_LABELS)},
+        dtype=torch.float32,  # Algunos checkpoints (deberta-v3) se publican en fp16
     )
-    model.to(DEVICE)  # type: ignore[arg-type]
+    model.to(DEVICE)
 
     # Argumentos de entrenamiento
     training_args = TrainingArguments(
@@ -232,7 +234,7 @@ def run_training() -> None:
         "version": version,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha,
-        "base_model": MODEL_NAME,
+        "base_model": model_name,
         "label_names": list(CLASS_LABELS),
         "partition_sizes": {
             "train": len(train_df),
@@ -263,7 +265,12 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--model", default=MODEL_NAME, help="Modelo base de Hugging Face a ajustar."
+    )
+    cli_args = parser.parse_args()
     try:
-        run_training()
+        run_training(cli_args.model)
     except Exception:
         logger.exception("Error en el entrenamiento")

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from langchain.tools import BaseTool
 from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, Field
-from transformers import BertForSequenceClassification, BertTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from app.agents.errors import BertInferenceError
 from app.core.config import get_settings
@@ -65,8 +65,8 @@ class FakeNewsDetectorTool(BaseTool):
     )
     args_schema: ArgsSchema | None = DetectorInput
     model_path: str = ""
-    _tokenizer: BertTokenizer | None = None
-    _model: BertForSequenceClassification | None = None
+    _tokenizer: Any | None = None
+    _model: Any | None = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -77,10 +77,10 @@ class FakeNewsDetectorTool(BaseTool):
         if self._tokenizer is not None and self._model is not None:
             return
 
-        tokenizer = BertTokenizer.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, local_files_only=True
         )
-        model = BertForSequenceClassification.from_pretrained(
+        model = AutoModelForSequenceClassification.from_pretrained(
             self.model_path, local_files_only=True
         )
         if hasattr(model, "eval"):

@@ -114,12 +114,12 @@ def test_run_training_smoke_with_mocks(monkeypatch, tmp_path) -> None:
     fake_model = _FakeModel()
 
     monkeypatch.setattr(
-        train_module.BertTokenizer,
+        train_module.AutoTokenizer,
         "from_pretrained",
         lambda *args, **kwargs: fake_tokenizer,
     )
     monkeypatch.setattr(
-        train_module.BertForSequenceClassification,
+        train_module.AutoModelForSequenceClassification,
         "from_pretrained",
         lambda *args, **kwargs: fake_model,
     )

@@ -66,11 +66,11 @@ def test_run_returns_label_and_confidence_with_mocked_model(
             return types.SimpleNamespace(logits="fake_logits")
 
     monkeypatch.setattr(
-        "app.tools.model_tool.BertTokenizer.from_pretrained",
+        "app.tools.model_tool.AutoTokenizer.from_pretrained",
         lambda *args, **kwargs: _FakeTokenizer(),
     )
     monkeypatch.setattr(
-        "app.tools.model_tool.BertForSequenceClassification.from_pretrained",
+        "app.tools.model_tool.AutoModelForSequenceClassification.from_pretrained",
         lambda *args, **kwargs: _FakeModel(),
     )
     monkeypatch.setattr(
@@ -101,11 +101,11 @@ def test_predict_batch_applies_decision_margins(
             return types.SimpleNamespace(logits="fake_logits")
 
     monkeypatch.setattr(
-        "app.tools.model_tool.BertTokenizer.from_pretrained",
+        "app.tools.model_tool.AutoTokenizer.from_pretrained",
         lambda *args, **kwargs: _FakeTokenizer(),
     )
     monkeypatch.setattr(
-        "app.tools.model_tool.BertForSequenceClassification.from_pretrained",
+        "app.tools.model_tool.AutoModelForSequenceClassification.from_pretrained",
         lambda *args, **kwargs: _FakeModel(),
     )
     monkeypatch.setattr(
@@ -135,7 +135,7 @@ def test_run_raises_bert_inference_error_when_model_loading_fails(
     _patch_model_path(monkeypatch, "C:/tmp/model")
     monkeypatch.setattr("pathlib.Path.exists", lambda self: True)
     monkeypatch.setattr(
-        "app.tools.model_tool.BertTokenizer.from_pretrained",
+        "app.tools.model_tool.AutoTokenizer.from_pretrained",
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("broken tokenizer")),
     )
 
