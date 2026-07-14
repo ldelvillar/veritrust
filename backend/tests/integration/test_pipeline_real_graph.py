@@ -86,7 +86,13 @@ def _guard_translator(monkeypatch):
 def _stub_health(monkeypatch, bert_results=None, llm_error=None):
     """Simula BERT y el LLM del experto; devuelve lo capturado por ambos."""
     captured: dict = {"bert_texts": None, "human": None}
-    results = bert_results or [{"label": "verdadera", "confidence": 0.9}]
+    results = bert_results or [
+        {
+            "label": "verdadera",
+            "confidence": 0.9,
+            "probs": {"verdadera": 0.9, "falsa": 0.1, "incierta": 0.0},
+        }
+    ]
 
     class _FakeTool:
         def predict_batch(self, texts):

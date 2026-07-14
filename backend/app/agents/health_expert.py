@@ -152,16 +152,16 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
             not isinstance(result, dict)
             or "label" not in result
             or "confidence" not in result
+            or "probs" not in result
         ):
             raise ValueError(f"Salida inesperada del detector: {result}")
 
         label, confidence = result["label"], result["confidence"]
 
-        # Calcular la probabilidad de que la afirmación sea falsa para el veredicto global
-        if label == "falsa":
-            fake_prob = confidence
-        elif label == "verdadera":
-            fake_prob = 1.0 - confidence
+        # Prob. de falsedad renormalizada a las clases firmes: el softmax a 3 la diluye.
+        if label in ("falsa", "verdadera"):
+            probs = result["probs"]
+            fake_prob = probs["falsa"] / (probs["falsa"] + probs["verdadera"])
         else:
             fake_prob = FAKE_THRESHOLD
         total_fake_prob += fake_prob

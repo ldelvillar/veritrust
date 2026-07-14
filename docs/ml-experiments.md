@@ -50,6 +50,32 @@ Notas:
 - El tokenizador de DeBERTa requiere `sentencepiece` + `protobuf` (no están en
   `pyproject.toml` porque perdió el bake-off).
 
+## Renormalización de fake_prob en el pipeline (2026-07-14) — mejora parcial
+
+Fix en `health_expert`: cada veredicto firme por afirmación aporta
+`p_falsa / (p_falsa + p_verdadera)` al promedio global en vez de la confianza softmax
+de 3 clases (que, diluida en ~0.4–0.5, hacía caer en "incierta" veredictos firmes del
+detector). Medido con `ml/evaluation/evaluate_pipeline.py` (150 muestras test, seed 42),
+comparación pareada pre/post sobre los mismos textos:
+
+| | Pre | Post |
+|---|---|---|
+| Cobertura (firmes / con afirmaciones) | 32.4% | 46.4% |
+| Accuracy firme | 86.4% (3 err / 22) | 78.1% (7 err / 32) |
+| Firmes correctos absolutos | 19 | 25 |
+| Firmes incorrectos absolutos | 3 | 7 |
+
+Notas:
+
+- De las 10 conversiones incierta→firme, 6 correctas y 4 incorrectas: la zona marginal
+  que desbloquea la renormalización hereda el sesgo verdadera→falsa del clasificador.
+- **Los 7 errores post tienen confianza < 0.65; los 13 veredictos con ≥ 0.65 aciertan
+  todos.** La banda global (0.30–0.50) se calibró para la escala diluida; con la escala
+  renormalizada hay que recalibrarla (en validación, no en test).
+- El 54% de las muestras (81/149) terminó "sin afirmaciones": el extractor (llama3) no
+  extrae claims de titulares cortos tipo PubHealth. Es el mayor cuello de botella del
+  pipeline y es independiente del clasificador.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en

@@ -38,6 +38,17 @@ def health_module():
     return module
 
 
+def _detector_result(label: str, confidence: float) -> dict:
+    """Resultado del detector cuyas probs renormalizadas reproducen la confianza."""
+    if label == "incierta":
+        rest = (1 - confidence) / 2
+        probs = {"verdadera": rest, "falsa": rest, "incierta": confidence}
+    else:
+        other = "verdadera" if label == "falsa" else "falsa"
+        probs = {label: confidence, other: 1 - confidence, "incierta": 0.0}
+    return {"label": label, "confidence": confidence, "probs": probs}
+
+
 def test_extractor_returns_only_expected_field_and_preserves_state(
     monkeypatch, extractor_module, dummy_prompts
 ):
@@ -231,7 +242,7 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
 
     class _FakeTool:
         def predict_batch(self, texts):
-            return [{"label": "verdadera", "confidence": 0.9} for _ in texts]
+            return [_detector_result("verdadera", 0.9) for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -270,7 +281,7 @@ def test_health_expert_grounds_on_sources_and_adjusts_confidence(
 
     class _FakeTool:
         def predict_batch(self, texts):
-            return [{"label": "verdadera", "confidence": 0.9} for _ in texts]
+            return [_detector_result("verdadera", 0.9) for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -305,9 +316,7 @@ def test_health_expert_grounds_on_sources_and_adjusts_confidence(
 def _stub_health_models(monkeypatch, health_module, claim_label, claim_confidence):
     class _FakeTool:
         def predict_batch(self, texts):
-            return [
-                {"label": claim_label, "confidence": claim_confidence} for _ in texts
-            ]
+            return [_detector_result(claim_label, claim_confidence) for _ in texts]
 
     class _FakeLLM:
         def invoke(self, messages):
@@ -408,7 +417,7 @@ def test_health_expert_fences_user_text_and_neutralizes_injection(
 
     class _FakeTool:
         def predict_batch(self, texts):
-            return [{"label": "verdadera", "confidence": 0.9} for _ in texts]
+            return [_detector_result("verdadera", 0.9) for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -440,7 +449,7 @@ def test_health_expert_handles_empty_llm_output_without_exception(
 
     class _FakeTool:
         def predict_batch(self, texts):
-            return [{"label": "falsa", "confidence": 0.6} for _ in texts]
+            return [_detector_result("falsa", 0.6) for _ in texts]
 
     class _FakeLLM:
         def __init__(self, *args, **kwargs):
@@ -496,9 +505,7 @@ def test_health_expert_marks_borderline_verdicts_as_uncertain(
 ):
     class _FakeTool:
         def predict_batch(self, texts):
-            return [
-                {"label": claim_label, "confidence": claim_confidence} for _ in texts
-            ]
+            return [_detector_result(claim_label, claim_confidence) for _ in texts]
 
     class _FakeLLM:
         def invoke(self, messages):
@@ -516,6 +523,38 @@ def test_health_expert_marks_borderline_verdicts_as_uncertain(
     assert update["confidence"] == pytest.approx(expected_confidence)
 
 
+def test_health_expert_renormalizes_diluted_three_class_probs(
+    monkeypatch, health_module, dummy_prompts
+):
+    # Softmax a 3 diluido: sin renormalizar, p(falsa)=0.45 caería en la banda incierta.
+    class _FakeTool:
+        def predict_batch(self, texts):
+            return [
+                {
+                    "label": "falsa",
+                    "confidence": 0.45,
+                    "probs": {"verdadera": 0.15, "falsa": 0.45, "incierta": 0.40},
+                }
+                for _ in texts
+            ]
+
+    class _FakeLLM:
+        def invoke(self, messages):
+            return SimpleNamespace(content="Informe médico")
+
+    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
+
+    update = health_module.health_expert(
+        {"extracted_statements": ["S1"], "translated_statements": ["T1"]},
+        dummy_prompts,
+    )
+
+    # 0.45 / (0.45 + 0.15) = 0.75 -> veredicto firme "falsa", no "incierta".
+    assert update["label"] == "falsa"
+    assert update["confidence"] == pytest.approx(0.75)
+
+
 def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
     monkeypatch, health_module, dummy_prompts
 ):
@@ -524,7 +563,7 @@ def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
     class _FakeTool:
         def predict_batch(self, texts):
             # fake_avg = 0.50 -> incierta.
-            return [{"label": "falsa", "confidence": 0.50} for _ in texts]
+            return [_detector_result("falsa", 0.50) for _ in texts]
 
     class _FakeLLM:
         def invoke(self, messages):
