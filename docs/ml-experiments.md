@@ -1,0 +1,69 @@
+# Registro de experimentos del clasificador
+
+Bitácora de lo probado sobre el clasificador BERT, con resultados negativos incluidos,
+para no repetir callejones sin salida. Métricas sobre la misma muestra de test de
+PubHealth (300 verdadera / 300 falsa / 201 mixture, seed 42) vía
+`ml/evaluation/evaluate_classifier.py`, salvo indicación contraria.
+
+## Historial de mejoras (jul 2026)
+
+| Modelo | Acc. firme | verdadera→falsa | falsa→verdadera | Abstención |
+|---|---|---|---|---|
+| 2 clases original (minúsculas, mixture→falsa) | 79.7% | 34.7% | 6.0% | — |
+| 3 clases (mixture→incierta, pesos por clase) | 84.1% | 25.3% | 2.8% | 12.8% |
+| + márgenes de decisión (0.25/0.10) | 84.7% | 23.7% | 2.9% | 15.2% |
+| + fix del learning rate (2e-5 real) — **desplegado** | **87.9%** | **17.3%** | 1.0% | 24.5% |
+
+Qué corrigió cada salto:
+
+- **3 clases**: plegar `mixture` en `falsa` metía ~32% de ruido de etiqueta en la clase
+  positiva y era la causa principal del sesgo verdadera→falsa.
+- **Sin minúsculas**: BioBERT es *cased*; `clean_text` pasaba todo a minúsculas y
+  degradaba la señal. No reintroducir `lower()` en el preprocesado.
+- **Selección por macro-F1**: seleccionar checkpoint por F1 binaria premiaba el sesgo
+  hacia `falsa`.
+- **Learning rate**: `LEARNING_RATE` nunca se pasaba a `TrainingArguments`; todos los
+  entrenamientos previos corrieron al 5e-5 por defecto de HF aunque los metadatos
+  dijeran 2e-5. Con 2e-5 real + eval cada 200 pasos + early stopping (paciencia 3),
+  el mejor checkpoint fue el paso 1200 (val macro-F1 0.625).
+
+## Bake-off de modelos base (2026-07-14) — BioBERT ganó
+
+Receta idéntica (3 clases, pesos, label smoothing 0.1, LR 2e-5, early stopping),
+márgenes barridos por modelo en validación y reportados en test (fm=0.35 para todos):
+
+| Modelo base | Acc. firme (test) | verdadera→falsa | falsa→verdadera | Cobertura |
+|---|---|---|---|---|
+| dmis-lab/biobert-v1.1 (**desplegado**) | **88.7%** | **15.3%** | 1.0% | 72.5% |
+| FacebookAI/roberta-base | 87.7% | 18.7% | **0.7%** | 78.3% |
+| microsoft/deberta-v3-base | 87.2% | 15.7% | 2.3% | 70.5% |
+| microsoft/BiomedNLP-BiomedBERT (PubMedBERT) | 86.7% | 17.7% | 2.7% | 76.3% |
+
+Notas:
+
+- La ventaja de RoBERTa en validación **no transfirió a test**. Sigue siendo la opción
+  de mayor cobertura (86.3% acc. con 83.8% de cobertura sin márgenes) si algún día
+  sobran los "Dudoso", pero pierde en falsos positivos.
+- DeBERTa-v3 arranca muy lento con LR 2e-5 / warmup 500 (val F1 0.606); necesitaría
+  su propia receta para competir y no la vale a igualdad de presupuesto.
+- Su checkpoint de HF viene en fp16: `train.py` fuerza `dtype=torch.float32` al cargar.
+- El tokenizador de DeBERTa requiere `sentencepiece` + `protobuf` (no están en
+  `pyproject.toml` porque perdió el bake-off).
+
+## No volver a intentar
+
+- **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
+  ~87–89%. El techo lo pone la tarea (clasificar veracidad sin evidencia aprende
+  estilo, no verdad), no la arquitectura.
+- **Más épocas / entrenar más**: las épocas 2–3 sobreajustan; early stopping ya
+  captura el pico dentro de la época 1–2.
+- **Afinar más los márgenes**: el barrido es casi plano; subir fm 0.25→0.35 compra
+  ~+0.9 de accuracy a cambio de −3 de cobertura y ahí se acaba el recorrido.
+- **Plegar `mixture` en `falsa`** o cualquier reetiquetado que contamine una clase.
+
+## Pendiente con mayor expectativa
+
+1. **Entrenamiento con evidencia** (`claim [SEP] evidencia`, estilo NLI): la única vía
+   con margen real; ataca los errores no verificables desde el claim.
+2. LR 1e-5 con 4–5 épocas: pulido menor sobre BioBERT, nunca probado, expectativa baja.
+3. Reequilibrar pesos hacia `verdadera`: los errores siguen asimétricos (52 FP vs 3 FN).
