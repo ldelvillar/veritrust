@@ -16,7 +16,7 @@ import pandas as pd
 from app.agents.errors import ainvoke_graph
 from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
-from app.core.credibility import classify_verdict
+from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import load_prompts
 from app.utils.ollama import ensure_ollama_available
 from ml.utils.load_data import load_dataset
@@ -41,6 +41,7 @@ class EvalRow(TypedDict):
     expected: str
     predicted: str | None
     confidence: float
+    fake_avg: float | None
 
 
 def load_samples(
@@ -77,6 +78,17 @@ def _build_initial_state(text: str) -> dict[str, object]:
         "confidence": 0.0,
         "medical_explanation": "",
     }
+
+
+def _reconstruct_fake_avg(
+    label: str | None, confidence: float, coverage: float
+) -> float | None:
+    """Invierte la atenuación por cobertura para recuperar la fake_avg que vio la banda."""
+    if not label:
+        return None
+    cov = max(0.0, min(1.0, coverage))
+    raw = min(1.0, confidence / (1 - EVIDENCE_MAX_PENALTY * (1 - cov)))
+    return round(raw if label == "falsa" else 1.0 - raw, 6)
 
 
 def load_checkpoint(path: Path) -> dict[str, EvalRow]:
@@ -129,11 +141,16 @@ async def evaluate_pipeline(
             explanation = result.get("medical_explanation") or None
             # Sin explicación: el texto no contenía afirmaciones médicas verificables.
             predicted = label if (label and explanation) else None
+            confidence = float(result.get("confidence") or 0.0)
             row: EvalRow = {
                 "text": sample["text"],
                 "expected": sample["expected"],
                 "predicted": predicted,
-                "confidence": float(result.get("confidence") or 0.0),
+                "confidence": confidence,
+                # fake_avg cruda para poder barrer la banda global sin re-ejecutar.
+                "fake_avg": _reconstruct_fake_avg(
+                    label, confidence, float(result.get("evidence_coverage") or 0.0)
+                ),
             }
             done[sample["text"]] = row
             if handle is not None:

@@ -15,6 +15,7 @@ def _row(expected: str, predicted: str | None, confidence: float = 0.9) -> ep.Ev
         "expected": expected,
         "predicted": predicted,
         "confidence": confidence,
+        "fake_avg": None,
     }
 
 
@@ -68,6 +69,21 @@ def test_compute_metrics_treats_incierta_as_abstention() -> None:
     assert metrics["accuracy"] == 1.0
     # La cobertura sí refleja las abstenciones: 1 firme de 3 con afirmaciones.
     assert metrics["coverage"] == pytest.approx(1 / 3)
+
+
+def test_reconstruct_fake_avg_inverts_coverage_attenuation() -> None:
+    # fake_avg 0.62 reportada como falsa con cobertura 0.5: 0.62 * 0.875 = 0.5425.
+    assert ep._reconstruct_fake_avg("falsa", 0.62 * 0.875, 0.5) == pytest.approx(0.62)
+
+
+def test_reconstruct_fake_avg_mirrors_non_fake_labels() -> None:
+    # verdadera/incierta reportan 1 - fake_avg; cobertura completa no atenúa.
+    assert ep._reconstruct_fake_avg("verdadera", 0.8, 1.0) == pytest.approx(0.2)
+    assert ep._reconstruct_fake_avg("incierta", 0.55, 1.0) == pytest.approx(0.45)
+
+
+def test_reconstruct_fake_avg_is_none_without_label() -> None:
+    assert ep._reconstruct_fake_avg("", 0.0, 0.0) is None
 
 
 def test_format_report_excludes_abstentions_from_errors() -> None:

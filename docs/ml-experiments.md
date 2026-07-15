@@ -108,6 +108,35 @@ Notas:
   peso: mejorar el juez de relevancia (que se moje más en supports/contradicts) o
   pasar al entrenamiento con evidencia (`claim [SEP] evidencia`).
 
+## Barrido de la banda global de veredicto (2026-07-15) — la banda actual ya es óptima
+
+Hipótesis (dos evaluaciones de test seguidas): todos los errores caían con confianza
+< 0.65 y todo veredicto ≥ 0.65 acertaba, así que recalibrar la banda (0.30–0.50 sobre
+`fake_avg`) parecía la mejora más barata. Para barrer sin re-ejecutar el pipeline,
+`evaluate_pipeline.py` ahora persiste la `fake_avg` cruda por muestra (reconstruida
+invirtiendo la atenuación por cobertura; el barrido reproduce los 63 veredictos
+almacenados con 0 desajustes). Medido en **validación** (150 muestras, seed 42,
+`results/eval_pipeline_validation.jsonl`):
+
+| Banda (lower, upper) | Firmes | Aciertos | Errores | Acc. | Cobertura |
+|---|---|---|---|---|---|
+| (0.30, 0.50) — actual | 33 | 24 | 9 | 72.7% | 52.4% |
+| (0.275, 0.50) | 32 | 24 | 8 | 75.0% | 50.8% |
+| (0.275, 0.65) | 31 | 23 | 8 | 74.2% | 49.2% |
+| (0.275, 0.775) | 26 | 19 | 7 | 73.1% | 41.3% |
+
+Notas:
+
+- **La separación por confianza 0.65 de test NO replica en validación**: era suerte
+  de muestra pequeña (6–7 errores). En validación hay errores hasta conf 0.68 y los
+  8 FP mantienen `fake_avg` alto hasta ~0.775: subir el umbral pierde aciertos al
+  mismo ritmo que errores.
+- La única mejora (lower 0.30→0.275) elimina exactamente 1 muestra errónea: ajustar
+  por un solo dato es sobreajuste, no señal. **Se mantiene la banda actual.**
+- Los FP restantes son errores seguros del clasificador (afirmaciones verdaderas con
+  `fake_avg` > 0.75), el mismo sesgo verdadera→falsa de siempre: ninguna banda los
+  separa. La vía sigue siendo mejorar la señal (evidencia en el entrenamiento).
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -118,6 +147,9 @@ Notas:
 - **Afinar más los márgenes**: el barrido es casi plano; subir fm 0.25→0.35 compra
   ~+0.9 de accuracy a cambio de −3 de cobertura y ahí se acaba el recorrido.
 - **Plegar `mixture` en `falsa`** o cualquier reetiquetado que contamine una clase.
+- **Recalibrar la banda global de veredicto**: barrida en validación (2026-07-15),
+  la banda (0.30, 0.50) ya está en el óptimo práctico; los errores restantes tienen
+  `fake_avg` alto y ningún umbral los separa de los aciertos.
 
 ## Pendiente con mayor expectativa
 
