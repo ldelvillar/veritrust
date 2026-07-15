@@ -217,7 +217,8 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         "La vitamina C previene el resfriado",
     ]
     assert result["label"] == "verdadera"
-    assert result["confidence"] == pytest.approx(0.9)
+    # Evidencia a favor (2 y 1 fuentes): fake_avg = (0.1 * 2/3 + 0.1 * 5/6) / 2 = 0.075.
+    assert result["confidence"] == pytest.approx(0.925)
     assert result["evidence_coverage"] == 1.0
     assert result["medical_explanation"] == "Informe médico integrado"
 

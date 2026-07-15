@@ -76,6 +76,38 @@ Notas:
   extrae claims de titulares cortos tipo PubHealth. Es el mayor cuello de botella del
   pipeline y es independiente del clasificador.
 
+## Mezcla de fake_prob con la postura de la evidencia (2026-07-15) — neutra en la práctica
+
+Cambio: cada afirmación mezcla su `fake_prob` con la postura de la literatura
+(`contradicts / (supports + contradicts)`, peso `0.5 · min(n, 3)/3` en
+`blend_fake_prob_with_stance`), sustituyendo al ablandador defensivo
+`soften_verdict_with_opposition` (mantener ambos contaría dos veces la misma señal).
+La evidencia ya puede en teoría invertir un veredicto o resolver una abstención.
+Medido pareado sobre las mismas 150 muestras test (seed 42,
+`results/eval_pipeline_{post,stance}.jsonl`):
+
+| | Pre (renorm) | Post (stance) |
+|---|---|---|
+| Accuracy firme | 78.1% (25/32) | 80.0% (24/30) |
+| Cobertura | 46.4% | 42.9% |
+| FP / FN | 6 / 1 | 6 / 0 |
+
+Notas:
+
+- **En la práctica se comportó como el ablandador que sustituye**: 0 inversiones y
+  0 abstenciones resueltas; solo movió 3 firmes a incierta (1 error corregido, el
+  único FN, y 2 aciertos perdidos). La señal de postura es demasiado escasa: llegar
+  al peso máximo exige 3 fuentes pronunciadas sobre la misma afirmación, y el juez
+  marca la mayoría como `inconclusive`.
+- La transición sin_afirmaciones→verdadera restante es ruido del extractor entre
+  ejecuciones, no efecto del cambio.
+- **La separación por confianza se repite**: los 6 errores tienen conf < 0.65 y los
+  15 veredictos con ≥ 0.65 aciertan todos. Recalibrar la banda global sigue siendo
+  el ajuste pendiente más barato (en validación, no en test).
+- Para que la evidencia pague en accuracy hace falta más señal pronunciada, no más
+  peso: mejorar el juez de relevancia (que se moje más en supports/contradicts) o
+  pasar al entrenamiento con evidencia (`claim [SEP] evidencia`).
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en

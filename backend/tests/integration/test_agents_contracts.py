@@ -326,10 +326,10 @@ def _stub_health_models(monkeypatch, health_module, claim_label, claim_confidenc
     monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
 
 
-def test_contradicting_evidence_downgrades_confident_verdict_to_uncertain(
+def test_contradicting_evidence_flips_confident_verdict(
     monkeypatch, health_module, dummy_prompts
 ):
-    # BERT da "verdadera" decisiva, pero toda la literatura contradice la afirmación.
+    # BERT da "verdadera" decisiva, pero tres fuentes contradicen la afirmación.
     _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
 
     state = {
@@ -338,23 +338,24 @@ def test_contradicting_evidence_downgrades_confident_verdict_to_uncertain(
         "evidence_coverage": 1.0,
         "sources": [
             {
-                "title": "Refutación",
-                "url": "https://doi.org/10.1/x",
+                "title": f"Refutación {i}",
+                "url": f"https://doi.org/10.1/x{i}",
                 "statements": [{"text": "S1", "stance": "contradicts"}],
             }
+            for i in range(3)
         ],
     }
     update = health_module.health_expert(state, dummy_prompts)
 
-    assert update["label"] == "incierta"
-    # Confianza ablandada: 0.9 * (1 - 0.25 * 1.0) = 0.675.
-    assert update["confidence"] == pytest.approx(0.675)
+    # fake_prob mezclada con peso máximo: 0.5 * 0.1 + 0.5 * 1 = 0.55 > 0.50.
+    assert update["label"] == "falsa"
+    assert update["confidence"] == pytest.approx(0.55)
 
 
-def test_supporting_evidence_keeps_confident_verdict(
+def test_supporting_evidence_reinforces_confident_verdict(
     monkeypatch, health_module, dummy_prompts
 ):
-    # La literatura respalda la afirmación: el veredicto firme se mantiene intacto.
+    # La literatura respalda la afirmación: el veredicto firme gana confianza.
     _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
 
     state = {
@@ -372,13 +373,14 @@ def test_supporting_evidence_keeps_confident_verdict(
     update = health_module.health_expert(state, dummy_prompts)
 
     assert update["label"] == "verdadera"
-    assert update["confidence"] == pytest.approx(0.9)
+    # fake_prob mezclada con peso 1/6: (5/6) * 0.1 = 1/12; confianza 1 - 1/12.
+    assert update["confidence"] == pytest.approx(1 - 0.1 * 5 / 6)
 
 
-def test_minor_opposition_only_reduces_confidence_without_downgrade(
+def test_minority_contradiction_only_reduces_confidence(
     monkeypatch, health_module, dummy_prompts
 ):
-    # Una de tres afirmaciones contradicha (oposición 1/3 < 0.5): baja confianza, no cambia veredicto.
+    # Una de tres afirmaciones contradicha por una fuente: baja confianza, no cambia veredicto.
     _stub_health_models(monkeypatch, health_module, "verdadera", 0.9)
 
     state = {
@@ -406,8 +408,34 @@ def test_minor_opposition_only_reduces_confidence_without_downgrade(
     update = health_module.health_expert(state, dummy_prompts)
 
     assert update["label"] == "verdadera"
-    # 0.9 * (1 - 0.25 * (1/3)) = 0.825.
-    assert update["confidence"] == pytest.approx(0.9 * (1 - 0.25 / 3))
+    # fake_avg = (0.25 + 1/12 + 1/12) / 3 = 5/36; confianza 31/36.
+    assert update["confidence"] == pytest.approx(31 / 36)
+
+
+def test_supporting_evidence_resolves_bert_abstention(
+    monkeypatch, health_module, dummy_prompts
+):
+    # BERT se abstiene, pero tres fuentes respaldan: la evidencia emite el veredicto.
+    _stub_health_models(monkeypatch, health_module, "incierta", 0.6)
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "evidence_coverage": 1.0,
+        "sources": [
+            {
+                "title": f"Respaldo {i}",
+                "url": f"https://doi.org/10.1/y{i}",
+                "statements": [{"text": "S1", "stance": "supports"}],
+            }
+            for i in range(3)
+        ],
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    # fake_prob neutra 0.40 mezclada con peso máximo: 0.5 * 0.4 = 0.2 < 0.30.
+    assert update["label"] == "verdadera"
+    assert update["confidence"] == pytest.approx(0.8)
 
 
 def test_health_expert_fences_user_text_and_neutralizes_injection(

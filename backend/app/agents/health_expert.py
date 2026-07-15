@@ -20,7 +20,7 @@ from app.agents import sanitize
 from app.core.config import get_settings
 from app.core.credibility import (
     adjust_confidence_with_evidence,
-    soften_verdict_with_opposition,
+    blend_fake_prob_with_stance,
 )
 from app.prompts.agents import Prompts
 from app.tools.model_tool import FakeNewsDetectorTool
@@ -138,10 +138,8 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     all_statements = ""
     claims: list[dict] = []
 
-    # Postura de la literatura por afirmación, para contrastarla con el veredicto.
+    # Postura de la literatura por afirmación, para informar la prob. de falsedad.
     stance_counts = _stance_counts_by_claim(state.get("sources") or [])
-    claims_with_evidence = 0
-    opposed_claims = 0
 
     # Clasificar todas las afirmaciones en una sola pasada por BERT
     logger.debug("[Experto] Analizando %d afirmaciones con BERT", total_statements)
@@ -164,6 +162,13 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
             fake_prob = probs["falsa"] / (probs["falsa"] + probs["verdadera"])
         else:
             fake_prob = FAKE_THRESHOLD
+
+        # La postura de la literatura corrige la prob. de falsedad de la afirmación.
+        counts = stance_counts.get(str(original))
+        if counts:
+            fake_prob = blend_fake_prob_with_stance(
+                fake_prob, counts["supports"], counts["contradicts"]
+            )
         total_fake_prob += fake_prob
 
         safe_original = _neutralize_delimiters(str(original))
@@ -171,20 +176,6 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
 
         # Veredicto por afirmación para el desglose del informe.
         claims.append({"text": safe_original, "label": label, "confidence": confidence})
-
-        # La evidencia se alinea o se opone según la dirección que da BioBERT.
-        counts = stance_counts.get(str(original))
-        if counts and label in ("verdadera", "falsa"):
-            aligned = (
-                counts["supports"] if label == "verdadera" else counts["contradicts"]
-            )
-            opposed = (
-                counts["contradicts"] if label == "verdadera" else counts["supports"]
-            )
-            if aligned + opposed > 0:
-                claims_with_evidence += 1
-                if opposed > aligned:
-                    opposed_claims += 1
 
     # Calcular la media global
     fake_avg = total_fake_prob / total_statements
@@ -204,14 +195,6 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     evidence_coverage = float(state.get("evidence_coverage", 1.0))
     global_confidence = adjust_confidence_with_evidence(
         global_confidence, evidence_coverage
-    )
-
-    # La evidencia que contradice el veredicto lo ablanda (nunca lo invierte).
-    evidence_opposition = (
-        opposed_claims / claims_with_evidence if claims_with_evidence else 0.0
-    )
-    global_label, global_confidence = soften_verdict_with_opposition(
-        global_label, global_confidence, evidence_opposition
     )
 
     evidence_block = _build_evidence_block(state.get("sources") or [])
