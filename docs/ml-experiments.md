@@ -182,6 +182,29 @@ Notas:
   palanca real es el clasificador con evidencia (`claim [SEP] evidencia`), no la
   agregación.
 
+## Diagnóstico: el pipeline destruye ~30 puntos frente a su propio clasificador (2026-07-15)
+
+BioBERT aplicado directamente al texto crudo de las mismas 150 muestras del eval
+solo-médico: **90.3% de accuracy firme** (62 firmes, FP=4, FN=2, cobertura 41.3%)
+frente al 60.5% del pipeline completo. El subconjunto médico no es más difícil para
+el clasificador; es la maquinaria del pipeline la que pierde la accuracy. Trazando
+muestras erróneas por etapas:
+
+- «Tests show King Tut died from malaria, study says» → directo verdadera 0.86;
+  el extractor lo reduce a «King Tut died from malaria» → falsa 0.71.
+- «Heparin recalled in France, Italy, Denmark: report» → directo verdadera 0.86;
+  normalizado a declarativa sin atribución → falsa 0.51.
+- El titular de la FDA/Farxiga pasa de verdadera 0.82 a falsa 0.54 con una
+  paráfrasis casi idéntica.
+
+Causa raíz: **BioBERT lee registro, no contenido**. Los marcadores de evidencialidad
+("study says", "tests show", ": report") codifican verdadera; la aserción declarativa
+desnuda codifica falsa (estilo bulo viral). El extractor y el traductor ("inglés
+clínico") normalizan sistemáticamente hacia ese registro falso-codificado: de ahí la
+explosión de FP (precisión falsa 48%) y que pipeline y clasificador solo coincidan
+en 24 de 33 veredictos firmes comunes. El clasificador es frágil a la paráfrasis; el
+pipeline se lo expone en cada muestra.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
