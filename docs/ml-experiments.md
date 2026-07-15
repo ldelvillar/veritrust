@@ -137,6 +137,51 @@ Notas:
   `fake_avg` > 0.75), el mismo sesgo verdadera→falsa de siempre: ninguna banda los
   separa. La vía sigue siendo mejorar la señal (evidencia en el entrenamiento).
 
+## "Sin afirmaciones" es filtrado de dominio, no fallo del extractor (2026-07-15)
+
+Revisadas una a una las 87 muestras de validación sin afirmaciones extraídas:
+~2/3 son claramente ajenas al dominio (fact-checks políticos, leyendas urbanas,
+noticias generales — PubHealth arrastra PolitiFact/Snopes) y la mayoría del resto
+son titulares de política sanitaria sin ninguna afirmación médica verificable.
+Fallos reales del extractor: ~5–8 (titulares tipo estudio, p. ej. "Study adds to
+evidence of vaccine safety"). Corrige la conclusión del 2026-07-14: el 54% de
+descartes NO es el mayor cuello de botella del pipeline, es en su mayoría el
+comportamiento correcto para el alcance médico de VeriTrust. Si se quiere medir
+solo el dominio médico, el ajuste va en el muestreo de la evaluación (filtrar
+PubHealth a afirmaciones médicas), no en el extractor.
+
+## Muestreo solo-médico en la evaluación (2026-07-15) — baseline honesto, y es peor
+
+Nuevo `--medical-only` en `evaluate_pipeline.py`: un juez LLM (modelo del juez de
+relevancia, no el del extractor, para que los fallos del extractor sigan aflorando)
+filtra el muestreo a textos con cuestión médica verificable; prompt en
+`ml/evaluation/prompts.yaml`. Los metadatos de PubHealth no sirven como filtro
+(subjects: 45% vs 39% de extracción entre etiquetadas médicas y no; fact_checkers
+son firmas de periodistas). Primera medición (test, 150 muestras, seed 42,
+`results/eval_pipeline_test_medical.jsonl`; filtro: 526 juzgadas → 150):
+
+| | Mezclado (stance, 2026-07-15) | Solo-médico |
+|---|---|---|
+| Sin afirmaciones | 53% (80/150) | **12% (18/150)** |
+| Veredictos firmes | 30 | 43 |
+| Accuracy firme | 80.0% | **60.5%** |
+| Cobertura | 42.9% | 32.6% |
+| FP / FN | 6 / 0 | 14 / 3 |
+
+Notas:
+
+- **Los evals mezclados inflaban la accuracy**: las muestras no médicas que sí
+  pasaban el extractor (leyendas urbanas, política) son estilísticamente fáciles.
+  En dominio médico real el lado "falsa" tiene precisión 48% (14 FP de 27) — los
+  errores son titulares sanitarios verdaderos (aprobaciones FDA, hallazgos de
+  estudios) marcados como falsos: el sesgo verdadera→falsa a plena potencia.
+- La abstención sube al 67% de las muestras con afirmaciones: el pipeline se moja
+  poco justo en su dominio.
+- Errores con confianza 0.66–0.73: entierra definitivamente la "separación 0.65".
+- **Este es el baseline a batir** (60.5% acc, 32.6% cobertura). Refuerza que la
+  palanca real es el clasificador con evidencia (`claim [SEP] evidencia`), no la
+  agregación.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en

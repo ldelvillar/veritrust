@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -133,6 +134,70 @@ def test_load_samples_skips_blank_claims(monkeypatch) -> None:
     samples = ep.load_samples(limit=2, seed=1)
 
     assert all(s["text"].strip() for s in samples)
+
+
+class _FakeMedicalChain:
+    def __init__(self, verdicts: dict[str, object]) -> None:
+        self._verdicts = verdicts
+        self.judged: list[str] = []
+
+    def invoke(self, payload: dict) -> SimpleNamespace:
+        self.judged.append(payload["claim"])
+        verdict = self._verdicts[payload["claim"]]
+        if isinstance(verdict, Exception):
+            raise verdict
+        return SimpleNamespace(is_medical=verdict)
+
+
+def test_filter_medical_samples_keeps_balance_and_order() -> None:
+    samples: list[ep.Sample] = [
+        {"text": "m1", "expected": "falsa"},
+        {"text": "x1", "expected": "falsa"},
+        {"text": "m2", "expected": "verdadera"},
+        {"text": "m3", "expected": "falsa"},
+        {"text": "m4", "expected": "verdadera"},
+        {"text": "m5", "expected": "verdadera"},
+    ]
+    chain = _FakeMedicalChain(
+        {"m1": True, "x1": False, "m2": True, "m3": True, "m4": True}
+    )
+
+    kept = ep.filter_medical_samples(samples, chain, limit=4)
+
+    assert [s["text"] for s in kept] == ["m1", "m2", "m3", "m4"]
+    # Con ambas clases completas se deja de juzgar (m5 nunca se evalúa).
+    assert "m5" not in chain.judged
+
+
+def test_filter_medical_samples_skips_full_classes_without_judging() -> None:
+    samples: list[ep.Sample] = [
+        {"text": "f1", "expected": "falsa"},
+        {"text": "f2", "expected": "falsa"},
+        {"text": "v1", "expected": "verdadera"},
+    ]
+    chain = _FakeMedicalChain({"f1": True, "v1": True})
+
+    kept = ep.filter_medical_samples(samples, chain, limit=2)
+
+    assert [s["text"] for s in kept] == ["f1", "v1"]
+    # f2 se salta sin llamar al juez porque su clase ya está completa.
+    assert chain.judged == ["f1", "v1"]
+
+
+def test_filter_medical_samples_fails_open_on_judge_error() -> None:
+    samples: list[ep.Sample] = [{"text": "boom", "expected": "falsa"}]
+    chain = _FakeMedicalChain({"boom": RuntimeError("caído")})
+
+    assert ep.filter_medical_samples(samples, chain, limit=2) == samples
+
+
+def test_medical_filter_prompt_is_packaged() -> None:
+    import yaml
+
+    with ep.PROMPTS_PATH.open(encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+
+    assert "afirmación médica" in data["medical_filter"]["text"]
 
 
 def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
