@@ -12,14 +12,14 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev --group cpu
 
 COPY pyproject.toml uv.lock ./
 COPY app ./app
 COPY ml ./ml
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --group cpu
 
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app \
     && chown -R app:app /app
