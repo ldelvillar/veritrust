@@ -197,7 +197,8 @@ def test_medical_filter_prompt_is_packaged() -> None:
     with ep.PROMPTS_PATH.open(encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
 
-    assert "afirmación médica" in data["medical_filter"]["text"]
+    # El prompt debe instruir el campo estructurado que consume la cadena.
+    assert "is_medical" in data["medical_filter"]["text"]
 
 
 def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
