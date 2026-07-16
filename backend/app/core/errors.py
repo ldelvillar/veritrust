@@ -42,6 +42,10 @@ _MESSAGES: dict[ErrorCode, str] = {
         "Solo se pueden reintentar los análisis que han fallado."
     ),
     ErrorCode.ANALYSIS_RETRY_FAILED: "No se pudo reintentar el análisis.",
+    ErrorCode.ANALYSIS_NOT_REANALYZABLE: (
+        "Solo se pueden volver a analizar los análisis completados."
+    ),
+    ErrorCode.ANALYSIS_REANALYZE_FAILED: "No se pudo volver a analizar el análisis.",
     ErrorCode.ANALYSIS_NOT_SHAREABLE: (
         "Solo se pueden compartir los análisis completados."
     ),

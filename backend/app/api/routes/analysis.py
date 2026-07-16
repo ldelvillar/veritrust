@@ -28,6 +28,7 @@ from app.db.history import (
     fail_analysis,
     get_analysis_file,
     get_user_analysis_by_id,
+    reset_done_analysis_to_pending,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
 )
@@ -565,6 +566,109 @@ async def retry_analysis(
         raise HTTPException(
             status_code=409,
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_RETRYABLE),
+        )
+
+    if record.source_type == "url":
+        text_arg, url_arg = None, record.input_url
+    else:
+        text_arg, url_arg = record.input_text, None
+
+    try:
+        # _job_id=analysis_id: si el job previo sigue vivo, arq no encola un duplicado.
+        await arq_pool.enqueue_job(
+            "run_analysis",
+            analysis_id,
+            record.source_type,
+            text_arg,
+            url_arg,
+            user.get("email"),
+            _job_id=analysis_id,
+        )
+    except (OSError, RedisError) as e:
+        # Sin encolado, se devuelve la fila a failed para que no quede pending.
+        logger.exception("No se pudo reencolar el análisis %s", analysis_id)
+        try:
+            await fail_analysis(
+                analysis_id=analysis_id,
+                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+            )
+        except DatabaseError:
+            logger.exception(
+                "No se pudo marcar como failed el análisis %s", analysis_id
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
+
+    return {"status": "pending", "analysis_id": analysis_id}
+
+
+@router.post(
+    "/{analysis_id}/reanalyze",
+    response_model=AnalysisResponse,
+    responses=_RETRY_ERROR_RESPONSES,
+)
+async def reanalyze_analysis(
+    analysis_id: str,
+    request: Request,
+    user: dict = Depends(check_rate_limit),
+):
+    """Reabre un análisis ``done`` propio y lo reencola con la misma entrada."""
+    user_id = user["sub"]
+
+    try:
+        # Validación rápida para evitar consultas con ids inválidos.
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    arq_pool = getattr(request.app.state, "arq_pool", None)
+    if arq_pool is None:
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        )
+
+    try:
+        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    # Solo tiene sentido reanalizar un informe terminado; pending/failed no se tocan.
+    if record.status != "done":
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_REANALYZABLE),
+        )
+
+    try:
+        reopened = await reset_done_analysis_to_pending(
+            user_id=user_id, analysis_id=analysis_id
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_REANALYZE_FAILED),
+        ) from e
+
+    if not reopened:
+        # Perdió la carrera: el estado cambió entre la lectura y el reinicio.
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_REANALYZABLE),
         )
 
     if record.source_type == "url":

@@ -467,11 +467,15 @@ async def list_user_analysis_history(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql/safe_order_by son valores saneados, no entrada cruda.
-                await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    count_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    list_query, (*where_params, safe_limit, safe_offset)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -521,7 +525,9 @@ async def count_history_verdict_facets(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
-                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    facets_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -577,7 +583,9 @@ async def count_history_source_type_facets(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
-                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    facets_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -654,7 +662,9 @@ async def export_user_analysis_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    export_query, (*where_params, _EXPORT_MAX_ROWS)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -821,6 +831,43 @@ async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) ->
         UPDATE public.analysis_history
         SET status = 'pending', error_code = NULL, stage = NULL, created_at = NOW()
         WHERE user_id = %s AND id = %s AND status = 'failed'
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                return cur.rowcount > 0
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo reabrir el análisis en la base de datos.")
+        ) from exc
+
+
+async def reset_done_analysis_to_pending(*, user_id: str, analysis_id: str) -> bool:
+    """Reabre a ``pending`` un análisis ``done`` propio para volver a analizarlo.
+
+    Devuelve True si cambió una fila. Borra el resultado previo para no contarlo en
+    agregados mientras se re-ejecuta; conserva la entrada, el archivo y el share_token.
+    """
+    pool = await get_pool()
+
+    # created_at se reinicia a NOW(); el veredicto se limpia para
+    # no seguir sumando en dashboard/historial mientras la fila está pending.
+    query = """
+        UPDATE public.analysis_history
+        SET status = 'pending',
+            label = NULL,
+            verdict = NULL,
+            confidence = NULL,
+            evidence_coverage = NULL,
+            explanation = NULL,
+            claims = NULL,
+            sources = NULL,
+            error_code = NULL,
+            stage = NULL,
+            created_at = NOW()
+        WHERE user_id = %s AND id = %s AND status = 'done'
     """
 
     try:

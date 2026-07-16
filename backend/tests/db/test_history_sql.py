@@ -18,6 +18,7 @@ from app.db.history import (
     get_user_analysis_by_id,
     list_stale_pending_analysis_ids,
     list_user_analysis_history,
+    reset_done_analysis_to_pending,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
 )
@@ -159,6 +160,62 @@ async def test_reset_refuses_non_failed_rows_and_foreign_users(db_pool):
     record = await get_user_analysis_by_id(user_id=USER, analysis_id=failed_id)
     assert record is not None
     assert record.status == "failed"
+
+
+async def test_reset_done_analysis_reopens_and_clears_result(db_pool):
+    """Reanalizar reabre a pending y borra el resultado previo, conservando el token."""
+    analysis_id = await _pending()
+    await complete_analysis(
+        analysis_id=analysis_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+        claims=[{"text": "x", "label": "falsa", "confidence": 0.9}],
+        sources=[{"title": "T", "url": "https://x", "source": "S"}],
+        evidence_coverage=0.5,
+    )
+    token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
+    assert token is not None
+
+    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
+
+    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
+    assert record is not None
+    assert record.status == "pending"
+    assert record.label is None
+    assert record.confidence is None
+    assert record.evidence_coverage is None
+    assert record.explanation is None
+    assert record.claims is None
+    assert record.sources is None
+    assert record.error_code is None
+    assert record.stage is None
+    # La entrada y el enlace público sobreviven para reejecutar y no romper el share.
+    assert record.input_text == "La vitamina C previene el resfriado"
+    assert record.share_token == token
+
+
+async def test_reset_done_refuses_non_done_rows_and_foreign_users(db_pool):
+    """La guarda de carrera del reanálisis vive en el WHERE: solo filas done y propias."""
+    pending_id = await _pending()
+    assert not await reset_done_analysis_to_pending(
+        user_id=USER, analysis_id=pending_id
+    )
+
+    failed_id = await _pending()
+    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
+    assert not await reset_done_analysis_to_pending(user_id=USER, analysis_id=failed_id)
+
+    done_id = await _pending()
+    await complete_analysis(
+        analysis_id=done_id, label="verdadera", confidence=0.8, explanation="Ok."
+    )
+    assert not await reset_done_analysis_to_pending(
+        user_id="otro-usuario", analysis_id=done_id
+    )
+    record = await get_user_analysis_by_id(user_id=USER, analysis_id=done_id)
+    assert record is not None
+    assert record.status == "done"
 
 
 async def test_share_token_issued_only_for_done_rows(db_pool):

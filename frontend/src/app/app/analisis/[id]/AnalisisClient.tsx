@@ -9,9 +9,11 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import ShareDialog from '@/components/ShareDialog';
 import Trash from '@/assets/Trash';
 import LinkIcon from '@/assets/Link';
+import RefreshIcon from '@/assets/Refresh';
 import { SITE_CONFIG } from '@/config/site';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
+import { useAnalysisReanalysis } from '@/hooks/useAnalysisReanalysis';
 import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
 import { useAnalysisShare } from '@/hooks/useAnalysisShare';
 import { useCompletionNotification } from '@/hooks/useCompletionNotification';
@@ -31,6 +33,7 @@ export default function AnalisisClient({
 }: AnalisisClientProps) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reanalyzeOpen, setReanalyzeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const {
     remove: deleteAnalysis,
@@ -39,6 +42,12 @@ export default function AnalisisClient({
     setError: setDeleteError,
   } = useAnalysisDeletion();
   const { retry, isRetrying, error: retryError } = useAnalysisRetry();
+  const {
+    reanalyze,
+    isReanalyzing,
+    error: reanalyzeError,
+    setError: setReanalyzeError,
+  } = useAnalysisReanalysis();
   const {
     createShare,
     removeShare,
@@ -112,6 +121,21 @@ export default function AnalisisClient({
     if (success) await refetch();
   };
 
+  const handleReanalyzeConfirm = async () => {
+    const success = await reanalyze(id);
+    // La fila vuelve a 'pending': cerramos y refrescamos para reanudar el polling.
+    if (success) {
+      setReanalyzeOpen(false);
+      await refetch();
+    }
+  };
+
+  const handleReanalyzeCancel = () => {
+    if (isReanalyzing) return;
+    setReanalyzeError(null);
+    setReanalyzeOpen(false);
+  };
+
   const handleDeleteConfirm = async () => {
     const success = await deleteAnalysis(id);
     // Al borrarse la fila, volvemos al historial (la página se desmonta).
@@ -123,6 +147,19 @@ export default function AnalisisClient({
     setDeleteError(null);
     setConfirmOpen(false);
   };
+
+  const reanalyzeButton = (
+    <Button
+      variant="soft"
+      onClick={() => {
+        setReanalyzeError(null);
+        setReanalyzeOpen(true);
+      }}
+    >
+      <RefreshIcon className="size-4" />
+      Volver a analizar
+    </Button>
+  );
 
   const shareButton = (
     <Button variant="soft" onClick={handleShareOpen}>
@@ -144,9 +181,10 @@ export default function AnalisisClient({
     </Button>
   );
 
-  // Solo se puede compartir un informe terminado.
+  // Solo un informe terminado se puede volver a analizar o compartir.
   const headerActions = (
     <>
+      {current.status === 'done' && reanalyzeButton}
       {current.status === 'done' && shareButton}
       {deleteButton}
     </>
@@ -173,6 +211,17 @@ export default function AnalisisClient({
         errorMessage={deleteError}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      <ConfirmDialog
+        open={reanalyzeOpen}
+        title="¿Volver a analizar este contenido?"
+        description="Se generará un informe nuevo con la evidencia médica más reciente. El resultado actual se reemplazará y esta acción no se puede deshacer."
+        confirmLabel="Volver a analizar"
+        isConfirming={isReanalyzing}
+        errorMessage={reanalyzeError}
+        onConfirm={handleReanalyzeConfirm}
+        onCancel={handleReanalyzeCancel}
       />
 
       <ShareDialog
