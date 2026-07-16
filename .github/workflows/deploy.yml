@@ -39,5 +39,21 @@ jobs:
               echo "Secret Manager: 'veritrust-env' no accesible o inválido; se mantiene el .env actual"
             fi
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            # Nadie hace depends_on del worker, así que 'up -d' vuelve aunque esté en crash-loop.
+            echo "Esperando a que el worker pase su healthcheck..."
+            status=""
+            for _ in $(seq 60); do
+              cid=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q worker)
+              status=$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo desconocido)
+              if [ "$status" = "healthy" ]; then break; fi
+              sleep 5
+            done
+            if [ "$status" != "healthy" ]; then
+              # Un crash-loop se queda en 'starting' para siempre: cada reinicio resetea el healthcheck.
+              echo "::error::El worker no llegó a healthy en 300s (estado: $status)"
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 50 worker
+              exit 1
+            fi
+            echo "Worker healthy"
             docker image prune -f
             docker builder prune -f
