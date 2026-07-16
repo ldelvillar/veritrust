@@ -112,14 +112,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               hint="Número total de análisis que has completado."
             />
             <FeaturedKpiCard
-              label="Alertas activas"
+              label="Alertas detectadas"
               value={String(dashboard.kpis.active_alerts)}
-              sub="baja credibilidad"
+              sub="veredicto «falso»"
               icon={<WarningIcon className="size-5.75" strokeWidth={2.2} />}
               tint="#fbe4e8"
               color="#e0556b"
-              spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
-              hint="Análisis recientes con puntuación de credibilidad baja que requieren atención."
+              hint="Número total de tus análisis con veredicto «falso» (contenido no fiable)."
             />
           </div>
         </div>
