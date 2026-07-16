@@ -11,7 +11,7 @@ ssh USER@VM_IP "mkdir -p ~/veritrust/backend/models"
 ## 2. Copy the model
 
 ```powershell
-scp -i $env:USERPROFILE\.ssh\gcp_veritrust -r backend/models/bert_classifier USER@VM_IP:~/veritrust/backend/models/
+gcloud compute scp --recurse backend/models/bert_classifier/<MODEL_FOLDER> USER@veritrust:/home/USER/veritrust/backend/models/bert_classifier/ --zone us-central1-c
 ```
 
 ## 3. Verify
@@ -21,7 +21,8 @@ ssh USER@VM_IP "ls ~/veritrust/backend/models/bert_classifier/"
 ```
 
 Expected output:
-```
+
+```text
 config.json  model.safetensors  tokenizer.json  tokenizer_config.json
 ```
 
