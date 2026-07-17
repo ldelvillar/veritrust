@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 
 import { ApiError, fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
+import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
 import type { components, paths } from '@/types/api';
 
 type AnalysisRequest = components['schemas']['AnalysisRequest'];
@@ -36,6 +37,8 @@ export function useAnalysisSubmission() {
           throw new Error(NO_ID_ERROR);
         }
 
+        // La fila pending ya existe: el indicador global se entera al instante.
+        void refreshPendingAnalyses();
         router.push(`/app/analisis/${data.analysis_id}`);
       } catch (err) {
         if (err instanceof ApiError) {
@@ -67,6 +70,8 @@ export function useAnalysisSubmission() {
           throw new Error(NO_ID_ERROR);
         }
 
+        // La fila pending ya existe: el indicador global se entera al instante.
+        void refreshPendingAnalyses();
         router.push(`/app/analisis/${data.analysis_id}`);
       } catch (err) {
         if (err instanceof ApiError) {

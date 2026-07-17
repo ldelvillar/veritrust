@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
 import type { paths } from '@/types/api';
 
 type ReanalyzeAnalysisResponse =
@@ -27,6 +28,8 @@ export function useAnalysisReanalysis() {
           `/analysis/${analysisId}/reanalyze`,
           { method: 'POST' }
         );
+        // La fila vuelve a pending sin navegación: refrescamos el indicador global.
+        void refreshPendingAnalyses();
         return true;
       } catch (err) {
         setError(err instanceof ApiError ? err.message : CONNECTION_ERROR);

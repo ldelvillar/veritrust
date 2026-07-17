@@ -12,6 +12,10 @@ import NewIcon from '@/assets/New';
 import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
 import UserIcon from '@/assets/User';
+import PendingIndicator from '@/components/layout/PendingIndicator';
+import { usePendingAnalyses } from '@/hooks/usePendingAnalyses';
+
+type PendingState = ReturnType<typeof usePendingAnalyses>;
 
 const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
@@ -72,11 +76,13 @@ function Brand({
 }
 
 function SidebarContent({
+  pending,
   onNavigate,
   onCollapse,
   onExpand,
   collapsed,
 }: {
+  pending: PendingState;
   onNavigate?: () => void;
   onCollapse?: () => void;
   onExpand?: () => void;
@@ -128,6 +134,15 @@ function SidebarContent({
           );
         })}
       </div>
+
+      <PendingIndicator
+        pendingCount={pending.pendingCount}
+        newestPendingId={pending.newestPendingId}
+        finished={pending.finished}
+        dismissFinished={pending.dismissFinished}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
 
       <div className="mt-auto">
         {!collapsed && (
@@ -210,6 +225,8 @@ function SidebarContent({
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  // Una sola instancia del sondeo; escritorio, drawer y lanzador móvil la comparten.
+  const pending = usePendingAnalyses();
   const close = () => setOpen(false);
 
   return (
@@ -219,6 +236,7 @@ export default function Sidebar() {
         className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-white pt-2 pb-2 transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0' : 'w-66.5 px-1.5'}`}
       >
         <SidebarContent
+          pending={pending}
           onCollapse={() => setCollapsed(true)}
           onExpand={() => setCollapsed(false)}
           collapsed={collapsed}
@@ -232,7 +250,7 @@ export default function Sidebar() {
           aria-label="Abrir menú"
           aria-expanded={open}
           onClick={() => setOpen(true)}
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-line text-body transition hover:bg-surface"
+          className="relative inline-flex size-9 items-center justify-center rounded-lg border border-line text-body transition hover:bg-surface"
         >
           <svg
             viewBox="0 0 24 24"
@@ -244,6 +262,13 @@ export default function Sidebar() {
           >
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
+          {/* Punto que delata un análisis en curso; el detalle vive en el drawer. */}
+          {pending.pendingCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 size-2.5 animate-pulse rounded-full bg-primary"
+            />
+          )}
         </button>
         <Link href="/app/dashboard" className="flex items-center gap-2">
           <Logo className="h-6 w-auto" />
@@ -262,7 +287,7 @@ export default function Sidebar() {
             aria-hidden="true"
           />
           <aside className="absolute top-0 left-0 flex h-full w-70 max-w-[85%] flex-col overflow-y-auto border-r border-line bg-white px-4.5 pt-6.5 pb-5.5">
-            <SidebarContent onNavigate={close} />
+            <SidebarContent pending={pending} onNavigate={close} />
           </aside>
         </div>
       )}

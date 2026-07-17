@@ -6,6 +6,7 @@ import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
 interface UseApiQueryOptions<T> {
   fallbackData?: T;
   refreshInterval?: number | ((latestData: T | undefined) => number);
+  onSuccess?: (latestData: T) => void;
 }
 
 export function useApiQuery<T>(
@@ -20,6 +21,7 @@ export function useApiQuery<T>(
     {
       fallbackData: options.fallbackData,
       refreshInterval: options.refreshInterval,
+      ...(options.onSuccess ? { onSuccess: options.onSuccess } : {}),
     }
   );
 
