@@ -20,6 +20,7 @@ from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
+from app.db.feedback import create_analysis_feedback, get_analysis_feedback
 from app.db.history import (
     clear_analysis_share_token,
     create_pending_analysis,
@@ -35,6 +36,7 @@ from app.db.history import (
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse, ShareResponse
 from app.schemas.errors import ErrorCode, ErrorResponse
+from app.schemas.feedback import FeedbackRequest, FeedbackResponse
 from app.schemas.history import AnalysisHistoryItem
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 
@@ -92,6 +94,16 @@ _RETRY_ERROR_RESPONSES: dict[int | str, dict] = {
     429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
+}
+
+_FEEDBACK_ERROR_RESPONSES: dict[int | str, dict] = {
+    400: {"model": ErrorResponse},
+    401: {"model": ErrorResponse},
+    404: {"model": ErrorResponse},
+    409: {"model": ErrorResponse},
+    422: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
 }
 
 _SHARE_ERROR_RESPONSES: dict[int | str, dict] = {
@@ -385,6 +397,19 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
+    # Solo un informe terminado puede tener valoración; el sondeo pending se ahorra la consulta.
+    feedback = None
+    if record.status == "done":
+        try:
+            feedback = await get_analysis_feedback(
+                user_id=user_id, analysis_id=analysis_id
+            )
+        except DatabaseError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+            ) from e
+
     return AnalysisHistoryItem(
         analysis_id=record.analysis_id,
         user_id=record.user_id,
@@ -403,6 +428,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         file_filename=record.file_filename,
         share_token=record.share_token,
         stage=record.stage,
+        feedback=feedback,
     )
 
 
@@ -602,6 +628,73 @@ async def retry_analysis(
         ) from e
 
     return {"status": "pending", "analysis_id": analysis_id}
+
+
+@router.post(
+    "/{analysis_id}/feedback",
+    response_model=FeedbackResponse,
+    responses=_FEEDBACK_ERROR_RESPONSES,
+)
+async def submit_analysis_feedback(
+    analysis_id: str,
+    body: FeedbackRequest,
+    user: dict = Depends(check_rate_limit),
+):
+    """Guarda la valoración del veredicto de un análisis ``done`` propio."""
+    user_id = user["sub"]
+
+    try:
+        # Validación rápida para evitar consultas con ids inválidos.
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    # Solo se valora un veredicto existente; pending/failed no tienen resultado.
+    if record.status != "done":
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.FEEDBACK_NOT_ALLOWED),
+        )
+
+    try:
+        feedback = await create_analysis_feedback(
+            user_id=user_id,
+            analysis_id=analysis_id,
+            is_correct=body.is_correct,
+            suggested_verdict=body.suggested_verdict,
+            comment=body.comment,
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.FEEDBACK_SAVE_FAILED),
+        ) from e
+
+    if feedback is None:
+        # El guard del INSERT filtró la fila: ya había valoración activa (o carrera).
+        raise HTTPException(
+            status_code=409,
+            detail=make_error_detail(ErrorCode.FEEDBACK_ALREADY_SUBMITTED),
+        )
+
+    return {"status": "saved", "feedback": feedback}
 
 
 @router.post(

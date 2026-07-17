@@ -7,6 +7,7 @@ from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, computed_field, model_validator
 
 from app.core.credibility import Verdict, classify_verdict, compute_credibility
+from app.schemas.feedback import AnalysisFeedback
 
 Stance = Literal["supports", "contradicts", "inconclusive"]
 
@@ -79,6 +80,7 @@ class AnalysisHistoryItem(BaseModel):
     sources: Optional[List[SourceItem]] = None
     share_token: Optional[str] = None
     stage: Optional[str] = None
+    feedback: Optional[AnalysisFeedback] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

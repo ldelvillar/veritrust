@@ -46,6 +46,9 @@ _MESSAGES: dict[ErrorCode, str] = {
         "Solo se pueden volver a analizar los análisis completados."
     ),
     ErrorCode.ANALYSIS_REANALYZE_FAILED: "No se pudo volver a analizar el análisis.",
+    ErrorCode.FEEDBACK_NOT_ALLOWED: "Solo se puede valorar un análisis completado.",
+    ErrorCode.FEEDBACK_ALREADY_SUBMITTED: "Ya has valorado este resultado.",
+    ErrorCode.FEEDBACK_SAVE_FAILED: "No se pudo guardar la valoración.",
     ErrorCode.ANALYSIS_NOT_SHAREABLE: (
         "Solo se pueden compartir los análisis completados."
     ),

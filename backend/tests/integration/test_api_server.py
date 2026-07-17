@@ -13,6 +13,7 @@ from redis.exceptions import RedisError
 
 from app.api.dependencies.get_current_user import get_current_user
 from app.db.pool import DatabaseError
+from app.schemas.feedback import AnalysisFeedback
 from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 
 
@@ -363,9 +364,16 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         assert analysis_id == "11111111-1111-1111-1111-111111111111"
         return record
 
+    async def fake_get_analysis_feedback(*, user_id, analysis_id):
+        return None
+
     monkeypatch.setattr(
         "app.api.routes.analysis.get_user_analysis_by_id",
         fake_get_user_analysis_by_id,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_feedback",
+        fake_get_analysis_feedback,
     )
 
     response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
@@ -384,6 +392,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
             "verdict": "fake",
         }
     ]
+    assert body["feedback"] is None
 
 
 def test_analisis_detail_returns_pending_status(monkeypatch):
@@ -1104,6 +1113,277 @@ def test_reanalyze_returns_500_when_reopen_fails(monkeypatch):
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "ANALYSIS_REANALYZE_FAILED"
+
+
+def _feedback(
+    *,
+    is_correct: bool = True,
+    suggested_verdict: str | None = None,
+    comment: str | None = None,
+) -> AnalysisFeedback:
+    """Construye una valoración guardada para los tests de feedback."""
+    return AnalysisFeedback(
+        is_correct=is_correct,
+        suggested_verdict=suggested_verdict,
+        comment=comment,
+        created_at="2026-07-16T00:00:00+00:00",
+    )
+
+
+def test_feedback_saves_verdict_confirmation(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        return _done_record()
+
+    created = []
+
+    async def fake_create(**kwargs):
+        created.append(kwargs)
+        return _feedback(is_correct=True)
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "saved"
+    assert body["feedback"]["is_correct"] is True
+    assert body["feedback"]["suggested_verdict"] is None
+    assert created == [
+        {
+            "user_id": "test-user",
+            "analysis_id": _RETRY_ID,
+            "is_correct": True,
+            "suggested_verdict": None,
+            "comment": None,
+        }
+    ]
+
+
+def test_feedback_saves_correction_with_verdict_and_comment(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    created = []
+
+    async def fake_create(**kwargs):
+        created.append(kwargs)
+        return _feedback(
+            is_correct=False, suggested_verdict="real", comment="Fuente en contra."
+        )
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+    response = client.post(
+        f"/analysis/{_RETRY_ID}/feedback",
+        json={
+            "is_correct": False,
+            "suggested_verdict": "real",
+            "comment": "  Fuente en contra.  ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["feedback"]["suggested_verdict"] == "real"
+    # El comentario llega recortado por la validación del cuerpo.
+    assert created[0]["comment"] == "Fuente en contra."
+    assert created[0]["suggested_verdict"] == "real"
+
+
+def test_feedback_drops_correction_fields_when_confirming(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    created = []
+
+    async def fake_create(**kwargs):
+        created.append(kwargs)
+        return _feedback(is_correct=True)
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+    response = client.post(
+        f"/analysis/{_RETRY_ID}/feedback",
+        json={"is_correct": True, "suggested_verdict": "real", "comment": "sobra"},
+    )
+
+    # Confirmar el veredicto descarta la corrección: las etiquetas quedan limpias.
+    assert response.status_code == 200
+    assert created[0]["suggested_verdict"] is None
+    assert created[0]["comment"] is None
+
+
+def test_feedback_returns_422_when_verdict_is_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        f"/analysis/{_RETRY_ID}/feedback",
+        json={"is_correct": False, "suggested_verdict": "engañoso"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_feedback_returns_400_when_id_is_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post("/analysis/not-a-uuid/feedback", json={"is_correct": True})
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_feedback_returns_404_when_not_found(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+
+
+def test_feedback_returns_409_when_not_done(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="pending")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "FEEDBACK_NOT_ALLOWED"
+
+
+def test_feedback_returns_409_when_already_submitted(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    async def fake_create(**kwargs):
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "FEEDBACK_ALREADY_SUBMITTED"
+
+
+def test_feedback_returns_500_when_fetch_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
+def test_feedback_returns_500_when_save_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    async def fake_create(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "FEEDBACK_SAVE_FAILED"
+
+
+def test_analisis_detail_includes_active_feedback_when_done(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    async def fake_get_feedback(*, user_id, analysis_id):
+        assert (user_id, analysis_id) == ("test-user", _RETRY_ID)
+        return _feedback(
+            is_correct=False, suggested_verdict="real", comment="Fuente en contra."
+        )
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_feedback", fake_get_feedback
+    )
+
+    response = client.get(f"/analysis/{_RETRY_ID}")
+
+    assert response.status_code == 200
+    assert response.json()["feedback"] == {
+        "is_correct": False,
+        "suggested_verdict": "real",
+        "comment": "Fuente en contra.",
+        "created_at": "2026-07-16T00:00:00+00:00",
+    }
+
+
+def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id):
+        return _failed_record(status="pending")
+
+    lookups = []
+
+    async def fake_get_feedback(**kwargs):
+        lookups.append(kwargs)
+        return None
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_feedback", fake_get_feedback
+    )
+
+    response = client.get(f"/analysis/{_RETRY_ID}")
+
+    # El sondeo de una fila pending no debe pagar la consulta de la valoración.
+    assert response.status_code == 200
+    assert response.json()["feedback"] is None
+    assert lookups == []
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):

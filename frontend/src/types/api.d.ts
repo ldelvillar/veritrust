@@ -132,6 +132,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analysis/{analysis_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Analysis Feedback
+         * @description Guarda la valoración del veredicto de un análisis ``done`` propio.
+         */
+        post: operations["submit_analysis_feedback_analysis__analysis_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analysis/{analysis_id}/reanalyze": {
         parameters: {
             query?: never;
@@ -282,6 +302,20 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AnalysisFeedback
+         * @description Valoración activa de un análisis tal y como la consume el frontend.
+         */
+        AnalysisFeedback: {
+            /** Is Correct */
+            is_correct: boolean;
+            /** Suggested Verdict */
+            suggested_verdict?: ("real" | "fake" | "uncertain") | null;
+            /** Comment */
+            comment?: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /**
          * AnalysisHistoryItem
          * @description Modelo de datos para un ítem del historial de análisis.
          */
@@ -323,6 +357,7 @@ export interface components {
             share_token?: string | null;
             /** Stage */
             stage?: string | null;
+            feedback?: components["schemas"]["AnalysisFeedback"] | null;
             /**
              * Verdict
              * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
@@ -546,7 +581,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_REANALYZABLE" | "ANALYSIS_REANALYZE_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "HISTORY_DELETE_FAILED" | "DASHBOARD_FETCH_FAILED" | "CONTACT_SEND_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_REANALYZABLE" | "ANALYSIS_REANALYZE_FAILED" | "FEEDBACK_NOT_ALLOWED" | "FEEDBACK_ALREADY_SUBMITTED" | "FEEDBACK_SAVE_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "HISTORY_DELETE_FAILED" | "DASHBOARD_FETCH_FAILED" | "CONTACT_SEND_FAILED" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -562,6 +597,27 @@ export interface components {
          */
         ErrorResponse: {
             detail: components["schemas"]["ErrorDetail"];
+        };
+        /**
+         * FeedbackRequest
+         * @description Valoración de un veredicto: confirmación o corrección con comentario opcional.
+         */
+        FeedbackRequest: {
+            /** Is Correct */
+            is_correct: boolean;
+            /** Suggested Verdict */
+            suggested_verdict?: ("real" | "fake" | "uncertain") | null;
+            /** Comment */
+            comment?: string | null;
+        };
+        /**
+         * FeedbackResponse
+         * @description Respuesta al guardar una valoración de veredicto.
+         */
+        FeedbackResponse: {
+            /** Status */
+            status: string;
+            feedback: components["schemas"]["AnalysisFeedback"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1324,6 +1380,97 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    submit_analysis_feedback_analysis__analysis_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

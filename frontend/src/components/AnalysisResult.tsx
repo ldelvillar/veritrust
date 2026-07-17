@@ -10,6 +10,7 @@ import AnalyzedContent from './analysis-result/AnalyzedContent';
 import ClaimsEvidence from './analysis-result/ClaimsEvidence';
 import Disclaimer from './analysis-result/Disclaimer';
 import FailedView from './analysis-result/FailedView';
+import FeedbackCard from './analysis-result/FeedbackCard';
 import MedicalExplanation from './analysis-result/MedicalExplanation';
 import PrintFooter from './analysis-result/PrintFooter';
 import PrintHeader from './analysis-result/PrintHeader';
@@ -123,6 +124,13 @@ export default function AnalysisResult({
           <MedicalExplanation explanation={result.explanation} />
         )}
         <ClaimsEvidence claims={claims} sources={sources} />
+        {/* Solo el dueño valora su informe: la vista pública y el ejemplo no la muestran. */}
+        {!isPublic && result.analysis_id && (
+          <FeedbackCard
+            analysisId={result.analysis_id}
+            initialFeedback={result.feedback ?? null}
+          />
+        )}
         <Disclaimer />
       </div>
 
