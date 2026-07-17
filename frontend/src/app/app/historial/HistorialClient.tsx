@@ -7,8 +7,6 @@ import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
 import CrossIcon from '@/assets/Cross';
 import Magnifier from '@/assets/Magnifier';
-import TypeIcon from '@/assets/Type';
-import LinkIcon from '@/assets/Link';
 import DocumentIcon from '@/assets/Document';
 import PlusBoxIcon from '@/assets/PlusBox';
 import SortIcon from '@/assets/Sort';
@@ -84,10 +82,10 @@ interface HistorialClientProps {
 }
 
 const SOURCE_TYPE_OPTIONS = [
-  { id: 'all' as SourceTypeFilter, label: 'Todos' },
-  { id: 'text' as SourceTypeFilter, label: 'Texto', Icon: TypeIcon },
-  { id: 'url' as SourceTypeFilter, label: 'Enlace', Icon: LinkIcon },
-  { id: 'file' as SourceTypeFilter, label: 'Archivo', Icon: DocumentIcon },
+  { id: 'all' as SourceTypeFilter, label: 'Todos los tipos' },
+  { id: 'text' as SourceTypeFilter, label: 'Texto' },
+  { id: 'url' as SourceTypeFilter, label: 'Enlace' },
+  { id: 'file' as SourceTypeFilter, label: 'Archivo' },
 ];
 
 const STAT_CARDS = [
@@ -134,7 +132,6 @@ const STAT_TONE_STYLES = {
 } as const;
 
 type VerdictCounts = HistoryPayload['verdict_counts'];
-type SourceTypeCounts = HistoryPayload['source_type_counts'];
 
 // Cada tarjeta mapea a su conteo global por veredicto en la respuesta del historial.
 const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
@@ -142,14 +139,6 @@ const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
   real: 'real',
   uncertain: 'uncertain',
   fake: 'fake',
-};
-
-// Cada chip de tipo mapea a su conteo global por tipo de fuente.
-const SOURCE_FACET_KEY: Record<SourceTypeFilter, keyof SourceTypeCounts> = {
-  all: 'total',
-  text: 'text',
-  url: 'url',
-  file: 'file',
 };
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
@@ -394,7 +383,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   // Conteos globales del backend, independientes de la página y del propio filtro.
   const verdictFacets = data?.verdict_counts ?? null;
-  const sourceFacets = data?.source_type_counts ?? null;
 
   // Primera vez (sin análisis ni filtros): panel de bienvenida en vez de tabla vacía.
   const isFirstTimeEmpty =
@@ -457,7 +445,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
               <div className="flex flex-1 flex-col items-end gap-1 sm:flex-none">
                 <Button
-                  variant="ghost"
+                  variant="soft"
                   onClick={handleExport}
                   disabled={isExporting || totalCount === 0}
                   aria-busy={isExporting}
@@ -535,7 +523,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         })}
       </div>
 
-      {/* Toolbar: search + segmented type + status + date range + sort */}
+      {/* Toolbar: search + type + status + date range + sort */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5 md:gap-3">
         {/* Search */}
         <label className="relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1">
@@ -559,43 +547,30 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           ) : null}
         </label>
 
-        {/* Segmented source type filter */}
-        <div
-          className="scrollbar-none flex h-11 flex-1 items-center gap-0.75 overflow-x-auto rounded-[13px] border border-line bg-surface p-1 md:h-11.5 md:flex-none md:overflow-visible"
-          role="tablist"
-          aria-label="Filtrar por tipo"
-        >
-          {SOURCE_TYPE_OPTIONS.map(opt => {
-            const isActive = sourceTypeFilter === opt.id;
-            const count = sourceFacets
-              ? sourceFacets[SOURCE_FACET_KEY[opt.id]]
-              : 0;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => handleSourceTypeFilterChange(opt.id)}
-                className={`inline-flex h-9 flex-1 items-center justify-center gap-1.75 rounded-[9px] px-2 text-[13.5px] font-semibold whitespace-nowrap transition md:h-9.5 md:flex-none md:px-3.5 ${
-                  isActive
-                    ? 'bg-white text-primary shadow-sm'
-                    : 'text-muted hover:text-body'
-                }`}
-              >
+        {/* Source type filter */}
+        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
+          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
+            <FunnelIcon className="size-4" aria-hidden />
+          </span>
+          <select
+            value={sourceTypeFilter}
+            onChange={e =>
+              handleSourceTypeFilterChange(e.target.value as SourceTypeFilter)
+            }
+            aria-label="Filtrar por tipo"
+            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
+          >
+            {SOURCE_TYPE_OPTIONS.map(opt => (
+              <option key={opt.id} value={opt.id}>
                 {opt.label}
-                <span
-                  className={`min-w-5 rounded-full px-1.75 py-px text-center text-[11px] font-bold ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-primary/5 text-faint'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+              </option>
+            ))}
+          </select>
+          {/* Custom chevron */}
+          <span
+            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
+            aria-hidden
+          />
         </div>
 
         {/* Status filter */}

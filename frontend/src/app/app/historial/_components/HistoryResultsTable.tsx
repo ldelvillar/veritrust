@@ -208,6 +208,23 @@ function GaugePlaceholder({
   );
 }
 
+function FailedFigure({
+  color,
+  background,
+}: {
+  color: string;
+  background: string;
+}) {
+  return (
+    <div
+      className="grid size-12.5 shrink-0 place-items-center rounded-full"
+      style={{ color, background }}
+    >
+      <Warning className="size-5.5" aria-hidden />
+    </div>
+  );
+}
+
 function getVisiblePages(current: number, total: number, max = 5): number[] {
   if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
   const half = Math.floor(max / 2);
@@ -392,6 +409,11 @@ export default function HistoryResultsTable({
                 {/* Credibility gauge */}
                 {tone !== null && credibility !== null ? (
                   <CredibilityGauge score={credibility} tone={tone} />
+                ) : item.status === 'failed' && statusBadgeCfg ? (
+                  <FailedFigure
+                    color={statusBadgeCfg.textColor}
+                    background={statusBadgeCfg.bgColor}
+                  />
                 ) : (
                   <GaugePlaceholder status={item.status} tone={tone} />
                 )}
