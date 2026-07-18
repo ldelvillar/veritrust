@@ -24,6 +24,7 @@ const EXAMPLE_URL_1 = 'www.20minutos.es/salud/actualidad/estudio-vitamina-c';
 const EXAMPLE_URL_2 = 'www.larazon.es/salud/asi-influye-la-vitamina-d';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MIN_TEXT_CHARS = 10;
 
 export default function AnalysisForm() {
   const { submit, submitFile, isLoading, error, setError } =
@@ -120,8 +121,10 @@ export default function AnalysisForm() {
     await submit({ text: formData.text, source_type: 'text' });
   };
 
+  const trimmedTextLength = formData.text.trim().length;
+
   const canRun =
-    (inputMethod === 'text' && formData.text.trim().length > 10) ||
+    (inputMethod === 'text' && trimmedTextLength >= MIN_TEXT_CHARS) ||
     (inputMethod === 'url' && formData.url.trim().length > 4) ||
     (inputMethod === 'file' && !!selectedFile);
 
@@ -135,6 +138,17 @@ export default function AnalysisForm() {
   const baseId = useId();
   const tabId = (id: string) => `${baseId}-tab-${id}`;
   const panelId = `${baseId}-panel`;
+
+  // Navegación con flechas del patrón tablist WAI-ARIA (activación automática).
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const delta = e.key === 'ArrowRight' ? 1 : -1;
+    const index = tabs.findIndex(tab => tab.id === inputMethod);
+    const next = tabs[(index + delta + tabs.length) % tabs.length].id;
+    setInputMethod(next);
+    document.getElementById(tabId(next))?.focus();
+  };
 
   return (
     <form
@@ -160,8 +174,10 @@ export default function AnalysisForm() {
               id={tabId(id)}
               aria-selected={inputMethod === id}
               aria-controls={panelId}
+              tabIndex={inputMethod === id ? 0 : -1}
               disabled={isLoading}
               onClick={() => setInputMethod(id)}
+              onKeyDown={handleTabKeyDown}
               className={`flex flex-1 items-center justify-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${
                 inputMethod === id
                   ? 'bg-[#efedfc] text-[#3722b8]'
@@ -222,6 +238,9 @@ export default function AnalysisForm() {
               </div>
               <span className="shrink-0 text-[12.5px] font-semibold text-faint">
                 {formData.text.length} caracteres
+                {trimmedTextLength > 0 &&
+                  trimmedTextLength < MIN_TEXT_CHARS &&
+                  ` · mínimo ${MIN_TEXT_CHARS}`}
               </span>
             </div>
           </div>
