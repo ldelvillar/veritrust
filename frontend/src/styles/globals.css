@@ -136,6 +136,23 @@ html {
   animation: floaty 5s ease-in-out infinite;
 }
 
+/* Apertura del desplegable de filtros (custom select del historial). */
+@keyframes selectIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-select-in {
+  transform-origin: top;
+  animation: selectIn 0.15s ease;
+}
+
 /* Esqueleto de carga con barrido (shimmer) usando un único elemento. */
 @keyframes shimmer {
   0% {

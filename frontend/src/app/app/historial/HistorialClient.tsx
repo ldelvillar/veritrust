@@ -15,6 +15,7 @@ import CalendarIcon from '@/assets/Calendar';
 import HistoryIcon from '@/assets/History';
 import HistoryResultsTable from './_components/HistoryResultsTable';
 import HistoryStatePanel from './_components/HistoryStatePanel';
+import FilterSelect from './_components/FilterSelect';
 import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
@@ -82,10 +83,31 @@ interface HistorialClientProps {
 }
 
 const SOURCE_TYPE_OPTIONS = [
-  { id: 'all' as SourceTypeFilter, label: 'Todos los tipos' },
-  { id: 'text' as SourceTypeFilter, label: 'Texto' },
-  { id: 'url' as SourceTypeFilter, label: 'Enlace' },
-  { id: 'file' as SourceTypeFilter, label: 'Archivo' },
+  { value: 'all' as SourceTypeFilter, label: 'Todos los tipos' },
+  { value: 'text' as SourceTypeFilter, label: 'Texto' },
+  { value: 'url' as SourceTypeFilter, label: 'Enlace' },
+  { value: 'file' as SourceTypeFilter, label: 'Archivo' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all' as StatusFilter, label: 'Todos los estados' },
+  { value: 'done' as StatusFilter, label: 'Completado' },
+  { value: 'pending' as StatusFilter, label: 'En curso' },
+  { value: 'failed' as StatusFilter, label: 'Fallido' },
+];
+
+const DATE_RANGE_OPTIONS = [
+  { value: 'all' as DateRangeFilter, label: 'Todo el periodo' },
+  { value: '7d' as DateRangeFilter, label: 'Últimos 7 días' },
+  { value: '30d' as DateRangeFilter, label: 'Últimos 30 días' },
+  { value: '90d' as DateRangeFilter, label: 'Últimos 90 días' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'recent' as SortOrder, label: 'Más recientes' },
+  { value: 'oldest' as SortOrder, label: 'Más antiguos' },
+  { value: 'credibility_high' as SortOrder, label: 'Mayor credibilidad' },
+  { value: 'credibility_low' as SortOrder, label: 'Menor credibilidad' },
 ];
 
 const STAT_CARDS = [
@@ -548,103 +570,44 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         </label>
 
         {/* Source type filter */}
-        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
-          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
-            <FunnelIcon className="size-4" aria-hidden />
-          </span>
-          <select
-            value={sourceTypeFilter}
-            onChange={e =>
-              handleSourceTypeFilterChange(e.target.value as SourceTypeFilter)
-            }
-            aria-label="Filtrar por tipo"
-            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
-          >
-            {SOURCE_TYPE_OPTIONS.map(opt => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {/* Custom chevron */}
-          <span
-            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
-            aria-hidden
-          />
-        </div>
+        <FilterSelect
+          value={sourceTypeFilter}
+          onChange={handleSourceTypeFilterChange}
+          options={SOURCE_TYPE_OPTIONS}
+          icon={<FunnelIcon className="size-4" aria-hidden />}
+          ariaLabel="Filtrar por tipo"
+          className="flex-[1_1_100%] sm:flex-none"
+        />
 
         {/* Status filter */}
-        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
-          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
-            <FunnelIcon className="size-4" aria-hidden />
-          </span>
-          <select
-            value={statusFilter}
-            onChange={e =>
-              handleStatusFilterChange(e.target.value as StatusFilter)
-            }
-            aria-label="Filtrar por estado"
-            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="done">Completado</option>
-            <option value="pending">En curso</option>
-            <option value="failed">Fallido</option>
-          </select>
-          {/* Custom chevron */}
-          <span
-            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
-            aria-hidden
-          />
-        </div>
+        <FilterSelect
+          value={statusFilter}
+          onChange={handleStatusFilterChange}
+          options={STATUS_OPTIONS}
+          icon={<FunnelIcon className="size-4" aria-hidden />}
+          ariaLabel="Filtrar por estado"
+          className="flex-[1_1_100%] sm:flex-none"
+        />
 
         {/* Date range filter */}
-        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
-          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
-            <CalendarIcon className="size-4" aria-hidden />
-          </span>
-          <select
-            value={dateRangeFilter}
-            onChange={e =>
-              handleDateRangeFilterChange(e.target.value as DateRangeFilter)
-            }
-            aria-label="Filtrar por rango de fechas"
-            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
-          >
-            <option value="all">Todo el periodo</option>
-            <option value="7d">Últimos 7 días</option>
-            <option value="30d">Últimos 30 días</option>
-            <option value="90d">Últimos 90 días</option>
-          </select>
-          {/* Custom chevron */}
-          <span
-            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
-            aria-hidden
-          />
-        </div>
+        <FilterSelect
+          value={dateRangeFilter}
+          onChange={handleDateRangeFilterChange}
+          options={DATE_RANGE_OPTIONS}
+          icon={<CalendarIcon className="size-4" aria-hidden />}
+          ariaLabel="Filtrar por rango de fechas"
+          className="flex-[1_1_100%] sm:flex-none"
+        />
 
         {/* Sort select */}
-        <div className="relative flex flex-[1_1_100%] items-center sm:flex-none">
-          <span className="pointer-events-none absolute left-3 grid place-items-center text-faint">
-            <SortIcon className="size-4" aria-hidden />
-          </span>
-          <select
-            value={sortOrder}
-            onChange={e => handleSortOrderChange(e.target.value as SortOrder)}
-            aria-label="Ordenar"
-            className="h-11.5 w-full cursor-pointer appearance-none rounded-[13px] border border-line-strong bg-white pr-10 pl-9.5 text-[13.5px] font-semibold text-body transition outline-none hover:border-primary hover:text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-auto"
-          >
-            <option value="recent">Más recientes</option>
-            <option value="oldest">Más antiguos</option>
-            <option value="credibility_high">Mayor credibilidad</option>
-            <option value="credibility_low">Menor credibilidad</option>
-          </select>
-          {/* Custom chevron */}
-          <span
-            className="pointer-events-none absolute top-1/2 right-3.75 size-2 -translate-y-[65%] rotate-45 rounded-[1px] border-r-2 border-b-2 border-faint"
-            aria-hidden
-          />
-        </div>
+        <FilterSelect
+          value={sortOrder}
+          onChange={handleSortOrderChange}
+          options={SORT_OPTIONS}
+          icon={<SortIcon className="size-4" aria-hidden />}
+          ariaLabel="Ordenar"
+          className="flex-[1_1_100%] sm:flex-none"
+        />
       </div>
 
       {/* Result summary line */}
