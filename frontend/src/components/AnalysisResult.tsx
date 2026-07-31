@@ -15,6 +15,7 @@ import MedicalExplanation from './analysis-result/MedicalExplanation';
 import PrintFooter from './analysis-result/PrintFooter';
 import PrintHeader from './analysis-result/PrintHeader';
 import ResultBand from './analysis-result/ResultBand';
+import { formatDuration } from './analysis-result/format';
 import type { ReportView } from './analysis-result/types';
 
 interface ResultProps {
@@ -72,13 +73,16 @@ export default function AnalysisResult({
 
   const claims = result.claims ?? [];
   const sources = result.sources ?? [];
-  const analyzedAt = new Date(result.created_at).toLocaleString('es-ES', {
+  const analyzedAt = new Date(
+    result.completed_at ?? result.created_at
+  ).toLocaleString('es-ES', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+  const duration = formatDuration(result.created_at, result.completed_at);
 
   // Imprime el informe
   const handleExport = () => {
@@ -149,6 +153,7 @@ export default function AnalysisResult({
       <p className="flex items-center gap-1.5 text-xs text-faint print:hidden">
         <ClockIcon className="size-3.5" />
         Analizado el {analyzedAt}
+        {duration && ` · duró ${duration}`}
       </p>
 
       <PrintFooter />

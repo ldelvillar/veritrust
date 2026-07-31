@@ -93,6 +93,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         0.5,
         "explicacion",
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        datetime(2026, 4, 10, 12, 3, tzinfo=timezone.utc),
         "done",
         None,
         [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
@@ -111,6 +112,8 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert record.status == "done"
     assert record.error_code is None
     assert record.created_at.startswith("2026-04-10")
+    assert record.completed_at is not None
+    assert record.completed_at.startswith("2026-04-10 12:03")
     assert record.claims is not None
     assert record.claims[0].label == "falsa"
     assert record.sources is not None
@@ -130,6 +133,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         None,
         None,
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        None,
         "pending",
         None,
         None,
@@ -147,7 +151,9 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.explanation is None
     assert record.claims is None
     assert record.sources is None
-    # Filas de longitud 16 (listas) no traen stage: el mapeo lo deja en None.
+    # Una fila pendiente aún no ha terminado: sin instante de finalización.
+    assert record.completed_at is None
+    # Filas de longitud 17 (listas) no traen stage: el mapeo lo deja en None.
     assert record.stage is None
 
 
@@ -163,6 +169,7 @@ def test_map_history_record_reads_stage_when_present() -> None:
         None,
         None,
         datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        None,
         "pending",
         None,
         None,

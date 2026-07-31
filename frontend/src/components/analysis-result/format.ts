@@ -75,6 +75,19 @@ export function formatCoverage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+// Lo que tardó el pipeline (envío → fin); null si la fila es previa a completed_at.
+export function formatDuration(
+  createdAt: string,
+  completedAt?: string | null
+): string | null {
+  if (!completedAt) return null;
+  const seconds = Math.round(
+    (new Date(completedAt).getTime() - new Date(createdAt).getTime()) / 1000
+  );
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
+}
+
 export function confidenceLabel(
   confidence: number | null | undefined
 ): string | null {

@@ -27,6 +27,7 @@ Ante afirmaciones de salud absolutas ("previene por completo", "sin ningún ries
   status: 'done',
   error_code: null,
   created_at: '2026-06-13T10:52:00.000Z',
+  completed_at: '2026-06-13T10:55:00.000Z',
   file_filename: null,
   claims: [
     {

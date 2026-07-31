@@ -347,6 +347,8 @@ export interface components {
             error_code?: string | null;
             /** Created At */
             created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
             /** File Filename */
             file_filename?: string | null;
             /** Claims */
@@ -696,6 +698,8 @@ export interface components {
             status: string;
             /** Created At */
             created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
             /** File Filename */
             file_filename?: string | null;
             /** Claims */

@@ -75,6 +75,7 @@ class AnalysisHistoryItem(BaseModel):
     status: str = "done"
     error_code: Optional[str] = None
     created_at: str
+    completed_at: Optional[str] = None
     file_filename: Optional[str] = None
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None
@@ -107,6 +108,7 @@ class PublicAnalysisReport(BaseModel):
     explanation: Optional[str] = None
     status: str = "done"
     created_at: str
+    completed_at: Optional[str] = None
     file_filename: Optional[str] = None
     claims: Optional[List[ClaimItem]] = None
     sources: Optional[List[SourceItem]] = None

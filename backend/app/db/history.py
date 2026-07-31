@@ -79,13 +79,14 @@ def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
         evidence_coverage=float(row[7]) if row[7] is not None else None,
         explanation=str(row[8]) if row[8] is not None else None,
         created_at=str(row[9]),
-        status=str(row[10]),
-        error_code=row[11],
-        claims=row[12],
-        sources=row[13],
-        file_filename=row[14],
-        share_token=row[15],
-        stage=row[16] if len(row) > 16 else None,
+        completed_at=str(row[10]) if row[10] is not None else None,
+        status=str(row[11]),
+        error_code=row[12],
+        claims=row[13],
+        sources=row[14],
+        file_filename=row[15],
+        share_token=row[16],
+        stage=row[17] if len(row) > 17 else None,
     )
 
 
@@ -171,6 +172,7 @@ def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str
             evidence_coverage,
             explanation,
             created_at,
+            completed_at,
             status,
             error_code,
             claims,
@@ -319,7 +321,8 @@ async def complete_analysis(
             claims = %s,
             sources = %s,
             status = 'done',
-            error_code = NULL
+            error_code = NULL,
+            completed_at = NOW()
         WHERE id = %s
     """
 
@@ -351,7 +354,7 @@ async def fail_analysis(*, analysis_id: str, error_code: str) -> None:
 
     query = """
         UPDATE public.analysis_history
-        SET status = 'failed', error_code = %s
+        SET status = 'failed', error_code = %s, completed_at = NOW()
         WHERE id = %s
     """
 
@@ -409,7 +412,7 @@ async def fail_stale_pending_analyses(
 
     query = """
         UPDATE public.analysis_history
-        SET status = 'failed', error_code = %s
+        SET status = 'failed', error_code = %s, completed_at = NOW()
         WHERE id::text = ANY(%s)
           AND status = 'pending'
           AND created_at < NOW() - make_interval(secs => %s)
@@ -639,6 +642,7 @@ async def export_user_analysis_history(
             evidence_coverage,
             explanation,
             created_at,
+            completed_at,
             status,
             error_code,
             claims,
@@ -684,6 +688,7 @@ async def get_user_analysis_by_id(
             evidence_coverage,
             explanation,
             created_at,
+            completed_at,
             status,
             error_code,
             claims,
@@ -819,7 +824,11 @@ async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) ->
     # created_at se reinicia a NOW(); stage se limpia para no mostrar la etapa del intento previo.
     query = """
         UPDATE public.analysis_history
-        SET status = 'pending', error_code = NULL, stage = NULL, created_at = NOW()
+        SET status = 'pending',
+            error_code = NULL,
+            stage = NULL,
+            created_at = NOW(),
+            completed_at = NULL
         WHERE user_id = %s AND id = %s AND status = 'failed'
     """
 
@@ -856,7 +865,8 @@ async def reset_done_analysis_to_pending(*, user_id: str, analysis_id: str) -> b
             sources = NULL,
             error_code = NULL,
             stage = NULL,
-            created_at = NOW()
+            created_at = NOW(),
+            completed_at = NULL
         WHERE user_id = %s AND id = %s AND status = 'done'
     """
 
@@ -939,6 +949,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
             evidence_coverage,
             explanation,
             created_at,
+            completed_at,
             status,
             claims,
             sources,
@@ -972,8 +983,9 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         evidence_coverage=float(row[5]) if row[5] is not None else None,
         explanation=str(row[6]) if row[6] is not None else None,
         created_at=str(row[7]),
-        status=str(row[8]),
-        claims=row[9],
-        sources=row[10],
-        file_filename=row[11],
+        completed_at=str(row[8]) if row[8] is not None else None,
+        status=str(row[9]),
+        claims=row[10],
+        sources=row[11],
+        file_filename=row[12],
     )

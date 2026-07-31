@@ -125,6 +125,45 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     ]
 
 
+async def test_completed_at_marks_the_end_of_the_pipeline(db_pool):
+    """Solo se fija al salir de pending: mide la duración real, no la fecha de envío."""
+    pending_id = await _pending()
+    pending = await get_user_analysis_by_id(user_id=USER, analysis_id=pending_id)
+    assert pending.completed_at is None
+
+    await complete_analysis(
+        analysis_id=pending_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+    )
+    done = await get_user_analysis_by_id(user_id=USER, analysis_id=pending_id)
+    assert done.completed_at is not None
+    assert done.completed_at >= done.created_at
+
+    failed_id = await _pending("terminó mal")
+    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
+    failed = await get_user_analysis_by_id(user_id=USER, analysis_id=failed_id)
+    assert failed.completed_at is not None
+
+
+async def test_reopening_an_analysis_clears_completed_at(db_pool):
+    """Reanalizar no debe arrastrar el fin del intento previo: daría una duración negativa."""
+    analysis_id = await _pending()
+    await complete_analysis(
+        analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
+    )
+
+    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
+    reopened = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
+    assert reopened.completed_at is None
+
+    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
+    assert await reset_failed_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
+    retried = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
+    assert retried.completed_at is None
+
+
 async def test_reset_failed_analysis_reopens_and_clears_error(db_pool):
     analysis_id = await _pending()
     await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")

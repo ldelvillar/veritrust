@@ -352,6 +352,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         status="done",
         error_code=None,
         created_at="2026-04-10T12:00:00+00:00",
+        completed_at="2026-04-10T12:03:20+00:00",
         claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.88}],
         sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
         file_filename=None,
@@ -384,6 +385,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     assert body["user_id"] == "test-user"
     assert body["status"] == "done"
     assert body["evidence_coverage"] == 0.6
+    assert body["completed_at"] == "2026-04-10T12:03:20+00:00"
     assert body["claims"] == [
         {
             "text": "Afirmación",
@@ -412,6 +414,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         status="pending",
         error_code=None,
         created_at="2026-04-10T12:00:00+00:00",
+        completed_at=None,
         claims=None,
         sources=None,
         file_filename=None,
@@ -454,6 +457,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         status="failed",
         error_code="NO_MEDICAL_CLAIMS",
         created_at="2026-04-10T12:00:00+00:00",
+        completed_at="2026-04-10T12:01:05+00:00",
         claims=None,
         sources=None,
         file_filename=None,

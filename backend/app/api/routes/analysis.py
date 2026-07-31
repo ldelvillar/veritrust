@@ -423,6 +423,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         status=record.status,
         error_code=record.error_code,
         created_at=record.created_at,
+        completed_at=record.completed_at,
         claims=record.claims,
         sources=record.sources,
         file_filename=record.file_filename,

@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     error_code   TEXT,
     -- Opt-in public share link; NULL = not shared. Cleared on revoke.
     share_token  TEXT UNIQUE,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Instante en que la fila dejó de estar 'pending' (done o failed); NULL mientras se analiza.
+    completed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_analysis_history_user_created
