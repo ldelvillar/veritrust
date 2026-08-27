@@ -284,10 +284,12 @@ def test_build_history_where_clause_with_search_filters_and_date() -> None:
     )
 
     assert "COALESCE(input_text, '') ILIKE %s" in where_sql
+    assert "COALESCE(file_filename, '') ILIKE %s" in where_sql
     assert "source_type = %s" in where_sql
     assert "created_at >= %s" in where_sql
     assert params == [
         "user-2",
+        "%covid%",
         "%covid%",
         "%covid%",
         "%covid%",

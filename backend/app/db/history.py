@@ -130,11 +130,12 @@ def _build_history_where_clause(
             "("
             "COALESCE(input_text, '') ILIKE %s OR "
             "COALESCE(input_url, '') ILIKE %s OR "
+            "COALESCE(file_filename, '') ILIKE %s OR "
             "COALESCE(label, '') ILIKE %s OR "
             "COALESCE(source_type, '') ILIKE %s"
             ")"
         )
-        where_params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
+        where_params.extend([like_pattern] * 5)
 
     if source_type:
         where_clauses.append("source_type = %s")

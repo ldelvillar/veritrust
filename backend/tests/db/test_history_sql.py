@@ -391,6 +391,20 @@ async def test_search_matches_text_and_url_case_insensitively(db_pool):
     assert rows[0].input_url == "https://ejemplo.com/noticia"
 
 
+async def test_search_matches_the_file_name(db_pool):
+    """Un análisis de archivo se busca por su nombre: es el título que ve el usuario."""
+    file_id = await create_pending_file_analysis(
+        user_id=USER, filename="bulos-vitamina-d.pdf", data=b"%PDF-1.4 contenido"
+    )
+    await _pending("Un texto sin relación con el archivo")
+
+    rows, total = await list_user_analysis_history(
+        user_id=USER, search_query="VITAMINA-D.PDF"
+    )
+    assert total == 1
+    assert rows[0].analysis_id == file_id
+
+
 async def test_rows_are_isolated_per_user(db_pool):
     analysis_id = await _pending()
     await complete_analysis(
