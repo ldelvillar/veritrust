@@ -1742,6 +1742,9 @@ def test_historial_export_returns_csv(monkeypatch):
             confidence=0.88,
             credibility=12,
             created_at="2026-04-10T12:00:00+00:00",
+            completed_at="2026-04-10T12:04:00+00:00",
+            evidence_coverage=0.75,
+            analysis_id="id-uno",
         ),
         types.SimpleNamespace(
             source_type="text",
@@ -1751,6 +1754,9 @@ def test_historial_export_returns_csv(monkeypatch):
             confidence=0.9,
             credibility=90,
             created_at="2026-04-11T08:30:00+00:00",
+            completed_at=None,
+            evidence_coverage=None,
+            analysis_id="id-dos",
         ),
     ]
 
@@ -1769,6 +1775,10 @@ def test_historial_export_returns_csv(monkeypatch):
         "app.api.routes.history.export_user_analysis_history",
         fake_export_user_analysis_history,
     )
+    monkeypatch.setattr(
+        "app.api.routes.history.get_settings",
+        lambda: types.SimpleNamespace(app_base_url="https://veritrust.test"),
+    )
 
     response = client.get(
         "/history/export?search=vacuna&source_type=url"
@@ -1782,9 +1792,26 @@ def test_historial_export_returns_csv(monkeypatch):
 
     body = response.content.decode("utf-8-sig")
     lines = body.strip().splitlines()
-    assert lines[0] == "Fecha,Tipo,Entrada,Veredicto,Credibilidad"
+    assert lines[0] == (
+        "Fecha,Tipo,Entrada,Veredicto,Credibilidad,"
+        "Cobertura de evidencia (%),Duración (s),Informe"
+    )
     assert "https://ejemplo.com/nota,Falsa,12" in lines[1]
     assert "Una afirmación médica,Verdadera,90" in lines[2]
+
+    rows = list(csv.reader(io.StringIO(body)))
+    # Cobertura en %, duración en segundos y enlace directo al informe.
+    assert rows[1][5:] == [
+        "75",
+        "240",
+        "https://veritrust.test/app/analisis/id-uno",
+    ]
+    # Un análisis sin cobertura ni marca de fin deja esas celdas vacías.
+    assert rows[2][5:] == [
+        "",
+        "",
+        "https://veritrust.test/app/analisis/id-dos",
+    ]
 
 
 def test_historial_export_neutralizes_csv_formula(monkeypatch):
@@ -1801,6 +1828,9 @@ def test_historial_export_neutralizes_csv_formula(monkeypatch):
             confidence=0.5,
             credibility=10,
             created_at="2026-04-12T09:00:00+00:00",
+            completed_at=None,
+            evidence_coverage=None,
+            analysis_id="id-formula",
         ),
     ]
 
@@ -1819,6 +1849,43 @@ def test_historial_export_neutralizes_csv_formula(monkeypatch):
     rows = list(csv.reader(io.StringIO(body)))
     # La celda "Entrada" (índice 2) queda inerte con la comilla simple antepuesta.
     assert rows[1][2] == "'=cmd|'/c calc'!A1"
+
+
+def test_historial_export_uses_the_file_name_as_entry(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    records = [
+        types.SimpleNamespace(
+            source_type="file",
+            # El worker guarda aquí el texto extraído: volcarlo haría ilegible la celda.
+            input_text="Texto larguísimo extraído del documento " * 10,
+            input_url=None,
+            file_filename="bulos-vitamina-d.pdf",
+            label="falsa",
+            confidence=0.7,
+            credibility=20,
+            created_at="2026-04-13T10:00:00+00:00",
+            completed_at=None,
+            evidence_coverage=None,
+            analysis_id="id-archivo",
+        ),
+    ]
+
+    async def fake_export_user_analysis_history(**kwargs):
+        return records
+
+    monkeypatch.setattr(
+        "app.api.routes.history.export_user_analysis_history",
+        fake_export_user_analysis_history,
+    )
+
+    response = client.get("/history/export")
+
+    assert response.status_code == 200
+    body = response.content.decode("utf-8-sig")
+    rows = list(csv.reader(io.StringIO(body)))
+    assert rows[1][2] == "bulos-vitamina-d.pdf"
 
 
 def test_historial_export_returns_500_when_database_fails(monkeypatch):
