@@ -1,3 +1,7 @@
+---
+description: Run every quality check, fix what fails, then commit and push
+---
+
 # Ship.md
 
 Run all quality checks for the VeriTrust project, fix any issues, then commit and push.

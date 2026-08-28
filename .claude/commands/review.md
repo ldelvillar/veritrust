@@ -1,3 +1,7 @@
+---
+description: Review the current diff for correctness, pipeline-ordering, and async issues before shipping
+---
+
 # Review.md
 
 Review the current changes in the VeriTrust project and flag any real issues before shipping.

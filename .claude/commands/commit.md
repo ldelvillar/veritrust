@@ -1,3 +1,7 @@
+---
+description: Review the staged changes and commit them with a conventional-commit message
+---
+
 # Commit.md
 
 Analyze the staged changes and write a conventional commit message for the VeriTrust project.
