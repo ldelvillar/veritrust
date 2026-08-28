@@ -16,6 +16,19 @@ import type { components } from '@/types/api';
 const isPdfFile = (file: File): boolean =>
   file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
+const isLikelyUrl = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
+  try {
+    const { hostname } = new URL(
+      trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+    );
+    return /\.[a-z]{2,}$/i.test(hostname);
+  } catch {
+    return false;
+  }
+};
+
 const EXAMPLE_TEXT_1 =
   'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común y refuerza el sistema inmunitario sin ningún riesgo, según un estudio reciente.';
 const EXAMPLE_TEXT_2 =
@@ -107,6 +120,12 @@ export default function AnalysisForm() {
         setError('Por favor, introduce una URL.');
         return;
       }
+      if (!isLikelyUrl(formData.url)) {
+        setError(
+          'Introduce un enlace válido, por ejemplo www.medio.es/salud/articulo.'
+        );
+        return;
+      }
       const fullUrl = formData.url.startsWith('http')
         ? formData.url
         : `https://${formData.url}`;
@@ -122,10 +141,13 @@ export default function AnalysisForm() {
   };
 
   const trimmedTextLength = formData.text.trim().length;
+  const trimmedUrl = formData.url.trim();
+  const isUrlValid = isLikelyUrl(trimmedUrl);
+  const showUrlHint = trimmedUrl.length > 0 && !isUrlValid;
 
   const canRun =
     (inputMethod === 'text' && trimmedTextLength >= MIN_TEXT_CHARS) ||
-    (inputMethod === 'url' && formData.url.trim().length > 4) ||
+    (inputMethod === 'url' && isUrlValid) ||
     (inputMethod === 'file' && !!selectedFile);
 
   const tabs = [
@@ -138,6 +160,7 @@ export default function AnalysisForm() {
   const baseId = useId();
   const tabId = (id: string) => `${baseId}-tab-${id}`;
   const panelId = `${baseId}-panel`;
+  const urlHintId = `${baseId}-url-hint`;
 
   // Navegación con flechas del patrón tablist WAI-ARIA (activación automática).
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -270,6 +293,8 @@ export default function AnalysisForm() {
                 placeholder="www.medio.es/salud/articulo-a-verificar"
                 value={formData.url}
                 onChange={handleChange}
+                aria-invalid={showUrlHint}
+                aria-describedby={showUrlHint ? urlHintId : undefined}
               />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -290,6 +315,14 @@ export default function AnalysisForm() {
               >
                 larazon.es
               </button>
+              {showUrlHint && (
+                <span
+                  id={urlHintId}
+                  className="ml-auto text-[12.5px] font-semibold text-faint"
+                >
+                  Escribe un dominio completo, p. ej. medio.es
+                </span>
+              )}
             </div>
           </div>
         )}
