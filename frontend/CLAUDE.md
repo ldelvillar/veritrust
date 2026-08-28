@@ -1,0 +1,20 @@
+# Frontend
+
+Next.js (App Router). Run every command from the **repo root** — never `cd` into this directory.
+
+## Commands
+
+```bash
+pnpm --dir frontend install                  # Install deps
+pnpm --dir frontend dev                      # Dev server (http://localhost:3000)
+pnpm --dir frontend build                    # Production build (also type-checks)
+pnpm --dir frontend lint                     # ESLint
+pnpm --dir frontend generate:api-types       # Regenerate src/types/api.d.ts from OpenAPI (backend must be running)
+```
+
+## Conventions
+
+- **`src/types/api.d.ts`** — Generated from the backend's OpenAPI spec; never edit by hand.
+- **SVG icons** — icon components live in `frontend/src/assets/` as default exports (`SVGProps<SVGSVGElement>` spread, `stroke="currentColor"`); import and size them via `className`. Don't define inline icon functions in feature files; add or reuse an asset instead.
+- **Color tokens & headers** — neutrals come from the semantic `@theme` tokens in `src/styles/globals.css` (`text-ink`/`body`/`muted`/`faint`, `border-line`/`line-strong`, `bg-surface`/`surface-subtle`) plus the brand `accent`/`primary`; never reintroduce `slate-*`/`gray-*` or hardcoded hex greys, nor inline `style={{ color }}`. Page titles use the shared `<PageHeader>` (`src/components/PageHeader.tsx`). System/UI failure states (fetch errors, form validation, destructive actions) use the `--color-danger`/`-soft`/`-ink`/`-g1`/`-g2` tokens (`bg-danger`, `text-danger-ink`, …) — deliberately a different hue from `--color-verdict-fake`, which is reserved for an actual "false" verdict. Likewise, UI success confirmations (e.g. a submitted form) use `--color-success`/`-soft`/`-ink`, distinct from `--color-verdict-real`. Warn/info state colors, brand purples, and purple surface tints stay as arbitrary `[#…]` values for now; `not-found.tsx` is an intentional standalone dark-palette exception.
+- **Verdict vocabulary** — the three verdict states are always "Verdadero"/"Falso"/"Dudoso", sourced from `VERDICT_LABEL` in `frontend/src/components/analysis-result/format.ts`; never hardcode alternate wording (e.g. "Fiable", "Engañoso") in a new screen.
