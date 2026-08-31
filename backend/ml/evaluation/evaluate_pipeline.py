@@ -53,6 +53,7 @@ class EvalRow(TypedDict):
     predicted: str | None
     confidence: float
     fake_avg: float | None
+    duration_seconds: float
 
 
 def load_samples(
@@ -190,6 +191,7 @@ async def evaluate_pipeline(
     handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
     try:
         for i, sample in enumerate(pending, start=1):
+            started = time()
             try:
                 result = await ainvoke_graph(
                     graph, _build_initial_state(sample["text"])
@@ -199,6 +201,7 @@ async def evaluate_pipeline(
                     "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
                 )
                 continue
+            duration = time() - started
 
             label = result.get("label") or None
             explanation = result.get("medical_explanation") or None
@@ -214,17 +217,20 @@ async def evaluate_pipeline(
                 "fake_avg": _reconstruct_fake_avg(
                     label, confidence, float(result.get("evidence_coverage") or 0.0)
                 ),
+                # Coste por muestra: fija el n asumible en evaluaciones posteriores.
+                "duration_seconds": round(duration, 3),
             }
             done[sample["text"]] = row
             if handle is not None:
                 handle.write(json.dumps(row, ensure_ascii=False) + "\n")
                 handle.flush()
             logger.info(
-                "[%d/%d] esperado=%s predicho=%s",
+                "[%d/%d] esperado=%s predicho=%s (%.1f s)",
                 i,
                 total,
                 sample["expected"],
                 predicted or "sin_afirmaciones",
+                duration,
             )
     finally:
         if handle is not None:

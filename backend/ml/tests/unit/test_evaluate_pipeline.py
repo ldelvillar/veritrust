@@ -17,6 +17,7 @@ def _row(expected: str, predicted: str | None, confidence: float = 0.9) -> ep.Ev
         "predicted": predicted,
         "confidence": confidence,
         "fake_avg": None,
+        "duration_seconds": 0.0,
     }
 
 
