@@ -1,6 +1,6 @@
 """
 Este módulo evalúa el pipeline multiagente completo contra un
-conjunto etiquetado de PubHealth y reporta métricas de clasificación.
+conjunto etiquetado de HealthVer y reporta métricas de clasificación.
 """
 
 import argparse
@@ -28,8 +28,8 @@ from ml.utils.load_data import load_dataset
 
 logger = logging.getLogger(__name__)
 
-# Mapeo de las etiquetas numéricas de PubHealth a las binarias del sistema.
-LABEL_BY_CODE = {0: "verdadera", 1: "falsa", 3: "falsa"}
+# Mapeo de HealthVer a las binarias del sistema; NEI (2) queda fuera de la métrica.
+LABEL_BY_CODE = {0: "verdadera", 1: "falsa"}
 
 # Prompt del filtro de dominio; propio de la evaluación, fuera del contrato de la app.
 PROMPTS_PATH = Path(__file__).parent / "prompts.yaml"
@@ -59,7 +59,7 @@ class EvalRow(TypedDict):
 def load_samples(
     partition: str = "test", limit: int = 30, seed: int = 42
 ) -> list[Sample]:
-    """Carga una muestra binaria y balanceada de PubHealth para la evaluación."""
+    """Carga una muestra binaria y balanceada de HealthVer para la evaluación."""
     df = load_dataset(partition)
     df = df[df["label"].isin(LABEL_BY_CODE)].copy()
     df["expected"] = df["label"].map(LABEL_BY_CODE)
@@ -330,7 +330,7 @@ def main() -> dict[str, float]:
         "--partition",
         default="test",
         choices=["train", "test", "validation"],
-        help="Partición de PubHealth a muestrear.",
+        help="Partición de HealthVer a muestrear.",
     )
     parser.add_argument(
         "--limit", type=int, default=30, help="Número de muestras a evaluar."

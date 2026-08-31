@@ -1,6 +1,6 @@
 """
 Este módulo evalúa el clasificador BERT en aislamiento contra el conjunto
-etiquetado de PubHealth, sin pasar por el resto del pipeline multiagente.
+etiquetado de HealthVer, sin pasar por el resto del pipeline multiagente.
 """
 
 import argparse
@@ -15,8 +15,8 @@ from ml.utils.load_data import load_dataset
 
 logger = logging.getLogger(__name__)
 
-# Mapeo de las etiquetas numéricas de PubHealth a las clases del clasificador.
-LABEL_BY_CODE = {0: "verdadera", 1: "falsa", 3: "incierta"}
+# Mapeo de las etiquetas numéricas de HealthVer a las clases del clasificador.
+LABEL_BY_CODE = {0: "verdadera", 1: "falsa", 2: "incierta"}
 
 BATCH_SIZE = 32
 
@@ -40,7 +40,7 @@ class EvalRow(TypedDict):
 def load_samples(
     partition: str = "test", per_class: int = 300, seed: int = 42
 ) -> list[Sample]:
-    """Carga una muestra balanceada por clase de PubHealth para la evaluación."""
+    """Carga una muestra balanceada por clase de HealthVer para la evaluación."""
     df = load_dataset(partition)
     df = df[df["label"].isin(LABEL_BY_CODE)].copy()
     df["expected"] = df["label"].map(LABEL_BY_CODE)
@@ -103,9 +103,9 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     recall = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
-    # Las muestras 'mixture' se reportan aparte: lo deseable es que abstengan.
-    mixture = [r for r in rows if r["expected"] == "incierta"]
-    mixture_uncertain = sum(1 for r in mixture if r["predicted"] == "incierta")
+    # Las muestras 'NEI' se reportan aparte: lo deseable es que abstengan.
+    nei = [r for r in rows if r["expected"] == "incierta"]
+    nei_uncertain = sum(1 for r in nei if r["predicted"] == "incierta")
 
     return {
         "accuracy": accuracy,
@@ -120,8 +120,8 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "uncertain": uncertain,
         "true_to_false_rate": fp / (tn + fp) if (tn + fp) else 0.0,
         "false_to_true_rate": fn / (tp + fn) if (tp + fn) else 0.0,
-        "mixture_total": len(mixture),
-        "mixture_uncertain": mixture_uncertain,
+        "nei_total": len(nei),
+        "nei_uncertain": nei_uncertain,
     }
 
 
@@ -142,11 +142,11 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
         f"Error falsa->verdadera : {metrics['false_to_true_rate']:.2%}",
     ]
 
-    if metrics["mixture_total"]:
+    if metrics["nei_total"]:
         lines.append(
-            f"Mixture -> incierta    : {int(metrics['mixture_uncertain'])}"
-            f"/{int(metrics['mixture_total'])} "
-            f"({metrics['mixture_uncertain'] / metrics['mixture_total']:.0%})"
+            f"NEI -> incierta        : {int(metrics['nei_uncertain'])}"
+            f"/{int(metrics['nei_total'])} "
+            f"({metrics['nei_uncertain'] / metrics['nei_total']:.0%})"
         )
 
     errors = [
@@ -175,7 +175,7 @@ def main() -> dict[str, float]:
         "--partition",
         default="test",
         choices=["train", "test", "validation"],
-        help="Partición de PubHealth a muestrear.",
+        help="Partición de HealthVer a muestrear.",
     )
     parser.add_argument(
         "--per-class", type=int, default=300, help="Muestras por clase a evaluar."

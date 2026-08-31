@@ -57,18 +57,18 @@ def test_compute_metrics_treats_incierta_as_abstention() -> None:
     assert metrics["accuracy"] == 1.0
 
 
-def test_compute_metrics_reports_mixture_separately() -> None:
+def test_compute_metrics_reports_nei_separately() -> None:
     rows = [
-        _row("incierta", "incierta"),  # mixture correctamente abstenida
-        _row("incierta", "falsa"),  # mixture con veredicto firme
+        _row("incierta", "incierta"),  # NEI correctamente abstenida
+        _row("incierta", "falsa"),  # NEI con veredicto firme
         _row("verdadera", "verdadera"),
     ]
     metrics = ec.compute_metrics(rows)
 
-    # Las muestras mixture no entran en la matriz binaria.
+    # Las muestras NEI no entran en la matriz binaria.
     assert metrics["evaluated"] == 1
-    assert metrics["mixture_total"] == 2
-    assert metrics["mixture_uncertain"] == 1
+    assert metrics["nei_total"] == 2
+    assert metrics["nei_uncertain"] == 1
 
 
 def test_compute_metrics_empty_rows_are_zero() -> None:
@@ -81,7 +81,7 @@ def test_compute_metrics_empty_rows_are_zero() -> None:
     assert metrics["evaluated"] == 0
 
 
-def test_format_report_lists_errors_and_mixture() -> None:
+def test_format_report_lists_errors_and_nei() -> None:
     rows = [
         _row("verdadera", "falsa", 0.8),
         _row("falsa", "falsa"),
@@ -93,7 +93,7 @@ def test_format_report_lists_errors_and_mixture() -> None:
 
     assert "Evaluación del clasificador BERT" in report
     assert "Errores de clasificación (1)" in report
-    assert "Mixture -> incierta    : 1/1" in report
+    assert "NEI -> incierta        : 1/1" in report
 
 
 def test_format_report_omits_error_section_when_clean() -> None:
@@ -110,8 +110,8 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     df = pd.DataFrame(
         {
             "claim": [f"c{i}" for i in range(8)],
-            # 0->verdadera, 1->falsa, 3->incierta, 2->descartada
-            "label": [0, 0, 1, 1, 3, 3, 2, 2],
+            # 0->verdadera, 1->falsa, 2->incierta
+            "label": [0, 0, 1, 1, 2, 2, 0, 1],
         }
     )
     monkeypatch.setattr(ec, "load_dataset", lambda partition: df.copy())

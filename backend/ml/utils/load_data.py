@@ -1,6 +1,12 @@
 """
 Este módulo contiene la función para cargar los datos de las distintas
-particiones (train, test, validation) desde archivos Parquet.
+particiones (train, test, validation) de HealthVer desde archivos Parquet.
+
+Las particiones traen las columnas 'claim_id', 'claim' y 'label', donde
+'label' sigue el orden de CLASS_LABELS: 0 cuando toda la evidencia citada
+apoya la afirmación, 1 cuando toda la contradice y 2 cuando la evidencia es
+mixta o no existe, porque una literatura dividida es un caso incierto.
+La partición 'validation' corresponde al split 'dev' original de HealthVer.
 """
 
 import logging
@@ -14,9 +20,9 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Definir la ruta a los archivos de datos con las distintas particiones
-TRAIN_PATH = os.path.join(BASE_DIR, "data", "pubhealth_train.parquet")
-TEST_PATH = os.path.join(BASE_DIR, "data", "pubhealth_test.parquet")
-VALIDATION_PATH = os.path.join(BASE_DIR, "data", "pubhealth_validation.parquet")
+TRAIN_PATH = os.path.join(BASE_DIR, "data", "healthver_train.parquet")
+TEST_PATH = os.path.join(BASE_DIR, "data", "healthver_test.parquet")
+VALIDATION_PATH = os.path.join(BASE_DIR, "data", "healthver_validation.parquet")
 
 
 def load_dataset(partition: str = "train") -> pd.DataFrame:

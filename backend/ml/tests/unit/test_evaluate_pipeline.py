@@ -113,8 +113,8 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     df = pd.DataFrame(
         {
             "claim": [f"c{i}" for i in range(8)],
-            # 0->verdadera, 1->falsa, 3->falsa, 2->descartada
-            "label": [0, 0, 0, 1, 1, 3, 2, 2],
+            # 0->verdadera, 1->falsa; NEI (2) se descarta
+            "label": [0, 0, 0, 1, 1, 1, 2, 2],
         }
     )
     monkeypatch.setattr(ep, "load_dataset", lambda partition: df.copy())
@@ -124,7 +124,7 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     assert len(samples) == 4
     labels = {s["expected"] for s in samples}
     assert labels <= {"verdadera", "falsa"}
-    # La clase 'unproven' (2) nunca debe aparecer.
+    # La clase 'NEI' (2) nunca debe aparecer.
     assert all(s["text"] not in {"c6", "c7"} for s in samples)
 
 

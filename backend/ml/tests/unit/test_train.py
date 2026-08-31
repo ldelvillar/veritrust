@@ -27,14 +27,14 @@ def test_git_sha_returns_unknown_when_git_unavailable(monkeypatch) -> None:
     assert train_module._git_sha() == "unknown"
 
 
-def test_pubhealth_dataset_len_and_getitem_returns_expected_tensors() -> None:
+def test_claims_dataset_len_and_getitem_returns_expected_tensors() -> None:
     encodings = {
         "input_ids": [[1, 2, 3], [4, 5, 6]],
         "attention_mask": [[1, 1, 1], [1, 1, 0]],
     }
     labels = [0, 1]
 
-    dataset = train_module.PubHealthDataset(encodings, labels)
+    dataset = train_module.ClaimsDataset(encodings, labels)
 
     assert len(dataset) == 2
     item = dataset[1]

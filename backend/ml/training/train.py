@@ -46,7 +46,7 @@ SEED = 42  # Semilla fija para entrenamientos reproducibles
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-class PubHealthDataset(torch.utils.data.Dataset):
+class ClaimsDataset(torch.utils.data.Dataset):
     """Clase personalizada para manejar el dataset en formato PyTorch."""
 
     def __init__(self, encodings: BatchEncoding, labels: list[int]) -> None:
@@ -160,9 +160,9 @@ def run_training(model_name: str = MODEL_NAME) -> None:
     )
 
     # Crear datasets de PyTorch
-    train_dataset = PubHealthDataset(train_encodings, train_labels)
-    val_dataset = PubHealthDataset(val_encodings, val_labels)
-    test_dataset = PubHealthDataset(test_encodings, test_labels)
+    train_dataset = ClaimsDataset(train_encodings, train_labels)
+    val_dataset = ClaimsDataset(val_encodings, val_labels)
+    test_dataset = ClaimsDataset(test_encodings, test_labels)
 
     # Configuración del modelo
     logger.info("Inicializando modelo. Usando dispositivo: %s", DEVICE)
