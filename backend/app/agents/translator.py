@@ -8,11 +8,10 @@ from functools import lru_cache
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
 from app.prompts.agents import Prompts
+from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +31,7 @@ class TranslatedStatements(BaseModel):
 @lru_cache(maxsize=1)
 def get_translator_chain(prompt_text: str):
     """Devuelve la cadena de traducción configurada y cacheada."""
-    settings = get_settings()
-    llm = ChatOllama(
-        model=settings.ollama_translator_model,
-        temperature=0,
-        base_url=settings.ollama_base_url,
-        num_ctx=settings.ollama_translator_num_ctx,
-        num_predict=settings.ollama_translator_num_predict,
-        client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
-    )
+    llm = build_chat_model("translator")
     structured_llm = llm.with_structured_output(TranslatedStatements)
 
     system_prompt = ChatPromptTemplate.from_messages(

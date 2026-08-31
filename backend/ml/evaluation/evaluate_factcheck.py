@@ -21,7 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.tools.model_tool import FakeNewsDetectorTool
-from app.utils.ollama import ensure_ollama_available
+from app.utils.llm import ensure_llm_available
 
 logger = logging.getLogger(__name__)
 
@@ -256,5 +256,5 @@ if __name__ == "__main__":
         "immune system boost",
         "homeopathy",
     ]
-    ensure_ollama_available()
+    ensure_llm_available()
     evaluate_system(terms)

@@ -18,7 +18,7 @@ from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import load_prompts
-from app.utils.ollama import ensure_ollama_available
+from app.utils.llm import ensure_llm_available
 from ml.utils.load_data import load_dataset
 
 logger = logging.getLogger(__name__)
@@ -298,7 +298,7 @@ def main() -> dict[str, float]:
     if args.fresh:
         checkpoint_path.unlink(missing_ok=True)
 
-    ensure_ollama_available()
+    ensure_llm_available()
     ensure_bert_detector_ready()
 
     graph = create_graph(load_prompts())

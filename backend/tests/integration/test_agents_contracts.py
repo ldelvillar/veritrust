@@ -721,8 +721,15 @@ def test_translator_chain_is_built_offline_and_cached(translator_module):
     assert callable(getattr(chain_a, "invoke", None))
 
 
-def test_health_expert_llm_is_configured_from_settings_and_cached(health_module):
+def test_health_expert_llm_is_configured_from_settings_and_cached(
+    monkeypatch, health_module
+):
     from app.core.config import get_settings
+
+    # El contrato se afirma sobre Ollama; el proveedor se fija para no leer el .env real.
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    get_settings.cache_clear()
+    health_module.get_health_expert_llm.cache_clear()
 
     llm_a = health_module.get_health_expert_llm()
     llm_b = health_module.get_health_expert_llm()
@@ -730,3 +737,6 @@ def test_health_expert_llm_is_configured_from_settings_and_cached(health_module)
     assert llm_a is llm_b
     assert llm_a.model == get_settings().ollama_health_expert_model
     assert llm_a.base_url == get_settings().ollama_base_url
+
+    health_module.get_health_expert_llm.cache_clear()
+    get_settings.cache_clear()

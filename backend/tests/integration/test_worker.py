@@ -689,9 +689,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
         calls.append("pool")
 
     monkeypatch.setattr(worker, "get_settings", lambda: _FakeSettings())
-    monkeypatch.setattr(
-        worker, "ensure_ollama_available", lambda: calls.append("ollama")
-    )
+    monkeypatch.setattr(worker, "ensure_llm_available", lambda: calls.append("llm"))
     monkeypatch.setattr(
         worker, "ensure_bert_detector_ready", lambda: calls.append("bert")
     )
@@ -705,7 +703,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     # El worker no sirve peticiones web: no debe exigir CORS configurado.
     assert validated == {"require_cors": False}
     assert ctx["verification_system"] is sentinel_graph
-    assert set(calls) == {"ollama", "bert", "pool"}
+    assert set(calls) == {"llm", "bert", "pool"}
 
 
 async def test_shutdown_closes_db_pool(monkeypatch):

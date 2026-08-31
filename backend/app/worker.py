@@ -43,7 +43,7 @@ from app.utils.email import (
 )
 from app.utils.extract_text_from_file import FileExtractionError, extract_text_from_file
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
-from app.utils.ollama import ensure_ollama_available
+from app.utils.llm import ensure_llm_available
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -219,7 +219,7 @@ async def reap_stale_analyses(ctx: dict) -> None:
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
     get_settings().validate_runtime(require_cors=False)
-    ensure_ollama_available()
+    ensure_llm_available()
     ensure_bert_detector_ready()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)

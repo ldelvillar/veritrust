@@ -49,6 +49,19 @@ class Settings(BaseSettings):
     ollama_judge_num_ctx: int = 8192
     ollama_judge_num_predict: int = 512
 
+    # Proveedor de los LLM de los agentes: "ollama" (local) o "mistral" (API alojada)
+    llm_provider: str = "ollama"
+
+    # Mistral; la api_key es obligatoria cuando llm_provider es "mistral"
+    mistral_api_key: str | None = None
+    mistral_extractor_model: str = "mistral-small-latest"
+    mistral_translator_model: str = "mistral-small-latest"
+    mistral_health_expert_model: str = "mistral-small-latest"
+    mistral_judge_model: str = "mistral-small-latest"
+    # La ventana de contexto la fija el servidor; solo se acota la generación
+    mistral_max_tokens: int = 2048
+    mistral_request_timeout_seconds: int = 60
+
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
 
@@ -136,9 +149,19 @@ class Settings(BaseSettings):
         audiences = [aud.strip() for aud in raw.split(",") if aud.strip()]
         return audiences if len(audiences) > 1 else audiences[0]
 
+    def llm_provider_name(self) -> str:
+        """Devuelve el proveedor de LLM normalizado en minúsculas."""
+        return self.llm_provider.strip().lower()
+
     def validate_runtime(self, *, require_cors: bool = True) -> None:
         """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
         missing: list[str] = []
+
+        if (
+            self.llm_provider_name() == "mistral"
+            and not (self.mistral_api_key or "").strip()
+        ):
+            missing.append("MISTRAL_API_KEY")
 
         if not self.database_url.strip():
             missing.append("DATABASE_URL")

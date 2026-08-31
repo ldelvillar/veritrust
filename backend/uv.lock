@@ -49,9 +49,9 @@ dependencies = [
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.12.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "torch", version = "2.12.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
     { name = "torch", version = "2.12.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (extra != 'group-9-veritrust-cpu' and extra != 'group-9-veritrust-gpu')" },
-    { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
     { name = "torch", version = "2.13.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "extra == 'group-9-veritrust-gpu'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4a/8e/ac2a9566747a93f8be36ee08532eb0160558b07630a081a6056a9f89bf1d/accelerate-1.12.0.tar.gz", hash = "sha256:70988c352feb481887077d2ab845125024b2a137a5090d6d7a32b57d03a45df6", size = 398399, upload-time = "2025-11-21T11:27:46.973Z" }
@@ -1027,6 +1027,15 @@ wheels = [
 ]
 
 [[package]]
+name = "httpx-sse"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/4c/751061ffa58615a32c31b2d82e8482be8dd4a89154f003147acee90f2be9/httpx_sse-0.4.3.tar.gz", hash = "sha256:9b1ed0127459a66014aec3c56bebd93da3c1bc8bb6618c8082039a44889a755d", size = 15943, upload-time = "2025-10-10T21:48:22.271Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/fd/6668e5aec43ab844de6fc74927e155a3b37bf40d7c3790e49fc0406b6578/httpx_sse-0.4.3-py3-none-any.whl", hash = "sha256:0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc", size = 8960, upload-time = "2025-10-10T21:48:21.158Z" },
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "1.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1213,10 +1222,12 @@ wheels = [
 
 [[package]]
 name = "langchain-core"
-version = "1.2.15"
+version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "httpx" },
     { name = "jsonpatch" },
+    { name = "langchain-protocol" },
     { name = "langsmith" },
     { name = "packaging" },
     { name = "pydantic" },
@@ -1225,9 +1236,25 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uuid-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/db/693d81b6c229aceb7c6e6809939c6ab1b023554227a25de438f00c0389c6/langchain_core-1.2.15.tar.gz", hash = "sha256:7d5f5d2daa8ddbe4054a96101dc5d509926f831b9914808c24640987d499758c", size = 835280, upload-time = "2026-02-23T15:04:49.185Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/12/aff76ca89c219ebe6f9dd3c5dbc4e3b1cf5450e9fc7037dccad23d45cd7a/langchain_core-1.6.1.tar.gz", hash = "sha256:1b156cb395aac4f009a8a1b38a574c7d948fe2d5f74c96e0d8a5017b4149e04f", size = 1003359, upload-time = "2026-08-27T19:31:14.956Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/e0/a6a83dde94400b43d9b091ecbb41a50d6f86c4fecacb81b13d8452a7712b/langchain_core-1.2.15-py3-none-any.whl", hash = "sha256:8d920d8a31d8c223966a3993d8c79fd6093b9665f2222fc878812f3a52072ab7", size = 502213, upload-time = "2026-02-23T15:04:47.967Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/25/f50dd65673c819aa33d3c34df58c115dbb6ec627d19f93e6e401dd0fc8d7/langchain_core-1.6.1-py3-none-any.whl", hash = "sha256:954a84132a5cb0435d27b910e336347b6744ecc18fbeef1e2de7029a0959841a", size = 571478, upload-time = "2026-08-27T19:31:13.34Z" },
+]
+
+[[package]]
+name = "langchain-mistralai"
+version = "1.1.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "langchain-core" },
+    { name = "pydantic" },
+    { name = "tokenizers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/92/d15c0640bf77908b765d76f46d7123d7b82b34b04dfad2838b68143f38f7/langchain_mistralai-1.1.6.tar.gz", hash = "sha256:c2694828adee61a497c571e25eaba1472095cd1d1f260a7fe15a6e60f9ece039", size = 157112, upload-time = "2026-07-05T21:30:23.059Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/db/b727cd6e8083a48e4d0aba542f1454a50510d59b24476888af94b038be15/langchain_mistralai-1.1.6-py3-none-any.whl", hash = "sha256:0aa59b313b406ee934dc0431873b0e11849d8d746a6a7e281103c6848a9b1319", size = 22806, upload-time = "2026-07-05T21:30:21.84Z" },
 ]
 
 [[package]]
@@ -1241,6 +1268,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/73/51/72cd04d74278f3575f921084f34280e2f837211dc008c9671c268c578afe/langchain_ollama-1.0.1.tar.gz", hash = "sha256:e37880c2f41cdb0895e863b1cfd0c2c840a117868b3f32e44fef42569e367443", size = 153850, upload-time = "2025-12-12T21:48:28.68Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e3/46/f2907da16dc5a5a6c679f83b7de21176178afad8d2ca635a581429580ef6/langchain_ollama-1.0.1-py3-none-any.whl", hash = "sha256:37eb939a4718a0255fe31e19fbb0def044746c717b01b97d397606ebc3e9b440", size = 29207, upload-time = "2025-12-12T21:48:27.832Z" },
+]
+
+[[package]]
+name = "langchain-protocol"
+version = "0.0.19"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/14/56/913599f2f9cec8524868929f12d72b2ede377a6056ca8a40a32bdadfa535/langchain_protocol-0.0.19.tar.gz", hash = "sha256:79d90a1425122ac87e8052e2ec054fbd09c3edbf341bdfb6397112a495c7bf8c", size = 6265, upload-time = "2026-08-26T21:12:00.703Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/c9/f6cbf357d48ccbd18bb394433b1fd7ad9be004eed9377ad08bb85777e5e6/langchain_protocol-0.0.19-py3-none-any.whl", hash = "sha256:4cdf879a492a35980fd859ae792d3c65458ccaae504e183c9a10d7eac1f0720f", size = 7327, upload-time = "2026-08-26T21:11:59.781Z" },
 ]
 
 [[package]]
@@ -3328,18 +3367,17 @@ name = "torch"
 version = "2.12.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.15' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and sys_platform == 'darwin'",
     "python_full_version < '3.14' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "fsspec", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "jinja2", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "networkx", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "setuptools", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "sympy", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "typing-extensions", marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "filelock", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "fsspec", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "jinja2", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "networkx", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "setuptools", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "sympy", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "typing-extensions", marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.12.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:10802fd383bbfed646212e765a72c37d2185205d4f26eb197a254e8ac7ddcb25", upload-time = "2026-05-12T16:20:07Z" },
@@ -3420,18 +3458,19 @@ resolution-markers = [
     "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version == '3.14.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'darwin'",
     "python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version < '3.14' and sys_platform == 'emscripten'",
     "python_full_version < '3.14' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "fsspec", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "jinja2", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "networkx", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "setuptools", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "sympy", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "typing-extensions", marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "filelock", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "fsspec", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "jinja2", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "networkx", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "sympy", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
+    { name = "typing-extensions", marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.12.0%2Bcpu-cp311-cp311-linux_s390x.whl", hash = "sha256:aaa9c1f5e8c518d7be1e3c3e1b090ca7d63b6e353a1abd6cfdaf902405093467", upload-time = "2026-05-12T23:16:01Z" },
@@ -3762,6 +3801,7 @@ dependencies = [
     { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-core" },
+    { name = "langchain-mistralai" },
     { name = "langchain-ollama" },
     { name = "langgraph" },
     { name = "numpy" },
@@ -3793,8 +3833,8 @@ ml = [
 
 [package.dev-dependencies]
 cpu = [
-    { name = "torch", version = "2.12.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
-    { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu') or (extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "torch", version = "2.12.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.15' and sys_platform == 'darwin' and extra == 'group-9-veritrust-cpu') or (python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu')" },
+    { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.15' and extra == 'group-9-veritrust-cpu') or (python_full_version < '3.15' and extra == 'group-9-veritrust-cpu' and extra == 'group-9-veritrust-gpu') or (sys_platform != 'darwin' and extra == 'group-9-veritrust-cpu')" },
 ]
 dev = [
     { name = "coverage" },
@@ -3819,6 +3859,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "langchain", specifier = ">=1.2" },
     { name = "langchain-core", specifier = ">=1.2" },
+    { name = "langchain-mistralai", specifier = ">=1.1" },
     { name = "langchain-ollama", specifier = ">=1.0" },
     { name = "langgraph", specifier = ">=1.0" },
     { name = "matplotlib", marker = "extra == 'ml'", specifier = ">=3.10" },

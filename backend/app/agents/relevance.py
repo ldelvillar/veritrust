@@ -5,10 +5,9 @@ from functools import lru_cache
 from typing import List, Literal
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
+from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +31,7 @@ class EvidenceJudgments(BaseModel):
 @lru_cache(maxsize=1)
 def get_relevance_chain(prompt_text: str):
     """Devuelve la cadena de juicio de evidencia configurada y cacheada."""
-    settings = get_settings()
-    llm = ChatOllama(
-        model=settings.ollama_judge_model,
-        temperature=0,
-        base_url=settings.ollama_base_url,
-        num_ctx=settings.ollama_judge_num_ctx,
-        num_predict=settings.ollama_judge_num_predict,
-        client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
-    )
+    llm = build_chat_model("judge")
     structured_llm = llm.with_structured_output(EvidenceJudgments)
 
     prompt = ChatPromptTemplate.from_messages(

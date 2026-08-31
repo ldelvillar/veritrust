@@ -8,8 +8,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 
 # Asegura que, al ejecutar este archivo como script, se use el código local del repositorio.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -17,13 +17,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.agents import sanitize
-from app.core.config import get_settings
 from app.core.credibility import (
     adjust_confidence_with_evidence,
     blend_fake_prob_with_stance,
 )
 from app.prompts.agents import Prompts
 from app.tools.model_tool import FakeNewsDetectorTool
+from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -95,17 +95,9 @@ def ensure_bert_detector_ready() -> None:
 
 
 @lru_cache(maxsize=1)
-def get_health_expert_llm() -> ChatOllama:
+def get_health_expert_llm() -> BaseChatModel:
     """Devuelve el LLM del experto en salud configurado y cacheado."""
-    settings = get_settings()
-    return ChatOllama(
-        model=settings.ollama_health_expert_model,
-        temperature=0,
-        base_url=settings.ollama_base_url,
-        num_ctx=settings.ollama_health_expert_num_ctx,
-        num_predict=settings.ollama_health_expert_num_predict,
-        client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
-    )
+    return build_chat_model("health_expert")
 
 
 def health_expert(state: dict, prompts: Prompts) -> dict:
