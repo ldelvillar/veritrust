@@ -1,5 +1,5 @@
 ---
-description: Evaluate the full multi-agent pipeline (Extractor→Translator→Investigator→Health Expert) against labeled PubHealth data and report accuracy
+description: Evaluate the full multi-agent pipeline (Extractor→Translator→Investigator→Health Expert) against labeled HealthVer data (or the hand-written gold set) and report accuracy
 argument-hint: "[--limit N] [--partition train|test|validation] [--seed N]"
 ---
 

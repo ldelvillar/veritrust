@@ -7,7 +7,7 @@ import pytest
 from arq.connections import RedisSettings
 
 import app.worker as worker
-from app.agents.errors import BertInferenceError, OllamaConnectionError
+from app.agents.errors import OllamaConnectionError
 from app.db.pool import DatabaseError
 from app.utils.extract_text_from_file import FileExtractionError
 from app.utils.extract_text_from_url import URLExtractionError
@@ -472,22 +472,6 @@ async def test_run_analysis_fails_with_connection_on_ollama_error(monkeypatch):
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
 
 
-async def test_run_analysis_fails_with_internal_on_bert_error(monkeypatch):
-    """Un fallo del detector BERT acaba en 'failed', no en un veredicto falso."""
-    completed, failed = _patch_db(monkeypatch)
-
-    async def fake_ainvoke(graph, state, on_stage=None):
-        raise BertInferenceError("modelo no disponible")
-
-    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
-
-    ctx = {"verification_system": object()}
-    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
-
-    assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]
-
-
 class _FakeReaperRedis:
     """Redis de mentira: solo conoce las claves arq:job: que se le declaran vivas."""
 
@@ -690,9 +674,6 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
 
     monkeypatch.setattr(worker, "get_settings", lambda: _FakeSettings())
     monkeypatch.setattr(worker, "ensure_llm_available", lambda: calls.append("llm"))
-    monkeypatch.setattr(
-        worker, "ensure_bert_detector_ready", lambda: calls.append("bert")
-    )
     monkeypatch.setattr(worker, "load_prompts", lambda: sentinel_prompts)
     monkeypatch.setattr(worker, "create_graph", fake_create_graph)
     monkeypatch.setattr(worker, "get_pool", fake_get_pool)
@@ -703,7 +684,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     # El worker no sirve peticiones web: no debe exigir CORS configurado.
     assert validated == {"require_cors": False}
     assert ctx["verification_system"] is sentinel_graph
-    assert set(calls) == {"llm", "bert", "pool"}
+    assert set(calls) == {"llm", "pool"}
 
 
 async def test_shutdown_closes_db_pool(monkeypatch):

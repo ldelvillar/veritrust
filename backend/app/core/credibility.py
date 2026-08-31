@@ -52,26 +52,3 @@ def adjust_confidence_with_evidence(
     coverage = max(0.0, min(1.0, evidence_coverage))
     adjusted = confidence * (1 - EVIDENCE_MAX_PENALTY * (1 - coverage))
     return max(0.0, min(1.0, adjusted))
-
-
-# Peso máximo de la postura de la evidencia en la prob. de falsedad de una afirmación
-STANCE_MAX_WEIGHT = 0.5
-# Nº de fuentes pronunciadas a partir del cual la evidencia pesa el máximo
-STANCE_SATURATION_SOURCES = 3
-
-
-def blend_fake_prob_with_stance(
-    fake_prob: float, supports: int, contradicts: int
-) -> float:
-    """Acerca la prob. de falsedad a la postura de la evidencia, con peso creciente por fuente."""
-    total = supports + contradicts
-    if total <= 0:
-        return fake_prob
-    evidence_fake = contradicts / total
-    weight = (
-        STANCE_MAX_WEIGHT
-        * min(total, STANCE_SATURATION_SOURCES)
-        / STANCE_SATURATION_SOURCES
-    )
-    blended = (1 - weight) * fake_prob + weight * evidence_fake
-    return max(0.0, min(1.0, blended))

@@ -14,7 +14,6 @@ from typing import TypedDict, cast
 import pandas as pd
 
 from app.agents.errors import ainvoke_graph
-from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import load_prompts
@@ -299,7 +298,6 @@ def main() -> dict[str, float]:
         checkpoint_path.unlink(missing_ok=True)
 
     ensure_llm_available()
-    ensure_bert_detector_ready()
 
     graph = create_graph(load_prompts())
     samples = load_samples(args.partition, args.limit, args.seed)

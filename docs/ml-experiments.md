@@ -1,9 +1,14 @@
-# Registro de experimentos del clasificador
+# Registro de experimentos del pipeline
 
-Bitácora de lo probado sobre el clasificador BERT, con resultados negativos incluidos,
-para no repetir callejones sin salida. Métricas sobre la misma muestra de test de
+Bitácora de lo probado, con resultados negativos incluidos, para no repetir callejones
+sin salida.
+
+Las secciones de julio de 2026 miden el clasificador BERT sobre la muestra de test de
 PubHealth (300 verdadera / 300 falsa / 201 mixture, seed 42) vía
-`ml/evaluation/evaluate_classifier.py`, salvo indicación contraria.
+`ml/evaluation/evaluate_classifier.py`. A partir de agosto de 2026 el dataset es
+HealthVer, la medida limpia es el conjunto dorado `data/gold_es.jsonl` vía
+`ml/evaluation/evaluate_pipeline.py --partition gold`, y **el clasificador ya no forma
+parte del pipeline** (ver «Retirada del clasificador BERT»).
 
 ## Historial de mejoras (jul 2026)
 
@@ -205,6 +210,142 @@ explosión de FP (precisión falsa 48%) y que pipeline y clasificador solo coinc
 en 24 de 33 veredictos firmes comunes. El clasificador es frágil a la paráfrasis; el
 pipeline se lo expone en cada muestra.
 
+## Sustitución del dataset: PubHealth → HealthVer (2026-08-30)
+
+PubHealth quedó descartado por dos motivos medidos, no por intuición:
+
+- **Separable por estilo**: un clasificador sobre features de superficie (longitud,
+  puntuación, mayúsculas) más TF-IDF distingue `verdadera` de `falsa` con AUC 0.72–0.81
+  sin leer el contenido. Etiqueta procedencia, no veracidad; es la misma fuga que
+  explicaba el diagnóstico de 2026-07-15 («BioBERT lee registro, no contenido»).
+- **80% de extracción vacía** sobre la muestra médica: los titulares periodísticos con
+  atribución no sobreviven al extractor.
+
+Además incluye política y no solo medicina, lo que contaminaba cualquier métrica de
+dominio. HealthVer es exclusivamente médico y trae evidencia por afirmación.
+
+**Error propio durante la conversión, corregido**: al mapear HealthVer a las etiquetas
+del pipeline se colapsó cualquier afirmación con una fuente que la contradijera a
+`falsa`. Eso mal etiquetó el 26% de validation. La regla correcta manda la evidencia
+mixta a `incierta`: la partición pasó de 71/89/70 a 71/48/111.
+
+**Auditoría de desacuerdos**: revisando a mano los casos en que el pipeline discrepa de
+HealthVer, **~60% son culpa del benchmark**, no del pipeline. HealthVer sirve para
+comparar arms entre sí, pero su techo de ruido impide leer su accuracy como capacidad.
+
+## Conjunto dorado escrito a mano (2026-08-31)
+
+`backend/data/gold_es.jsonl`: 100 afirmaciones, 50 temas × (1 verdadera + 1 falsa), en
+español y sin ambigüedad deliberada. JSONL para que el diff sea revisable.
+
+Existe porque el ruido de etiqueta de HealthVer impedía separar *incapacidad del
+pipeline* de *error del benchmark*. El contraste es inmediato: sobre el conjunto dorado
+el pipeline detecta 20/50 afirmaciones falsas, frente a 2/19, 0/19 y 1/19 en las
+sucesivas medidas sobre HealthVer. La señal existía; HealthVer la enterraba.
+
+Sesgo conocido: el conjunto lo escribimos nosotros, así que hereda nuestra idea de qué
+es una afirmación verificable, y sus 50 bulos son bulos *conocidos* (justo los que la
+literatura biomédica primaria no indexa; ver más abajo).
+
+## Prompts: juez v3 y extractor v4 (2026-08-30 / 2026-08-31)
+
+**Juez v2 → v3 — hacía coincidencia temática, no detección de postura.** Instrumentando
+al juez se vio que respondía `supports` a resúmenes que *refutaban* la afirmación: le
+bastaba con que hablaran del mismo tema. Ésta era la causa raíz de que el pipeline no
+detectara afirmaciones falsas. v3 añade tratamiento explícito de polaridad («compartir
+tema NO es respaldar»), el caso de la afirmación negativa desmentida y tres ejemplos
+resueltos. En casos controlados pasó de 2/4 a 4/4.
+
+Nota: la mejora **no transfiere del todo a resúmenes reales**. En el conjunto dorado
+quedan 9 afirmaciones falsas llamadas `verdadera` por este mismo mecanismo.
+
+**Extractor v3 → v4 — el ámbito era demasiado estrecho.** Rechazaba 8/100 afirmaciones
+del conjunto dorado devolviendo lista vacía (bail en <1.1 s): fisiología («el hígado
+elimina los productos de desecho»), neurociencia popular («solo usamos el 10% del
+cerebro»), salud mental, y bulos de contagio (5G). v4 amplía el ámbito a fisiología y
+anatomía, salud mental, transmisión y seguridad alimentaria, y añade una regla explícita
+para **no descartar creencias populares por parecer obviamente falsas: verificarlas es
+la tarea**. Recupera 5 de las 8.
+
+Las 3 que siguen sin extraerse son genuinamente discutibles como afirmación verificable
+y se dejan así.
+
+## Retirada del clasificador BERT (2026-08-31) — dos pruebas pareadas
+
+El veredicto pasa a derivarse solo de la postura de la literatura recuperada. Medido con
+dos comparaciones pareadas independientes:
+
+**HealthVer validation (59 muestras comunes)**
+
+| | acc. firme | verdadera→falsa |
+|---|---|---|
+| con BERT | 34.4% | 13 |
+| sin BERT | 52.9% | 4 |
+
+McNemar exacto: 14 a favor de sin-BERT, 3 a favor de con-BERT, **p = 0.0127**.
+
+**Conjunto dorado (100 muestras, extractor v4 y juez v3 fijos en ambos arms)**
+
+| | acc. | firmes | acc. firme | incierta | recall falsas | **verdadera→falsa** |
+|---|---|---|---|---|---|---|
+| con BERT | 42/100 | 64 | 65.6% | 34 | 41/50 | **17** |
+| sin BERT | **69/100** | 80 | **86.2%** | 18 | 23/50 | **2** |
+
+McNemar exacto: 47 a favor de sin-BERT, 20 a favor de con-BERT, **p = 0.0013**.
+
+**La trampa a no repetir**: BERT tiene *mejor* recall de falsas (41/50 vs 23/50). Lo
+compra llamando falsas a 17 afirmaciones verdaderas. Un sesgo hacia `falsa` puntúa bien
+en un conjunto que es mitad bulos y es inaceptable en una herramienta que lee un
+paciente. La accuracy sobre veredictos firmes (86.2% vs 65.6%) es la métrica honesta:
+BERT no sabía más, adivinaba más fuerte.
+
+Coherente con la medida aislada previa: BERT solo sobre HealthVer validation da 42.31%,
+por debajo del 60.6% de un predictor constante «todo es verdad».
+
+Se conserva `app/tools/model_tool.py` y los scripts `ml/evaluation/evaluate_classifier.py`
+y `evaluate_factcheck.py` para que los experimentos de esta bitácora sigan siendo
+reproducibles; lo que se retira es BERT de la ruta de servicio.
+
+**El traductor NO se retira.** Se creía que solo alimentaba al clasificador, pero
+`investigator.py` corta la recuperación de evidencia si `translated_statements` viene
+vacío y recorre esa lista para construir las consultas. Es la espina dorsal de la
+recuperación, que ahora es la *única* fuente del veredicto.
+
+## La ausencia de evidencia no es prueba de falsedad (2026-08-31)
+
+Al estrechar la banda de incertidumbre de ±0.10 a ±0.05 la accuracy del conjunto dorado
+saltó de 55 a 79. Casi todo el salto era un artefacto y se revirtió parcialmente.
+
+Con suavizado de Laplace, una afirmación sin ninguna fuente pronunciada puntúa
+exactamente 0.5. Con `FAKE_THRESHOLD = 0.40` y banda ±0.05 ese 0.5 queda *por encima* de
+la banda, así que **«no hemos encontrado nada» se leía como «es falso»**. La banda
+antigua terminaba justo en 0.50 y por eso el problema estaba oculto.
+
+27 de las 100 muestras no tienen ninguna postura: la regla las llamaba todas `falsa`,
+acertando 20 y fallando 7. Puntúa bien solo porque el conjunto dorado está hecho de
+bulos conocidos, que son exactamente los que la literatura biomédica primaria no indexa.
+Lo que producía:
+
+```text
+La fiebre es una respuesta del organismo frente a una infeccion.          -> FALSA
+El uso innecesario de antibioticos favorece la aparicion de resistencias  -> FALSA
+La reanimacion cardiopulmonar precoz puede aumentar la supervivencia      -> FALSA
+La ingestion de lejia puede provocar quemaduras graves                    -> FALSA
+```
+
+`_has_stance_evidence` manda ahora esos casos a `incierta`, y el promedio global solo
+recorre las afirmaciones sobre las que la literatura se pronuncia. Cuesta 10 puntos de
+titular (79 → 69) y baja las verdaderas-llamadas-falsas de 7 a 2. Se acepta el cambio:
+79 que llama falsa a la fiebre no vale nada.
+
+Descomposición honesta de la mejora 55 → 69:
+
+| componente | aporte | ¿sólido? |
+|---|---|---|
+| recuperación de extracción (prompt v4) | +5 | sí |
+| estrechar la banda sobre señal real | ~+6 | sí |
+| ausencia de evidencia como `falsa` | +13 neto | **no, revertido** |
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -215,13 +356,35 @@ pipeline se lo expone en cada muestra.
 - **Afinar más los márgenes**: el barrido es casi plano; subir fm 0.25→0.35 compra
   ~+0.9 de accuracy a cambio de −3 de cobertura y ahí se acaba el recorrido.
 - **Plegar `mixture` en `falsa`** o cualquier reetiquetado que contamine una clase.
-- **Recalibrar la banda global de veredicto**: barrida en validación (2026-07-15),
-  la banda (0.30, 0.50) ya está en el óptimo práctico; los errores restantes tienen
-  `fake_avg` alto y ningún umbral los separa de los aciertos.
+- ~~**Recalibrar la banda global de veredicto**~~: **superado el 2026-08-31**. Con el
+  veredicto derivado de la evidencia, estrechar la banda a ±0.05 sí compra accuracy
+  (la banda ±0.10 dejaba 29/100 muestras en «incierta» por evidencia escasa, no
+  ambigua). El barrido de julio describía el clasificador, no el pipeline actual.
+- **Reentrenar BERT sobre HealthVer y volver a meterlo en el pipeline**: dos pruebas
+  pareadas independientes (p = 0.0127 y p = 0.0013) dicen que sobra, y aislado da 42.31%
+  frente al 60.6% de un predictor constante. El techo es el de la tarea, no el del
+  entrenamiento.
+- **Retirar el traductor**: no alimentaba solo al clasificador. `investigator.py` corta
+  la recuperación si `translated_statements` viene vacío; sin traductor no hay evidencia
+  y sin evidencia no hay veredicto.
+- **Tratar la ausencia de evidencia como falsedad**: puntúa bien en un conjunto lleno de
+  bulos conocidos y produce «la fiebre es falsa». Cualquier regla que premie el silencio
+  de la literatura está midiendo la cobertura de PubMed, no la veracidad.
 
 ## Pendiente con mayor expectativa
 
-1. **Entrenamiento con evidencia** (`claim [SEP] evidencia`, estilo NLI): la única vía
-   con margen real; ataca los errores no verificables desde el claim.
-2. LR 1e-5 con 4–5 épocas: pulido menor sobre BioBERT, nunca probado, expectativa baja.
-3. Reequilibrar pesos hacia `verdadera`: los errores siguen asimétricos (52 FP vs 3 FN).
+Ordenado por dónde están realmente los 31 errores del conjunto dorado (2026-08-31):
+
+1. **Cobertura de recuperación** — 17/100 afirmaciones falsas acaban en `incierta`
+   porque no se recupera ninguna evidencia. Es el mayor cubo con diferencia. Son bulos
+   populares (homeopatía, microondas, azúcar y tumores, desodorantes con aluminio, ocho
+   vasos de agua) que la literatura biomédica primaria no aborda: haría falta un segundo
+   canal de recuperación orientado a corpus de verificación, no a investigación
+   original, o aceptar `incierta` y reportar la cobertura con honestidad.
+2. **El juez sigue leyendo literatura temática como respaldo** — 9/100 falsas llamadas
+   `verdadera` con 4–6 fuentes `supports` y ninguna `contradicts`. El prompt v3 lo
+   arregló en resúmenes escritos a mano pero no transfiere del todo a los reales.
+3. **Alinear `FAKE_THRESHOLD` con el punto neutro** — el score suavizado es neutro en
+   0.5 pero el umbral está en 0.40, así que la evidencia *equilibrada* (1 a favor, 1 en
+   contra) se lee como `falsa`. Cuesta ~2 puntos en el conjunto dorado (ruido a n=100),
+   pero es corrección de razonamiento, no de métrica.

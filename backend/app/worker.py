@@ -15,11 +15,9 @@ from arq.connections import RedisSettings
 from arq.constants import job_key_prefix
 
 from app.agents.errors import (
-    BertInferenceError,
     OllamaConnectionError,
     ainvoke_graph,
 )
-from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import PIPELINE_STAGES, create_graph
 from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
@@ -179,9 +177,6 @@ async def run_analysis(
     except OllamaConnectionError:
         logger.exception("[Worker] No se pudo conectar a Ollama para %s", analysis_id)
         await _fail_and_notify(ErrorCode.CONNECTION.value)
-    except BertInferenceError:
-        logger.exception("[Worker] Fallo del detector BERT para %s", analysis_id)
-        await _fail_and_notify(ErrorCode.INTERNAL.value)
     except Exception:
         logger.exception("[Worker] Error inesperado analizando %s", analysis_id)
         await _fail_and_notify(ErrorCode.INTERNAL.value)
@@ -220,7 +215,6 @@ async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
     get_settings().validate_runtime(require_cors=False)
     ensure_llm_available()
-    ensure_bert_detector_ready()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)
     await get_pool()

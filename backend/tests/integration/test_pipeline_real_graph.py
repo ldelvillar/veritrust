@@ -83,21 +83,9 @@ def _guard_translator(monkeypatch):
     )
 
 
-def _stub_health(monkeypatch, bert_results=None, llm_error=None):
-    """Simula BERT y el LLM del experto; devuelve lo capturado por ambos."""
-    captured: dict = {"bert_texts": None, "human": None}
-    results = bert_results or [
-        {
-            "label": "verdadera",
-            "confidence": 0.9,
-            "probs": {"verdadera": 0.9, "falsa": 0.1, "incierta": 0.0},
-        }
-    ]
-
-    class _FakeTool:
-        def predict_batch(self, texts):
-            captured["bert_texts"] = list(texts)
-            return [dict(results[min(i, len(results) - 1)]) for i in range(len(texts))]
+def _stub_health(monkeypatch, llm_error=None):
+    """Simula el LLM del experto; devuelve lo que este recibe."""
+    captured: dict = {"human": None}
 
     class _FakeLLM:
         def invoke(self, messages):
@@ -106,18 +94,16 @@ def _stub_health(monkeypatch, bert_results=None, llm_error=None):
             captured["human"] = messages[-1].content
             return SimpleNamespace(content="Informe médico integrado")
 
-    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _FakeTool)
     monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
     return captured
 
 
 def _guard_health(monkeypatch):
-    """Falla el test si el experto llega a instanciar BERT o su LLM."""
+    """Falla el test si el experto llega a instanciar su LLM."""
 
     def _fail(*args, **kwargs):
-        raise AssertionError("No deben usarse BERT ni LLM sin afirmaciones")
+        raise AssertionError("No debe usarse el LLM sin afirmaciones")
 
-    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _fail)
     monkeypatch.setattr(health_module, "get_health_expert_llm", _fail)
 
 
@@ -201,13 +187,14 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         openfda=_failing_search,
         cima=fake_cima,
     )
-    _stub_judge(monkeypatch, stance="supports")
+    judged: list[str] = []
+    _stub_judge(monkeypatch, stance="supports", record=judged)
 
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("El ibuprofeno cura la gripe..."))
 
-    # BERT clasifica las traducciones, nunca el texto original en español.
-    assert captured["bert_texts"] == [
+    # El juez evalúa las traducciones, nunca el texto original en español.
+    assert judged == [
         "Ibuprofen cures the flu",
         "Vitamin C prevents the common cold",
     ]
@@ -217,8 +204,8 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         "La vitamina C previene el resfriado",
     ]
     assert result["label"] == "verdadera"
-    # Evidencia a favor (2 y 1 fuentes): fake_avg = (0.1 * 2/3 + 0.1 * 5/6) / 2 = 0.075.
-    assert result["confidence"] == pytest.approx(0.925)
+    # Evidencia a favor (2 y 1 fuentes): fake_avg = (1/4 + 1/3) / 2 = 7/24.
+    assert result["confidence"] == pytest.approx(17 / 24)
     assert result["evidence_coverage"] == 1.0
     assert result["medical_explanation"] == "Informe médico integrado"
 
@@ -321,9 +308,9 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
         drug_terms=[],
     )
     _stub_translator(monkeypatch, [])
-    captured = _stub_health(monkeypatch)
+    _stub_health(monkeypatch)
     judged_claims: list[str] = []
-    _stub_judge(monkeypatch, record=judged_claims)
+    _stub_judge(monkeypatch, stance="supports", record=judged_claims)
 
     def fake_europepmc(query, max_results=3):
         return [
@@ -337,7 +324,6 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
 
     # El traductor real rellena con cadenas vacías y el pipeline sigue en pie.
     assert result["translated_statements"] == ["", ""]
-    assert captured["bert_texts"] == ["", ""]
     # Sin traducción, el juez de relevancia recibe la consulta como respaldo.
     assert judged_claims == ['"query one"', '"query two"']
     assert result["label"] == "verdadera"
@@ -367,8 +353,9 @@ def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts
 
     assert result["sources"] == []
     assert result["evidence_coverage"] == 1.0
-    # La confianza de BERT queda intacta: 0.9 sin atenuación por cobertura.
-    assert result["confidence"] == pytest.approx(0.9)
+    # Sin fuentes no hay postura: incierta, y la cobertura vacía no atenúa.
+    assert result["label"] == "incierta"
+    assert result["confidence"] == pytest.approx(0.5)
     # El experto recibe la instrucción de no inventar referencias.
     assert "No se hallaron fuentes" in captured["human"]
 
@@ -396,9 +383,9 @@ def test_partial_evidence_coverage_attenuates_confidence(monkeypatch, prompts):
     result = graph.invoke(_initial_state("Texto"))
 
     assert result["evidence_coverage"] == 0.5
-    # Valor esperado independiente: 0.9 × (1 − 0.25 × (1 − 0.5)) = 0.7875.
-    assert result["confidence"] == pytest.approx(0.7875)
-    assert result["confidence"] < 0.9
+    # Valor esperado independiente: 0.5 × (1 − 0.25 × (1 − 0.5)) = 0.4375.
+    assert result["confidence"] == pytest.approx(0.4375)
+    assert result["confidence"] < 0.5
 
 
 def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
@@ -421,7 +408,7 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
     # El filtrado real del juez vacía las fuentes y penaliza al máximo la confianza.
     assert result["sources"] == []
     assert result["evidence_coverage"] == 0.0
-    assert result["confidence"] == pytest.approx(0.9 * 0.75)
+    assert result["confidence"] == pytest.approx(0.5 * 0.75)
 
 
 async def test_midgraph_transport_failure_surfaces_with_partial_stages(
@@ -481,47 +468,3 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
-
-
-async def test_malformed_bert_output_fails_analysis_instead_of_faking_verdict(
-    monkeypatch, prompts
-):
-    """Salida corrupta del detector: fila failed INTERNAL, jamás un veredicto inventado."""
-    _stub_extractor(
-        monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
-    )
-    _stub_translator(monkeypatch, ["Claim EN"])
-    _stub_judge(monkeypatch)
-    _stub_sources(monkeypatch)
-
-    class _BrokenTool:
-        def predict_batch(self, texts):
-            return ["garbage" for _ in texts]
-
-    class _FakeLLM:
-        def invoke(self, messages):
-            raise AssertionError("El LLM no debe usarse con salida corrupta de BERT")
-
-    monkeypatch.setattr(health_module, "FakeNewsDetectorTool", _BrokenTool)
-    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _FakeLLM())
-
-    completed, failed = [], []
-
-    async def fake_complete(**kwargs):
-        completed.append(kwargs)
-
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    async def fake_set_stage(**kwargs):
-        pass
-
-    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
-    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
-    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
-
-    ctx = {"verification_system": create_graph(prompts)}
-    await worker_module.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
-
-    assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "INTERNAL"}]

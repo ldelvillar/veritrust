@@ -155,20 +155,3 @@ def test_resolve_model_path_raises_when_no_candidates_exist(
 
     with pytest.raises(FileNotFoundError, match="No se encontro el modelo"):
         FakeNewsDetectorTool()
-
-
-def test_ensure_bert_detector_ready_fails_fast_without_model(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """El warm-up del worker falla pronto si no hay modelo local resoluble."""
-    from app.agents import health_expert
-
-    # El detector se cachea por clase; limpiamos para forzar la resolución.
-    health_expert._build_bert_tool.cache_clear()
-    _patch_model_path(monkeypatch, None)
-    monkeypatch.setattr("pathlib.Path.exists", lambda self: False)
-
-    with pytest.raises(FileNotFoundError, match="No se encontro el modelo"):
-        health_expert.ensure_bert_detector_ready()
-
-    health_expert._build_bert_tool.cache_clear()

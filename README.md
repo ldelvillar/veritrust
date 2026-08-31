@@ -5,7 +5,7 @@
 
 **AI-powered medical misinformation detection.** Users submit a piece of health-related content — pasted text, a URL, or a document (PDF/TXT/MD) — and VeriTrust returns an evidence-grounded verdict: **Verdadero** (true), **Falso** (false), or **Dudoso** (uncertain), with a confidence score, a per-claim breakdown, the biomedical sources consulted, and a medical report explaining the verdict in plain Spanish.
 
-Health misinformation spreads faster than experts can debunk it. VeriTrust automates the first pass of that debunking: it extracts the verifiable medical claims from a text, cross-checks each one against real biomedical literature (Europe PMC, PubMed, openFDA, AEMPS CIMA), classifies them with a BioBERT model fine-tuned on the PUBHEALTH fact-checking dataset, and writes up the result — with the honesty to say *"Dudoso"* and lower its confidence when the literature is thin or contradicts the classifier.
+Health misinformation spreads faster than experts can debunk it. VeriTrust automates the first pass of that debunking: it extracts the verifiable medical claims from a text, cross-checks each one against real biomedical literature (Europe PMC, PubMed, openFDA, AEMPS CIMA), derives a verdict from the stance of that literature, and writes up the result — with the honesty to say *"Dudoso"* and lower its confidence when the literature is thin, contradictory, or silent.
 
 ## How it works
 
@@ -28,14 +28,13 @@ flowchart TB
             EX["1 · Extractor<br/>claims + search queries + drug terms"]
             TR["2 · Translator<br/>clinical English, one batched call"]
             IN["3 · Investigator<br/>evidence retrieval + relevance judge"]
-            HE["4 · Health Expert<br/>BioBERT verdict + medical report"]
+            HE["4 · Health Expert<br/>evidence verdict + medical report"]
             EX --> TR --> IN --> HE
         end
         PREP --> EX
     end
 
     OLLAMA["Ollama<br/>llama3 · translategemma · llama3.2"]
-    BERT["BioBERT fine-tuned<br/>on PUBHEALTH"]
     LIT["Europe PMC · PubMed · openFDA · AEMPS CIMA"]
 
     UI -- "JWT" --> API
@@ -57,13 +56,13 @@ flowchart TB
 | Agent | Model | What it does |
 | --- | --- | --- |
 | **Extractor** | `llama3`¹ | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
-| **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the classifier and the literature sources work in English. |
+| **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the literature sources work in English. |
 | **Investigator** | `llama3.2` (judge) | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
-| **Health Expert** | BioBERT + `llama3.2` | Classifies each translated claim with a [BioBERT](https://huggingface.co/dmis-lab/biobert-v1.1) model fine-tuned on [PUBHEALTH](https://huggingface.co/datasets/ImperialCollegeLondon/health_fact). Averages the per-claim fake probability into a three-way verdict (a band around the decision threshold maps to *uncertain*). Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
+| **Health Expert** | `llama3.2` | Derives each claim's fake probability from the stance of the retrieved literature (Laplace-smoothed, so thin evidence never reaches certainty), and averages them into a three-way verdict — a band around the decision threshold maps to *uncertain*, and a claim no source speaks to is *uncertain* by construction, never *false*. Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
 
 ¹ In the Docker stack the Extractor runs on `llama3.2` (set in `docker-compose.yml`) so the whole pipeline fits one small model plus the translator.
 
-Two guardrails temper the raw classifier (`app/core/credibility.py`):
+Two guardrails temper the raw verdict (`app/core/credibility.py`):
 
 - **Evidence attenuation** — confidence is scaled down when little of the input is covered by actual literature, so the system never sounds sure about claims nobody has studied.
 - **Opposition softening** — when the retrieved literature's stance contradicts the classifier's verdict, the verdict is softened toward *Dudoso* (never inverted silently).
@@ -82,7 +81,7 @@ Two guardrails temper the raw classifier (`app/core/credibility.py`):
 - **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Ollama, Transformers (BioBERT), raw async SQL via psycopg3 (no ORM)
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
-- **ML** — BioBERT (`dmis-lab/biobert-v1.1`) fine-tuned on PUBHEALTH; training and evaluation pipeline in `backend/ml/`
+- **ML** — evaluation pipeline in `backend/ml/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
 - **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
 
 ## Repository layout
@@ -90,9 +89,9 @@ Two guardrails temper the raw classifier (`app/core/credibility.py`):
 ```text
 backend/
   app/            FastAPI service: routes, agents, db, schemas, prompts
-  ml/             BioBERT training + evaluation (separate test suite)
-  data/           PUBHEALTH train/validation/test parquet files (committed)
-  models/         BioBERT weights (gitignored — see "BioBERT model" below)
+  ml/             Training + evaluation experiments (separate test suite)
+  data/           HealthVer splits + gold_es.jsonl hand-written gold set (committed)
+  models/         Legacy BioBERT weights (gitignored; no longer used at serving time)
   db/init.sql     Database schema (applied to a fresh Postgres)
 frontend/
   src/            Next.js App Router app
@@ -107,11 +106,10 @@ docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 
 - Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), an [Ollama](https://ollama.com/) install, PostgreSQL, and Redis
 - A free [Clerk](https://clerk.com/) application (authentication) — copy its JWKS URL, issuer, audience, secret key, and publishable key into `.env`
-- The BioBERT weights (next section) — **the worker refuses to start without them**
 
-### BioBERT model
+### BioBERT model (legacy)
 
-`backend/models/` is not in git. Either copy an existing checkpoint into `backend/models/bert_classifier/`, or train one from the committed PUBHEALTH data (CPU works; a GPU is much faster):
+The serving pipeline no longer uses a classifier — the verdict comes from the retrieved literature (see `docs/ml-experiments.md`). The training and evaluation scripts are kept so the experiments in that log stay reproducible. `backend/models/` is not in git; to re-run them, train a checkpoint (CPU works; a GPU is much faster):
 
 ```bash
 uv sync --directory backend --frozen --extra ml
@@ -189,7 +187,7 @@ pnpm --dir frontend build               # production build (also type-checks)
 - **Typed API contract** — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec. After any backend schema change run `pnpm --dir frontend generate:api-types` (backend running); never edit it by hand.
 - **Database schema** — `backend/db/init.sql`, applied once to a fresh database. No migration framework yet: recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
 - **Prompts** — all agent system prompts live in `backend/app/prompts/prompts.yaml`, never inline in Python.
-- **ML evaluation** — `ml/evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled PUBHEALTH samples and reports classification metrics; `ml/evaluation/evaluate_factcheck.py` compares against Google's Fact Check API (needs `GOOGLE_API_KEY`).
+- **ML evaluation** — `ml/evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics; `ml/evaluation/evaluate_factcheck.py` compares against Google's Fact Check API (needs `GOOGLE_API_KEY`).
 
 ## License
 

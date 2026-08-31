@@ -1,6 +1,6 @@
 """
-Este módulo define un agente experto en salud que interpreta el análisis técnico de un modelo de
-IA sobre una afirmación médica y lo explica al paciente utilizando terminología médica rigurosa.
+Este módulo define un agente experto en salud que deriva el veredicto de la postura de la
+literatura biomédica recuperada y lo explica al paciente con terminología médica rigurosa.
 """
 
 import logging
@@ -8,7 +8,6 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # Asegura que, al ejecutar este archivo como script, se use el código local del repositorio.
@@ -16,13 +15,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from langchain_core.language_models import BaseChatModel
+
 from app.agents import sanitize
-from app.core.credibility import (
-    adjust_confidence_with_evidence,
-    blend_fake_prob_with_stance,
-)
+from app.core.credibility import adjust_confidence_with_evidence
 from app.prompts.agents import Prompts
-from app.tools.model_tool import FakeNewsDetectorTool
 from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
@@ -34,7 +31,9 @@ _neutralize_delimiters = sanitize.neutralize_delimiters
 
 # FAKE_THRESHOLD ± UNCERTAINTY_MARGIN: el veredicto global es "incierta"
 FAKE_THRESHOLD = 0.40
-UNCERTAINTY_MARGIN = 0.10
+UNCERTAINTY_MARGIN = 0.05
+# Pseudo-cuenta por postura: impide la certeza absoluta con evidencia escasa
+STANCE_SMOOTHING = 1.0
 
 
 def _build_evidence_block(sources: list[dict]) -> str:
@@ -78,32 +77,48 @@ def _stance_counts_by_claim(sources: list[dict]) -> dict[str, dict[str, int]]:
     return counts
 
 
-@lru_cache(maxsize=8)
-def _build_bert_tool(tool_class: type[FakeNewsDetectorTool]) -> FakeNewsDetectorTool:
-    """Construye y cachea una instancia de detector por clase concreta."""
-    return tool_class()
-
-
-def _get_bert_tool() -> FakeNewsDetectorTool:
-    """Devuelve una instancia reutilizable del detector BERT."""
-    return _build_bert_tool(FakeNewsDetectorTool)
-
-
-def ensure_bert_detector_ready() -> None:
-    """Resuelve y cachea el detector BERT; falla pronto si no hay modelo local."""
-    _get_bert_tool()
-
-
 @lru_cache(maxsize=1)
 def get_health_expert_llm() -> BaseChatModel:
     """Devuelve el LLM del experto en salud configurado y cacheado."""
     return build_chat_model("health_expert")
 
 
+def _fake_prob_from_stance(counts: dict | None) -> float:
+    """Prob. de falsedad de una afirmacion segun la postura de la literatura."""
+    supports = counts["supports"] if counts else 0
+    contradicts = counts["contradicts"] if counts else 0
+    # Suavizado de Laplace: sin evidencia el resultado es 0.5, y unas pocas
+    # fuentes en un sentido no bastan para un veredicto con confianza plena.
+    return (contradicts + STANCE_SMOOTHING) / (
+        supports + contradicts + 2 * STANCE_SMOOTHING
+    )
+
+
+def _has_stance_evidence(counts: dict | None) -> bool:
+    """Indica si la literatura recuperada llega a pronunciarse sobre la afirmación."""
+    if not counts:
+        return False
+    return (counts["supports"] + counts["contradicts"]) > 0
+
+
+def _verdict_from_fake_prob(
+    fake_prob: float, has_evidence: bool = True
+) -> tuple[str, float]:
+    """Traduce una probabilidad de falsedad en etiqueta y confianza."""
+    # La ausencia de literatura no es prueba de falsedad: sin postura, es incierta.
+    if not has_evidence:
+        return "incierta", 1.0 - fake_prob
+    if fake_prob > FAKE_THRESHOLD + UNCERTAINTY_MARGIN:
+        return "falsa", fake_prob
+    if fake_prob < FAKE_THRESHOLD - UNCERTAINTY_MARGIN:
+        return "verdadera", 1.0 - fake_prob
+    return "incierta", 1.0 - fake_prob
+
+
 def health_expert(state: dict, prompts: Prompts) -> dict:
     """
-    Recibe las afirmaciones extraídas, usa el modelo BERT
-    para verificarlas y redacta el informe médico con Llama 3.2.
+    Recibe las afirmaciones extraídas, las verifica contra la postura de la
+    literatura recuperada y redacta el informe médico con el LLM configurado.
     """
     logger.info("[Experto] Evaluando afirmaciones y redactando informe médico")
 
@@ -118,70 +133,40 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
             "claims": [],
         }
 
-    # Instanciar el LLM y la herramienta detectora
+    # Instanciar el LLM
     llm = get_health_expert_llm()
-    bert_tool = _get_bert_tool()
 
     # Definir el prompt de sistema
     system_prompt = SystemMessage(content=prompts.health_expert.text)
 
-    total_fake_prob = 0.0
-    total_statements = len(translated_statements)
+    evidenced_probs: list[float] = []
     all_statements = ""
     claims: list[dict] = []
 
-    # Postura de la literatura por afirmación, para informar la prob. de falsedad.
+    # La postura de la literatura es la unica fuente del veredicto.
     stance_counts = _stance_counts_by_claim(state.get("sources") or [])
 
-    # Clasificar todas las afirmaciones en una sola pasada por BERT
-    logger.debug("[Experto] Analizando %d afirmaciones con BERT", total_statements)
-    results = bert_tool.predict_batch(translated_statements)
-
-    for original, result in zip(extracted_statements, results):
-        if (
-            not isinstance(result, dict)
-            or "label" not in result
-            or "confidence" not in result
-            or "probs" not in result
-        ):
-            raise ValueError(f"Salida inesperada del detector: {result}")
-
-        label, confidence = result["label"], result["confidence"]
-
-        # Prob. de falsedad renormalizada a las clases firmes: el softmax a 3 la diluye.
-        if label in ("falsa", "verdadera"):
-            probs = result["probs"]
-            fake_prob = probs["falsa"] / (probs["falsa"] + probs["verdadera"])
-        else:
-            fake_prob = FAKE_THRESHOLD
-
-        # La postura de la literatura corrige la prob. de falsedad de la afirmación.
+    for original in extracted_statements:
         counts = stance_counts.get(str(original))
-        if counts:
-            fake_prob = blend_fake_prob_with_stance(
-                fake_prob, counts["supports"], counts["contradicts"]
-            )
-        total_fake_prob += fake_prob
+        fake_prob = _fake_prob_from_stance(counts)
+        has_evidence = _has_stance_evidence(counts)
+        if has_evidence:
+            evidenced_probs.append(fake_prob)
+        label, confidence = _verdict_from_fake_prob(fake_prob, has_evidence)
 
         safe_original = _neutralize_delimiters(str(original))
         all_statements += f"- Afirmacion: '{safe_original}'\n"
 
-        # Veredicto por afirmación para el desglose del informe.
+        # Veredicto por afirmacion para el desglose del informe.
         claims.append({"text": safe_original, "label": label, "confidence": confidence})
 
-    # Calcular la media global
-    fake_avg = total_fake_prob / total_statements
+    # Solo promedia las afirmaciones sobre las que la literatura se pronuncia.
+    fake_avg = sum(evidenced_probs) / len(evidenced_probs) if evidenced_probs else 0.5
 
     # Determinar etiqueta global
-    if fake_avg > FAKE_THRESHOLD + UNCERTAINTY_MARGIN:
-        global_label = "falsa"
-        global_confidence = fake_avg
-    elif fake_avg < FAKE_THRESHOLD - UNCERTAINTY_MARGIN:
-        global_label = "verdadera"
-        global_confidence = 1.0 - fake_avg
-    else:
-        global_label = "incierta"
-        global_confidence = 1.0 - fake_avg
+    global_label, global_confidence = _verdict_from_fake_prob(
+        fake_avg, bool(evidenced_probs)
+    )
 
     # La confianza se atenúa según cuánta literatura biomédica respalde el análisis.
     evidence_coverage = float(state.get("evidence_coverage", 1.0))
