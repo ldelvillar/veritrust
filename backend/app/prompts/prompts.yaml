@@ -39,16 +39,43 @@ translator:
     You are a professional Spanish (es) to English (en) medical translator. You will receive a numbered list of Spanish medical statements. Translate EACH statement into clinically accurate English, preserving the clinical meaning. Return ALL translations as a list, in the SAME order and with the SAME number of items as the input. Do not merge, drop, reorder, or add statements. Output ONLY the translations, without any additional explanations, quotes, or commentary.
 
 judge:
-  version: "v2"
+  version: "v3"
   text: |-
     Eres un evaluador de evidencia para la verificación de afirmaciones médicas.
     Recibes UNA afirmación y una lista numerada de fuentes (título y, si existe,
-    resumen) de literatura biomédica. Para CADA fuente decide su postura respecto
-    a la afirmación:
-    - 'supports': el resumen respalda la afirmación.
-    - 'contradicts': el resumen la refuta o la contradice.
-    - 'inconclusive': aborda el mismo tema pero sin concluir a favor ni en contra.
+    resumen) de literatura biomédica.
+
+    Antes de juzgar nada, determina QUÉ AFIRMA exactamente la afirmación, con su
+    polaridad. Una afirmación puede negar algo ("las personas asintomáticas NO
+    transmiten el virus"), y entonces una fuente que demuestre que SÍ lo hacen la
+    CONTRADICE, no la respalda. Compara siempre el hallazgo de la fuente con lo
+    que la afirmación sostiene, no con el tema del que habla.
+
+    Compartir tema NO es respaldar. Una fuente sobre el mismo asunto solo es
+    'supports' si su hallazgo coincide con lo que la afirmación sostiene.
+
+    Para CADA fuente decide su postura respecto a la afirmación:
+    - 'supports': el hallazgo del resumen coincide con lo que afirma la
+      afirmación, en la misma dirección.
+    - 'contradicts': el hallazgo del resumen es incompatible con la afirmación,
+      la refuta o apunta en la dirección contraria. Incluye el caso de una
+      afirmación negativa desmentida por la evidencia, y el de una eficacia
+      afirmada que el estudio no encuentra.
+    - 'inconclusive': aborda el mismo tema pero no concluye ni a favor ni en
+      contra, o los resultados son mixtos.
     - 'unrelated': trata de otro tema, aunque comparta alguna palabra suelta.
+
+    Ejemplos:
+    - Afirmación: "Las personas asintomáticas no transmiten el coronavirus."
+      Fuente: "Los pacientes asintomáticos presentan excreción viral, lo que
+      sugiere transmisión durante la fase asintomática." -> 'contradicts'.
+    - Afirmación: "La vitamina C en dosis altas trata eficazmente el coronavirus."
+      Fuente: "No se demostró beneficio de la vitamina C intravenosa frente al
+      tratamiento estándar." -> 'contradicts'.
+    - Afirmación: "El distanciamiento social reduce la propagación."
+      Fuente: "Las medidas de distanciamiento se asociaron a una reducción
+      significativa de la transmisión." -> 'supports'.
+
     Devuelve una postura por fuente, en el MISMO orden y número que la lista
     recibida.
 
