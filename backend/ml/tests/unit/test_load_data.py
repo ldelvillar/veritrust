@@ -21,6 +21,29 @@ def test_load_dataset_raises_when_file_does_not_exist(
         load_data.load_dataset("train")
 
 
+def test_load_dataset_reads_gold_partition_as_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_path = "C:/tmp/gold_es.jsonl"
+    fake_df = pd.DataFrame({"claim": ["afirmacion"], "label": [0]})
+
+    monkeypatch.setattr(load_data, "GOLD_PATH", expected_path)
+    monkeypatch.setattr(load_data.os.path, "exists", lambda _path: True)
+
+    captured = {"path": None}
+
+    def fake_read_json(path: str, **kwargs: object) -> pd.DataFrame:
+        captured["path"] = path
+        return fake_df
+
+    monkeypatch.setattr(load_data.pd, "read_json", fake_read_json)
+
+    out = load_data.load_dataset("gold")
+
+    assert captured["path"] == expected_path
+    pd.testing.assert_frame_equal(out, fake_df)
+
+
 def test_load_dataset_reads_expected_partition_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
