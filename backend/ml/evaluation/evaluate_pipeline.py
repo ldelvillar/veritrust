@@ -12,15 +12,10 @@ from time import time
 from typing import TypedDict, cast
 
 import pandas as pd
-import yaml
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
-from pydantic import BaseModel, Field
 
 from app.agents.errors import ainvoke_graph
 from app.agents.health_expert import ensure_bert_detector_ready
 from app.agents.main import create_graph
-from app.core.config import get_settings
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import load_prompts
 from app.utils.ollama import ensure_ollama_available
@@ -30,12 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Mapeo de HealthVer a las binarias del sistema; NEI (2) queda fuera de la métrica.
 LABEL_BY_CODE = {0: "verdadera", 1: "falsa"}
-
-# Prompt del filtro de dominio; propio de la evaluación, fuera del contrato de la app.
-PROMPTS_PATH = Path(__file__).parent / "prompts.yaml"
-
-# Candidatos a muestrear por cada muestra pedida cuando se filtra por dominio.
-MEDICAL_POOL_FACTOR = 4
 
 
 class Sample(TypedDict):
@@ -78,58 +67,6 @@ def load_samples(
         if text:
             samples.append({"text": text, "expected": str(row["expected"])})
     return samples
-
-
-class MedicalJudgment(BaseModel):
-    """Si el texto contiene al menos una afirmación médica verificable."""
-
-    is_medical: bool = Field(
-        description="true si el texto contiene una afirmación médica o de salud verificable"
-    )
-
-
-def _build_medical_filter_chain():
-    """Construye la cadena sí/no que juzga si una muestra es del dominio médico."""
-    with PROMPTS_PATH.open(encoding="utf-8") as handle:
-        prompt_text = str(yaml.safe_load(handle)["medical_filter"]["text"])
-    settings = get_settings()
-    llm = ChatOllama(
-        model=settings.ollama_judge_model,
-        temperature=0,
-        base_url=settings.ollama_base_url,
-        num_ctx=settings.ollama_judge_num_ctx,
-        num_predict=settings.ollama_judge_num_predict,
-        client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
-    ).with_structured_output(MedicalJudgment)
-    prompt = ChatPromptTemplate.from_messages(
-        [("system", prompt_text), ("user", "Texto:\n{claim}")]
-    )
-    return prompt | llm
-
-
-def filter_medical_samples(samples: list[Sample], chain, limit: int) -> list[Sample]:
-    """Conserva, en orden y por clase, hasta ``limit`` muestras del dominio médico."""
-    per_class = max(1, limit // 2)
-    kept: list[Sample] = []
-    by_class: dict[str, int] = {}
-    judged = 0
-    for sample in samples:
-        if by_class.get(sample["expected"], 0) >= per_class:
-            continue
-        judged += 1
-        try:
-            is_medical = bool(chain.invoke({"claim": sample["text"]}).is_medical)
-        except Exception:
-            # Falla en abierto: ante un error del juez la muestra se conserva.
-            logger.warning("Fallo juzgando el dominio; se conserva la muestra")
-            is_medical = True
-        if is_medical:
-            kept.append(sample)
-            by_class[sample["expected"]] = by_class.get(sample["expected"], 0) + 1
-            if len(kept) >= per_class * 2:
-                break
-    logger.info("Filtro médico: %d juzgadas, %d conservadas", judged, len(kept))
-    return kept
 
 
 def _build_initial_state(text: str) -> dict[str, object]:
@@ -348,11 +285,6 @@ def main() -> dict[str, float]:
         action="store_true",
         help="Ignora cualquier checkpoint previo y evalúa desde cero.",
     )
-    parser.add_argument(
-        "--medical-only",
-        action="store_true",
-        help="Filtra el muestreo a textos con afirmación médica verificable (juez LLM).",
-    )
     args = parser.parse_args()
 
     # results/ está git-ignored; el checkpoint permite reanudar una evaluación larga.
@@ -370,12 +302,7 @@ def main() -> dict[str, float]:
     ensure_bert_detector_ready()
 
     graph = create_graph(load_prompts())
-    pool = args.limit * MEDICAL_POOL_FACTOR if args.medical_only else args.limit
-    samples = load_samples(args.partition, pool, args.seed)
-    if args.medical_only:
-        samples = filter_medical_samples(
-            samples, _build_medical_filter_chain(), args.limit
-        )
+    samples = load_samples(args.partition, args.limit, args.seed)
     logger.info(
         "Evaluando %d muestras de la partición '%s'", len(samples), args.partition
     )
