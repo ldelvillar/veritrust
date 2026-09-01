@@ -1,6 +1,7 @@
 """Agente investigador: recupera evidencia de Europe PMC, PubMed, openFDA y CIMA."""
 
 import logging
+from collections import Counter
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
@@ -187,7 +188,15 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     # Se reensambla en el orden original de las afirmaciones
     collected: list[tuple[dict, str | None]] = []
     covered = 0
-    for (_, _, original, _), relevant in zip(judgeable, judged):
+    for (query, _, original, hits), relevant in zip(judgeable, judged):
+        # Bruto -> relevante por afirmación: separa fallo de búsqueda de filtrado del juez.
+        logger.info(
+            "[Investigador] '%s': %d brutas -> %d relevantes (%s)",
+            str(original or query)[:60],
+            len(hits),
+            len(relevant),
+            Counter(str(hit.get("stance")) for hit in relevant).most_common(),
+        )
         if relevant:
             covered += 1
             collected.extend((hit, original) for hit in relevant)

@@ -42,6 +42,19 @@ class EvalRow(TypedDict):
     confidence: float
     fake_avg: float | None
     duration_seconds: float
+    sources_kept: int
+    stances: dict[str, int]
+    evidence_coverage: float
+
+
+def _stance_histogram(sources: list[dict]) -> dict[str, int]:
+    """Cuenta las posturas asignadas a las fuentes que sobrevivieron al juez."""
+    counts: dict[str, int] = {}
+    for source in sources:
+        for statement in source.get("statements") or []:
+            stance = str(statement.get("stance"))
+            counts[stance] = counts.get(stance, 0) + 1
+    return counts
 
 
 def load_samples(
@@ -155,6 +168,10 @@ async def evaluate_pipeline(
                 ),
                 # Coste por muestra: fija el n asumible en evaluaciones posteriores.
                 "duration_seconds": round(duration, 3),
+                # Diagnóstico: separa "no se recuperó nada" de "el juez no se moja".
+                "sources_kept": len(result.get("sources") or []),
+                "stances": _stance_histogram(result.get("sources") or []),
+                "evidence_coverage": float(result.get("evidence_coverage") or 0.0),
             }
             done[sample["text"]] = row
             if handle is not None:
