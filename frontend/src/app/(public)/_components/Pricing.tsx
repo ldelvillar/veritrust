@@ -77,9 +77,7 @@ export default function Pricing() {
                   Más popular
                 </span>
               )}
-              <div className="text-[19px] font-bold text-ink">
-                {plan.name}
-              </div>
+              <div className="text-[19px] font-bold text-ink">{plan.name}</div>
               <p className="mt-1.5 mb-5.5 min-h-10 text-[13.5px] leading-snug text-muted">
                 {plan.desc}
               </p>

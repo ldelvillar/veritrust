@@ -28,9 +28,7 @@ export default function HelpSteps({ steps }: HelpStepsProps) {
             <div className="grid size-8.5 place-items-center rounded-[10px] bg-[#efedfc] text-[15px] font-bold text-accent">
               {step.n}
             </div>
-            <h3 className="text-[15px] font-bold text-ink">
-              {step.title}
-            </h3>
+            <h3 className="text-[15px] font-bold text-ink">{step.title}</h3>
             <p className="text-[13px] leading-relaxed text-muted">
               {step.desc}
             </p>

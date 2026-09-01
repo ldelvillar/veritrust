@@ -25,7 +25,10 @@ describe('buildApiUrl', () => {
 describe('parseErrorDetail', () => {
   it('extracts the structured {code, message} contract', () => {
     expect(
-      parseErrorDetail({ code: 'NO_MEDICAL_CLAIMS', message: 'Sin afirmaciones' })
+      parseErrorDetail({
+        code: 'NO_MEDICAL_CLAIMS',
+        message: 'Sin afirmaciones',
+      })
     ).toEqual({ code: 'NO_MEDICAL_CLAIMS', message: 'Sin afirmaciones' });
   });
 

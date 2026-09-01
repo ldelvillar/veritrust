@@ -41,7 +41,6 @@ const steps = [
   },
 ];
 
-
 export default function HowItWorks() {
   return (
     <section id="como-funciona" className="py-24 max-md:py-18">

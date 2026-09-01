@@ -34,12 +34,13 @@ const inputBase =
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
-    invalid ? 'border-danger bg-danger-soft' : 'border-line-strong bg-surface-subtle'
+    invalid
+      ? 'border-danger bg-danger-soft'
+      : 'border-line-strong bg-surface-subtle'
   }`;
 }
 
-const labelClass =
-  'flex items-center gap-1.5 text-[13px] font-bold text-body';
+const labelClass = 'flex items-center gap-1.5 text-[13px] font-bold text-body';
 const errClass = 'text-[12px] font-semibold text-danger-ink';
 const reqMark = <span className="text-primary">*</span>;
 
@@ -265,7 +266,10 @@ export default function ContactForm() {
                 )}
               </Button>
               <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
-                <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
+                <ShieldIcon
+                  className="size-3.75 text-faint"
+                  strokeWidth={2.1}
+                />
                 Tus datos están seguros
               </span>
             </div>
