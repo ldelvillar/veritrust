@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { INITIAL_HISTORY_PATH } from '@/lib/historyQuery';
 import { fetchJsonServer } from '@/lib/serverApi';
 import type { paths } from '@/types/api';
 
@@ -16,11 +17,9 @@ export const dynamic = 'force-dynamic';
 type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
 
-const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&sort=recent`;
-
 export default async function HistorialPage() {
-  const initialData = await fetchJsonServer<HistoryPayload>(INITIAL_PATH);
+  const initialData =
+    await fetchJsonServer<HistoryPayload>(INITIAL_HISTORY_PATH);
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 md:px-6 lg:py-10">

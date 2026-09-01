@@ -1,8 +1,6 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
 import CrossIcon from '@/assets/Cross';
@@ -21,58 +19,17 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
-import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
+import { useHistoryExport } from '@/hooks/useHistoryExport';
+import {
+  useHistoryFilters,
+  type DateRangeFilter,
+  type SortOrder,
+  type SourceTypeFilter,
+  type StatusFilter,
+  type VerdictFilter,
+} from '@/hooks/useHistoryFilters';
+import { PAGE_SIZE } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
-
-type SortOrder = 'recent' | 'oldest' | 'credibility_high' | 'credibility_low';
-type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
-type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
-type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
-type StatusFilter = 'all' | 'done' | 'pending' | 'failed';
-
-const PAGE_SIZE = 10;
-const INITIAL_PATH = `/history?page=1&page_size=${PAGE_SIZE}&source_type=all&verdict=all&status=all&date_range=all&sort=recent`;
-
-const SOURCE_TYPES = [
-  'all',
-  'text',
-  'file',
-  'url',
-] as const satisfies readonly SourceTypeFilter[];
-const SORTS = [
-  'recent',
-  'oldest',
-  'credibility_high',
-  'credibility_low',
-] as const satisfies readonly SortOrder[];
-const VERDICTS = [
-  'all',
-  'real',
-  'fake',
-  'uncertain',
-] as const satisfies readonly VerdictFilter[];
-const STATUSES = [
-  'all',
-  'done',
-  'pending',
-  'failed',
-] as const satisfies readonly StatusFilter[];
-const DATE_RANGES = [
-  'all',
-  '7d',
-  '30d',
-  '90d',
-] as const satisfies readonly DateRangeFilter[];
-
-function parseParam<T extends string>(
-  value: string | null,
-  allowed: readonly T[],
-  fallback: T
-): T {
-  return value !== null && allowed.includes(value as T)
-    ? (value as T)
-    : fallback;
-}
 
 type HistoryPayload =
   paths['/history']['get']['responses']['200']['content']['application/json'];
@@ -164,38 +121,36 @@ const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
 };
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+  const {
+    searchQuery,
+    sourceTypeFilter,
+    verdictFilter,
+    statusFilter,
+    dateRangeFilter,
+    sortOrder,
+    currentPage,
+    path,
+    exportPath,
+    isInitialQuery,
+    hasActiveFilters,
+    setSearchQuery,
+    setSourceType,
+    setVerdict,
+    setStatus,
+    setDateRange,
+    setSort,
+    setPage,
+    clearFilters,
+  } = useHistoryFilters();
 
-  const sourceTypeFilter = parseParam(
-    searchParams.get('source_type'),
-    SOURCE_TYPES,
-    'all'
-  );
-  const verdictFilter = parseParam(
-    searchParams.get('verdict'),
-    VERDICTS,
-    'all'
-  );
-  const sortOrder = parseParam(searchParams.get('sort'), SORTS, 'recent');
-  const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
-  const dateRangeFilter = parseParam(
-    searchParams.get('date_range'),
-    DATE_RANGES,
-    'all'
-  );
-  const urlSearch = (searchParams.get('search') ?? '').trim();
-  const parsedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
-  const currentPage =
-    Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-
-  const [searchQuery, setSearchQuery] = useState(urlSearch);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null);
 
-  const { getToken } = useAuth();
+  const {
+    runExport,
+    isExporting,
+    error: exportError,
+  } = useHistoryExport(exportPath);
+
   const {
     remove: deleteAnalysis,
     isDeleting,
@@ -203,99 +158,13 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setError: setDeleteError,
   } = useAnalysisDeletion();
 
-  const updateParams = useCallback(
-    (changes: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(changes)) {
-        if (value === null) params.delete(key);
-        else params.set(key, value);
-      }
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, {
-        scroll: false,
-      });
-    },
-    [pathname, router, searchParams]
-  );
-
-  useEffect(() => {
-    setSearchQuery(urlSearch);
-  }, [urlSearch]);
-
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (trimmed === urlSearch) return;
-    const handle = setTimeout(() => {
-      updateParams({ search: trimmed || null, page: null });
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [searchQuery, updateParams, urlSearch]);
-
-  const path = useMemo(() => {
-    const params = new URLSearchParams({
-      page: String(currentPage),
-      page_size: String(PAGE_SIZE),
-      source_type: sourceTypeFilter,
-      verdict: verdictFilter,
-      status: statusFilter,
-      date_range: dateRangeFilter,
-      sort: sortOrder,
-    });
-    if (urlSearch) params.set('search', urlSearch);
-    return `/history?${params.toString()}`;
-  }, [
-    currentPage,
-    sortOrder,
-    sourceTypeFilter,
-    verdictFilter,
-    statusFilter,
-    dateRangeFilter,
-    urlSearch,
-  ]);
-
-  const exportPath = useMemo(() => {
-    // /history/export no acepta 'status'; solo se propaga el rango de fechas.
-    const params = new URLSearchParams({
-      source_type: sourceTypeFilter,
-      verdict: verdictFilter,
-      date_range: dateRangeFilter,
-      sort: sortOrder,
-    });
-    if (urlSearch) params.set('search', urlSearch);
-    return `/history/export?${params.toString()}`;
-  }, [sortOrder, sourceTypeFilter, verdictFilter, dateRangeFilter, urlSearch]);
-
-  const handleExport = useCallback(async () => {
-    setExportError(null);
-    setIsExporting(true);
-    try {
-      const blob = await fetchBlobWithAuth(getToken, exportPath);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'historial-veritrust.csv';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setExportError(
-        err instanceof ApiError
-          ? err.message
-          : 'No se pudo exportar el historial. Inténtalo de nuevo.'
-      );
-    } finally {
-      setIsExporting(false);
-    }
-  }, [exportPath, getToken]);
-
   const {
     data,
     isLoading,
     error: fetchError,
     refetch: fetchHistory,
   } = useApiQuery<HistoryPayload>(path, {
-    fallbackData: path === INITIAL_PATH ? initialData : undefined,
+    fallbackData: isInitialQuery ? initialData : undefined,
     // Mientras haya análisis en curso, refrescamos para que pasen a hecho/fallido solos.
     refreshInterval: latest =>
       latest?.items?.some(item => item.status === 'pending') ? 5000 : 0,
@@ -309,65 +178,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     typeof data?.count === 'number' ? data.count : history.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const effectivePage = Math.min(currentPage, totalPages);
-
-  const hasActiveFilters =
-    searchQuery.trim() !== '' ||
-    sourceTypeFilter !== 'all' ||
-    verdictFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    dateRangeFilter !== 'all';
-
-  const setFilter = useCallback(
-    (key: string, value: string, defaultValue: string) => {
-      updateParams({
-        [key]: value === defaultValue ? null : value,
-        page: null,
-      });
-    },
-    [updateParams]
-  );
-
-  const handleSearchQueryChange = useCallback((value: string) => {
-    setSearchQuery(value);
-  }, []);
-
-  const handleSourceTypeFilterChange = useCallback(
-    (value: SourceTypeFilter) => setFilter('source_type', value, 'all'),
-    [setFilter]
-  );
-
-  const handleVerdictFilterChange = useCallback(
-    (value: VerdictFilter) => setFilter('verdict', value, 'all'),
-    [setFilter]
-  );
-
-  const handleSortOrderChange = useCallback(
-    (value: SortOrder) => setFilter('sort', value, 'recent'),
-    [setFilter]
-  );
-
-  const handleStatusFilterChange = useCallback(
-    (value: StatusFilter) => setFilter('status', value, 'all'),
-    [setFilter]
-  );
-
-  const handleDateRangeFilterChange = useCallback(
-    (value: DateRangeFilter) => setFilter('date_range', value, 'all'),
-    [setFilter]
-  );
-
-  const handlePageChange = useCallback(
-    (page: number) => {
-      const next = Math.max(1, page);
-      updateParams({ page: next === 1 ? null : String(next) });
-    },
-    [updateParams]
-  );
-
-  const handleClearFilters = useCallback(() => {
-    setSearchQuery('');
-    router.replace(pathname, { scroll: false });
-  }, [pathname, router]);
 
   const handleDeleteRequest = useCallback(
     (item: HistoryItem) => {
@@ -390,7 +200,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     if (!success) return;
     setPendingDelete(null);
     if (wasLastOnPage && currentPage > 1) {
-      handlePageChange(currentPage - 1);
+      setPage(currentPage - 1);
     } else {
       await fetchHistory();
     }
@@ -399,7 +209,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     history.length,
     deleteAnalysis,
     currentPage,
-    handlePageChange,
+    setPage,
     fetchHistory,
   ]);
 
@@ -468,7 +278,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
               <div className="flex flex-1 flex-col items-end gap-1 sm:flex-none">
                 <Button
                   variant="soft"
-                  onClick={handleExport}
+                  onClick={runExport}
                   disabled={isExporting || totalCount === 0}
                   aria-busy={isExporting}
                   className="w-full sm:w-auto"
@@ -514,7 +324,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             <button
               key={card.toneKey}
               type="button"
-              onClick={() => handleVerdictFilterChange(card.verdictValue)}
+              onClick={() => setVerdict(card.verdictValue)}
               aria-pressed={isActive}
               className={`relative overflow-hidden rounded-[18px] border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
                 isActive ? 'border-transparent' : 'border-line'
@@ -553,14 +363,14 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           <input
             type="text"
             value={searchQuery}
-            onChange={e => handleSearchQueryChange(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder="Buscar por título o fuente…"
             className="min-w-0 flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-faint"
           />
           {searchQuery ? (
             <button
               type="button"
-              onClick={() => handleSearchQueryChange('')}
+              onClick={() => setSearchQuery('')}
               aria-label="Limpiar búsqueda"
               className="grid size-6 shrink-0 place-items-center rounded-[7px] transition hover:bg-primary/8 hover:text-body"
             >
@@ -572,7 +382,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         {/* Source type filter */}
         <FilterSelect
           value={sourceTypeFilter}
-          onChange={handleSourceTypeFilterChange}
+          onChange={setSourceType}
           options={SOURCE_TYPE_OPTIONS}
           icon={<FunnelIcon className="size-4" aria-hidden />}
           ariaLabel="Filtrar por tipo"
@@ -582,7 +392,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         {/* Status filter */}
         <FilterSelect
           value={statusFilter}
-          onChange={handleStatusFilterChange}
+          onChange={setStatus}
           options={STATUS_OPTIONS}
           icon={<FunnelIcon className="size-4" aria-hidden />}
           ariaLabel="Filtrar por estado"
@@ -592,7 +402,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         {/* Date range filter */}
         <FilterSelect
           value={dateRangeFilter}
-          onChange={handleDateRangeFilterChange}
+          onChange={setDateRange}
           options={DATE_RANGE_OPTIONS}
           icon={<CalendarIcon className="size-4" aria-hidden />}
           ariaLabel="Filtrar por rango de fechas"
@@ -602,7 +412,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         {/* Sort select */}
         <FilterSelect
           value={sortOrder}
-          onChange={handleSortOrderChange}
+          onChange={setSort}
           options={SORT_OPTIONS}
           icon={<SortIcon className="size-4" aria-hidden />}
           ariaLabel="Ordenar"
@@ -626,7 +436,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         {hasActiveFilters ? (
           <button
             type="button"
-            onClick={handleClearFilters}
+            onClick={clearFilters}
             className="inline-flex items-center gap-1.75 rounded-[9px] bg-primary/8 px-3 py-1.5 text-[13px] font-semibold text-primary transition hover:bg-primary/15"
           >
             <CrossIcon className="size-3.5" aria-hidden />
@@ -643,11 +453,11 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         isLoading={isLoading}
         errorMessage={fetchError?.message ?? null}
         onRetry={fetchHistory}
-        onPageChange={handlePageChange}
+        onPageChange={setPage}
         onDelete={handleDeleteRequest}
         deletingId={isDeleting ? (pendingDelete?.analysis_id ?? null) : null}
         hasActiveFilters={hasActiveFilters}
-        onClearFilters={handleClearFilters}
+        onClearFilters={clearFilters}
       />
 
       <ConfirmDialog
