@@ -35,7 +35,6 @@ def test_compute_credibility_returns_none_for_uncertain_verdict() -> None:
     assert compute_credibility("incierta", 0.6) is None
 
 
-def test_compute_credibility_normalizes_and_clamps() -> None:
-    assert compute_credibility("verdadera", 90) == 90  # ya en porcentaje
+def test_compute_credibility_clamps_out_of_range_confidence() -> None:
     assert compute_credibility("falsa", -0.2) == 100  # invertido y acotado
     assert compute_credibility("verdadera", -0.5) == 0

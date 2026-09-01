@@ -67,10 +67,6 @@ export function getVerdictInfo(verdict: Verdict): {
   };
 }
 
-export function normalizeFraction(value: number): number {
-  return value <= 1 ? value : value / 100;
-}
-
 export function formatCoverage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
@@ -92,9 +88,8 @@ export function confidenceLabel(
   confidence: number | null | undefined
 ): string | null {
   if (confidence == null) return null;
-  const fraction = normalizeFraction(confidence);
-  if (fraction >= 0.85) return 'Confianza alta';
-  if (fraction >= 0.6) return 'Confianza media';
+  if (confidence >= 0.85) return 'Confianza alta';
+  if (confidence >= 0.6) return 'Confianza media';
   return 'Confianza baja';
 }
 

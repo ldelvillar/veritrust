@@ -25,8 +25,7 @@ def compute_credibility(
     if confidence is None or classify_verdict(label) == "uncertain":
         return None
 
-    fraction = confidence if confidence <= 1 else confidence / 100
-    credibility = 1 - fraction if classify_verdict(label) == "fake" else fraction
+    credibility = 1 - confidence if classify_verdict(label) == "fake" else confidence
     return max(0, min(100, round(credibility * 100)))
 
 
@@ -34,9 +33,8 @@ def compute_credibility(
 CREDIBILITY_SQL_EXPR = (
     "CASE "
     "WHEN confidence IS NULL OR verdict = 'uncertain' THEN NULL "
-    "WHEN verdict = 'fake' "
-    "THEN 1 - (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
-    "ELSE (CASE WHEN confidence <= 1 THEN confidence ELSE confidence / 100.0 END) "
+    "WHEN verdict = 'fake' THEN 1 - confidence "
+    "ELSE confidence "
     "END"
 )
 

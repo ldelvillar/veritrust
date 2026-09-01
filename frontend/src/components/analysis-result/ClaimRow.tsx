@@ -4,11 +4,7 @@ import { useId, useState } from 'react';
 import BookIcon from '@/assets/Book';
 import Chevron from '@/assets/Chevron';
 import SourceRow from './SourceRow';
-import {
-  getClaimStyle,
-  normalizeFraction,
-  STANCE_SUMMARY_META,
-} from './format';
+import { getClaimStyle, STANCE_SUMMARY_META } from './format';
 import { stanceForClaim, summarizeStances } from '@/lib/evidence';
 import type { ClaimType, SourceType } from './types';
 
@@ -27,7 +23,7 @@ export default function ClaimRow({
   const panelId = useId();
   const style = getClaimStyle(claim.verdict);
   const ClaimIcon = style.Icon;
-  const confidencePct = Math.round(normalizeFraction(claim.confidence) * 100);
+  const confidencePct = Math.round(claim.confidence * 100);
   const sourceCount = sources.length;
   const stances = summarizeStances(claimIndex, sources);
   const stanceItems = STANCE_SUMMARY_META.map(meta => ({
