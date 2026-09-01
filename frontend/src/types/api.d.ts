@@ -216,6 +216,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/history/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pending Analyses
+         * @description Resumen de los análisis en curso, para el indicador global del menú.
+         */
+        get: operations["get_pending_analyses_history_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/history/export": {
         parameters: {
             query?: never;
@@ -705,6 +725,16 @@ export interface components {
             fake: number;
             /** Uncertain */
             uncertain: number;
+        };
+        /**
+         * PendingAnalysesSummary
+         * @description Análisis en curso del usuario, para el indicador global del menú.
+         */
+        PendingAnalysesSummary: {
+            /** Count */
+            count: number;
+            /** Newest Analysis Id */
+            newest_analysis_id?: string | null;
         };
         /**
          * PublicAnalysisReport
@@ -1743,6 +1773,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteAllResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pending_analyses_history_pending_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingAnalysesSummary"];
                 };
             };
             /** @description Unauthorized */

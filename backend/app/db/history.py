@@ -17,6 +17,7 @@ from app.schemas.history import (
     AnalysisHistoryItem,
     HistorySourceTypeCounts,
     HistoryVerdictCounts,
+    PendingAnalysesSummary,
     PublicAnalysisReport,
 )
 
@@ -471,11 +472,15 @@ async def list_user_analysis_history(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql/safe_order_by son valores saneados, no entrada cruda.
-                await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    count_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
                 total_count = int(count_row[0]) if count_row else 0
 
-                await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    list_query, (*where_params, safe_limit, safe_offset)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -525,7 +530,9 @@ async def count_history_verdict_facets(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
-                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    facets_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -581,7 +588,9 @@ async def count_history_source_type_facets(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # where_sql es texto saneado (cláusulas parametrizadas), no entrada cruda.
-                await cur.execute(facets_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    facets_query, tuple(where_params)
+                )  # pyright: ignore[reportArgumentType]
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -599,6 +608,36 @@ async def count_history_source_type_facets(
         url=int(row[2] or 0),
         file=int(row[3] or 0),
     )
+
+
+async def get_pending_analyses_summary(*, user_id: str) -> PendingAnalysesSummary:
+    """Cuenta los análisis ``pending`` del usuario y señala el más reciente."""
+    pool = await get_pool()
+
+    query = """
+        SELECT id, COUNT(*) OVER () AS total
+        FROM public.analysis_history
+        WHERE user_id = %s AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id,))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudieron consultar los análisis en curso en la base de datos."
+            )
+        ) from exc
+
+    if not row:
+        return PendingAnalysesSummary(count=0, newest_analysis_id=None)
+
+    return PendingAnalysesSummary(count=int(row[1]), newest_analysis_id=str(row[0]))
 
 
 _EXPORT_MAX_ROWS = 10_000
@@ -659,7 +698,9 @@ async def export_user_analysis_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                await cur.execute(
+                    export_query, (*where_params, _EXPORT_MAX_ROWS)
+                )  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(

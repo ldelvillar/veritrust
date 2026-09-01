@@ -5,11 +5,10 @@ import { mutate } from 'swr';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import type { paths } from '@/types/api';
 
-type HistoryResponse =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
+type PendingSummary =
+  paths['/history/pending']['get']['responses']['200']['content']['application/json'];
 
-// page_size=1 basta: count trae el total pendiente y items[0] el más reciente.
-const PENDING_PATH = '/history?status=pending&page_size=1';
+const PENDING_PATH = '/history/pending';
 const FINISHED_DISMISS_MS = 20_000;
 
 export interface FinishedAnalysis {
@@ -33,12 +32,12 @@ export function usePendingAnalyses() {
   });
 
   // Detecta la transición >0 → 0 para el aviso transitorio de "finalizado".
-  const trackTransition = useCallback((latest: HistoryResponse) => {
+  const trackTransition = useCallback((latest: PendingSummary) => {
     setHasPending(latest.count > 0);
     const previous = lastSeen.current;
     lastSeen.current = {
       count: latest.count,
-      analysisId: latest.items[0]?.analysis_id ?? previous.analysisId,
+      analysisId: latest.newest_analysis_id ?? previous.analysisId,
     };
     if (latest.count > 0) {
       setFinished(null);
@@ -53,7 +52,7 @@ export function usePendingAnalyses() {
     [hasPending]
   );
 
-  const { data, refetch } = useApiQuery<HistoryResponse>(
+  const { data, refetch } = useApiQuery<PendingSummary>(
     isSignedIn ? PENDING_PATH : null,
     {
       refreshInterval,
@@ -78,7 +77,7 @@ export function usePendingAnalyses() {
   return {
     // Un fallo del sondeo deja data en null: el indicador simplemente no se muestra.
     pendingCount: data?.count ?? 0,
-    newestPendingId: data?.items[0]?.analysis_id ?? null,
+    newestPendingId: data?.newest_analysis_id ?? null,
     finished,
     dismissFinished,
   };

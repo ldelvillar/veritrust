@@ -13,6 +13,7 @@ from app.db.history import (
     count_history_verdict_facets,
     delete_all_user_analyses,
     export_user_analysis_history,
+    get_pending_analyses_summary,
     list_user_analysis_history,
 )
 from app.db.pool import DatabaseError
@@ -21,12 +22,18 @@ from app.schemas.history import (
     AnalysisHistoryItem,
     DeleteAllResponse,
     HistoryResponse,
+    PendingAnalysesSummary,
 )
 
 router = APIRouter()
 
 
 _GET_HISTORY_ERROR_RESPONSES: dict[int | str, dict] = {
+    401: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+}
+
+_GET_PENDING_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
@@ -130,6 +137,24 @@ async def get_history(
         "verdict_counts": verdict_counts,
         "source_type_counts": source_type_counts,
     }
+
+
+@router.get(
+    "/pending",
+    response_model=PendingAnalysesSummary,
+    responses=_GET_PENDING_ERROR_RESPONSES,
+)
+async def get_pending_analyses(user=Depends(get_current_user)):
+    """Resumen de los análisis en curso, para el indicador global del menú."""
+    user_id = user["sub"]
+
+    try:
+        return await get_pending_analyses_summary(user_id=user_id)
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.HISTORY_FETCH_FAILED),
+        ) from e
 
 
 @router.get("/export", responses=_EXPORT_ERROR_RESPONSES)

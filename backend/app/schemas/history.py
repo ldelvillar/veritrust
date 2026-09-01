@@ -110,6 +110,13 @@ class PublicAnalysisReport(BaseModel):
         return compute_credibility(self.label, self.confidence)
 
 
+class PendingAnalysesSummary(BaseModel):
+    """Análisis en curso del usuario, para el indicador global del menú."""
+
+    count: int
+    newest_analysis_id: Optional[str] = None
+
+
 class HistoryVerdictCounts(BaseModel):
     """Conteos globales por veredicto del historial filtrado, para las tarjetas."""
 

@@ -43,6 +43,11 @@ CREATE INDEX IF NOT EXISTS idx_analysis_history_user_created
 CREATE INDEX IF NOT EXISTS idx_analysis_history_user_verdict
     ON public.analysis_history (user_id, verdict);
 
+-- Feeds the global in-flight indicator; partial, so it only covers rows still 'pending'.
+CREATE INDEX IF NOT EXISTS idx_analysis_history_user_pending
+    ON public.analysis_history (user_id, created_at DESC)
+    WHERE status = 'pending';
+
 -- Valoraciones de veredicto de los usuarios; datos etiquetados para afinar el pipeline.
 CREATE TABLE IF NOT EXISTS public.analysis_feedback (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),

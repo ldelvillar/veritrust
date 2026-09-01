@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
 }));
 
-type PendingResponse = { count: number; items: { analysis_id: string }[] };
+type PendingResponse = { count: number; newest_analysis_id: string | null };
 type QueryOptions = { onSuccess?: (latest: PendingResponse) => void };
 
 const refetch = vi.fn(async () => {});
@@ -26,8 +26,12 @@ let response: PendingResponse | null;
 let queryOptions: QueryOptions;
 
 // Simula un sondeo exitoso: actualiza data y dispara onSuccess como haría SWR.
-const emit = (rerender: () => void, count: number, ids: string[] = []) => {
-  response = { count, items: ids.map(id => ({ analysis_id: id })) };
+const emit = (
+  rerender: () => void,
+  count: number,
+  newestId: string | null = null
+) => {
+  response = { count, newest_analysis_id: newestId };
   act(() => queryOptions.onSuccess?.(response!));
   rerender();
 };
@@ -62,10 +66,10 @@ describe('usePendingAnalyses', () => {
 
   it('exposes the pending count and the newest pending id', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 2, ['abc']);
+    emit(rerender, 2, 'abc');
 
     expect(useApiQueryMock).toHaveBeenCalledWith(
-      '/history?status=pending&page_size=1',
+      '/history/pending',
       expect.any(Object)
     );
     expect(result.current.pendingCount).toBe(2);
@@ -85,7 +89,7 @@ describe('usePendingAnalyses', () => {
 
   it('flags the analysis as finished when pending drops to zero', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, ['abc']);
+    emit(rerender, 1, 'abc');
     expect(result.current.finished).toBeNull();
 
     emit(rerender, 0);
@@ -103,7 +107,7 @@ describe('usePendingAnalyses', () => {
 
   it('clears the finished notice on dismiss', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, ['abc']);
+    emit(rerender, 1, 'abc');
     emit(rerender, 0);
 
     act(() => result.current.dismissFinished());
@@ -113,10 +117,10 @@ describe('usePendingAnalyses', () => {
 
   it('clears the finished notice when a new analysis starts', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, ['abc']);
+    emit(rerender, 1, 'abc');
     emit(rerender, 0);
 
-    emit(rerender, 1, ['def']);
+    emit(rerender, 1, 'def');
 
     expect(result.current.finished).toBeNull();
     expect(result.current.pendingCount).toBe(1);
@@ -124,7 +128,7 @@ describe('usePendingAnalyses', () => {
 
   it('auto-dismisses the finished notice after 20 seconds', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, ['abc']);
+    emit(rerender, 1, 'abc');
     emit(rerender, 0);
     expect(result.current.finished).not.toBeNull();
 

@@ -25,7 +25,7 @@ import { fetchJsonWithAuth } from '@/lib/apiClient';
 const mockedFetch = vi.mocked(fetchJsonWithAuth);
 
 let serverCount = 0;
-let serverItems: { analysis_id: string }[] = [];
+let serverNewestId: string | null = null;
 
 // Caché SWR aislada por test; el dev server de Next corre en StrictMode.
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -40,12 +40,11 @@ describe('usePendingAnalyses (SWR real)', () => {
   beforeEach(() => {
     pathname = '/app/analisis';
     serverCount = 0;
-    serverItems = [];
+    serverNewestId = null;
     mockedFetch.mockReset();
     mockedFetch.mockImplementation(async () => ({
-      status: 'success',
-      items: serverItems,
       count: serverCount,
+      newest_analysis_id: serverNewestId,
     }));
   });
 
@@ -53,7 +52,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     vi.useFakeTimers();
     try {
       serverCount = 1;
-      serverItems = [{ analysis_id: 'aaa' }];
+      serverNewestId = 'aaa';
       const { result } = renderHook(() => usePendingAnalyses(), { wrapper });
 
       await act(async () => {
@@ -63,7 +62,7 @@ describe('usePendingAnalyses (SWR real)', () => {
       const callsAfterMount = mockedFetch.mock.calls.length;
 
       serverCount = 2;
-      serverItems = [{ analysis_id: 'bbb' }];
+      serverNewestId = 'bbb';
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10_100);
       });
@@ -77,7 +76,7 @@ describe('usePendingAnalyses (SWR real)', () => {
 
   it('refreshPendingAnalyses updates the indicator without navigation or poll', async () => {
     serverCount = 1;
-    serverItems = [{ analysis_id: 'aaa' }];
+    serverNewestId = 'aaa';
     // Sin proveedor propio: el mutate global de refreshPendingAnalyses opera sobre la caché por defecto.
     const { result } = renderHook(() => usePendingAnalyses(), {
       wrapper: ({ children }: { children: ReactNode }) => (
@@ -87,7 +86,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
 
     serverCount = 2;
-    serverItems = [{ analysis_id: 'bbb' }];
+    serverNewestId = 'bbb';
     await act(async () => {
       await refreshPendingAnalyses();
     });
@@ -98,7 +97,7 @@ describe('usePendingAnalyses (SWR real)', () => {
 
   it('full lifecycle: A pending, A done, then B and C pending', async () => {
     serverCount = 1;
-    serverItems = [{ analysis_id: 'aaa' }];
+    serverNewestId = 'aaa';
     const { result, rerender } = renderHook(() => usePendingAnalyses(), {
       wrapper,
     });
@@ -106,7 +105,7 @@ describe('usePendingAnalyses (SWR real)', () => {
 
     // A termina: el sondeo devuelve 0 y el aviso de finalizado aparece.
     serverCount = 0;
-    serverItems = [];
+    serverNewestId = null;
     pathname = '/app/historial';
     rerender();
     await waitFor(() => expect(result.current.pendingCount).toBe(0));
@@ -114,7 +113,7 @@ describe('usePendingAnalyses (SWR real)', () => {
 
     // Se envía B.
     serverCount = 1;
-    serverItems = [{ analysis_id: 'bbb' }];
+    serverNewestId = 'bbb';
     pathname = '/app/analisis/bbb';
     rerender();
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
@@ -122,7 +121,7 @@ describe('usePendingAnalyses (SWR real)', () => {
 
     // Se envía C con B aún en curso.
     serverCount = 2;
-    serverItems = [{ analysis_id: 'ccc' }];
+    serverNewestId = 'ccc';
     pathname = '/app/analisis/ccc';
     rerender();
     await waitFor(() => expect(result.current.pendingCount).toBe(2));

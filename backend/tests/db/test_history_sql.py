@@ -14,6 +14,7 @@ from app.db.history import (
     fail_stale_pending_analyses,
     get_analysis_file,
     get_file_data_by_id,
+    get_pending_analyses_summary,
     get_shared_analysis_by_token,
     get_user_analysis_by_id,
     list_stale_pending_analysis_ids,
@@ -459,3 +460,36 @@ async def test_file_bytes_round_trip_exactly(db_pool):
     )
     mine = await get_analysis_file(user_id=USER, analysis_id=analysis_id)
     assert mine == (data, "informe.pdf")
+
+
+async def test_pending_summary_counts_all_and_names_the_newest(db_pool):
+    """COUNT(*) OVER () cuenta todas las pendientes pese al LIMIT 1 de la consulta."""
+    await _pending("Primera afirmacion medica pendiente")
+    await _pending("Segunda afirmacion medica pendiente")
+    newest_id = await _pending("Tercera afirmacion medica pendiente")
+
+    summary = await get_pending_analyses_summary(user_id=USER)
+
+    assert summary.count == 3
+    assert summary.newest_analysis_id == newest_id
+
+
+async def test_pending_summary_ignores_finished_rows_and_other_users(db_pool):
+    """Solo cuentan las filas 'pending' propias; done/failed y ajenas quedan fuera."""
+    done_id = await _pending("Afirmacion que termina bien")
+    await complete_analysis(
+        analysis_id=done_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+    )
+    failed_id = await _pending("Afirmacion que falla")
+    await fail_analysis(analysis_id=failed_id, error_code="internal_error")
+    await create_pending_analysis(
+        user_id="user-b", request=AnalysisRequest(text="Pendiente de otro usuario")
+    )
+
+    summary = await get_pending_analyses_summary(user_id=USER)
+
+    assert summary.count == 0
+    assert summary.newest_analysis_id is None
