@@ -63,16 +63,19 @@ def _build_evidence_block(sources: list[dict]) -> str:
     )
 
 
-def _stance_counts_by_claim(sources: list[dict]) -> dict[str, dict[str, int]]:
-    """Cuenta, por afirmación, cuántas fuentes la respaldan o la contradicen."""
-    counts: dict[str, dict[str, int]] = {}
+def _stance_counts_by_claim(sources: list[dict]) -> dict[int, dict[str, int]]:
+    """Cuenta, por índice de afirmación, cuántas fuentes la respaldan o la contradicen."""
+    counts: dict[int, dict[str, int]] = {}
     for source in sources:
         for statement in source.get("statements") or []:
-            text = str(statement.get("text", ""))
+            claim_index = statement.get("claim_index")
             stance = statement.get("stance")
-            if not text or stance not in ("supports", "contradicts"):
+            if not isinstance(claim_index, int) or stance not in (
+                "supports",
+                "contradicts",
+            ):
                 continue
-            bucket = counts.setdefault(text, {"supports": 0, "contradicts": 0})
+            bucket = counts.setdefault(claim_index, {"supports": 0, "contradicts": 0})
             bucket[stance] += 1
     return counts
 
@@ -146,8 +149,8 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     # La postura de la literatura es la unica fuente del veredicto.
     stance_counts = _stance_counts_by_claim(state.get("sources") or [])
 
-    for original in extracted_statements:
-        counts = stance_counts.get(str(original))
+    for claim_index, original in enumerate(extracted_statements):
+        counts = stance_counts.get(claim_index)
         fake_prob = _fake_prob_from_stance(counts)
         has_evidence = _has_stance_evidence(counts)
         if has_evidence:

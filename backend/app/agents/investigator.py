@@ -21,10 +21,10 @@ EVIDENCE_RESULTS_PER_STATEMENT = 3
 EVIDENCE_MAX_SOURCES = 12
 
 
-def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
+def _merge_sources(hits: list[tuple[dict, int, str]]) -> list[dict]:
     """Funde fuentes repetidas por URL, acumulando las afirmaciones que respaldan."""
     by_url: dict[str, dict] = {}
-    for hit, statement in hits:
+    for hit, claim_index, statement in hits:
         url = hit["url"]
         source = by_url.get(url)
         if source is None:
@@ -33,9 +33,13 @@ def _merge_sources(hits: list[tuple[dict, str | None]]) -> list[dict]:
             source = {k: v for k, v in hit.items() if k not in ("abstract", "stance")}
             source["statements"] = []
             by_url[url] = source
-        if statement and all(s["text"] != statement for s in source["statements"]):
+        if all(s["claim_index"] != claim_index for s in source["statements"]):
             source["statements"].append(
-                {"text": statement, "stance": hit.get("stance")}
+                {
+                    "claim_index": claim_index,
+                    "text": statement,
+                    "stance": hit.get("stance"),
+                }
             )
     return list(by_url.values())
 
@@ -94,8 +98,11 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     if not translated:
         return {"sources": [], "evidence_coverage": 0.0}
 
-    quads = [
+    # El índice de la afirmación viaja con su entrada: es la clave con la que el
+    # informe enlaza fuente y afirmación, en vez de volver a casar el texto.
+    entries = [
         (
+            i,
             (
                 queries[i]
                 if i < len(queries) and queries[i] and str(queries[i]).strip()
@@ -110,8 +117,8 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
 
     # Descarta consultas vacías (relleno) antes de llamar a las fuentes.
     valid = [
-        (str(query), claim, original, drug_term)
-        for query, claim, original, drug_term in quads
+        (claim_index, str(query), claim, original, drug_term)
+        for claim_index, query, claim, original, drug_term in entries
         if query and str(query).strip()
     ]
 
@@ -133,14 +140,14 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     # Cada par afirmación×fuente es I/O de red independiente: se lanzan todos en paralelo.
     tasks: list[tuple[int, str, Callable[..., list[dict]]]] = []
     per_claim_attempts = [0] * len(searched)
-    for index, (query, _, _, drug_term) in enumerate(searched):
+    for position, (_, query, _, _, drug_term) in enumerate(searched):
         for search in topic_sources:
-            tasks.append((index, query, search))
-            per_claim_attempts[index] += 1
+            tasks.append((position, query, search))
+            per_claim_attempts[position] += 1
         if drug_term:
             # CIMA (medicamentos) solo se consulta cuando la afirmación nombra un fármaco.
-            tasks.append((index, drug_term, search_cima))
-            per_claim_attempts[index] += 1
+            tasks.append((position, drug_term, search_cima))
+            per_claim_attempts[position] += 1
 
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
@@ -148,27 +155,27 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     # Reagrupa por afirmación: una falla solo si TODAS sus fuentes consultadas caen.
     per_claim_hits: list[list[dict]] = [[] for _ in searched]
     per_claim_failures = [0] * len(searched)
-    for index, hits in outcomes:
+    for position, hits in outcomes:
         if hits is None:
-            per_claim_failures[index] += 1
+            per_claim_failures[position] += 1
         else:
-            per_claim_hits[index].extend(hits)
+            per_claim_hits[position].extend(hits)
 
     results: list[list[dict] | None] = [
         (
             None
-            if per_claim_failures[index] == per_claim_attempts[index]
-            else _dedupe_hits(per_claim_hits[index])
+            if per_claim_failures[position] == per_claim_attempts[position]
+            else _dedupe_hits(per_claim_hits[position])
         )
-        for index in range(len(searched))
+        for position in range(len(searched))
     ]
 
     judge_prompt = prompts.judge.text if prompts else None
 
     # Afirmaciones con evidencia recuperada; una caída total (hits None) es un error.
     judgeable = [
-        (query, claim, original, hits)
-        for (query, claim, original, _), hits in zip(searched, results)
+        (claim_index, query, claim, original, hits)
+        for (claim_index, query, claim, original, _), hits in zip(searched, results)
         if hits is not None
     ]
     errored = len(searched) - len(judgeable)
@@ -178,17 +185,17 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         with ThreadPoolExecutor(max_workers=len(judgeable)) as pool:
             judged = list(
                 pool.map(
-                    lambda item: _judge_claim(judge_prompt, item[0], item[1], item[3]),
+                    lambda item: _judge_claim(judge_prompt, item[1], item[2], item[4]),
                     judgeable,
                 )
             )
     else:
-        judged = [hits for _, _, _, hits in judgeable]
+        judged = [hits for *_, hits in judgeable]
 
     # Se reensambla en el orden original de las afirmaciones
-    collected: list[tuple[dict, str | None]] = []
+    collected: list[tuple[dict, int, str]] = []
     covered = 0
-    for (query, _, original, hits), relevant in zip(judgeable, judged):
+    for (claim_index, query, _, original, hits), relevant in zip(judgeable, judged):
         # Bruto -> relevante por afirmación: separa fallo de búsqueda de filtrado del juez.
         logger.info(
             "[Investigador] '%s': %d brutas -> %d relevantes (%s)",
@@ -199,7 +206,9 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         )
         if relevant:
             covered += 1
-            collected.extend((hit, original) for hit in relevant)
+            collected.extend(
+                (hit, claim_index, str(original or "")) for hit in relevant
+            )
 
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 

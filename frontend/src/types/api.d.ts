@@ -755,6 +755,8 @@ export interface components {
          * @description Afirmación enlazada a una fuente y la postura de la fuente sobre ella.
          */
         StatementStance: {
+            /** Claim Index */
+            claim_index: number;
             /** Text */
             text: string;
             /** Stance */

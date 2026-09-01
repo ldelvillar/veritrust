@@ -21,35 +21,38 @@ export interface StanceSummary {
   inconclusive: number;
 }
 
-const normalize = (text: string): string => text.trim();
+/**
+ * Postura de una fuente sobre una afirmación concreta, resuelta por el
+ * `claim_index` que el investigador adjunta a cada `statement`.
+ */
+export function stanceForClaim(
+  source: SourceType,
+  claimIndex: number
+): string | null | undefined {
+  return source.statements?.find(
+    statement => statement.claim_index === claimIndex
+  )?.stance;
+}
 
 /**
- * Agrupa las fuentes bajo la afirmación que respaldan, usando el campo
- * `statements` que el investigador adjunta a cada fuente. Una fuente que
- * respalda varias afirmaciones aparece bajo todas ellas; las que no encajan en
- * ninguna (o sin `statements`) caen en `unmatched`.
+ * Agrupa las fuentes bajo la afirmación que respaldan, usando el `claim_index`
+ * que el investigador adjunta a cada `statement`. Una fuente que respalda varias
+ * afirmaciones aparece bajo todas ellas; las que no apuntan a ninguna afirmación
+ * de la lista (o no traen `statements`) caen en `unmatched`.
  */
 export function groupSourcesByClaim(
   claims: ClaimType[],
   sources: SourceType[]
 ): GroupedEvidence {
   const groups: ClaimEvidence[] = claims.map(claim => ({ claim, sources: [] }));
-
-  // Primer índice gana ante textos de afirmación duplicados.
-  const indexByText = new Map<string, number>();
-  claims.forEach((claim, index) => {
-    const key = normalize(claim.text);
-    if (!indexByText.has(key)) indexByText.set(key, index);
-  });
-
   const unmatched: SourceType[] = [];
 
   for (const source of sources) {
     const matchedIndices = new Set<number>();
     for (const statement of source.statements ?? []) {
-      if (!statement?.text) continue;
-      const index = indexByText.get(normalize(statement.text));
-      if (index !== undefined) matchedIndices.add(index);
+      const index = statement.claim_index;
+      // Un índice fuera de rango no tiene afirmación bajo la que anidar la fuente.
+      if (index >= 0 && index < groups.length) matchedIndices.add(index);
     }
 
     if (matchedIndices.size === 0) {
@@ -64,11 +67,10 @@ export function groupSourcesByClaim(
 
 /**
  * Cuenta la postura de las fuentes ya enlazadas a una afirmación, para el
- * resumen "a favor / en contra" de la fila. La postura es por par
- * (afirmación, fuente), así que se re-resuelve casando `statement.text`.
+ * resumen "a favor / en contra" de la fila.
  */
 export function summarizeStances(
-  claim: ClaimType,
+  claimIndex: number,
   sources: SourceType[]
 ): StanceSummary {
   const summary: StanceSummary = {
@@ -76,12 +78,9 @@ export function summarizeStances(
     contradicts: 0,
     inconclusive: 0,
   };
-  const claimText = normalize(claim.text);
 
   for (const source of sources) {
-    const stance = source.statements?.find(
-      statement => statement?.text && normalize(statement.text) === claimText
-    )?.stance;
+    const stance = stanceForClaim(source, claimIndex);
     if (stance === 'supports') summary.supports += 1;
     else if (stance === 'contradicts') summary.contradicts += 1;
     else if (stance === 'inconclusive') summary.inconclusive += 1;

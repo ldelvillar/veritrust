@@ -9,15 +9,17 @@ import {
   normalizeFraction,
   STANCE_SUMMARY_META,
 } from './format';
-import { summarizeStances } from '@/lib/evidence';
+import { stanceForClaim, summarizeStances } from '@/lib/evidence';
 import type { ClaimType, SourceType } from './types';
 
 export default function ClaimRow({
   claim,
+  claimIndex,
   sources,
   showEvidence,
 }: {
   claim: ClaimType;
+  claimIndex: number;
   sources: SourceType[];
   showEvidence: boolean;
 }) {
@@ -27,7 +29,7 @@ export default function ClaimRow({
   const ClaimIcon = style.Icon;
   const confidencePct = Math.round(normalizeFraction(claim.confidence) * 100);
   const sourceCount = sources.length;
-  const stances = summarizeStances(claim, sources);
+  const stances = summarizeStances(claimIndex, sources);
   const stanceItems = STANCE_SUMMARY_META.map(meta => ({
     ...meta,
     count: stances[meta.key],
@@ -102,11 +104,7 @@ export default function ClaimRow({
                   <SourceRow
                     key={`${source.url}-${index}`}
                     source={source}
-                    stance={
-                      source.statements?.find(
-                        s => s.text.trim() === claim.text.trim()
-                      )?.stance
-                    }
+                    stance={stanceForClaim(source, claimIndex)}
                   />
                 ))}
               </ul>

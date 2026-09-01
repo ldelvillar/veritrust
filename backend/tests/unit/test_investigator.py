@@ -37,8 +37,9 @@ def test_collects_sources_and_full_coverage(monkeypatch):
     assert update["evidence_coverage"] == 1.0
     # Ambas fuentes devuelven la misma URL por afirmación: se deduplica a una.
     assert len(update["sources"]) == 2
-    # La afirmación original se adjunta para enlazar la fuente con su afirmación.
-    assert update["sources"][0]["statements"] == [{"text": "a", "stance": None}]
+    assert update["sources"][0]["statements"] == [
+        {"claim_index": 0, "text": "a", "stance": None}
+    ]
 
 
 def test_merges_distinct_hits_from_both_sources(monkeypatch):
@@ -92,8 +93,30 @@ def test_merges_statements_for_shared_url(monkeypatch):
     # Una misma fuente recuperada para dos afirmaciones queda enlazada a ambas.
     assert len(update["sources"]) == 1
     assert update["sources"][0]["statements"] == [
-        {"text": "a", "stance": None},
-        {"text": "b", "stance": None},
+        {"claim_index": 0, "text": "a", "stance": None},
+        {"claim_index": 1, "text": "b", "stance": None},
+    ]
+
+
+def test_repeated_claim_text_stays_linked_to_each_claim(monkeypatch):
+    """Dos afirmaciones de texto idéntico se enlazan por separado, no se funden."""
+
+    def fake_search(query, *, max_results):
+        return [{"title": "same", "url": "https://x/dup"}]
+
+    _patch_sources(monkeypatch, fake_search)
+
+    update = investigator(
+        {
+            "translated_statements": ["A", "B"],
+            "extracted_statements": ["misma frase", "misma frase"],
+        }
+    )
+
+    # Deduplicar por texto dejaría una sola entrada; por índice quedan las dos.
+    assert update["sources"][0]["statements"] == [
+        {"claim_index": 0, "text": "misma frase", "stance": None},
+        {"claim_index": 1, "text": "misma frase", "stance": None},
     ]
 
 
@@ -248,7 +271,7 @@ def test_evidence_gate_filters_sources_and_records_stance(monkeypatch):
     assert update["evidence_coverage"] == 0.5
     assert len(update["sources"]) == 1
     assert update["sources"][0]["statements"] == [
-        {"text": "a", "stance": "contradicts"}
+        {"claim_index": 0, "text": "a", "stance": "contradicts"}
     ]
     assert "abstract" not in update["sources"][0]
     assert "stance" not in update["sources"][0]
@@ -390,7 +413,9 @@ def test_parallel_judge_isolates_one_failure(monkeypatch):
     assert set(by_url) == {"https://x/A-en", "https://x/B-en"}
     # La afirmación sana no se ve afectada por el fallo de la otra.
     assert by_url["https://x/A-en"]["statements"] == [
-        {"text": "a", "stance": "supports"}
+        {"claim_index": 0, "text": "a", "stance": "supports"}
     ]
     # La que falló conserva la fuente sin postura juzgada.
-    assert by_url["https://x/B-en"]["statements"] == [{"text": "b", "stance": None}]
+    assert by_url["https://x/B-en"]["statements"] == [
+        {"claim_index": 1, "text": "b", "stance": None}
+    ]

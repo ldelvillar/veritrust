@@ -259,7 +259,7 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
 
 
 def _stance_sources(
-    statement: str, supports: int = 0, contradicts: int = 0
+    statement: str, supports: int = 0, contradicts: int = 0, claim_index: int = 0
 ) -> list[dict]:
     """Fuentes con la postura ya juzgada, tal y como las deja el investigador."""
     stances = ["supports"] * supports + ["contradicts"] * contradicts
@@ -267,7 +267,9 @@ def _stance_sources(
         {
             "title": f"Fuente {i} sobre {statement}",
             "url": f"https://doi.org/10.1/{statement}-{i}",
-            "statements": [{"text": statement, "stance": stance}],
+            "statements": [
+                {"claim_index": claim_index, "text": statement, "stance": stance}
+            ],
         }
         for i, stance in enumerate(stances)
     ]
@@ -403,9 +405,9 @@ def test_minority_contradiction_only_reduces_confidence(
         "translated_statements": ["T1", "T2", "T3"],
         "evidence_coverage": 1.0,
         "sources": (
-            _stance_sources("S1", supports=2, contradicts=1)
-            + _stance_sources("S2", supports=2)
-            + _stance_sources("S3", supports=2)
+            _stance_sources("S1", supports=2, contradicts=1, claim_index=0)
+            + _stance_sources("S2", supports=2, claim_index=1)
+            + _stance_sources("S3", supports=2, claim_index=2)
         ),
     }
     update = health_module.health_expert(state, dummy_prompts)
@@ -413,6 +415,32 @@ def test_minority_contradiction_only_reduces_confidence(
     # fake_avg = (0.4 + 0.25 + 0.25) / 3 = 0.3: sigue verdadera, pero por debajo de 0.75.
     assert update["label"] == "verdadera"
     assert update["confidence"] == pytest.approx(0.7)
+
+
+def test_evidence_is_attributed_by_index_not_by_claim_text(
+    monkeypatch, health_module, dummy_prompts
+):
+    """Dos afirmaciones de texto idéntico conservan cada una su propia evidencia."""
+    _stub_health_llm(monkeypatch, health_module)
+
+    update = health_module.health_expert(
+        {
+            "extracted_statements": ["Misma frase", "Misma frase"],
+            "translated_statements": ["T1", "T2"],
+            "evidence_coverage": 1.0,
+            "sources": (
+                _stance_sources("Misma frase", contradicts=3, claim_index=0)
+                + _stance_sources("Misma frase", supports=2, claim_index=1)
+            ),
+        },
+        dummy_prompts,
+    )
+
+    # Casando por texto ambas compartirían las 5 fuentes; por índice, 4/5 y 1/4.
+    assert [(claim["label"], claim["confidence"]) for claim in update["claims"]] == [
+        ("falsa", pytest.approx(0.8)),
+        ("verdadera", pytest.approx(0.75)),
+    ]
 
 
 def test_health_expert_fences_user_text_and_neutralizes_injection(

@@ -45,6 +45,7 @@ export default function ClaimsEvidence({
           <ClaimRow
             key={index}
             claim={claim}
+            claimIndex={index}
             sources={[]}
             showEvidence={false}
           />
@@ -78,6 +79,7 @@ export default function ClaimsEvidence({
           <ClaimRow
             key={index}
             claim={group.claim}
+            claimIndex={index}
             sources={group.sources}
             showEvidence
           />

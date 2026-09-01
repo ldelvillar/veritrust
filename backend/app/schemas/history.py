@@ -2,9 +2,9 @@
 Este módulo define los esquemas de datos relacionados con el historial de análisis del usuario.
 """
 
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, computed_field
 
 from app.core.credibility import Verdict, classify_verdict, compute_credibility
 from app.schemas.feedback import AnalysisFeedback
@@ -29,6 +29,7 @@ class ClaimItem(BaseModel):
 class StatementStance(BaseModel):
     """Afirmación enlazada a una fuente y la postura de la fuente sobre ella."""
 
+    claim_index: int
     text: str
     stance: Optional[Stance] = None
 
@@ -41,23 +42,6 @@ class SourceItem(BaseModel):
     source: Optional[str] = None
     year: Optional[str] = None
     statements: Optional[List[StatementStance]] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_legacy_statements(cls, data: Any) -> Any:
-        """Acepta el formato heredado: ``statement`` singular y ``statements`` de strings."""
-        if not isinstance(data, dict):
-            return data
-        statements = data.get("statements")
-        if not statements:
-            legacy = data.get("statement")
-            if isinstance(legacy, str) and legacy.strip():
-                return {**data, "statements": [{"text": legacy}]}
-            return data
-        coerced = [
-            {"text": item} if isinstance(item, str) else item for item in statements
-        ]
-        return {**data, "statements": coerced}
 
 
 class AnalysisHistoryItem(BaseModel):

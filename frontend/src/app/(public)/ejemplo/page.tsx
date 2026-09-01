@@ -57,6 +57,7 @@ Ante afirmaciones de salud absolutas ("previene por completo", "sin ningún ries
       year: '2013',
       statements: [
         {
+          claim_index: 1,
           text: 'El consumo diario de vitamina C previene por completo el resfriado común.',
           stance: 'contradicts',
         },
@@ -69,6 +70,7 @@ Ante afirmaciones de salud absolutas ("previene por completo", "sin ningún ries
       year: '2017',
       statements: [
         {
+          claim_index: 0,
           text: 'La vitamina C es esencial para el funcionamiento del sistema inmunitario.',
           stance: 'supports',
         },
@@ -81,6 +83,7 @@ Ante afirmaciones de salud absolutas ("previene por completo", "sin ningún ries
       year: '2021',
       statements: [
         {
+          claim_index: 2,
           text: 'Las dosis altas de vitamina C no presentan ningún riesgo.',
           stance: 'inconclusive',
         },
