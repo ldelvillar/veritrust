@@ -89,7 +89,9 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
             "source": "BMJ",
             # Todas las fuentes reales (Europe PMC, PubMed, openFDA, CIMA) emiten year como str.
             "year": "2021",
-            "statements": [{"text": "Afirmación", "stance": "contradicts"}],
+            "statements": [
+                {"claim_index": 0, "text": "Afirmación", "stance": "contradicts"}
+            ],
         }
     ]
 
@@ -120,8 +122,8 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
         "https://doi.org/10.1/x",
     )
     assert (stored_source.source, stored_source.year) == ("BMJ", "2021")
-    assert [(s.text, s.stance) for s in stored_source.statements] == [
-        ("Afirmación", "contradicts")
+    assert [(s.claim_index, s.text, s.stance) for s in stored_source.statements] == [
+        (0, "Afirmación", "contradicts")
     ]
 
 
