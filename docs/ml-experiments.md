@@ -12,18 +12,18 @@ parte del pipeline** (ver «Retirada del clasificador BERT»).
 
 ## Historial de mejoras (jul 2026)
 
-| Modelo | Acc. firme | verdadera→falsa | falsa→verdadera | Abstención |
-|---|---|---|---|---|
-| 2 clases original (minúsculas, mixture→falsa) | 79.7% | 34.7% | 6.0% | — |
-| 3 clases (mixture→incierta, pesos por clase) | 84.1% | 25.3% | 2.8% | 12.8% |
-| + márgenes de decisión (0.25/0.10) | 84.7% | 23.7% | 2.9% | 15.2% |
-| + fix del learning rate (2e-5 real) — **desplegado** | **87.9%** | **17.3%** | 1.0% | 24.5% |
+| Modelo                                               | Acc. firme | verdadera→falsa | falsa→verdadera | Abstención |
+| ---------------------------------------------------- | ---------- | --------------- | --------------- | ---------- |
+| 2 clases original (minúsculas, mixture→falsa)        | 79.7%      | 34.7%           | 6.0%            | —          |
+| 3 clases (mixture→incierta, pesos por clase)         | 84.1%      | 25.3%           | 2.8%            | 12.8%      |
+| + márgenes de decisión (0.25/0.10)                   | 84.7%      | 23.7%           | 2.9%            | 15.2%      |
+| + fix del learning rate (2e-5 real) — **desplegado** | **87.9%**  | **17.3%**       | 1.0%            | 24.5%      |
 
 Qué corrigió cada salto:
 
 - **3 clases**: plegar `mixture` en `falsa` metía ~32% de ruido de etiqueta en la clase
   positiva y era la causa principal del sesgo verdadera→falsa.
-- **Sin minúsculas**: BioBERT es *cased*; `clean_text` pasaba todo a minúsculas y
+- **Sin minúsculas**: BioBERT es _cased_; `clean_text` pasaba todo a minúsculas y
   degradaba la señal. No reintroducir `lower()` en el preprocesado.
 - **Selección por macro-F1**: seleccionar checkpoint por F1 binaria premiaba el sesgo
   hacia `falsa`.
@@ -37,12 +37,12 @@ Qué corrigió cada salto:
 Receta idéntica (3 clases, pesos, label smoothing 0.1, LR 2e-5, early stopping),
 márgenes barridos por modelo en validación y reportados en test (fm=0.35 para todos):
 
-| Modelo base | Acc. firme (test) | verdadera→falsa | falsa→verdadera | Cobertura |
-|---|---|---|---|---|
-| dmis-lab/biobert-v1.1 (**desplegado**) | **88.7%** | **15.3%** | 1.0% | 72.5% |
-| FacebookAI/roberta-base | 87.7% | 18.7% | **0.7%** | 78.3% |
-| microsoft/deberta-v3-base | 87.2% | 15.7% | 2.3% | 70.5% |
-| microsoft/BiomedNLP-BiomedBERT (PubMedBERT) | 86.7% | 17.7% | 2.7% | 76.3% |
+| Modelo base                                 | Acc. firme (test) | verdadera→falsa | falsa→verdadera | Cobertura |
+| ------------------------------------------- | ----------------- | --------------- | --------------- | --------- |
+| dmis-lab/biobert-v1.1 (**desplegado**)      | **88.7%**         | **15.3%**       | 1.0%            | 72.5%     |
+| FacebookAI/roberta-base                     | 87.7%             | 18.7%           | **0.7%**        | 78.3%     |
+| microsoft/deberta-v3-base                   | 87.2%             | 15.7%           | 2.3%            | 70.5%     |
+| microsoft/BiomedNLP-BiomedBERT (PubMedBERT) | 86.7%             | 17.7%           | 2.7%            | 76.3%     |
 
 Notas:
 
@@ -63,12 +63,12 @@ de 3 clases (que, diluida en ~0.4–0.5, hacía caer en "incierta" veredictos fi
 detector). Medido con `ml/evaluation/evaluate_pipeline.py` (150 muestras test, seed 42),
 comparación pareada pre/post sobre los mismos textos:
 
-| | Pre | Post |
-|---|---|---|
-| Cobertura (firmes / con afirmaciones) | 32.4% | 46.4% |
-| Accuracy firme | 86.4% (3 err / 22) | 78.1% (7 err / 32) |
-| Firmes correctos absolutos | 19 | 25 |
-| Firmes incorrectos absolutos | 3 | 7 |
+|                                       | Pre                | Post               |
+| ------------------------------------- | ------------------ | ------------------ |
+| Cobertura (firmes / con afirmaciones) | 32.4%              | 46.4%              |
+| Accuracy firme                        | 86.4% (3 err / 22) | 78.1% (7 err / 32) |
+| Firmes correctos absolutos            | 19                 | 25                 |
+| Firmes incorrectos absolutos          | 3                  | 7                  |
 
 Notas:
 
@@ -91,11 +91,11 @@ La evidencia ya puede en teoría invertir un veredicto o resolver una abstenció
 Medido pareado sobre las mismas 150 muestras test (seed 42,
 `results/eval_pipeline_{post,stance}.jsonl`):
 
-| | Pre (renorm) | Post (stance) |
-|---|---|---|
+|                | Pre (renorm)  | Post (stance) |
+| -------------- | ------------- | ------------- |
 | Accuracy firme | 78.1% (25/32) | 80.0% (24/30) |
-| Cobertura | 46.4% | 42.9% |
-| FP / FN | 6 / 1 | 6 / 0 |
+| Cobertura      | 46.4%         | 42.9%         |
+| FP / FN        | 6 / 1         | 6 / 0         |
 
 Notas:
 
@@ -123,12 +123,12 @@ invirtiendo la atenuación por cobertura; el barrido reproduce los 63 veredictos
 almacenados con 0 desajustes). Medido en **validación** (150 muestras, seed 42,
 `results/eval_pipeline_validation.jsonl`):
 
-| Banda (lower, upper) | Firmes | Aciertos | Errores | Acc. | Cobertura |
-|---|---|---|---|---|---|
-| (0.30, 0.50) — actual | 33 | 24 | 9 | 72.7% | 52.4% |
-| (0.275, 0.50) | 32 | 24 | 8 | 75.0% | 50.8% |
-| (0.275, 0.65) | 31 | 23 | 8 | 74.2% | 49.2% |
-| (0.275, 0.775) | 26 | 19 | 7 | 73.1% | 41.3% |
+| Banda (lower, upper)  | Firmes | Aciertos | Errores | Acc.  | Cobertura |
+| --------------------- | ------ | -------- | ------- | ----- | --------- |
+| (0.30, 0.50) — actual | 33     | 24       | 9       | 72.7% | 52.4%     |
+| (0.275, 0.50)         | 32     | 24       | 8       | 75.0% | 50.8%     |
+| (0.275, 0.65)         | 31     | 23       | 8       | 74.2% | 49.2%     |
+| (0.275, 0.775)        | 26     | 19       | 7       | 73.1% | 41.3%     |
 
 Notas:
 
@@ -165,13 +165,13 @@ filtra el muestreo a textos con cuestión médica verificable; prompt en
 son firmas de periodistas). Primera medición (test, 150 muestras, seed 42,
 `results/eval_pipeline_test_medical.jsonl`; filtro: 526 juzgadas → 150):
 
-| | Mezclado (stance, 2026-07-15) | Solo-médico |
-|---|---|---|
-| Sin afirmaciones | 53% (80/150) | **12% (18/150)** |
-| Veredictos firmes | 30 | 43 |
-| Accuracy firme | 80.0% | **60.5%** |
-| Cobertura | 42.9% | 32.6% |
-| FP / FN | 6 / 0 | 14 / 3 |
+|                   | Mezclado (stance, 2026-07-15) | Solo-médico      |
+| ----------------- | ----------------------------- | ---------------- |
+| Sin afirmaciones  | 53% (80/150)                  | **12% (18/150)** |
+| Veredictos firmes | 30                            | 43               |
+| Accuracy firme    | 80.0%                         | **60.5%**        |
+| Cobertura         | 42.9%                         | 32.6%            |
+| FP / FN           | 6 / 0                         | 14 / 3           |
 
 Notas:
 
@@ -238,19 +238,19 @@ comparar arms entre sí, pero su techo de ruido impide leer su accuracy como cap
 `backend/data/gold_es.jsonl`: 100 afirmaciones, 50 temas × (1 verdadera + 1 falsa), en
 español y sin ambigüedad deliberada. JSONL para que el diff sea revisable.
 
-Existe porque el ruido de etiqueta de HealthVer impedía separar *incapacidad del
-pipeline* de *error del benchmark*. El contraste es inmediato: sobre el conjunto dorado
+Existe porque el ruido de etiqueta de HealthVer impedía separar _incapacidad del
+pipeline_ de _error del benchmark_. El contraste es inmediato: sobre el conjunto dorado
 el pipeline detecta 20/50 afirmaciones falsas, frente a 2/19, 0/19 y 1/19 en las
 sucesivas medidas sobre HealthVer. La señal existía; HealthVer la enterraba.
 
 Sesgo conocido: el conjunto lo escribimos nosotros, así que hereda nuestra idea de qué
-es una afirmación verificable, y sus 50 bulos son bulos *conocidos* (justo los que la
+es una afirmación verificable, y sus 50 bulos son bulos _conocidos_ (justo los que la
 literatura biomédica primaria no indexa; ver más abajo).
 
 ## Prompts: juez v3 y extractor v4 (2026-08-30 / 2026-08-31)
 
 **Juez v2 → v3 — hacía coincidencia temática, no detección de postura.** Instrumentando
-al juez se vio que respondía `supports` a resúmenes que *refutaban* la afirmación: le
+al juez se vio que respondía `supports` a resúmenes que _refutaban_ la afirmación: le
 bastaba con que hablaran del mismo tema. Ésta era la causa raíz de que el pipeline no
 detectara afirmaciones falsas. v3 añade tratamiento explícito de polaridad («compartir
 tema NO es respaldar»), el caso de la afirmación negativa desmentida y tres ejemplos
@@ -277,23 +277,23 @@ dos comparaciones pareadas independientes:
 
 **HealthVer validation (59 muestras comunes)**
 
-| | acc. firme | verdadera→falsa |
-|---|---|---|
-| con BERT | 34.4% | 13 |
-| sin BERT | 52.9% | 4 |
+|          | acc. firme | verdadera→falsa |
+| -------- | ---------- | --------------- |
+| con BERT | 34.4%      | 13              |
+| sin BERT | 52.9%      | 4               |
 
 McNemar exacto: 14 a favor de sin-BERT, 3 a favor de con-BERT, **p = 0.0127**.
 
 **Conjunto dorado (100 muestras, extractor v4 y juez v3 fijos en ambos arms)**
 
-| | acc. | firmes | acc. firme | incierta | recall falsas | **verdadera→falsa** |
-|---|---|---|---|---|---|---|
-| con BERT | 42/100 | 64 | 65.6% | 34 | 41/50 | **17** |
-| sin BERT | **69/100** | 80 | **86.2%** | 18 | 23/50 | **2** |
+|          | acc.       | firmes | acc. firme | incierta | recall falsas | **verdadera→falsa** |
+| -------- | ---------- | ------ | ---------- | -------- | ------------- | ------------------- |
+| con BERT | 42/100     | 64     | 65.6%      | 34       | 41/50         | **17**              |
+| sin BERT | **69/100** | 80     | **86.2%**  | 18       | 23/50         | **2**               |
 
 McNemar exacto: 47 a favor de sin-BERT, 20 a favor de con-BERT, **p = 0.0013**.
 
-**La trampa a no repetir**: BERT tiene *mejor* recall de falsas (41/50 vs 23/50). Lo
+**La trampa a no repetir**: BERT tiene _mejor_ recall de falsas (41/50 vs 23/50). Lo
 compra llamando falsas a 17 afirmaciones verdaderas. Un sesgo hacia `falsa` puntúa bien
 en un conjunto que es mitad bulos y es inaceptable en una herramienta que lee un
 paciente. La accuracy sobre veredictos firmes (86.2% vs 65.6%) es la métrica honesta:
@@ -309,7 +309,7 @@ reproducibles; lo que se retira es BERT de la ruta de servicio.
 **El traductor NO se retira.** Se creía que solo alimentaba al clasificador, pero
 `investigator.py` corta la recuperación de evidencia si `translated_statements` viene
 vacío y recorre esa lista para construir las consultas. Es la espina dorsal de la
-recuperación, que ahora es la *única* fuente del veredicto.
+recuperación, que ahora es la _única_ fuente del veredicto.
 
 ## La ausencia de evidencia no es prueba de falsedad (2026-08-31)
 
@@ -317,7 +317,7 @@ Al estrechar la banda de incertidumbre de ±0.10 a ±0.05 la accuracy del conjun
 saltó de 55 a 79. Casi todo el salto era un artefacto y se revirtió parcialmente.
 
 Con suavizado de Laplace, una afirmación sin ninguna fuente pronunciada puntúa
-exactamente 0.5. Con `FAKE_THRESHOLD = 0.40` y banda ±0.05 ese 0.5 queda *por encima* de
+exactamente 0.5. Con `FAKE_THRESHOLD = 0.40` y banda ±0.05 ese 0.5 queda _por encima_ de
 la banda, así que **«no hemos encontrado nada» se leía como «es falso»**. La banda
 antigua terminaba justo en 0.50 y por eso el problema estaba oculto.
 
@@ -340,11 +340,11 @@ titular (79 → 69) y baja las verdaderas-llamadas-falsas de 7 a 2. Se acepta el
 
 Descomposición honesta de la mejora 55 → 69:
 
-| componente | aporte | ¿sólido? |
-|---|---|---|
-| recuperación de extracción (prompt v4) | +5 | sí |
-| estrechar la banda sobre señal real | ~+6 | sí |
-| ausencia de evidencia como `falsa` | +13 neto | **no, revertido** |
+| componente                             | aporte   | ¿sólido?          |
+| -------------------------------------- | -------- | ----------------- |
+| recuperación de extracción (prompt v4) | +5       | sí                |
+| estrechar la banda sobre señal real    | ~+6      | sí                |
+| ausencia de evidencia como `falsa`     | +13 neto | **no, revertido** |
 
 ## Diagnóstico: el cuello de botella es el juez, no la recuperación (2026-08-31)
 
@@ -354,11 +354,11 @@ posturas, y el checkpoint del eval guarda `sources_kept`, `stances` y `evidence_
 
 Conjunto dorado, 100 muestras, una sola pasada sin 503:
 
-| situación | n |
-|---|---|
-| ninguna fuente supera al juez | 6 |
-| fuentes conservadas, ninguna con postura firme | 8 |
-| hay postura: el juez se moja | 86 |
+| situación                                      | n   |
+| ---------------------------------------------- | --- |
+| ninguna fuente supera al juez                  | 6   |
+| fuentes conservadas, ninguna con postura firme | 8   |
+| hay postura: el juez se moja                   | 86  |
 
 **La recuperación no es el problema.** La hipótesis previa —17 falsas sin evidencia, que
 habría exigido un segundo canal orientado a corpus de verificación— era **errónea**: solo
@@ -368,9 +368,9 @@ caro apuntando al cubo equivocado.
 Calibración del juez frente a la etiqueta real:
 
 | la afirmación es | supports | contradicts | inconclusive | ratio s:c |
-|---|---|---|---|---|
-| verdadera | 193 | 6 | 30 | **32.2** |
-| falsa | 38 | 65 | 58 | **0.58** |
+| ---------------- | -------- | ----------- | ------------ | --------- |
+| verdadera        | 193      | 6           | 30           | **32.2**  |
+| falsa            | 38       | 65          | 58           | **0.58**  |
 
 El juez **separa bien**: 32.2 frente a 0.58 no es un componente roto ni un sesgo en
 bloque. El daño son los **38 `supports` que caen sobre afirmaciones falsas**, concentrados
@@ -390,14 +390,14 @@ afirmación que los confunde.
 ## Umbral en el punto neutro (2026-08-31) — correcto, pero ya no compra nada
 
 `FAKE_THRESHOLD` pasa de 0.40 a 0.50, el punto neutro del score suavizado. Antes la
-evidencia *equilibrada* (1 a favor, 1 en contra) puntuaba 0.5 exacto y caía del lado
+evidencia _equilibrada_ (1 a favor, 1 en contra) puntuaba 0.5 exacto y caía del lado
 `falsa`.
 
-| regla | acc. | incierta | verdadera→falsa | falsa→verdadera |
-|---|---|---|---|---|
-| t=0.40 m=0.05 | 70 | 15 | 1 | 12 |
-| t=0.50 m=0.05 | 65 | 19 | **0** | 14 |
-| t=0.50 m=0.10 | 64 | 22 | 0 | 12 |
+| regla         | acc. | incierta | verdadera→falsa | falsa→verdadera |
+| ------------- | ---- | -------- | --------------- | --------------- |
+| t=0.40 m=0.05 | 70   | 15       | 1               | 12              |
+| t=0.50 m=0.05 | 65   | 19       | **0**           | 14              |
+| t=0.50 m=0.10 | 64   | 22       | 0               | 12              |
 
 Barrido plano: 6 puntos de recorrido cuando el error estándar binomial a n=100 es ~4.7.
 **La regla de decisión ha dejado de ser una palanca.** Se elige 0.50 por estar en el punto
@@ -410,11 +410,11 @@ La sonda sobre las 14 falsas llamadas `verdadera` (volcando lo que el juez recib
 verdad, con resúmenes) encontró que **3 de 12 llegaban al juez con la polaridad
 invertida**:
 
-| afirmación en español (todas FALSAS) | traducción al inglés |
-|---|---|
-| causados por el **mismo** virus | caused by **different** viruses |
-| **puede curar** por completo el resfriado | **cannot** completely cure the common cold |
-| **hay que introducir** un objeto en la boca | an object should **not** be placed |
+| afirmación en español (todas FALSAS)        | traducción al inglés                       |
+| ------------------------------------------- | ------------------------------------------ |
+| causados por el **mismo** virus             | caused by **different** viruses            |
+| **puede curar** por completo el resfriado   | **cannot** completely cure the common cold |
+| **hay que introducir** un objeto en la boca | an object should **not** be placed         |
 
 Las tres convierten un bulo en su versión verdadera. El juez respondía `supports` con
 toda la razón: la afirmación que le llegaba ya era cierta. **No era un fallo del juez**,
@@ -422,25 +422,25 @@ y un modelo de juez más grande lo habría empeorado, juzgando con más confianz
 saneada.
 
 La causa estaba en el propio prompt del traductor v2: «Translate EACH statement into
-**clinically accurate English**». El modelo lee «clinically accurate» como *haz que el
-contenido clínico sea correcto* y obedece. Para un detector de desinformación es
+**clinically accurate English**». El modelo lee «clinically accurate» como _haz que el
+contenido clínico sea correcto_ y obedece. Para un detector de desinformación es
 exactamente lo contrario de lo que hace falta.
 
 **Traductor v3** declara que muchas afirmaciones son falsas a propósito, que son el objeto
 de la verificación y no consejo que corregir, y fija los tres fallos observados como
 contraejemplos explícitos.
 
-| | acc. | acc. firme | recall falsas | verdadera→falsa | falsa→verdadera |
-|---|---|---|---|---|---|
-| v4 (traductor v2) | 65 | 82.3% | 21/50 | 0 | **14** |
-| v5 (traductor v3) | **71** | **92.2%** | 25/50 | 0 | **6** |
+|                   | acc.   | acc. firme | recall falsas | verdadera→falsa | falsa→verdadera |
+| ----------------- | ------ | ---------- | ------------- | --------------- | --------------- |
+| v4 (traductor v2) | 65     | 82.3%      | 21/50         | 0               | **14**          |
+| v5 (traductor v3) | **71** | **92.2%**  | 25/50         | 0               | **6**           |
 
 Calibración del juez, que era el sospechoso y resultó ser la víctima:
 
 | la afirmación es | v4 ratio s:c | v5 ratio s:c |
-|---|---|---|
-| verdadera | 32.2 | 41.4 |
-| falsa | 0.58 | **0.24** |
+| ---------------- | ------------ | ------------ |
+| verdadera        | 32.2         | 41.4         |
+| falsa            | 0.58         | **0.24**     |
 
 Los `supports` sobre afirmaciones falsas caen de 38 a 20 sin tocar el prompt del juez.
 
@@ -452,6 +452,66 @@ sobre las 106 traducciones de v5 no encuentra ninguna inversión pendiente.
 Efecto secundario detectado en el mismo barrido: 7 de 106 traducciones llegaban con la
 numeración de la lista pegada («1. The flu and...»). Se recorta de forma determinista en
 `translator.py`, no pidiéndoselo al prompt.
+
+## Juez v4: obligar al juez a mojarse (2026-09-01) — rechazado, es una moneda al aire
+
+Hipótesis: de las 19 afirmaciones falsas que el pipeline llamaba `incierta` en v5, 15 no
+tenían ninguna postura y 9 de ellas sí habían recuperado fuentes que el juez etiquetó
+`inconclusive` en bloque. Si parte de esos `inconclusive` eran en realidad resultados
+nulos («se buscó la asociación y no se halló»), convertirlos en `contradicts` debía
+rescatar veredictos sin tocar la recuperación.
+
+v4 ensanchó `contradicts` más allá de la eficacia (efecto, asociación, riesgo), estrechó
+`inconclusive` a los casos genuinamente indecidibles y añadió dos ejemplos, uno de
+resultado nulo y otro de estudio sin potencia. Criterios fijados **antes** de medir:
+`inconclusive` sobre falsas debía bajar, `contradicts` subir, la ratio s:c no empeorar y
+`contradicts` sobre verdaderas no dispararse.
+
+|                           | v5 (juez v3) | v6 (juez v4) |
+| ------------------------- | ------------ | ------------ |
+| accuracy                  | 71/100       | 75/100       |
+| veredictos firmes         | 77           | 85           |
+| **accuracy sobre firmes** | **92.2%**    | **88.2%**    |
+| recall de falsas          | 25/50        | 29/50        |
+| falsa→verdadera           | 6            | **10**       |
+| verdadera→falsa           | 0            | 0            |
+| falsas: s / c / i         | 20 / 85 / 61 | 27 / 81 / 36 |
+| **falsas: ratio s:c**     | **0.24**     | **0.33**     |
+| verdaderas: `contradicts` | 5            | 8            |
+
+McNemar exacto: 9 a favor de v4, 5 en contra, **p = 0.42**. El +4 de titular es ruido.
+
+**El mecanismo no fue el previsto.** `inconclusive` se desplomó como se pedía (61 → 36),
+pero `contradicts` no subió: bajó. El total de fuentes conservadas por afirmación falsa
+cayó de 3.32 a 2.88, así que buena parte de los `inconclusive` no se convirtió en
+`contradicts` sino en `unrelated`, que se descarta. Estrechar una etiqueta no dirige la
+masa a la etiqueta deseada; la reparte.
+
+**Y lo decisivo**: de las 15 falsas sin postura en v5, v4 forzó una postura en 8, con
+este resultado exacto:
+
+| `contradicts` (acierta)         | `supports` (falla)            |
+| ------------------------------- | ----------------------------- |
+| gripe/resfriado                 | biopsia disemina el cáncer    |
+| microondas radiactivo           | leer con poca luz             |
+| hipertensión da dolor de cabeza | 10% del cerebro               |
+| ajo previene la infección       | zanahorias corrigen la miopía |
+
+4 y 4. Una moneda al aire, y esas 4 pérdidas son exactamente la subida de falsa→verdadera
+(6 → 10). El prompt no hizo al juez más competente, lo hizo más decidido; sobre
+afirmaciones cuya literatura no las aborda de verdad, la decisión es azar.
+
+Es el mismo defecto por el que se retiró BERT — **adivinar más fuerte, no saber más** — y
+por eso se revierte pese al +4: la accuracy sobre veredictos firmes, que esta bitácora
+fijó como la métrica honesta, empeora de 92.2% a 88.2%.
+
+Corolario que sí es un hallazgo: **esas 15 afirmaciones no son un problema del juez, sino
+de recuperación**. La literatura biomédica primaria no publica refutaciones de «las
+zanahorias corrigen la miopía», así que ningún prompt puede producir una postura correcta
+sobre ella; solo puede producir una postura confiada y equivocada.
+
+Nota de infraestructura: la corrida necesitó cuatro pases por 503 de Mistral («high
+load»). El checkpoint de `evaluate_pipeline.py` reanuda solo las muestras que faltan.
 
 ## No volver a intentar
 
@@ -477,23 +537,37 @@ numeración de la lista pegada («1. The flu and...»). Se recorta de forma dete
 - **Tratar la ausencia de evidencia como falsedad**: puntúa bien en un conjunto lleno de
   bulos conocidos y produce «la fiebre es falsa». Cualquier regla que premie el silencio
   de la literatura está midiendo la cobertura de PubMed, no la veracidad.
+- **Empujar al juez a `contradicts` por prompt**: v4 lo consiguió y el reparto fue 4
+  aciertos y 4 fallos (p = 0.42). Sobre una afirmación cuya literatura no la aborda, más
+  decisión es más azar, no más señal. Ver la sección del 2026-09-01.
+- **Ampliar el conjunto dorado con más bulos escritos a mano**: ~15 de cada 100 caen en
+  el punto ciego de cobertura y sólo repetirían el mismo techo con barras de error algo
+  más estrechas (SE 4.7 → 3.3 al duplicar n). Si se escriben más filas, que sea un
+  conjunto **retenido**: extractor v4, juez v3 y traductor v3 se ajustaron mirando este
+  conjunto, así que el 71 es en parte dentro de muestra.
 
 ## Pendiente con mayor expectativa
 
-Reordenado tras el diagnóstico del 2026-08-31, que descartó la recuperación como cuello
-de botella:
+Reordenado tras la corrida v6 del 2026-09-01, que descartó el prompt del juez como
+palanca sobre el cubo mayor:
 
-1. **Los 20 `supports` que quedan sobre afirmaciones falsas** — eran 38; la mitad eran
-   inversiones del traductor, ya corregidas. Los que quedan sí son errores de
-   comprensión del juez sobre traducciones fieles (p. ej. «Mobile phone use increases the
-   risk of brain tumors»). Aquí sí tiene sentido probar un modelo de juez mayor
-   (`MISTRAL_JUDGE_MODEL` ya es un ajuste por rol) o pedirle que razone antes de
-   etiquetar.
-2. **Las 8 muestras con fuentes pero sin postura firme** — el juez conserva la fuente y
-   responde `inconclusive`. Cuenta como cobertura pero no aporta veredicto. Mismo trabajo
-   de prompt que el punto 1.
-3. **Las 6 sin ninguna fuente** — el cubo más pequeño. Solo aquí tendría sentido un
-   segundo canal de recuperación, y a este tamaño no lo justifica.
+1. **Cobertura de recuperación para bulos de divulgación** — el cubo mayor y ahora el
+   único con mecanismo claro: ~15/100 afirmaciones sin ninguna postura porque PubMed y
+   Europe PMC no indexan refutaciones de creencias populares (zanahorias y miopía, pelo
+   mojado y resfriado, 10% del cerebro). Necesita una fuente que sí las cubra —Cochrane
+   en lenguaje llano, MedlinePlus, NHS Health A–Z—, no un prompt. Es trabajo de
+   arquitectura, no de texto.
+2. **Los `supports` sobre afirmaciones falsas con traducción fiel** — errores genuinos de
+   comprensión (p. ej. «Mobile phone use increases the risk of brain tumors»). Queda por
+   probar un modelo de juez mayor (`MISTRAL_JUDGE_MODEL` ya es un ajuste por rol) o un
+   campo de razonamiento declarado **antes** de `stances` en `EvidenceJudgments`. Ojo:
+   v4 ya enseñó que tocar el texto del prompt aquí no basta.
+3. **Conjunto retenido de ~50 filas** — no por precisión, sino para medir cuánto del 71
+   transfiere fuera de muestra. Se escribe una vez, se guarda y se mira una sola vez.
 
 **Ya no son palancas**: la banda y el umbral de decisión (barrido plano dentro del ruido
-a n=100) y la cobertura de recuperación (6/100).
+a n=100), el texto del prompt del juez (v4, p = 0.42) y ampliar el dorado con más bulos
+del mismo tipo.
+
+**Techo conocido**: con las fuentes actuales, ~15 de las 50 falsas del conjunto dorado no
+son verificables, así que el máximo alcanzable ronda 85/100, no 100.
