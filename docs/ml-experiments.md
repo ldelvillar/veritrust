@@ -5,9 +5,10 @@ sin salida.
 
 Las secciones de julio de 2026 miden el clasificador BERT sobre la muestra de test de
 PubHealth (300 verdadera / 300 falsa / 201 mixture, seed 42) vía
-`ml/evaluation/evaluate_classifier.py`. A partir de agosto de 2026 el dataset es
+`ml/evaluation/evaluate_classifier.py`, un script que ya no existe en el árbol (ver
+«Borrado del código de BERT»). A partir de agosto de 2026 el dataset es
 HealthVer, la medida limpia es el conjunto dorado `data/gold_es.jsonl` vía
-`ml/evaluation/evaluate_pipeline.py --partition gold`, y **el clasificador ya no forma
+`ml/evaluate_pipeline.py --partition gold`, y **el clasificador ya no forma
 parte del pipeline** (ver «Retirada del clasificador BERT»).
 
 ## Historial de mejoras (jul 2026)
@@ -60,7 +61,7 @@ Notas:
 Fix en `health_expert`: cada veredicto firme por afirmación aporta
 `p_falsa / (p_falsa + p_verdadera)` al promedio global en vez de la confianza softmax
 de 3 clases (que, diluida en ~0.4–0.5, hacía caer en "incierta" veredictos firmes del
-detector). Medido con `ml/evaluation/evaluate_pipeline.py` (150 muestras test, seed 42),
+detector). Medido con `ml/evaluate_pipeline.py` (150 muestras test, seed 42),
 comparación pareada pre/post sobre los mismos textos:
 
 |                                       | Pre                | Post               |
@@ -302,9 +303,8 @@ BERT no sabía más, adivinaba más fuerte.
 Coherente con la medida aislada previa: BERT solo sobre HealthVer validation da 42.31%,
 por debajo del 60.6% de un predictor constante «todo es verdad».
 
-Se conserva `app/tools/model_tool.py` y los scripts `ml/evaluation/evaluate_classifier.py`
-y `evaluate_factcheck.py` para que los experimentos de esta bitácora sigan siendo
-reproducibles; lo que se retira es BERT de la ruta de servicio.
+Aquí solo se retira BERT de la ruta de servicio. El código se conservó un mes por
+reproducibilidad y se borró el 2026-09-01 (ver «Borrado del código de BERT»).
 
 **El traductor NO se retira.** Se creía que solo alimentaba al clasificador, pero
 `investigator.py` corta la recuperación de evidencia si `translated_statements` viene
@@ -555,6 +555,49 @@ instrucciones y andamiaje de razonamiento— empeoran ambos. El juez v3 con
 `mistral-small` es el mejor punto conocido, y el margen que queda no está en cómo se le
 pregunta al juez.
 
+## Borrado del código de BERT (2026-09-01)
+
+BERT salió de la ruta de servicio el 2026-08-31 **por rendimiento**: dos pruebas
+pareadas independientes (p = 0.0127 y p = 0.0013) lo dieron por debajo de no usarlo, y
+aislado sobre HealthVer validation da 42.31% frente al 60.6% de un predictor constante
+«todo es verdad». No es que estorbara al pipeline: es que clasificaba peor que la
+literatura recuperada y peor que no clasificar.
+
+El código se conservó un mes por reproducibilidad. Se borra ahora porque era código
+muerto sosteniendo la dependencia más pesada del backend, y las medidas que hacía
+posibles ya están cerradas en esta bitácora.
+
+Fuera `app/tools/model_tool.py`, `ml/training/`, `ml/utils/{text,preprocess}.py`,
+`ml/evaluation/evaluate_classifier.py`, `evaluate_factcheck.py`, los dos notebooks y sus
+tests: 2257 líneas. `ml/` queda plano —`load_data.py`, `evaluate_pipeline.py` y sus
+tests—, así que las secciones anteriores de esta bitácora citan rutas `ml/utils/` y
+`ml/evaluation/` que eran las de entonces.
+
+Los notebooks no eran archivo histórico, eran código roto: `eda.ipynb` analizaba
+PubHealth (`subjects`, `main_text`) pero `load_dataset()` devuelve HealthVer
+(`claim_id`, `claim`, `label`) desde el 2026-08-30, así que reventaba en la primera
+celda; y ni `wordcloud` ni `ipykernel` están en ningún grupo de dependencias. Su única
+conclusión accionable —`MAX_LENGTH` a 128 tokens— vivía en `ml/utils/text.py`.
+
+Lo que compra:
+
+| Medida                      | Antes  | Después    |
+| --------------------------- | ------ | ---------- |
+| Paquetes bloqueados         | 157    | **111**    |
+| Líneas de `uv.lock`         | —      | −1128      |
+| Cobertura de tests de `app` | 86.16% | **93.32%** |
+
+Los 46 paquetes que caen son torch, transformers, accelerate, triton, safetensors,
+sympy, networkx y todo el stack CUDA de nvidia. La imagen de servicio ya no instala
+torch. La cobertura sube sola: `model_tool.py` era el módulo peor cubierto del paquete.
+
+La dependencia pasa además a ser unidireccional: `ml/` importa `app/`, nunca al revés.
+
+**Coste asumido**: las secciones de julio de 2026 ya no se re-ejecutan desde el árbol
+actual. El código sigue en el historial —`git show a95e318:backend/ml/training/train.py`—
+y ninguna de esas medidas vuelve a ser accionable, porque reintroducir el clasificador
+ya está en «No volver a intentar».
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -572,7 +615,8 @@ pregunta al juez.
 - **Reentrenar BERT sobre HealthVer y volver a meterlo en el pipeline**: dos pruebas
   pareadas independientes (p = 0.0127 y p = 0.0013) dicen que sobra, y aislado da 42.31%
   frente al 60.6% de un predictor constante. El techo es el de la tarea, no el del
-  entrenamiento.
+  entrenamiento. Desde el 2026-09-01 el código ya no está en el árbol: habría que
+  recuperarlo de `a95e318` primero, que es fricción a favor.
 - **Retirar el traductor**: no alimentaba solo al clasificador. `investigator.py` corta
   la recuperación si `translated_statements` viene vacío; sin traductor no hay evidencia
   y sin evidencia no hay veredicto.
@@ -604,7 +648,8 @@ por prompt y por andamiaje:
    arquitectura, no de texto.
 
    Riesgo a declarar antes de elegir fuente: una API de _fact-checking_ (Google Fact Check
-   Tools, ya usada en `ml/evaluation/evaluate_factcheck.py`) indexa justo los bulos
+   Tools, que se usó en `ml/evaluation/evaluate_factcheck.py` hasta su borrado) indexa
+   justo los bulos
    **conocidos**, que es de lo que está hecho el conjunto dorado. Apuntar una contra el
    otro infla la accuracy por un motivo que no transfiere a desinformación nueva; es la
    misma forma de error que la separabilidad por estilo de PubHealth. Si se toma esa vía,

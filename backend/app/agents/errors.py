@@ -14,10 +14,6 @@ class OllamaConnectionError(AgentError):
     """No se pudo conectar al servidor de Ollama."""
 
 
-class BertInferenceError(AgentError):
-    """Falló la carga o la inferencia del modelo BERT clasificador."""
-
-
 async def ainvoke_graph(
     graph,
     state: dict,

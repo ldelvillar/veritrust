@@ -7,7 +7,6 @@ Python (FastAPI + arq worker). Run every command from the **repo root** — neve
 ```bash
 uv sync --directory backend --frozen                                         # Serving/API deps + app tests (excludes ml stack)
 uv sync --directory backend --frozen --extra ml                              # Add ml stack for ml/ and its tests
-uv sync --directory backend --frozen --extra ml --no-group cpu --group gpu   # ml stack with CUDA torch (local GPU training only)
 uv run --directory backend python -m app.main                                # API server (http://localhost:8000)
 uv run --directory backend python -m app.worker                              # Analysis worker (needs Redis + Ollama)
 uv run --directory backend pytest tests --cov=app --cov-fail-under=80        # App tests
@@ -22,7 +21,7 @@ uv run --directory backend mypy                                              # T
 
 - **`app/agents/`** — LangGraph orchestration (`main.py`) + agent nodes; evidence retrieval in `app/utils/` (`europepmc.py`, `pubmed.py`, `openfda.py`, `cima.py`; CIMA only for drug claims) filtered by an LLM relevance judge (`agents/relevance.py`); evidence-attenuated confidence in `app/core/credibility.py`; typed pipeline errors and `ainvoke_graph` in `errors.py`.
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`). Prompts live here, never inline in Python.
-- **`ml/`** — Standalone BioBERT training and evaluation; separate test suite.
+- **`ml/`** — Standalone pipeline evaluation harness; separate test suite. Imports `app/`, never the reverse.
 
 ## Conventions
 
@@ -30,4 +29,4 @@ uv run --directory backend mypy                                              # T
 - **Typed exception dispatch** — transport failures are translated to typed errors (e.g. `OllamaConnectionError`) via `invoke_graph` in `app/agents/errors.py`. Branch on exception type, never on `str(exc)`.
 - **Async end-to-end** — routes, dependencies, and DB functions are `async def`; invoke the graph via `ainvoke_graph`. Agent nodes stay sync `def` (LangGraph threadpool). `extract_text_from_url` stays sync, called via `await asyncio.to_thread(...)`.
 - **No ORM** — raw psycopg3 async SQL under `app/db/`, served by the module-level pool opened/closed in the lifespan.
-- **Per-file `E402` ignore** — `app/agents/main.py`, `app/agents/health_expert.py`, and `ml/evaluation/evaluate_factcheck.py` ignore `E402` for intentional `sys.path` manipulation. Preserve it.
+- **Per-file `E402` ignore** — `app/agents/main.py` and `app/agents/health_expert.py` ignore `E402` for intentional `sys.path` manipulation. Preserve it.

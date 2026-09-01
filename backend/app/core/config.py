@@ -65,9 +65,6 @@ class Settings(BaseSettings):
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
 
-    # Modelo BERT detector (ruta local; si no se define, se autodetecta)
-    fake_news_model_path: str | None = None
-
     # Europe PMC
     europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     europepmc_timeout_seconds: int = 10

@@ -2,7 +2,7 @@
 
 La ruta ``POST /analysis`` solo inserta una fila ``pending`` y encola un trabajo;
 este proceso (arrancado con ``python -m app.worker``) ejecuta la extracción de
-URL, el grafo de LangGraph y la inferencia BERT, y actualiza la fila a ``done``
+URL y el grafo de LangGraph, y actualiza la fila a ``done``
 o ``failed``. Al vivir en un proceso aparte respaldado por Redis, un análisis
 encolado sobrevive a reinicios del servidor web.
 """

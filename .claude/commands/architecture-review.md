@@ -25,8 +25,7 @@ PROJECT STRUCTURE:
 
 - /frontend → Next.js (App Router)
 - /backend/app → FastAPI
-- /backend/ml/training → ML training pipeline
-- /backend/ml/evaluation → ML evaluation pipeline
+- /backend/ml → ML evaluation harness
 
 ---
 

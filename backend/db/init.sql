@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     explanation  TEXT,
     -- Verdict bucket (real/fake/uncertain) derived from label at completion; NULL while pending/failed.
     verdict      TEXT CHECK (verdict IS NULL OR verdict IN ('real', 'fake', 'uncertain')),
-    -- Per-claim BERT verdicts ([{text, label, confidence}, ...]); NULL while pending.
+    -- Per-claim verdicts ([{text, label, confidence}, ...]); NULL while pending.
     claims       JSONB,
     -- Retrieved biomedical sources ([{title, url, source, year, statements}, ...]); NULL while pending.
     sources      JSONB,
@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_analysis_history_user_created
 CREATE INDEX IF NOT EXISTS idx_analysis_history_user_verdict
     ON public.analysis_history (user_id, verdict);
 
--- Valoraciones de veredicto de los usuarios; datos etiquetados para reentrenar BioBERT.
+-- Valoraciones de veredicto de los usuarios; datos etiquetados para afinar el pipeline.
 CREATE TABLE IF NOT EXISTS public.analysis_feedback (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     analysis_id       UUID NOT NULL REFERENCES public.analysis_history(id) ON DELETE CASCADE,

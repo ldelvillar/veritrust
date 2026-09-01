@@ -10,12 +10,11 @@ __pycache__
 htmlcov
 test-results
 
-# Out of image — these belong to training or are mounted at runtime
+# Out of image — evaluation-only data, or mounted at runtime
 data
 models
 results
 logs
-ml/notebooks
 
 tests
 

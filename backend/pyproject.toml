@@ -30,9 +30,6 @@ dependencies = [
     "langchain-mistralai>=1.1",
     "langgraph>=1.0",
     "ollama>=0.6",
-    # ML inference (serving runs BERT; torch llega por el grupo por defecto 'cpu')
-    "transformers>=5.2",
-    "numpy>=2.4",
     # Web scraping
     "beautifulsoup4>=4.14",
     "requests>=2.32",
@@ -48,7 +45,6 @@ ml = [
     "scikit-learn>=1.8",
     "pandas>=3.0",
     "pyarrow>=23",
-    "accelerate>=1.12",
     "matplotlib>=3.10",
     "seaborn>=0.13",
 ]
@@ -62,32 +58,6 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "fakeredis>=2",
-]
-# Torch por defecto (CPU). Grupo activo salvo que se pida el de GPU.
-cpu = ["torch>=2.10"]
-# CUDA torch para entrenar en la GPU local: uv sync --extra ml --no-group cpu --group gpu
-gpu = ["torch>=2.10; sys_platform != 'darwin'"]
-
-[tool.uv]
-default-groups = ["dev", "cpu"]
-conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
-
-# Pull the CPU-only torch build; the default wheel bundles ~5GB of CUDA libraries.
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-# cu126 is the last CUDA flavor with Pascal (sm_61) kernels for the local MX350.
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu126", group = "gpu", marker = "sys_platform != 'darwin'" },
-    { index = "pytorch-cpu", group = "cpu" },
 ]
 
 [tool.pytest.ini_options]
@@ -115,7 +85,6 @@ ignore = ["E501"]  # line length is enforced by the formatter
 # intentional, not lint violations.
 "app/agents/main.py" = ["E402"]
 "app/agents/health_expert.py" = ["E402"]
-"ml/evaluation/evaluate_factcheck.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"

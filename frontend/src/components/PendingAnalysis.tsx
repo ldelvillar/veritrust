@@ -41,7 +41,7 @@ const STEPS = [
   },
   {
     name: 'Agente Médico',
-    description: 'Evaluando con BioBERT y redactando el informe.',
+    description: 'Sopesando la evidencia y redactando el informe.',
     Icon: Heart,
   },
 ] as const;

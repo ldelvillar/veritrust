@@ -9,7 +9,7 @@ Health misinformation spreads faster than experts can debunk it. VeriTrust autom
 
 ## How it works
 
-Analysis is asynchronous: the pipeline chains several LLM calls, literature lookups, and BERT inference, so it runs in a background worker instead of the HTTP request. `POST /analysis` returns a `pending` id immediately; an [arq](https://arq-docs.helpmanual.io/) worker picks the job off Redis, runs the LangGraph pipeline, and the frontend polls `GET /analysis/{id}` every 2 s (showing the live pipeline stage) until the verdict is ready.
+Analysis is asynchronous: the pipeline chains several LLM calls and literature lookups, so it runs in a background worker instead of the HTTP request. `POST /analysis` returns a `pending` id immediately; an [arq](https://arq-docs.helpmanual.io/) worker picks the job off Redis, runs the LangGraph pipeline, and the frontend polls `GET /analysis/{id}` every 2 s (showing the live pipeline stage) until the verdict is ready.
 
 ```mermaid
 flowchart TB
@@ -45,7 +45,6 @@ flowchart TB
     TR -.-> OLLAMA
     IN -.-> OLLAMA
     HE -.-> OLLAMA
-    HE -.-> BERT
     IN --> LIT
     HE -- "verdict · claims · sources · report" --> PG
     UI -- "poll every 2s" --> API
@@ -65,7 +64,7 @@ flowchart TB
 Two guardrails temper the raw verdict (`app/core/credibility.py`):
 
 - **Evidence attenuation** — confidence is scaled down when little of the input is covered by actual literature, so the system never sounds sure about claims nobody has studied.
-- **Opposition softening** — when the retrieved literature's stance contradicts the classifier's verdict, the verdict is softened toward *Dudoso* (never inverted silently).
+- **Silence is not falsehood** — a claim no retrieved source speaks to comes out *Dudoso* by construction, never *Falso*, and Laplace smoothing keeps thin evidence away from certainty.
 
 ### Product surface
 
@@ -78,7 +77,7 @@ Two guardrails temper the raw verdict (`app/core/credibility.py`):
 
 ## Stack
 
-- **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Ollama, Transformers (BioBERT), raw async SQL via psycopg3 (no ORM)
+- **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Ollama, raw async SQL via psycopg3 (no ORM)
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
 - **ML** — evaluation pipeline in `backend/ml/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
@@ -89,9 +88,8 @@ Two guardrails temper the raw verdict (`app/core/credibility.py`):
 ```text
 backend/
   app/            FastAPI service: routes, agents, db, schemas, prompts
-  ml/             Training + evaluation experiments (separate test suite)
+  ml/             Pipeline evaluation harness (separate test suite)
   data/           HealthVer splits + gold_es.jsonl hand-written gold set (committed)
-  models/         Legacy BioBERT weights (gitignored; no longer used at serving time)
   db/init.sql     Database schema (applied to a fresh Postgres)
 frontend/
   src/            Next.js App Router app
@@ -107,17 +105,6 @@ docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 - Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), an [Ollama](https://ollama.com/) install, PostgreSQL, and Redis
 - A free [Clerk](https://clerk.com/) application (authentication) — copy its JWKS URL, issuer, audience, secret key, and publishable key into `.env`
 
-### BioBERT model (legacy)
-
-The serving pipeline no longer uses a classifier — the verdict comes from the retrieved literature (see `docs/ml-experiments.md`). The training and evaluation scripts are kept so the experiments in that log stay reproducible. `backend/models/` is not in git; to re-run them, train a checkpoint (CPU works; a GPU is much faster):
-
-```bash
-uv sync --directory backend --frozen --extra ml
-uv run --directory backend python -m ml.training.train
-```
-
-Training writes a versioned subdirectory (`bert_classifier/<timestamp>-<git-sha>/`) with a `metadata.json` recording the git SHA, dataset sizes, and test metrics. Inference auto-selects the latest version; pin one by setting `FAKE_NEWS_MODEL_PATH`.
-
 ### Quick start — Docker
 
 ```bash
@@ -127,7 +114,7 @@ docker compose exec ollama ollama pull llama3.2
 docker compose exec ollama ollama pull translategemma
 ```
 
-Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker (BioBERT weights mounted read-only), the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
+Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
 ### Local development (processes on your machine)
 
@@ -186,7 +173,7 @@ pnpm --dir frontend build               # production build (also type-checks)
 - **Typed API contract** — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec. After any backend schema change run `pnpm --dir frontend generate:api-types` (backend running); never edit it by hand.
 - **Database schema** — `backend/db/init.sql`, applied once to a fresh database. No migration framework yet: recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
 - **Prompts** — all agent system prompts live in `backend/app/prompts/prompts.yaml`, never inline in Python.
-- **ML evaluation** — `ml/evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics; `ml/evaluation/evaluate_factcheck.py` compares against Google's Fact Check API (needs `GOOGLE_API_KEY`).
+- **ML evaluation** — `ml/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics.
 
 ## License
 
