@@ -161,7 +161,6 @@ Requires DNS `A` records for both subdomains, inbound 80/443, and `APP_DOMAIN`/`
 
 - [deploy-secrets.md](docs/deploy-secrets.md) — production `.env` in Secret Manager (source of truth)
 - [deploy-env.md](docs/deploy-env.md) — env bootstrap before the secret exists
-- [deploy-model.md](docs/deploy-model.md) — copying the BioBERT weights to the VM
 - [deploy-backups.md](docs/deploy-backups.md) — automated `pg_dump` backups
 - [deploy-monitoring.md](docs/deploy-monitoring.md) — uptime checks + alerting
 - [deploy-ops.md](docs/deploy-ops.md) — hardening, log rotation, day-2 operations
