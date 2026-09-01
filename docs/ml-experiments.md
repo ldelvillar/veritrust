@@ -346,6 +346,64 @@ Descomposición honesta de la mejora 55 → 69:
 | estrechar la banda sobre señal real | ~+6 | sí |
 | ausencia de evidencia como `falsa` | +13 neto | **no, revertido** |
 
+## Diagnóstico: el cuello de botella es el juez, no la recuperación (2026-08-31)
+
+Instrumentación añadida para separar tres fallos que desde fuera se veían iguales:
+`investigator.py` registra por afirmación `N brutas -> M relevantes` con el reparto de
+posturas, y el checkpoint del eval guarda `sources_kept`, `stances` y `evidence_coverage`.
+
+Conjunto dorado, 100 muestras, una sola pasada sin 503:
+
+| situación | n |
+|---|---|
+| ninguna fuente supera al juez | 6 |
+| fuentes conservadas, ninguna con postura firme | 8 |
+| hay postura: el juez se moja | 86 |
+
+**La recuperación no es el problema.** La hipótesis previa —17 falsas sin evidencia, que
+habría exigido un segundo canal orientado a corpus de verificación— era **errónea**: solo
+6/100 se quedan sin fuentes. Ese canal no hace falta, y construirlo habría sido trabajo
+caro apuntando al cubo equivocado.
+
+Calibración del juez frente a la etiqueta real:
+
+| la afirmación es | supports | contradicts | inconclusive | ratio s:c |
+|---|---|---|---|---|
+| verdadera | 193 | 6 | 30 | **32.2** |
+| falsa | 38 | 65 | 58 | **0.58** |
+
+El juez **separa bien**: 32.2 frente a 0.58 no es un componente roto ni un sesgo en
+bloque. El daño son los **38 `supports` que caen sobre afirmaciones falsas**, concentrados
+en ~14 de ellas, justo donde existe literatura del mismo tema y se lee como respaldo:
+
+```text
+La gripe y el resfriado comun estan causados por el mismo virus   6 supports, 0 contradicts
+Las personas de piel oscura no necesitan usar proteccion solar    4 supports
+Realizar una biopsia hace que las celulas del cancer se diseminen 3 supports
+Las antenas de las redes 5G propagan el coronavirus               2 supports, 1 contradicts
+```
+
+Seis fuentes «respaldando» que la gripe y el resfriado son el mismo virus no es un fallo
+de recuperación: el juez lee resúmenes sobre influenza y rinovirus como conformes con una
+afirmación que los confunde.
+
+## Umbral en el punto neutro (2026-08-31) — correcto, pero ya no compra nada
+
+`FAKE_THRESHOLD` pasa de 0.40 a 0.50, el punto neutro del score suavizado. Antes la
+evidencia *equilibrada* (1 a favor, 1 en contra) puntuaba 0.5 exacto y caía del lado
+`falsa`.
+
+| regla | acc. | incierta | verdadera→falsa | falsa→verdadera |
+|---|---|---|---|---|
+| t=0.40 m=0.05 | 70 | 15 | 1 | 12 |
+| t=0.50 m=0.05 | 65 | 19 | **0** | 14 |
+| t=0.50 m=0.10 | 64 | 22 | 0 | 12 |
+
+Barrido plano: 6 puntos de recorrido cuando el error estándar binomial a n=100 es ~4.7.
+**La regla de decisión ha dejado de ser una palanca.** Se elige 0.50 por estar en el punto
+neutro, no por puntuar mejor; escoger 0.40 porque da 70 sería ajustar a 100 muestras. A
+cambio, las verdaderas-llamadas-falsas bajan a cero.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -373,18 +431,20 @@ Descomposición honesta de la mejora 55 → 69:
 
 ## Pendiente con mayor expectativa
 
-Ordenado por dónde están realmente los 31 errores del conjunto dorado (2026-08-31):
+Reordenado tras el diagnóstico del 2026-08-31, que descartó la recuperación como cuello
+de botella:
 
-1. **Cobertura de recuperación** — 17/100 afirmaciones falsas acaban en `incierta`
-   porque no se recupera ninguna evidencia. Es el mayor cubo con diferencia. Son bulos
-   populares (homeopatía, microondas, azúcar y tumores, desodorantes con aluminio, ocho
-   vasos de agua) que la literatura biomédica primaria no aborda: haría falta un segundo
-   canal de recuperación orientado a corpus de verificación, no a investigación
-   original, o aceptar `incierta` y reportar la cobertura con honestidad.
-2. **El juez sigue leyendo literatura temática como respaldo** — 9/100 falsas llamadas
-   `verdadera` con 4–6 fuentes `supports` y ninguna `contradicts`. El prompt v3 lo
-   arregló en resúmenes escritos a mano pero no transfiere del todo a los reales.
-3. **Alinear `FAKE_THRESHOLD` con el punto neutro** — el score suavizado es neutro en
-   0.5 pero el umbral está en 0.40, así que la evidencia *equilibrada* (1 a favor, 1 en
-   contra) se lee como `falsa`. Cuesta ~2 puntos en el conjunto dorado (ruido a n=100),
-   pero es corrección de razonamiento, no de métrica.
+1. **Los 38 `supports` sobre afirmaciones falsas** — concentrados en ~14 afirmaciones y
+   responsables directos de las 14 falsas llamadas `verdadera`. El juez v3 arregló la
+   polaridad en resúmenes escritos a mano (2/4 → 4/4) pero no transfiere del todo a los
+   reales. Siguiente sonda: recuperar los resúmenes concretos tras esos 6 `supports` de
+   gripe/resfriado y ver si son hits irrelevantes (problema de precisión de la consulta)
+   o hits relevantes mal leídos (problema de comprensión del juez).
+2. **Las 8 muestras con fuentes pero sin postura firme** — el juez conserva la fuente y
+   responde `inconclusive`. Cuenta como cobertura pero no aporta veredicto. Mismo trabajo
+   de prompt que el punto 1.
+3. **Las 6 sin ninguna fuente** — el cubo más pequeño. Solo aquí tendría sentido un
+   segundo canal de recuperación, y a este tamaño no lo justifica.
+
+**Ya no son palancas**: la banda y el umbral de decisión (barrido plano dentro del ruido
+a n=100) y la cobertura de recuperación (6/100).
