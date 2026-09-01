@@ -4,30 +4,20 @@ import { useCallback, useMemo, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import DownloadIcon from '@/assets/Download';
 import CrossIcon from '@/assets/Cross';
-import Magnifier from '@/assets/Magnifier';
 import DocumentIcon from '@/assets/Document';
 import PlusBoxIcon from '@/assets/PlusBox';
-import SortIcon from '@/assets/Sort';
-import FunnelIcon from '@/assets/Funnel';
-import CalendarIcon from '@/assets/Calendar';
 import HistoryIcon from '@/assets/History';
 import HistoryResultsTable from './_components/HistoryResultsTable';
+import HistoryStatCards from './_components/HistoryStatCards';
 import HistoryStatePanel from './_components/HistoryStatePanel';
-import FilterSelect from './_components/FilterSelect';
+import HistoryToolbar from './_components/HistoryToolbar';
 import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useHistoryExport } from '@/hooks/useHistoryExport';
-import {
-  useHistoryFilters,
-  type DateRangeFilter,
-  type SortOrder,
-  type SourceTypeFilter,
-  type StatusFilter,
-  type VerdictFilter,
-} from '@/hooks/useHistoryFilters';
+import { useHistoryFilters } from '@/hooks/useHistoryFilters';
 import { PAGE_SIZE } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
@@ -38,87 +28,6 @@ type HistoryItem = HistoryPayload['items'][number];
 interface HistorialClientProps {
   initialData: HistoryPayload;
 }
-
-const SOURCE_TYPE_OPTIONS = [
-  { value: 'all' as SourceTypeFilter, label: 'Todos los tipos' },
-  { value: 'text' as SourceTypeFilter, label: 'Texto' },
-  { value: 'url' as SourceTypeFilter, label: 'Enlace' },
-  { value: 'file' as SourceTypeFilter, label: 'Archivo' },
-];
-
-const STATUS_OPTIONS = [
-  { value: 'all' as StatusFilter, label: 'Todos los estados' },
-  { value: 'done' as StatusFilter, label: 'Completado' },
-  { value: 'pending' as StatusFilter, label: 'En curso' },
-  { value: 'failed' as StatusFilter, label: 'Fallido' },
-];
-
-const DATE_RANGE_OPTIONS = [
-  { value: 'all' as DateRangeFilter, label: 'Todo el periodo' },
-  { value: '7d' as DateRangeFilter, label: 'Últimos 7 días' },
-  { value: '30d' as DateRangeFilter, label: 'Últimos 30 días' },
-  { value: '90d' as DateRangeFilter, label: 'Últimos 90 días' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'recent' as SortOrder, label: 'Más recientes' },
-  { value: 'oldest' as SortOrder, label: 'Más antiguos' },
-  { value: 'credibility_high' as SortOrder, label: 'Mayor credibilidad' },
-  { value: 'credibility_low' as SortOrder, label: 'Menor credibilidad' },
-];
-
-const STAT_CARDS = [
-  {
-    toneKey: 'all',
-    label: 'Análisis totales',
-    verdictValue: 'all' as VerdictFilter,
-  },
-  { toneKey: 'ok', label: 'Verdaderos', verdictValue: 'real' as VerdictFilter },
-  {
-    toneKey: 'warn',
-    label: 'Dudosos',
-    verdictValue: 'uncertain' as VerdictFilter,
-  },
-  {
-    toneKey: 'bad',
-    label: 'Falsos',
-    verdictValue: 'fake' as VerdictFilter,
-  },
-];
-
-const STAT_TONE_STYLES = {
-  all: {
-    numClass: 'text-primary',
-    barStyle: 'linear-gradient(90deg,#7166ef,#5446dc)',
-    activeRing: 'box-shadow: 0 0 0 2px #6356e6, var(--shadow-card)',
-    ringColor: '#6356e6',
-  },
-  ok: {
-    numClass: 'text-verdict-real-ink',
-    barStyle: 'var(--color-verdict-real)',
-    ringColor: 'var(--color-verdict-real)',
-  },
-  warn: {
-    numClass: 'text-verdict-uncertain-ink',
-    barStyle: 'var(--color-verdict-uncertain)',
-    ringColor: 'var(--color-verdict-uncertain)',
-  },
-  bad: {
-    numClass: 'text-verdict-fake-ink',
-    barStyle: 'var(--color-verdict-fake)',
-    ringColor: 'var(--color-verdict-fake)',
-  },
-} as const;
-
-type VerdictCounts = HistoryPayload['verdict_counts'];
-
-// Cada tarjeta mapea a su conteo global por veredicto en la respuesta del historial.
-const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
-  all: 'total',
-  real: 'real',
-  uncertain: 'uncertain',
-  fake: 'fake',
-};
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
   const {
@@ -308,125 +217,31 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         />
       </div>
 
-      {/* Stat cards — clickable verdict filters */}
-      <div className="mb-5.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {STAT_CARDS.map(card => {
-          const isActive =
-            verdictFilter === card.verdictValue ||
-            (card.verdictValue === 'all' && verdictFilter === 'all');
-          const styles =
-            STAT_TONE_STYLES[card.toneKey as keyof typeof STAT_TONE_STYLES];
-          const count = verdictFacets
-            ? verdictFacets[FACET_KEY[card.verdictValue]]
-            : 0;
+      <HistoryStatCards
+        verdictFilter={verdictFilter}
+        verdictCounts={verdictFacets}
+        onSelect={setVerdict}
+      />
 
-          return (
-            <button
-              key={card.toneKey}
-              type="button"
-              onClick={() => setVerdict(card.verdictValue)}
-              aria-pressed={isActive}
-              className={`relative overflow-hidden rounded-[18px] border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
-                isActive ? 'border-transparent' : 'border-line'
-              }`}
-              style={
-                isActive
-                  ? {
-                      boxShadow: `0 0 0 2px ${styles.ringColor}, 0 1px 2px rgba(20,22,44,.04), 0 10px 30px rgba(92,80,200,.06)`,
-                    }
-                  : undefined
-              }
-            >
-              <div
-                className={`text-[clamp(26px,3vw,32px)] leading-none font-bold tracking-tight ${styles.numClass}`}
-              >
-                {count}
-              </div>
-              <div className="mt-2 text-[12.5px] font-bold text-muted">
-                {card.label}
-              </div>
-              <span
-                className={`absolute inset-x-0 bottom-0 transition-all ${isActive ? 'h-1' : 'h-0.75'}`}
-                style={{ background: styles.barStyle }}
-                aria-hidden
-              />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Toolbar: search + type + status + date range + sort */}
-      <div className="mb-4 flex flex-wrap items-center gap-2.5 md:gap-3">
-        {/* Search */}
-        <label className="relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-[13px] border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1">
-          <Magnifier className="size-4.5 shrink-0 text-faint" aria-hidden />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Buscar por título o fuente…"
-            className="min-w-0 flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-faint"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label="Limpiar búsqueda"
-              className="grid size-6 shrink-0 place-items-center rounded-[7px] transition hover:bg-primary/8 hover:text-body"
-            >
-              <CrossIcon className="size-3.75" />
-            </button>
-          ) : null}
-        </label>
-
-        {/* Source type filter */}
-        <FilterSelect
-          value={sourceTypeFilter}
-          onChange={setSourceType}
-          options={SOURCE_TYPE_OPTIONS}
-          icon={<FunnelIcon className="size-4" aria-hidden />}
-          ariaLabel="Filtrar por tipo"
-          className="flex-[1_1_100%] sm:flex-none"
-        />
-
-        {/* Status filter */}
-        <FilterSelect
-          value={statusFilter}
-          onChange={setStatus}
-          options={STATUS_OPTIONS}
-          icon={<FunnelIcon className="size-4" aria-hidden />}
-          ariaLabel="Filtrar por estado"
-          className="flex-[1_1_100%] sm:flex-none"
-        />
-
-        {/* Date range filter */}
-        <FilterSelect
-          value={dateRangeFilter}
-          onChange={setDateRange}
-          options={DATE_RANGE_OPTIONS}
-          icon={<CalendarIcon className="size-4" aria-hidden />}
-          ariaLabel="Filtrar por rango de fechas"
-          className="flex-[1_1_100%] sm:flex-none"
-        />
-
-        {/* Sort select */}
-        <FilterSelect
-          value={sortOrder}
-          onChange={setSort}
-          options={SORT_OPTIONS}
-          icon={<SortIcon className="size-4" aria-hidden />}
-          ariaLabel="Ordenar"
-          className="flex-[1_1_100%] sm:flex-none"
-        />
-      </div>
+      <HistoryToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sourceTypeFilter={sourceTypeFilter}
+        onSourceTypeChange={setSourceType}
+        statusFilter={statusFilter}
+        onStatusChange={setStatus}
+        dateRangeFilter={dateRangeFilter}
+        onDateRangeChange={setDateRange}
+        sortOrder={sortOrder}
+        onSortChange={setSort}
+      />
 
       {/* Result summary line */}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3.5">
         <div className="text-[13.5px] font-semibold text-muted">
           {history.length > 0 ? (
             <>
-              <b className="font-bold text-ink">{totalCount}</b>{' '}
-              {totalCount === 1 ? 'análisis' : 'análisis'}
+              <b className="font-bold text-ink">{totalCount}</b> análisis
               {hasActiveFilters ? ' que coinciden' : ''}
             </>
           ) : isLoading ? null : (
