@@ -513,6 +513,48 @@ sobre ella; solo puede producir una postura confiada y equivocada.
 Nota de infraestructura: la corrida necesitó cuatro pases por 503 de Mistral («high
 load»). El checkpoint de `evaluate_pipeline.py` reanuda solo las muestras que faltan.
 
+## Razonar antes de etiquetar (2026-09-01) — rechazado, y peor que v4
+
+Segunda vía sobre el mismo cuello de botella, con un mecanismo distinto al de v4. En vez
+de cambiar las instrucciones, se cambió el **orden de generación**: un campo
+`claim_analysis: str` declarado _antes_ que `stances` en `EvidenceJudgments` obliga al
+modelo a escribir qué afirma la afirmación antes de comprometerse con ninguna etiqueta.
+`prompts.yaml` se dejó intacto en juez v3, así que la única variable era el orden.
+
+El razonamiento previo era que v4 falló por empujar hacia una etiqueta, mientras que un
+campo de análisis no empuja hacia ninguna: el peor caso debía ser neutro. Fue falso.
+
+|                     | acc    | firmes | acc. firme | falsa→verdadera | verdadera→falsa | falsas s/c/i | s:c      |
+| ------------------- | ------ | ------ | ---------- | --------------- | --------------- | ------------ | -------- |
+| v5 (juez v3)        | **71** | 77     | **92.2%**  | 6               | **0**           | 20/**85**/61 | **0.24** |
+| v6 (juez v4)        | 75     | 85     | 88.2%      | 10              | 0               | 27/81/36     | 0.33     |
+| v7 (claim_analysis) | 64     | 78     | 82.1%      | 13              | **1**           | 32/**51**/51 | 0.63     |
+
+McNemar exacto v7 vs v6: 8 a favor de v7, 19 en contra, **p = 0.052**. Y rompe la
+garantía de verdadera→falsa = 0, que ningún cambio anterior había roto.
+
+**El mecanismo, otra vez visible en la tabla de posturas**: `contradicts` sobre
+afirmaciones falsas cae de 85 y 81 a 51. Los dos primeros valores coinciden entre prompts
+distintos, así que 51 queda muy fuera de la variación entre corridas: es el campo, no el
+ruido. Obligar al modelo a enunciar la afirmación en positivo («sostiene que el móvil
+_aumenta_ el riesgo de tumores») parece cebar justo la coincidencia temática que el juez
+v3 existe para suprimir: enunciada la tesis, las fuentes que hablan del tema se leen como
+que la respaldan.
+
+Error de método propio, anotado para no repetirlo: la sonda previa se probó sobre un caso
+con hallazgos nulos muy explícitos y salió 4/4, lo que dio una falsa confianza. Una sonda
+de un caso no mide nada; sirve para ver que el campo se rellena, no para predecir el
+efecto.
+
+También se predijo mal el criterio de contaminación: se fijó que el cubo «sin postura» no
+debía moverse, pero un cambio en el juez sí puede moverlo al convertir `inconclusive` en
+postura firme. Solo son inmunes las afirmaciones sin ninguna fuente recuperada.
+
+**Conclusión conjunta de v4 y v7**: dos mecanismos independientes sobre el juez —
+instrucciones y andamiaje de razonamiento— empeoran ambos. El juez v3 con
+`mistral-small` es el mejor punto conocido, y el margen que queda no está en cómo se le
+pregunta al juez.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -540,6 +582,9 @@ load»). El checkpoint de `evaluate_pipeline.py` reanuda solo las muestras que f
 - **Empujar al juez a `contradicts` por prompt**: v4 lo consiguió y el reparto fue 4
   aciertos y 4 fallos (p = 0.42). Sobre una afirmación cuya literatura no la aborda, más
   decisión es más azar, no más señal. Ver la sección del 2026-09-01.
+- **Campos de razonamiento antes de `stances`**: `claim_analysis` hunde `contradicts`
+  sobre falsas de 85 a 51 y rompe verdadera→falsa = 0. Enunciar la tesis en positivo ceba
+  la coincidencia temática. Con `mistral-small`, el juez etiqueta mejor sin preámbulo.
 - **Ampliar el conjunto dorado con más bulos escritos a mano**: ~15 de cada 100 caen en
   el punto ciego de cobertura y sólo repetirían el mismo techo con barras de error algo
   más estrechas (SE 4.7 → 3.3 al duplicar n). Si se escriben más filas, que sea un
@@ -548,26 +593,34 @@ load»). El checkpoint de `evaluate_pipeline.py` reanuda solo las muestras que f
 
 ## Pendiente con mayor expectativa
 
-Reordenado tras la corrida v6 del 2026-09-01, que descartó el prompt del juez como
-palanca sobre el cubo mayor:
+Reordenado tras las corridas v6 y v7 del 2026-09-01, que agotaron el juez como palanca
+por prompt y por andamiaje:
 
-1. **Cobertura de recuperación para bulos de divulgación** — el cubo mayor y ahora el
-   único con mecanismo claro: ~15/100 afirmaciones sin ninguna postura porque PubMed y
+1. **Cobertura de recuperación para bulos de divulgación** — el cubo mayor y el único que
+   queda con mecanismo claro: ~15/100 afirmaciones sin ninguna postura porque PubMed y
    Europe PMC no indexan refutaciones de creencias populares (zanahorias y miopía, pelo
    mojado y resfriado, 10% del cerebro). Necesita una fuente que sí las cubra —Cochrane
    en lenguaje llano, MedlinePlus, NHS Health A–Z—, no un prompt. Es trabajo de
    arquitectura, no de texto.
-2. **Los `supports` sobre afirmaciones falsas con traducción fiel** — errores genuinos de
-   comprensión (p. ej. «Mobile phone use increases the risk of brain tumors»). Queda por
-   probar un modelo de juez mayor (`MISTRAL_JUDGE_MODEL` ya es un ajuste por rol) o un
-   campo de razonamiento declarado **antes** de `stances` en `EvidenceJudgments`. Ojo:
-   v4 ya enseñó que tocar el texto del prompt aquí no basta.
+
+   Riesgo a declarar antes de elegir fuente: una API de _fact-checking_ (Google Fact Check
+   Tools, ya usada en `ml/evaluation/evaluate_factcheck.py`) indexa justo los bulos
+   **conocidos**, que es de lo que está hecho el conjunto dorado. Apuntar una contra el
+   otro infla la accuracy por un motivo que no transfiere a desinformación nueva; es la
+   misma forma de error que la separabilidad por estilo de PubHealth. Si se toma esa vía,
+   el conjunto retenido tiene que existir antes de medirla.
+
+2. **Capacidad del modelo juez** — sin probar y ahora la hipótesis viva, porque las dos
+   vías baratas han fallado. `mistral-small` es el único modelo del tramo gratuito de
+   Mistral, así que hace falta otro proveedor: `ollama_judge_model` ya existe por rol y un
+   modelo local mayor sale gratis a cambio de latencia.
 3. **Conjunto retenido de ~50 filas** — no por precisión, sino para medir cuánto del 71
    transfiere fuera de muestra. Se escribe una vez, se guarda y se mira una sola vez.
+   Prerrequisito del punto 1 si la fuente elegida es de _fact-checking_.
 
 **Ya no son palancas**: la banda y el umbral de decisión (barrido plano dentro del ruido
-a n=100), el texto del prompt del juez (v4, p = 0.42) y ampliar el dorado con más bulos
-del mismo tipo.
+a n=100), el prompt del juez (v4, p = 0.42), el orden de generación del juez (v7,
+p = 0.052 en contra) y ampliar el dorado con más bulos del mismo tipo.
 
 **Techo conocido**: con las fuentes actuales, ~15 de las 50 falsas del conjunto dorado no
 son verificables, así que el máximo alcanzable ronda 85/100, no 100.
