@@ -40,13 +40,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Full ML stack. Install with: uv sync --extra ml
+# Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra ml
 ml = [
-    "scikit-learn>=1.8",
     "pandas>=3.0",
     "pyarrow>=23",
-    "matplotlib>=3.10",
-    "seaborn>=0.13",
 ]
 
 [dependency-groups]
