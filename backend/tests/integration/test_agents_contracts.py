@@ -438,8 +438,10 @@ def test_health_expert_handles_empty_llm_output_without_exception(
     [
         # Tres fuentes en contra: p = 4/5, muy por encima de la banda.
         (0, 3, "falsa", 0.8),
-        # Dos a favor y una en contra: p = 0.4, dentro de la banda.
-        (2, 1, "incierta", 0.6),
+        # Dos a favor y una en contra: p = 0.4, por debajo de la banda.
+        (2, 1, "verdadera", 0.6),
+        # Evidencia equilibrada: p = 0.5 exacto, el punto neutro es incierto.
+        (1, 1, "incierta", 0.5),
         # Dos a favor: p = 1/4, por debajo de la banda.
         (2, 0, "verdadera", 0.75),
         # Ninguna fuente se pronuncia: incierta por ausencia de evidencia.
@@ -480,7 +482,7 @@ def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
         {
             "extracted_statements": ["S1"],
             "translated_statements": ["T1"],
-            "sources": _stance_sources("S1", supports=2, contradicts=1),
+            "sources": _stance_sources("S1", supports=1, contradicts=1),
         },
         dummy_prompts,
     )

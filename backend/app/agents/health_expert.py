@@ -29,8 +29,8 @@ _USER_INPUT_START = sanitize.USER_INPUT_START
 _USER_INPUT_END = sanitize.USER_INPUT_END
 _neutralize_delimiters = sanitize.neutralize_delimiters
 
-# FAKE_THRESHOLD ± UNCERTAINTY_MARGIN: el veredicto global es "incierta"
-FAKE_THRESHOLD = 0.40
+# Punto neutro del score suavizado: por debajo la evidencia apoya, por encima refuta
+FAKE_THRESHOLD = 0.50
 UNCERTAINTY_MARGIN = 0.05
 # Pseudo-cuenta por postura: impide la certeza absoluta con evidencia escasa
 STANCE_SMOOTHING = 1.0
