@@ -404,6 +404,55 @@ Barrido plano: 6 puntos de recorrido cuando el error estándar binomial a n=100 
 neutro, no por puntuar mejor; escoger 0.40 porque da 70 sería ajustar a 100 muestras. A
 cambio, las verdaderas-llamadas-falsas bajan a cero.
 
+## El traductor corregía la desinformación (2026-08-31) — la causa raíz real
+
+La sonda sobre las 14 falsas llamadas `verdadera` (volcando lo que el juez recibió de
+verdad, con resúmenes) encontró que **3 de 12 llegaban al juez con la polaridad
+invertida**:
+
+| afirmación en español (todas FALSAS) | traducción al inglés |
+|---|---|
+| causados por el **mismo** virus | caused by **different** viruses |
+| **puede curar** por completo el resfriado | **cannot** completely cure the common cold |
+| **hay que introducir** un objeto en la boca | an object should **not** be placed |
+
+Las tres convierten un bulo en su versión verdadera. El juez respondía `supports` con
+toda la razón: la afirmación que le llegaba ya era cierta. **No era un fallo del juez**,
+y un modelo de juez más grande lo habría empeorado, juzgando con más confianza la versión
+saneada.
+
+La causa estaba en el propio prompt del traductor v2: «Translate EACH statement into
+**clinically accurate English**». El modelo lee «clinically accurate» como *haz que el
+contenido clínico sea correcto* y obedece. Para un detector de desinformación es
+exactamente lo contrario de lo que hace falta.
+
+**Traductor v3** declara que muchas afirmaciones son falsas a propósito, que son el objeto
+de la verificación y no consejo que corregir, y fija los tres fallos observados como
+contraejemplos explícitos.
+
+| | acc. | acc. firme | recall falsas | verdadera→falsa | falsa→verdadera |
+|---|---|---|---|---|---|
+| v4 (traductor v2) | 65 | 82.3% | 21/50 | 0 | **14** |
+| v5 (traductor v3) | **71** | **92.2%** | 25/50 | 0 | **6** |
+
+Calibración del juez, que era el sospechoso y resultó ser la víctima:
+
+| la afirmación es | v4 ratio s:c | v5 ratio s:c |
+|---|---|---|
+| verdadera | 32.2 | 41.4 |
+| falsa | 0.58 | **0.24** |
+
+Los `supports` sobre afirmaciones falsas caen de 38 a 20 sin tocar el prompt del juez.
+
+**Lección de método**: el eval solo guardaba texto y veredicto, así que una corrupción a
+mitad de tubería era invisible; tres iteraciones se dedicaron a culpar al juez. El eval
+guarda ahora `extracted` y `translated` por muestra, y el barrido heurístico de negación
+sobre las 106 traducciones de v5 no encuentra ninguna inversión pendiente.
+
+Efecto secundario detectado en el mismo barrido: 7 de 106 traducciones llegaban con la
+numeración de la lista pegada («1. The flu and...»). Se recorta de forma determinista en
+`translator.py`, no pidiéndoselo al prompt.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -434,12 +483,12 @@ cambio, las verdaderas-llamadas-falsas bajan a cero.
 Reordenado tras el diagnóstico del 2026-08-31, que descartó la recuperación como cuello
 de botella:
 
-1. **Los 38 `supports` sobre afirmaciones falsas** — concentrados en ~14 afirmaciones y
-   responsables directos de las 14 falsas llamadas `verdadera`. El juez v3 arregló la
-   polaridad en resúmenes escritos a mano (2/4 → 4/4) pero no transfiere del todo a los
-   reales. Siguiente sonda: recuperar los resúmenes concretos tras esos 6 `supports` de
-   gripe/resfriado y ver si son hits irrelevantes (problema de precisión de la consulta)
-   o hits relevantes mal leídos (problema de comprensión del juez).
+1. **Los 20 `supports` que quedan sobre afirmaciones falsas** — eran 38; la mitad eran
+   inversiones del traductor, ya corregidas. Los que quedan sí son errores de
+   comprensión del juez sobre traducciones fieles (p. ej. «Mobile phone use increases the
+   risk of brain tumors»). Aquí sí tiene sentido probar un modelo de juez mayor
+   (`MISTRAL_JUDGE_MODEL` ya es un ajuste por rol) o pedirle que razone antes de
+   etiquetar.
 2. **Las 8 muestras con fuentes pero sin postura firme** — el juez conserva la fuente y
    responde `inconclusive`. Cuenta como cobertura pero no aporta veredicto. Mismo trabajo
    de prompt que el punto 1.

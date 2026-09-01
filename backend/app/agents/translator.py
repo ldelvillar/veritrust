@@ -4,6 +4,7 @@ español y devuelve sus traducciones al inglés clínico en una única llamada a
 """
 
 import logging
+import re
 from functools import lru_cache
 from typing import List
 
@@ -14,6 +15,9 @@ from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
+
+# La entrada va numerada y el modelo a veces devuelve el número pegado a la traducción.
+_LEADING_NUMBER = re.compile(r"^\s*\d+\s*[.)-]\s+")
 
 
 class TranslatedStatements(BaseModel):
@@ -61,7 +65,7 @@ def translator(state: dict, prompts: Prompts) -> dict:
     result = translator_chain.invoke({"statements": numbered})
 
     # Si el modelo devuelve menos elementos de los esperados, rellenamos con cadenas vacías
-    translations = [t.strip() for t in result.translations]
+    translations = [_LEADING_NUMBER.sub("", t).strip() for t in result.translations]
     if len(translations) < len(original_statements):
         translations.extend([""] * (len(original_statements) - len(translations)))
     elif len(translations) > len(original_statements):

@@ -190,6 +190,39 @@ def test_translator_pads_when_llm_returns_fewer_translations(
     assert update == {"translated_statements": ["only-first", ""]}
 
 
+def test_translator_strips_leaked_list_numbering(
+    monkeypatch, translator_module, dummy_prompts
+):
+    """La entrada va numerada y el modelo devuelve a veces el número pegado."""
+
+    class _FakeChain:
+        def invoke(self, payload):
+            return SimpleNamespace(
+                translations=[
+                    "1. The flu and the common cold are caused by the same virus.",
+                    "2) Measles can be complicated by pneumonia.",
+                    "1918 flu pandemic killed millions.",
+                ]
+            )
+
+    monkeypatch.setattr(
+        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+    )
+
+    update = translator_module.translator(
+        {"extracted_statements": ["A", "B", "C"]}, dummy_prompts
+    )
+
+    # Un año al principio no es numeración de lista y debe conservarse intacto.
+    assert update == {
+        "translated_statements": [
+            "The flu and the common cold are caused by the same virus.",
+            "Measles can be complicated by pneumonia.",
+            "1918 flu pandemic killed millions.",
+        ]
+    }
+
+
 def test_translator_truncates_when_llm_returns_extra_translations(
     monkeypatch, translator_module, dummy_prompts
 ):

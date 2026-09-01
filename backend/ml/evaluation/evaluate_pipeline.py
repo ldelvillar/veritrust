@@ -42,6 +42,8 @@ class EvalRow(TypedDict):
     confidence: float
     fake_avg: float | None
     duration_seconds: float
+    extracted: list[str]
+    translated: list[str]
     sources_kept: int
     stances: dict[str, int]
     evidence_coverage: float
@@ -168,6 +170,11 @@ async def evaluate_pipeline(
                 ),
                 # Coste por muestra: fija el n asumible en evaluaciones posteriores.
                 "duration_seconds": round(duration, 3),
+                # Permite detectar inversiones de polaridad extractor/traductor.
+                "extracted": [str(x) for x in result.get("extracted_statements") or []],
+                "translated": [
+                    str(x) for x in result.get("translated_statements") or []
+                ],
                 # Diagnóstico: separa "no se recuperó nada" de "el juez no se moja".
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
