@@ -9,6 +9,7 @@ pnpm --dir frontend install                  # Install deps
 pnpm --dir frontend dev                      # Dev server (http://localhost:3000)
 pnpm --dir frontend build                    # Production build (also type-checks)
 pnpm --dir frontend lint                     # ESLint
+pnpm --dir frontend format:check             # Prettier (CI gates on this; `prettier --write .` to fix)
 pnpm --dir frontend generate:api-types       # Regenerate src/types/api.d.ts from OpenAPI (backend must be running)
 ```
 

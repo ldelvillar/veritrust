@@ -16,3 +16,6 @@ out/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Generado por openapi-typescript; formatearlo lo desincroniza del contrato en CI.
+src/types/api.d.ts
