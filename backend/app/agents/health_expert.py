@@ -4,18 +4,10 @@ literatura biomédica recuperada y lo explica al paciente con terminología méd
 """
 
 import logging
-import sys
 from functools import lru_cache
-from pathlib import Path
-
-from langchain_core.messages import HumanMessage, SystemMessage
-
-# Asegura que, al ejecutar este archivo como script, se use el código local del repositorio.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents import sanitize
 from app.core.credibility import adjust_confidence_with_evidence

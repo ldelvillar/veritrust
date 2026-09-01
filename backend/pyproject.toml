@@ -76,13 +76,6 @@ extend-exclude = [".venv", "models", "results", "data", "**/*.ipynb"]
 select = ["E", "W", "F", "I"]
 ignore = ["E501"]  # line length is enforced by the formatter
 
-[tool.ruff.lint.per-file-ignores]
-# These modules manipulate sys.path before importing app/ml so the file can
-# also be executed as a script. The imports below the sys.path block are
-# intentional, not lint violations.
-"app/agents/main.py" = ["E402"]
-"app/agents/health_expert.py" = ["E402"]
-
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true

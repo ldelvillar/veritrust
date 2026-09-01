@@ -30,4 +30,3 @@ uv run --directory backend mypy                                              # T
 - **Typed exception dispatch** — transport failures are translated to typed errors (e.g. `OllamaConnectionError`) via `invoke_graph` in `app/agents/errors.py`. Branch on exception type, never on `str(exc)`.
 - **Async end-to-end** — routes, dependencies, and DB functions are `async def`; invoke the graph via `ainvoke_graph`. Agent nodes stay sync `def` (LangGraph threadpool). `extract_text_from_url` stays sync, called via `await asyncio.to_thread(...)`.
 - **No ORM** — raw psycopg3 async SQL under `app/db/`, served by the module-level pool opened/closed in the lifespan.
-- **Per-file `E402` ignore** — `app/agents/main.py` and `app/agents/health_expert.py` ignore `E402` for intentional `sys.path` manipulation. Preserve it.

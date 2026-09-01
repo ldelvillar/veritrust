@@ -4,16 +4,9 @@ el flujo completo para verificar noticias falsas en el ámbito de la salud.
 """
 
 import logging
-import sys
 import time
 from collections.abc import Callable
-from pathlib import Path
 from typing import List, TypedDict
-
-# Asegurar que al ejecutar este archivo como script, se use el código local del repositorio.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
