@@ -20,6 +20,7 @@ uv run --directory backend mypy                                              # T
 ## Layout notes
 
 - **`app/agents/`** — LangGraph orchestration (`main.py`) + agent nodes; evidence retrieval in `app/utils/` (`europepmc.py`, `pubmed.py`, `openfda.py`, `cima.py`; CIMA only for drug claims) filtered by an LLM relevance judge (`agents/relevance.py`); evidence-attenuated confidence in `app/core/credibility.py`; typed pipeline errors and `ainvoke_graph` in `errors.py`.
+- **`app/core/`** — Cross-cutting logic the routes call: verdict and credibility (`credibility.py`), history CSV serialisation including the formula-injection guard (`history_export.py`). Routes fetch and respond; formatting lives here.
 - **`app/prompts/prompts.yaml`** — All LLM system prompts (loaded via `app/prompts/agents.py`). Prompts live here, never inline in Python.
 - **`ml/`** — Standalone pipeline evaluation harness; separate test suite. Imports `app/`, never the reverse.
 

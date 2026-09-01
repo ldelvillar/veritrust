@@ -1,16 +1,13 @@
 """Este módulo contiene los endpoints relacionados con el historial de análisis del usuario."""
 
-import csv
-import io
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from app.api.dependencies.get_current_user import get_current_user
-from app.core.config import get_settings
-from app.core.credibility import classify_verdict
 from app.core.errors import make_error_detail
+from app.core.history_export import build_history_csv
 from app.db.history import (
     count_history_source_type_facets,
     count_history_verdict_facets,
@@ -43,53 +40,6 @@ _EXPORT_ERROR_RESPONSES: dict[int | str, dict] = {
 _DELETE_ALL_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
-}
-
-# BOM para que Excel detecte UTF-8 al abrir el CSV.
-_UTF8_BOM = "﻿"
-
-# Caracteres iniciales que Excel/Sheets interpretan como fórmula (inyección CSV).
-_CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _neutralize_csv_formula(value: str) -> str:
-    """Antepone una comilla simple si el texto podría abrirse como fórmula en Excel."""
-    if value.startswith(_CSV_FORMULA_TRIGGERS):
-        return "'" + value
-    return value
-
-
-def _export_duration_seconds(created_at: str, completed_at: str | None) -> str:
-    """Segundos que tardó el análisis; vacío si falta o no se puede leer una marca."""
-    if not completed_at:
-        return ""
-    try:
-        started = datetime.fromisoformat(created_at)
-        finished = datetime.fromisoformat(completed_at)
-    except ValueError:
-        return ""
-    return str(max(0, round((finished - started).total_seconds())))
-
-
-def _export_entry(record: AnalysisHistoryItem) -> str:
-    """Columna «Entrada»: el mismo título que el historial muestra en pantalla."""
-    if record.source_type == "file" and record.file_filename:
-        return record.file_filename
-    return record.input_url or record.input_text or ""
-
-
-def _build_report_url(base_url: str | None, analysis_id: str) -> str:
-    """Enlace al informe en el frontend; vacío si APP_BASE_URL no está configurado."""
-    if not base_url:
-        return ""
-    return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
-
-
-_EXPORT_VERDICT_LABELS = {"real": "Verdadera", "fake": "Falsa", "uncertain": "Incierta"}
-_EXPORT_SOURCE_LABELS = {
-    "text": "Texto pegado",
-    "file": "Carga de archivo",
-    "url": "Enlace",
 }
 
 
@@ -182,47 +132,6 @@ async def get_history(
     }
 
 
-def _build_history_csv(records: list[AnalysisHistoryItem]) -> bytes:
-    """Serializa el historial a CSV UTF-8 con BOM (compatible con Excel)."""
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    base_url = get_settings().app_base_url
-    writer.writerow(
-        [
-            "Fecha",
-            "Tipo",
-            "Entrada",
-            "Veredicto",
-            "Credibilidad",
-            "Cobertura de evidencia (%)",
-            "Duración (s)",
-            "Informe",
-        ]
-    )
-    for record in records:
-        entrada = _neutralize_csv_formula(_export_entry(record))
-        verdict = _EXPORT_VERDICT_LABELS.get(classify_verdict(record.label), "")
-        credibility = "" if record.credibility is None else str(record.credibility)
-        coverage = (
-            ""
-            if record.evidence_coverage is None
-            else str(round(record.evidence_coverage * 100))
-        )
-        writer.writerow(
-            [
-                record.created_at,
-                _EXPORT_SOURCE_LABELS.get(record.source_type, record.source_type),
-                entrada,
-                verdict,
-                credibility,
-                coverage,
-                _export_duration_seconds(record.created_at, record.completed_at),
-                _build_report_url(base_url, record.analysis_id),
-            ]
-        )
-    return (_UTF8_BOM + buffer.getvalue()).encode("utf-8")
-
-
 @router.get("/export", responses=_EXPORT_ERROR_RESPONSES)
 async def export_history(
     search: str | None = Query(default=None, max_length=200),
@@ -251,7 +160,7 @@ async def export_history(
         ) from e
 
     return Response(
-        content=_build_history_csv(records),
+        content=build_history_csv(records),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": 'attachment; filename="historial-veritrust.csv"'
