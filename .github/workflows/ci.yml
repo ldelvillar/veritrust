@@ -5,11 +5,17 @@ on:
     paths:
       - backend/**
       - frontend/**
+      - docker-compose*.yml
+      - Caddyfile
+      - .github/workflows/deploy.yml
       - .github/workflows/ci.yml
   pull_request:
     paths:
       - backend/**
       - frontend/**
+      - docker-compose*.yml
+      - Caddyfile
+      - .github/workflows/deploy.yml
       - .github/workflows/ci.yml
   workflow_dispatch:
 
@@ -251,3 +257,18 @@ jobs:
             echo "::error::frontend/src/types/api.d.ts is out of sync with the backend OpenAPI schema. Run 'pnpm --dir frontend generate:api-types' against a running backend and commit the result."
             exit 1
           }
+
+  ci_ok:
+    name: CI passed
+    needs: [changes, backend_app, backend_ml, frontend, api_contract]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::Algún job de CI falló o se canceló; no se despliega."
+          exit 1
+
+      - name: Report
+        run: echo "CI en verde. Los jobs no aplicables a este cambio se omitieron."
