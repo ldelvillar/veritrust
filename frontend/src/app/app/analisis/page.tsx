@@ -1,12 +1,31 @@
 import type { Metadata } from 'next';
 
+import { fetchPublicJsonServer } from '@/lib/serverApi';
+import type { paths } from '@/types/api';
+
 import AnalysisForm from './_components/AnalysisForm';
 
 export const metadata: Metadata = {
   title: 'Nuevo Análisis',
 };
 
-export default function AnalisisPage() {
+export const dynamic = 'force-dynamic';
+
+type ClientConfig =
+  paths['/config']['get']['responses']['200']['content']['application/json'];
+
+// Si la API no responde, el formulario no inventa límites: delega la validación en el servidor.
+async function loadLimits(): Promise<ClientConfig | null> {
+  try {
+    return await fetchPublicJsonServer<ClientConfig>('/config');
+  } catch {
+    return null;
+  }
+}
+
+export default async function AnalisisPage() {
+  const limits = await loadLimits();
+
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-11 sm:py-14">
       <div
@@ -31,7 +50,7 @@ export default function AnalisisPage() {
         </p>
       </div>
 
-      <AnalysisForm />
+      <AnalysisForm limits={limits} />
     </div>
   );
 }

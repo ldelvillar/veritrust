@@ -290,7 +290,7 @@ async def test_share_token_issued_only_for_done_rows(db_pool):
 
 async def test_reaper_recycles_only_stale_pending_rows(db_pool):
     """El reaper solo toca filas pending más viejas que el umbral, y nada más."""
-    stale_pending = await _pending("atascada")
+    stale_pending = await _pending("atascada en cola")
     await _age_row(db_pool, stale_pending, 1000)
 
     fresh_pending = await _pending("recién encolada")

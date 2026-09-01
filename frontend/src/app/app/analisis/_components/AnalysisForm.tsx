@@ -11,7 +11,10 @@ import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
 import PdfViewer from '@/components/PdfViewer';
 import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
-import type { components } from '@/types/api';
+import type { components, paths } from '@/types/api';
+
+type ClientConfig =
+  paths['/config']['get']['responses']['200']['content']['application/json'];
 
 const isPdfFile = (file: File): boolean =>
   file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -36,10 +39,18 @@ const EXAMPLE_TEXT_2 =
 const EXAMPLE_URL_1 = 'www.20minutos.es/salud/actualidad/estudio-vitamina-c';
 const EXAMPLE_URL_2 = 'www.larazon.es/salud/asi-influye-la-vitamina-d';
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const MIN_TEXT_CHARS = 10;
+// '.pdf' -> 'PDF', para las etiquetas de tipos aceptados.
+const suffixLabel = (suffix: string): string =>
+  suffix.replace('.', '').toUpperCase();
 
-export default function AnalysisForm() {
+const megabytes = (bytes: number): string =>
+  `${Math.round(bytes / (1024 * 1024))} MB`;
+
+export default function AnalysisForm({
+  limits,
+}: {
+  limits: ClientConfig | null;
+}) {
   const { submit, submitFile, isLoading, error, setError } =
     useAnalysisSubmission();
 
@@ -60,9 +71,9 @@ export default function AnalysisForm() {
   };
 
   const applyFile = (file: File) => {
-    if (file.size > MAX_FILE_BYTES) {
+    if (limits && file.size > limits.max_file_bytes) {
       setError(
-        'El archivo es demasiado grande. El tamaño máximo permitido es 10 MB.'
+        `El archivo es demasiado grande. El tamaño máximo permitido es ${megabytes(limits.max_file_bytes)}.`
       );
       return;
     }
@@ -145,8 +156,15 @@ export default function AnalysisForm() {
   const isUrlValid = isLikelyUrl(trimmedUrl);
   const showUrlHint = trimmedUrl.length > 0 && !isUrlValid;
 
+  // Sin límites conocidos solo se exige texto no vacío; la API tiene la última palabra.
+  const isTextLengthValid =
+    trimmedTextLength > 0 &&
+    (!limits ||
+      (trimmedTextLength >= limits.min_input_text_length &&
+        trimmedTextLength <= limits.max_input_text_length));
+
   const canRun =
-    (inputMethod === 'text' && trimmedTextLength >= MIN_TEXT_CHARS) ||
+    (inputMethod === 'text' && isTextLengthValid) ||
     (inputMethod === 'url' && isUrlValid) ||
     (inputMethod === 'file' && !!selectedFile);
 
@@ -260,10 +278,12 @@ export default function AnalysisForm() {
                 </button>
               </div>
               <span className="shrink-0 text-[12.5px] font-semibold text-faint">
-                {formData.text.length} caracteres
-                {trimmedTextLength > 0 &&
-                  trimmedTextLength < MIN_TEXT_CHARS &&
-                  ` · mínimo ${MIN_TEXT_CHARS}`}
+                {formData.text.length}
+                {limits && ` / ${limits.max_input_text_length}`} caracteres
+                {limits &&
+                  trimmedTextLength > 0 &&
+                  trimmedTextLength < limits.min_input_text_length &&
+                  ` · mínimo ${limits.min_input_text_length}`}
               </span>
             </div>
           </div>
@@ -360,23 +380,27 @@ export default function AnalysisForm() {
                   Documentos PDF o texto plano (.txt o .md).
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  {['PDF', 'TXT', 'MD'].map(t => (
-                    <span
-                      key={t}
-                      className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
-                    >
-                      {t}
+                  {(limits?.allowed_file_suffixes ?? [])
+                    .map(suffixLabel)
+                    .map(t => (
+                      <span
+                        key={t}
+                        className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  {limits && (
+                    <span className="text-[11.5px] font-bold text-faint">
+                      máx. {megabytes(limits.max_file_bytes)}
                     </span>
-                  ))}
-                  <span className="text-[11.5px] font-bold text-faint">
-                    máx. 10 MB
-                  </span>
+                  )}
                 </div>
                 <input
                   id="file-upload"
                   type="file"
                   className="hidden"
-                  accept=".txt,.md,.pdf"
+                  accept={limits?.allowed_file_suffixes.join(',')}
                   disabled={isLoading}
                   onChange={handleFileChange}
                 />

@@ -6,6 +6,8 @@ from typing import Annotated, Optional
 from pydantic import BaseModel, HttpUrl, StringConstraints, model_validator
 
 MAX_INPUT_TEXT_LENGTH = 10_000
+# Suelo util: por debajo no cabe una afirmacion medica verificable y el pipeline se gasta en balde.
+MIN_INPUT_TEXT_LENGTH = 10
 
 
 class SourceType(str, Enum):
@@ -24,7 +26,7 @@ class AnalysisRequest(BaseModel):
             str,
             StringConstraints(
                 strip_whitespace=True,
-                min_length=1,
+                min_length=MIN_INPUT_TEXT_LENGTH,
                 max_length=MAX_INPUT_TEXT_LENGTH,
             ),
         ]

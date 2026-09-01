@@ -276,6 +276,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Client Config
+         * @description Devuelve los límites que aplica la API para que el cliente no los duplique.
+         */
+        get: operations["get_client_config_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -424,6 +444,20 @@ export interface components {
              * @enum {string}
              */
             readonly verdict: "real" | "fake" | "uncertain";
+        };
+        /**
+         * ClientConfig
+         * @description Límites de entrada que aplica la API, para que el cliente valide antes de enviar.
+         */
+        ClientConfig: {
+            /** Max File Bytes */
+            max_file_bytes: number;
+            /** Allowed File Suffixes */
+            allowed_file_suffixes: string[];
+            /** Min Input Text Length */
+            min_input_text_length: number;
+            /** Max Input Text Length */
+            max_input_text_length: number;
         };
         /**
          * ContactRequest
@@ -1901,6 +1935,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_client_config_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientConfig"];
                 };
             };
         };

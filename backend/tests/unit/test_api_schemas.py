@@ -36,7 +36,7 @@ def test_analyze_request_rejects_payload_without_text_or_url() -> None:
 def test_analyze_request_rejects_payload_with_text_and_url() -> None:
     with pytest.raises(ValidationError) as exc:
         AnalysisRequest(
-            text="Texto",
+            text="Texto clínico",
             url="https://ejemplo.com/noticia",
             source_type="url",
         )
@@ -57,7 +57,7 @@ def test_analyze_request_rejects_url_with_non_url_source_type() -> None:
 def test_analyze_request_rejects_text_with_url_source_type() -> None:
     with pytest.raises(ValidationError) as exc:
         AnalysisRequest(
-            text="Texto",
+            text="Texto clínico",
             source_type="url",
         )
 
@@ -66,14 +66,14 @@ def test_analyze_request_rejects_text_with_url_source_type() -> None:
 
 def test_analyze_request_rejects_invalid_source_type_value() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalysisRequest(text="Texto", source_type="audio")
+        AnalysisRequest(text="Texto clínico", source_type="audio")
 
     assert "source_type" in str(exc.value)
 
 
 def test_analyze_request_rejects_file_source_type() -> None:
     with pytest.raises(ValidationError) as exc:
-        AnalysisRequest(text="Texto", source_type="file")
+        AnalysisRequest(text="Texto clínico", source_type="file")
 
     assert "endpoint de subida" in str(exc.value)
 

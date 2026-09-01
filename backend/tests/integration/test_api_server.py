@@ -12,9 +12,12 @@ from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
 from app.api.dependencies.get_current_user import get_current_user
+from app.core.config import get_settings
 from app.db.pool import DatabaseError
+from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH, MIN_INPUT_TEXT_LENGTH
 from app.schemas.feedback import AnalysisFeedback
 from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
+from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 
 
 class _FakeArqPool:
@@ -2590,3 +2593,32 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
         assert app_obj.state.redis is not None
 
     assert closed == ["arq", "redis", "db"]
+
+
+def test_config_publishes_the_limits_the_api_actually_enforces(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    # Sin cabecera Authorization: el formulario lo pide antes de que haya sesión.
+    response = client.get("/config")
+
+    assert response.status_code == 200
+    # Se compara contra las constantes vivas, no contra números repetidos aquí.
+    assert response.json() == {
+        "max_file_bytes": get_settings().max_file_bytes,
+        "allowed_file_suffixes": sorted(ALLOWED_FILE_SUFFIXES),
+        "min_input_text_length": MIN_INPUT_TEXT_LENGTH,
+        "max_input_text_length": MAX_INPUT_TEXT_LENGTH,
+    }
+
+
+def test_analysis_rejects_text_shorter_than_the_published_minimum(monkeypatch):
+    server_module, fake_pool = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analysis", json={"text": "a" * (MIN_INPUT_TEXT_LENGTH - 1)}
+    )
+
+    assert response.status_code == 422
+    assert fake_pool.jobs == []
