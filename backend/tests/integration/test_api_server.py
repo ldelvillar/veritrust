@@ -1796,8 +1796,8 @@ def test_historial_export_returns_csv(monkeypatch):
         "Fecha,Tipo,Entrada,Veredicto,Credibilidad,"
         "Cobertura de evidencia (%),Duración (s),Informe"
     )
-    assert "https://ejemplo.com/nota,Falsa,12" in lines[1]
-    assert "Una afirmación médica,Verdadera,90" in lines[2]
+    assert "https://ejemplo.com/nota,Falso,12" in lines[1]
+    assert "Una afirmación médica,Verdadero,90" in lines[2]
 
     rows = list(csv.reader(io.StringIO(body)))
     # Cobertura en %, duración en segundos y enlace directo al informe.

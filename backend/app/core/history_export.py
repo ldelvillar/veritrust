@@ -14,7 +14,8 @@ _UTF8_BOM = "﻿"
 # Caracteres iniciales que Excel/Sheets interpretan como fórmula (inyección CSV).
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
-_EXPORT_VERDICT_LABELS = {"real": "Verdadera", "fake": "Falsa", "uncertain": "Incierta"}
+# Vocabulario único del producto: VERDICT_LABEL en analysis-result/format.ts.
+_EXPORT_VERDICT_LABELS = {"real": "Verdadero", "fake": "Falso", "uncertain": "Dudoso"}
 _EXPORT_SOURCE_LABELS = {
     "text": "Texto pegado",
     "file": "Carga de archivo",
