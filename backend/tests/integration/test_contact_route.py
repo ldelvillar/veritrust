@@ -178,3 +178,32 @@ def test_contact_returns_429_when_rate_limit_exceeded(monkeypatch):
 
     assert blocked.status_code == 429
     assert blocked.json()["detail"]["code"] == "RATE_LIMIT"
+
+
+def test_contact_rate_limit_ignores_spoofed_forwarded_for_hops(monkeypatch):
+    """Rotar el X-Forwarded-For no puede regalar cuota: solo cuenta el salto que añade el proxy."""
+    server_module = _load_server_module()
+    client = TestClient(server_module.app)
+
+    async def fake_send_contact_email(**kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "app.api.routes.contact.send_contact_email", fake_send_contact_email
+    )
+
+    # Cadena tal y como la entrega Caddy: primero el valor del cliente, al final el peer real.
+    def post_from(spoofed: str, peer: str = "10.0.0.9"):
+        return client.post(
+            "/contact",
+            json=_VALID_BODY,
+            headers={"X-Forwarded-For": f"{spoofed}, {peer}"},
+        )
+
+    for spoofed in ("1.2.3.4", "5.6.7.8", "9.9.9.9", "4.4.4.4", "8.8.8.8"):
+        assert post_from(spoofed).status_code == 200
+
+    assert post_from("7.7.7.7").status_code == 429
+
+    # Otro peer conserva su cuota: la clave sigue distinguiendo IPs, no es constante.
+    assert post_from("1.2.3.4", peer="10.0.0.10").status_code == 200

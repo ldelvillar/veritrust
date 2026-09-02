@@ -80,10 +80,14 @@ async def check_rate_limit(
 
 
 def _client_ip(request: Request) -> str:
-    """IP del cliente: primer salto de X-Forwarded-For (tras el proxy) o la conexión directa."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """IP del cliente: el último salto de X-Forwarded-For, el único que escribe el proxy."""
+    hops = [
+        hop.strip()
+        for hop in (request.headers.get("x-forwarded-for") or "").split(",")
+        if hop.strip()
+    ]
+    if hops:
+        return hops[-1]
     return request.client.host if request.client else "unknown"
 
 
