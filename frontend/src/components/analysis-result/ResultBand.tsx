@@ -29,8 +29,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
           panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-[#1c2434] px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-[#e8edf6] shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-[#1c2434] before:content-['']"
         >
           Puntuación de credibilidad (0-100): cuanto más alta, más probable es
-          que el contenido sea veraz. Se deriva del veredicto y de la confianza
-          del modelo.
+          que el contenido sea veraz.
         </Tooltip>
         <CredibilityGauge score={score} />
       </div>
