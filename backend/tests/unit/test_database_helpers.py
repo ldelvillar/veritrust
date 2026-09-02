@@ -82,25 +82,27 @@ def test_coerce_optional_fraction_passes_none_and_validates_range() -> None:
 
 
 def test_map_history_record_converts_sql_row_to_dataclass() -> None:
-    row = (
-        123,
-        "user-1",
-        "text",
-        "contenido",
-        None,
-        "falsa",
-        0.81,
-        0.5,
-        "explicacion",
-        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        datetime(2026, 4, 10, 12, 3, tzinfo=timezone.utc),
-        "done",
-        None,
-        [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
-        [{"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}],
-        None,
-        "tok_xyz",
-    )
+    row = {
+        "id": 123,
+        "user_id": "user-1",
+        "source_type": "text",
+        "input_text": "contenido",
+        "input_url": None,
+        "label": "falsa",
+        "confidence": 0.81,
+        "evidence_coverage": 0.5,
+        "explanation": "explicacion",
+        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "completed_at": datetime(2026, 4, 10, 12, 3, tzinfo=timezone.utc),
+        "status": "done",
+        "error_code": None,
+        "claims": [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
+        "sources": [
+            {"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}
+        ],
+        "file_filename": None,
+        "share_token": "tok_xyz",
+    }
 
     record = history_module._map_history_record(row)
 
@@ -122,25 +124,25 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
 
 
 def test_map_history_record_handles_pending_row_with_null_results() -> None:
-    row = (
-        123,
-        "user-1",
-        "text",
-        "contenido",
-        None,
-        None,
-        None,
-        None,
-        None,
-        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        None,
-        "pending",
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
+    row = {
+        "id": 123,
+        "user_id": "user-1",
+        "source_type": "text",
+        "input_text": "contenido",
+        "input_url": None,
+        "label": None,
+        "confidence": None,
+        "evidence_coverage": None,
+        "explanation": None,
+        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "completed_at": None,
+        "status": "pending",
+        "error_code": None,
+        "claims": None,
+        "sources": None,
+        "file_filename": None,
+        "share_token": None,
+    }
 
     record = history_module._map_history_record(row)
 
@@ -153,37 +155,53 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.sources is None
     # Una fila pendiente aún no ha terminado: sin instante de finalización.
     assert record.completed_at is None
-    # Filas de longitud 17 (listas) no traen stage: el mapeo lo deja en None.
+    # El listado no selecciona stage: sin esa clave, el mapeo lo deja en None.
     assert record.stage is None
 
 
 def test_map_history_record_reads_stage_when_present() -> None:
-    row = (
-        123,
-        "user-1",
-        "url",
-        None,
-        "https://ejemplo.com/x",
-        None,
-        None,
-        None,
-        None,
-        datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        None,
-        "pending",
-        None,
-        None,
-        None,
-        None,
-        None,
-        "investigator",
-    )
+    row = {
+        "id": 123,
+        "user_id": "user-1",
+        "source_type": "url",
+        "input_text": None,
+        "input_url": "https://ejemplo.com/x",
+        "label": None,
+        "confidence": None,
+        "evidence_coverage": None,
+        "explanation": None,
+        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "completed_at": None,
+        "status": "pending",
+        "error_code": None,
+        "claims": None,
+        "sources": None,
+        "file_filename": None,
+        "share_token": None,
+        "stage": "investigator",
+    }
 
     record = history_module._map_history_record(row)
 
     assert record.status == "pending"
     assert record.evidence_coverage is None
     assert record.stage == "investigator"
+
+
+def test_map_history_record_reads_only_columns_the_queries_select() -> None:
+    """Si el mapeo lee una columna que las consultas no traen, esto revienta."""
+    row = {column: None for column in history_module._HISTORY_COLUMNS}
+    row["id"] = 123
+    row["user_id"] = "user-1"
+    row["source_type"] = "text"
+    row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
+    row["status"] = "pending"
+
+    record = history_module._map_history_record(row)
+
+    assert record.analysis_id == "123"
+    # stage es la unica columna extra: solo la consulta por id la selecciona.
+    assert record.stage is None
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:

@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Optional, Sequence
 
 import psycopg
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS, classify_verdict
@@ -38,6 +39,28 @@ _SORT_ORDER_BY = {
 
 _DEFAULT_SORT = "recent"
 
+# Columnas que alimenta _map_history_record: una sola fuente para las tres consultas.
+_HISTORY_COLUMNS = (
+    "id",
+    "user_id",
+    "source_type",
+    "input_text",
+    "input_url",
+    "label",
+    "confidence",
+    "evidence_coverage",
+    "explanation",
+    "created_at",
+    "completed_at",
+    "status",
+    "error_code",
+    "claims",
+    "sources",
+    "file_filename",
+    "share_token",
+)
+_HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
+
 
 def _normalize_confidence(confidence: Any) -> float:
     """Convierte confidence a float y valida el rango [0, 1]."""
@@ -67,27 +90,34 @@ def _coerce_optional_fraction(value: Any) -> float | None:
     return fraction
 
 
-def _map_history_record(row: Sequence[Any]) -> AnalysisHistoryItem:
+def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
     """Mapea una fila SQL a un registro de historial tipado."""
     return AnalysisHistoryItem(
-        analysis_id=str(row[0]),
-        user_id=str(row[1]),
-        source_type=str(row[2]),
-        input_text=row[3],
-        input_url=row[4],
-        label=str(row[5]) if row[5] is not None else None,
-        confidence=float(row[6]) if row[6] is not None else None,
-        evidence_coverage=float(row[7]) if row[7] is not None else None,
-        explanation=str(row[8]) if row[8] is not None else None,
-        created_at=str(row[9]),
-        completed_at=str(row[10]) if row[10] is not None else None,
-        status=str(row[11]),
-        error_code=row[12],
-        claims=row[13],
-        sources=row[14],
-        file_filename=row[15],
-        share_token=row[16],
-        stage=row[17] if len(row) > 17 else None,
+        analysis_id=str(row["id"]),
+        user_id=str(row["user_id"]),
+        source_type=str(row["source_type"]),
+        input_text=row["input_text"],
+        input_url=row["input_url"],
+        label=str(row["label"]) if row["label"] is not None else None,
+        confidence=float(row["confidence"]) if row["confidence"] is not None else None,
+        evidence_coverage=(
+            float(row["evidence_coverage"])
+            if row["evidence_coverage"] is not None
+            else None
+        ),
+        explanation=str(row["explanation"]) if row["explanation"] is not None else None,
+        created_at=str(row["created_at"]),
+        completed_at=(
+            str(row["completed_at"]) if row["completed_at"] is not None else None
+        ),
+        status=str(row["status"]),
+        error_code=row["error_code"],
+        claims=row["claims"],
+        sources=row["sources"],
+        file_filename=row["file_filename"],
+        share_token=row["share_token"],
+        # Solo la consulta por id selecciona stage; el listado y la exportación no.
+        stage=row.get("stage"),
     )
 
 
@@ -157,35 +187,18 @@ def _build_history_where_clause(
 def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str]:
     """Genera consultas SQL para conteo y listado de historial."""
     count_query = f"""
-        SELECT COUNT(*)
+        SELECT COUNT(*) AS total
         FROM public.analysis_history
         WHERE {where_sql}
     """
 
     list_query = """
-        SELECT
-            id,
-            user_id,
-            source_type,
-            input_text,
-            input_url,
-            label,
-            confidence,
-            evidence_coverage,
-            explanation,
-            created_at,
-            completed_at,
-            status,
-            error_code,
-            claims,
-            sources,
-            file_filename,
-            share_token
+        SELECT {columns}
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY {order_by}
         LIMIT %s OFFSET %s
-    """.format(where_sql=where_sql, order_by=safe_order_by)
+    """.format(columns=_HISTORY_SELECT, where_sql=where_sql, order_by=safe_order_by)
 
     return count_query, list_query
 
@@ -470,11 +483,11 @@ async def list_user_analysis_history(
 
     try:
         async with pool.connection() as conn:
-            async with conn.cursor() as cur:
+            async with conn.cursor(row_factory=dict_row) as cur:
                 # where_sql/safe_order_by son valores saneados, no entrada cruda.
                 await cur.execute(count_query, tuple(where_params))  # pyright: ignore[reportArgumentType]
                 count_row = await cur.fetchone()
-                total_count = int(count_row[0]) if count_row else 0
+                total_count = int(count_row["total"]) if count_row else 0
 
                 await cur.execute(list_query, (*where_params, safe_limit, safe_offset))  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
@@ -663,33 +676,16 @@ async def export_user_analysis_history(
     )
 
     export_query = """
-        SELECT
-            id,
-            user_id,
-            source_type,
-            input_text,
-            input_url,
-            label,
-            confidence,
-            evidence_coverage,
-            explanation,
-            created_at,
-            completed_at,
-            status,
-            error_code,
-            claims,
-            sources,
-            file_filename,
-            share_token
+        SELECT {columns}
         FROM public.analysis_history
         WHERE {where_sql}
         ORDER BY {order_by}
         LIMIT %s
-    """.format(where_sql=where_sql, order_by=safe_order_by)
+    """.format(columns=_HISTORY_SELECT, where_sql=where_sql, order_by=safe_order_by)
 
     try:
         async with pool.connection() as conn:
-            async with conn.cursor() as cur:
+            async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
@@ -708,26 +704,8 @@ async def get_user_analysis_by_id(
     """Obtiene un analisis por id para un usuario autenticado."""
     pool = await get_pool()
 
-    query = """
-        SELECT
-            id,
-            user_id,
-            source_type,
-            input_text,
-            input_url,
-            label,
-            confidence,
-            evidence_coverage,
-            explanation,
-            created_at,
-            completed_at,
-            status,
-            error_code,
-            claims,
-            sources,
-            file_filename,
-            share_token,
-            stage
+    query = f"""
+        SELECT {_HISTORY_SELECT}, stage
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -735,7 +713,7 @@ async def get_user_analysis_by_id(
 
     try:
         async with pool.connection() as conn:
-            async with conn.cursor() as cur:
+            async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(query, (user_id, analysis_id))
                 row = await cur.fetchone()
     except psycopg.Error as exc:
@@ -993,7 +971,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
 
     try:
         async with pool.connection() as conn:
-            async with conn.cursor() as cur:
+            async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(query, (token,))
                 row = await cur.fetchone()
     except psycopg.Error as exc:
@@ -1007,17 +985,23 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         return None
 
     return PublicAnalysisReport(
-        source_type=str(row[0]),
-        input_text=row[1],
-        input_url=row[2],
-        label=str(row[3]) if row[3] is not None else None,
-        confidence=float(row[4]) if row[4] is not None else None,
-        evidence_coverage=float(row[5]) if row[5] is not None else None,
-        explanation=str(row[6]) if row[6] is not None else None,
-        created_at=str(row[7]),
-        completed_at=str(row[8]) if row[8] is not None else None,
-        status=str(row[9]),
-        claims=row[10],
-        sources=row[11],
-        file_filename=row[12],
+        source_type=str(row["source_type"]),
+        input_text=row["input_text"],
+        input_url=row["input_url"],
+        label=str(row["label"]) if row["label"] is not None else None,
+        confidence=float(row["confidence"]) if row["confidence"] is not None else None,
+        evidence_coverage=(
+            float(row["evidence_coverage"])
+            if row["evidence_coverage"] is not None
+            else None
+        ),
+        explanation=str(row["explanation"]) if row["explanation"] is not None else None,
+        created_at=str(row["created_at"]),
+        completed_at=(
+            str(row["completed_at"]) if row["completed_at"] is not None else None
+        ),
+        status=str(row["status"]),
+        claims=row["claims"],
+        sources=row["sources"],
+        file_filename=row["file_filename"],
     )
