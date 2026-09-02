@@ -9,32 +9,24 @@ import { container } from './container';
 const steps = [
   {
     n: '01',
-    accent: '#432dd7',
-    accentSoft: '#eeebfc',
     title: 'Extractor de información',
     body: 'Lee el contenido y aísla cada afirmación médica, las cifras y las fuentes citadas, sin perder el contexto.',
     Icon: ExtractIcon,
   },
   {
     n: '02',
-    accent: '#2c97e8',
-    accentSoft: '#e4f1fc',
     title: 'Traductor',
     body: 'Normaliza el idioma y estandariza la terminología clínica para que cada afirmación se contraste sobre una base común.',
     Icon: TranslateIcon,
   },
   {
     n: '03',
-    accent: '#e0922e',
-    accentSoft: '#fbefda',
     title: 'Investigador',
     body: 'Busca evidencia científica en la literatura biomédica y reúne las fuentes que respaldan o contradicen cada afirmación.',
     Icon: NewspaperIcon,
   },
   {
     n: '04',
-    accent: '#13b877',
-    accentSoft: '#def4ea',
     title: 'Experto en salud',
     body: 'Contrasta cada afirmación con el consenso médico y las fuentes de referencia, y calcula la puntuación de credibilidad.',
     Icon: MedicalCrossIcon,
@@ -63,15 +55,15 @@ export default function HowItWorks() {
           role="presentation"
           className="mx-auto mb-7.5 flex max-w-190 items-center"
         >
-          <span className="inline-flex items-center gap-2.25 rounded-full border border-line bg-white px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-body shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
+          <span className="inline-flex items-center gap-2.25 rounded-full border border-line bg-white px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-body shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]">
             <Document className="size-4.25 text-primary" />
             Entrada
           </span>
           <span
             aria-hidden="true"
-            className="relative -mx-px h-0.5 flex-1 bg-[linear-gradient(90deg,#dcd9ee_60%,transparent_0)] bg-size-[10px_2px] bg-repeat-x after:absolute after:top-1/2 after:-right-px after:size-0 after:-translate-y-1/2 after:border-y-[5px] after:border-l-[7px] after:border-y-transparent after:border-l-line-strong after:content-['']"
+            className="relative -mx-px h-0.5 flex-1 bg-[linear-gradient(90deg,var(--color-line-strong)_60%,transparent_0)] bg-size-[10px_2px] bg-repeat-x after:absolute after:top-1/2 after:-right-px after:size-0 after:-translate-y-1/2 after:border-y-[5px] after:border-l-[7px] after:border-y-transparent after:border-l-line-strong after:content-['']"
           />
-          <span className="inline-flex items-center gap-2.25 rounded-full border border-[#bfe8d4] bg-[#def4ea] px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-[#0e8e5b] shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]">
+          <span className="inline-flex items-center gap-2.25 rounded-full border border-verdict-real-soft bg-verdict-real-soft px-4 py-2.25 text-[13.5px] font-semibold whitespace-nowrap text-verdict-real-ink shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]">
             <ShieldIcon className="size-4.25" strokeWidth={2} />
             Veredicto
           </span>
@@ -81,19 +73,13 @@ export default function HowItWorks() {
           {steps.map(step => (
             <article
               key={step.n}
-              style={
-                {
-                  '--accent': step.accent,
-                  '--accent-soft': step.accentSoft,
-                } as React.CSSProperties
-              }
-              className="relative overflow-hidden rounded-[20px] border border-line bg-white px-7 pt-7.5 pb-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)] transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-(--accent) before:content-[''] after:pointer-events-none after:absolute after:-top-10 after:-right-10 after:size-37.5 after:rounded-full after:bg-[radial-gradient(circle,var(--accent-soft),transparent_70%)] after:opacity-70 after:content-[''] hover:-translate-y-1.25 hover:border-(--accent-soft) hover:shadow-[0_24px_60px_rgba(60,50,140,0.18)]"
+              className="relative overflow-hidden rounded-[20px] border border-line bg-white px-7 pt-7.5 pb-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)] transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary before:content-[''] hover:-translate-y-1.25 hover:border-primary-soft hover:shadow-[0_24px_60px_rgba(18,33,31,0.16)]"
             >
               <div className="relative z-2 mb-5 flex items-center justify-between">
-                <div className="grid size-14.5 place-items-center rounded-2xl bg-(--accent-soft) text-(--accent) shadow-[0_8px_18px_color-mix(in_srgb,var(--accent)_22%,transparent)]">
+                <div className="grid size-14.5 place-items-center rounded-2xl bg-primary-soft text-primary">
                   <step.Icon className="size-7" />
                 </div>
-                <span className="grid size-10.5 place-items-center rounded-full border-2 border-(--accent-soft) bg-white text-[15px] font-bold text-(--accent)">
+                <span className="grid size-10.5 place-items-center rounded-full border-2 border-primary-soft bg-white text-[15px] font-bold text-primary">
                   {step.n}
                 </span>
               </div>

@@ -40,8 +40,8 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
     >
       <defs>
         <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#8579f0" />
-          <stop offset="1" stopColor="#5e50e0" />
+          <stop offset="0" stopColor="var(--color-accent)" />
+          <stop offset="1" stopColor="var(--color-primary)" />
         </linearGradient>
       </defs>
 
@@ -54,14 +54,14 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
               y1={y.toFixed(1)}
               x2={W - padR}
               y2={y.toFixed(1)}
-              stroke="#e8e6f4"
+              stroke="var(--color-line)"
               strokeWidth={1}
               strokeDasharray={i === grid.length - 1 ? '0' : '3 4'}
             />
             <text
               x={padL}
               y={(y - 5).toFixed(1)}
-              fill="#a3a4ba"
+              fill="var(--color-faint)"
               fontFamily="Mulish,system-ui,sans-serif"
               fontSize={11}
               fontWeight={600}
@@ -99,7 +99,7 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
               <text
                 x={(x + barW / 2).toFixed(1)}
                 y={H - 12}
-                fill="#a3a4ba"
+                fill="var(--color-faint)"
                 fontFamily="Mulish,system-ui,sans-serif"
                 fontSize={11}
                 fontWeight={600}
@@ -117,7 +117,7 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
           <path
             d={lineD}
             fill="none"
-            stroke="#5446dc"
+            stroke="var(--color-primary)"
             strokeWidth={2.6}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -129,7 +129,7 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
               cy={q.y.toFixed(1)}
               r={3.4}
               fill="#fff"
-              stroke="#5446dc"
+              stroke="var(--color-primary)"
               strokeWidth={2.4}
             />
           ))}

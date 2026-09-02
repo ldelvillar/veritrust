@@ -43,7 +43,7 @@ const equipoOpts = [
 ];
 
 const inputBase =
-  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#efedfc]';
+  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-soft';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
@@ -303,7 +303,7 @@ export default function DemoForm() {
                     <span
                       className={`inline-flex items-center gap-2 rounded-[11px] border px-3.75 py-2.75 text-[13.5px] font-bold transition ${
                         active
-                          ? 'border-primary bg-[#efedfc] text-accent ring-1 ring-primary'
+                          ? 'border-primary bg-primary-soft text-accent ring-1 ring-primary'
                           : 'border-line-strong bg-surface-subtle text-body hover:border-primary hover:text-accent'
                       }`}
                     >

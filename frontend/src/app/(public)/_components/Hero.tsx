@@ -8,9 +8,7 @@ import { container } from './container';
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[linear-gradient(165deg,#5a44e8_0%,#432dd7_48%,#3722b8_100%)] py-18.5 pb-24 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
-      <div className="pointer-events-none absolute -top-40 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
+    <section className="relative overflow-hidden bg-primary py-18.5 pb-24 text-white">
       <div
         className={`${container} relative z-2 grid items-center gap-14 md:grid-cols-[1.05fr_0.95fr]`}
       >
@@ -41,7 +39,7 @@ export default function Hero() {
               <div key={item.label} className="flex items-center gap-x-5.5">
                 {i > 0 && <span className="h-5.5 w-px bg-white/20" />}
                 <span className="flex items-center gap-2 text-sm font-semibold text-white/85">
-                  <CheckIcon className="size-4.5 shrink-0 text-[#9be8ff]" />
+                  <CheckIcon className="size-4.5 shrink-0 text-white/70" />
                   {item.label}
                 </span>
               </div>
@@ -51,8 +49,8 @@ export default function Hero() {
 
         {/* product mockup */}
         <div className="relative">
-          <div className="animate-floaty absolute -top-6 -left-7 z-3 flex items-center gap-3 rounded-[13px] bg-white px-3.75 py-3 shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
-            <span className="grid size-8.5 place-items-center rounded-[9px] bg-[#def4ea] text-[#0e8e5b]">
+          <div className="animate-floaty absolute -top-6 -left-7 z-3 flex items-center gap-3 rounded-[13px] bg-white px-3.75 py-3 shadow-[0_24px_60px_rgba(18,33,31,0.16)]">
+            <span className="grid size-8.5 place-items-center rounded-[9px] bg-verdict-real-soft text-verdict-real-ink">
               <CheckIcon className="size-4.5" />
             </span>
             <span className="leading-tight">
@@ -62,8 +60,8 @@ export default function Hero() {
               </small>
             </span>
           </div>
-          <div className="animate-floaty absolute -right-6 -bottom-5 z-3 flex items-center gap-3 rounded-[13px] bg-white px-3.75 py-3 shadow-[0_24px_60px_rgba(60,50,140,0.18)] [animation-delay:0.5s]">
-            <span className="grid size-8.5 place-items-center rounded-[9px] bg-[#efedfc] text-primary">
+          <div className="animate-floaty absolute -right-6 -bottom-5 z-3 flex items-center gap-3 rounded-[13px] bg-white px-3.75 py-3 shadow-[0_24px_60px_rgba(18,33,31,0.16)] [animation-delay:0.5s]">
+            <span className="grid size-8.5 place-items-center rounded-[9px] bg-primary-soft text-primary">
               <GlobeIcon className="size-4.5" />
             </span>
             <span className="leading-tight">
@@ -74,11 +72,11 @@ export default function Hero() {
             </span>
           </div>
 
-          <div className="transform-[rotate(0.6deg)] overflow-hidden rounded-[20px] bg-white text-body shadow-[0_24px_60px_rgba(60,50,140,0.18)]">
+          <div className="transform-[rotate(0.6deg)] overflow-hidden rounded-[20px] bg-white text-body shadow-[0_24px_60px_rgba(18,33,31,0.16)]">
             <div className="flex items-center gap-1.75 border-b border-line bg-surface-subtle px-4 py-3.5">
-              <i className="size-2.75 rounded-full bg-[#f0a8b4]" />
-              <i className="size-2.75 rounded-full bg-[#f3d49a]" />
-              <i className="size-2.75 rounded-full bg-[#a8e0c4]" />
+              <i className="size-2.75 rounded-full bg-verdict-fake-soft" />
+              <i className="size-2.75 rounded-full bg-verdict-uncertain-soft" />
+              <i className="size-2.75 rounded-full bg-verdict-real-soft" />
               <span className="ml-2.5 font-mono text-[11.5px] text-faint">
                 https://veritrust.es/analizar
               </span>
@@ -147,23 +145,17 @@ export default function Hero() {
                 ))}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-1.75">
-                {[
-                  { c: '#6356e6', label: 'Extractor' },
-                  { c: '#2c97e8', label: 'Traductor' },
-                  { c: '#e0922e', label: 'Investigador' },
-                  { c: '#13b877', label: 'Experto' },
-                ].map(a => (
-                  <span
-                    key={a.label}
-                    className="flex items-center gap-1.75 rounded-[9px] bg-surface px-2.25 py-2 text-[10.5px] font-bold text-body"
-                  >
+                {['Extractor', 'Traductor', 'Investigador', 'Experto'].map(
+                  label => (
                     <span
-                      className="size-1.75 rounded-full"
-                      style={{ background: a.c }}
-                    />
-                    {a.label}
-                  </span>
-                ))}
+                      key={label}
+                      className="flex items-center gap-1.75 rounded-[9px] bg-surface px-2.25 py-2 text-[10.5px] font-bold text-body"
+                    >
+                      <span className="size-1.75 rounded-full bg-primary" />
+                      {label}
+                    </span>
+                  )
+                )}
               </div>
             </div>
           </div>

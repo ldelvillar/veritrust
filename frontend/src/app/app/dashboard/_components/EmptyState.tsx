@@ -19,13 +19,13 @@ export default function EmptyState() {
         }
       />
 
-      <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] max-md:px-6 max-md:py-15">
+      <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] max-md:px-6 max-md:py-15">
         {/* Dot grid background */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
-              'radial-gradient(rgba(99,86,230,.10) 1.1px, transparent 1.1px)',
+              'radial-gradient(rgba(12,79,82,.10) 1.1px, transparent 1.1px)',
             backgroundSize: '22px 22px',
             maskImage:
               'radial-gradient(ellipse 60% 60% at 50% 38%, #000 0%, transparent 72%)',
@@ -37,10 +37,10 @@ export default function EmptyState() {
         <div className="relative z-1 flex flex-col items-center">
           {/* Icon */}
           <div className="relative mb-6.5">
-            <div className="grid size-21 place-items-center rounded-3xl bg-linear-to-br from-[#7166ef] to-accent text-white shadow-[0_14px_30px_rgba(99,86,230,.34)]">
+            <div className="grid size-21 place-items-center rounded-3xl bg-linear-to-br from-primary to-accent text-white shadow-[0_14px_30px_rgba(12,79,82,.34)]">
               <GridIcon className="size-9.5" />
             </div>
-            <div className="pointer-events-none absolute -inset-3.5 -z-1 rounded-4xl bg-[radial-gradient(circle,rgba(99,86,230,.22),transparent_68%)]" />
+            <div className="pointer-events-none absolute -inset-3.5 -z-1 rounded-4xl bg-[radial-gradient(circle,rgba(12,79,82,.22),transparent_68%)]" />
           </div>
 
           <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-accent uppercase">

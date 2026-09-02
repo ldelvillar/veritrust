@@ -26,7 +26,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
           ariaLabel="Qué es la puntuación de credibilidad"
           trigger={<QuestionIcon className="size-4.25" aria-hidden="true" />}
           buttonClassName="grid size-7 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-[#1c2434] px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-[#e8edf6] shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-[#1c2434] before:content-['']"
+          panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-ink-deep px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-surface-subtle shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-ink-deep before:content-['']"
         >
           Puntuación de credibilidad (0-100): cuanto más alta, más probable es
           que el contenido sea veraz.

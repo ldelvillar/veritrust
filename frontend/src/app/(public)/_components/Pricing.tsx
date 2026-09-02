@@ -68,8 +68,8 @@ export default function Pricing() {
               key={plan.name}
               className={`relative flex flex-col rounded-[22px] bg-white px-7.5 py-8.5 ${
                 plan.featured
-                  ? 'border-2 border-primary shadow-[0_24px_60px_rgba(60,50,140,0.18)]'
-                  : 'border border-line shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]'
+                  ? 'border-2 border-primary shadow-[0_24px_60px_rgba(18,33,31,0.16)]'
+                  : 'border border-line shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]'
               }`}
             >
               {plan.featured && (
@@ -97,7 +97,7 @@ export default function Pricing() {
                     key={item}
                     className="flex items-start gap-2.5 text-sm font-medium text-body"
                   >
-                    <CheckIcon className="mt-0.5 size-4.25 shrink-0 text-[#13b877]" />
+                    <CheckIcon className="mt-0.5 size-4.25 shrink-0 text-verdict-real" />
                     {item}
                   </li>
                 ))}

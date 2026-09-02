@@ -66,12 +66,22 @@ const TONE_CONFIG = {
 } satisfies Record<Tone, object>;
 
 const TYPE_META = {
-  text: { label: 'Texto', tint: '#eeebfc', color: '#6356e6', Icon: TypeIcon },
-  url: { label: 'Enlace', tint: '#e4f1fc', color: '#2c97e8', Icon: LinkIcon },
+  text: {
+    label: 'Texto',
+    tint: 'var(--color-primary-soft)',
+    color: 'var(--color-primary)',
+    Icon: TypeIcon,
+  },
+  url: {
+    label: 'Enlace',
+    tint: 'var(--color-primary-soft)',
+    color: 'var(--color-accent)',
+    Icon: LinkIcon,
+  },
   file: {
     label: 'Archivo',
-    tint: '#def4ea',
-    color: '#13b877',
+    tint: 'var(--color-primary-soft)',
+    color: 'var(--color-primary-strong)',
     Icon: DocumentIcon,
   },
 } as const;
@@ -86,11 +96,15 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 const STATUS_BADGES = {
-  pending: { text: 'En curso', textColor: '#5446dc', bgColor: '#eeebfc' },
+  pending: {
+    text: 'En curso',
+    textColor: 'var(--color-primary)',
+    bgColor: 'var(--color-primary-soft)',
+  },
   failed_no_claims: {
     text: 'Sin afirmaciones',
-    textColor: '#7e7f99',
-    bgColor: '#f4f2fd',
+    textColor: 'var(--color-muted)',
+    bgColor: 'var(--color-surface)',
   },
   failed: {
     text: 'Fallido',
@@ -144,7 +158,7 @@ function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
           cy="24"
           r={r}
           fill="none"
-          stroke="#ece9f7"
+          stroke="var(--color-line)"
           strokeWidth="4.5"
         />
         <circle
@@ -186,7 +200,7 @@ function GaugePlaceholder({
           cy="24"
           r={19}
           fill="none"
-          stroke={cfg?.ring ?? '#ece9f7'}
+          stroke={cfg?.ring ?? 'var(--color-line)'}
           strokeWidth="4.5"
         />
       </svg>
@@ -252,7 +266,7 @@ export default function HistoryResultsTable({
     return (
       <div className="rounded-[18px] border border-line bg-white shadow-sm">
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <div className="flex size-15 items-center justify-center rounded-2xl bg-[#eeebfc] text-[#6356e6]">
+          <div className="flex size-15 items-center justify-center rounded-2xl bg-primary-soft text-primary">
             {hasActiveFilters ? (
               <FunnelIcon className="size-7" />
             ) : (
@@ -353,8 +367,8 @@ export default function HistoryResultsTable({
             const railStyle = toneCfg
               ? toneCfg.rail
               : item.status === 'pending'
-                ? 'linear-gradient(180deg,#9d96ef,#7b72e3)'
-                : 'linear-gradient(180deg,#c5c3d6,#b0adc4)';
+                ? 'var(--color-primary)'
+                : 'var(--color-line-strong)';
 
             let statusBadgeCfg: {
               text: string;
@@ -378,10 +392,10 @@ export default function HistoryResultsTable({
               : (toneCfg?.label ?? VERDICT_LABEL.uncertain);
             const badgeTextColor = statusBadgeCfg
               ? statusBadgeCfg.textColor
-              : (toneCfg?.textColor ?? '#7e7f99');
+              : (toneCfg?.textColor ?? 'var(--color-muted)');
             const badgeBgColor = statusBadgeCfg
               ? statusBadgeCfg.bgColor
-              : (toneCfg?.bgColor ?? '#f4f2fd');
+              : (toneCfg?.bgColor ?? 'var(--color-surface)');
 
             const formattedDate = new Date(item.created_at).toLocaleString(
               'es-ES',
@@ -455,7 +469,7 @@ export default function HistoryResultsTable({
                       )}
                     {item.share_token && (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-[#eeebfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[.03em] text-primary uppercase"
+                        className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[10.5px] font-bold tracking-[.03em] text-primary uppercase"
                         title="Este informe tiene un enlace público activo"
                       >
                         <GlobeIcon className="size-3" />
@@ -549,7 +563,7 @@ export default function HistoryResultsTable({
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex size-9.5 items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
                     isActive
-                      ? 'bg-primary text-white shadow-[0_6px_16px_rgba(99,86,230,.3)]'
+                      ? 'bg-primary text-white shadow-[0_6px_16px_rgba(12,79,82,.3)]'
                       : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
                   }`}
                 >

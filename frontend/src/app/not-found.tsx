@@ -17,11 +17,11 @@ export default function NotFoundPage() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-surface-subtle bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,216,255,0.5),rgba(255,255,255,0.9))]">
+    <div className="relative flex min-h-screen flex-col bg-surface-subtle bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(227,238,237,0.5),rgba(255,255,255,0.9))]">
       <Header />
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-20 text-center">
         <div className="animate-fade-in max-w-md space-y-8">
-          <h1 className="bg-linear-to-b from-primary to-[#1d0029] bg-clip-text text-9xl font-black text-transparent">
+          <h1 className="bg-linear-to-b from-primary to-ink-deep bg-clip-text text-9xl font-black text-transparent">
             404
           </h1>
 

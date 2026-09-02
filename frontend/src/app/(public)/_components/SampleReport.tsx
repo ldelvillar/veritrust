@@ -84,7 +84,7 @@ export default function SampleReport() {
           <div className="mt-6 flex flex-col gap-3.5">
             {highlights.map(li => (
               <div key={li.b} className="flex items-start gap-3.25">
-                <span className="grid size-7.5 shrink-0 place-items-center rounded-[9px] bg-[#def4ea] text-[#0e8e5b]">
+                <span className="grid size-7.5 shrink-0 place-items-center rounded-[9px] bg-verdict-real-soft text-verdict-real-ink">
                   <CheckIcon className="size-4" />
                 </span>
                 <div>
@@ -102,13 +102,13 @@ export default function SampleReport() {
         </div>
 
         <div
-          className={`overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)] ${isVisible ? 'animate-slide-in-right' : 'opacity-0'}`}
+          className={`overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_24px_60px_rgba(18,33,31,0.16)] ${isVisible ? 'animate-slide-in-right' : 'opacity-0'}`}
         >
           <div className="flex items-center gap-1.75 border-b border-line bg-surface-subtle px-4.5 py-3.5">
-            <i className="size-2.75 rounded-full bg-[#f0a8b4]" />
-            <i className="size-2.75 rounded-full bg-[#f3d49a]" />
-            <i className="size-2.75 rounded-full bg-[#a8e0c4]" />
-            <span className="ml-3 rounded-[7px] bg-[#efedfc] px-3 py-1.25 text-xs font-bold text-primary">
+            <i className="size-2.75 rounded-full bg-verdict-fake-soft" />
+            <i className="size-2.75 rounded-full bg-verdict-uncertain-soft" />
+            <i className="size-2.75 rounded-full bg-verdict-real-soft" />
+            <span className="ml-3 rounded-[7px] bg-primary-soft px-3 py-1.25 text-xs font-bold text-primary">
               Informe de credibilidad
             </span>
           </div>

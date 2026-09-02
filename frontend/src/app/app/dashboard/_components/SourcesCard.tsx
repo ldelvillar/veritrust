@@ -1,10 +1,10 @@
 import type { DashboardPayload } from './types';
 
 const SOURCE_META: Record<string, { label: string; color: string }> = {
-  text: { label: 'Texto', color: '#6356e6' },
-  url: { label: 'Enlace', color: '#2c97e8' },
-  file: { label: 'Archivo', color: '#13b877' },
-  pdf: { label: 'Archivo', color: '#13b877' },
+  text: { label: 'Texto', color: 'var(--color-primary)' },
+  url: { label: 'Enlace', color: 'var(--color-accent)' },
+  file: { label: 'Archivo', color: 'var(--color-primary-strong)' },
+  pdf: { label: 'Archivo', color: 'var(--color-primary-strong)' },
 };
 
 export default function SourcesCard({
@@ -18,7 +18,7 @@ export default function SourcesCard({
   );
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
@@ -28,7 +28,7 @@ export default function SourcesCard({
             Reparto por tipo de entrada.
           </p>
         </div>
-        <span className="shrink-0 rounded-full border border-[#e7e3fb] bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
+        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
           {total} análisis
         </span>
       </div>
@@ -38,7 +38,7 @@ export default function SourcesCard({
         {items.map(s => {
           const meta = SOURCE_META[s.source_type] ?? {
             label: s.source_type,
-            color: '#9698b1',
+            color: 'var(--color-faint)',
           };
           return (
             <div
@@ -53,7 +53,7 @@ export default function SourcesCard({
         {items.map(s => {
           const meta = SOURCE_META[s.source_type] ?? {
             label: s.source_type,
-            color: '#9698b1',
+            color: 'var(--color-faint)',
           };
           return (
             <div
@@ -69,7 +69,7 @@ export default function SourcesCard({
               </span>
               <div
                 className="h-2 flex-1 overflow-hidden rounded-full"
-                style={{ background: '#eeedf8' }}
+                style={{ background: 'var(--color-surface)' }}
               >
                 <div
                   className="h-full rounded-full"

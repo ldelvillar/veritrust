@@ -20,7 +20,7 @@ export default function CompactKpiCard({
   hint,
 }: CompactKpiCardProps) {
   return (
-    <article className="flex flex-col gap-2.75 rounded-[20px] border border-line bg-white p-5 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(60,50,140,.16)]">
+    <article className="flex flex-col gap-2.75 rounded-[20px] border border-line bg-white p-5 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(18,33,31,.16)]">
       <div className="flex items-center gap-2.75">
         <div
           className="grid size-9.5 shrink-0 place-items-center rounded-[11px]"

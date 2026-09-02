@@ -84,7 +84,7 @@ export default function ContactoPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* ===================== SUBHEAD ===================== */}
-      <section className="relative overflow-hidden bg-[linear-gradient(165deg,#5a44e8_0%,#432dd7_50%,#3722b8_100%)] pt-16 pb-30 text-center text-white">
+      <section className="relative overflow-hidden bg-primary pt-16 pb-30 text-center text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
@@ -105,9 +105,9 @@ export default function ContactoPage() {
           {channels.map(({ Icon, title, desc, link }) => (
             <div
               key={title}
-              className="group rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)] transition hover:-translate-y-0.75 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]"
+              className="group rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)] transition hover:-translate-y-0.75 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
             >
-              <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-[#efedfc] text-accent">
+              <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-primary-soft text-accent">
                 <Icon className="size-5.75" />
               </div>
               <h3 className="mb-1.75 text-[17px] font-bold text-ink">
@@ -134,7 +134,7 @@ export default function ContactoPage() {
           <ContactForm />
 
           {/* info side */}
-          <div className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_10px_30px_rgba(92,80,200,0.06)]">
+          <div className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]">
             <h3 className="text-[19px] font-bold text-ink">
               Otras formas de encontrarnos
             </h3>
@@ -201,13 +201,13 @@ export default function ContactoPage() {
             <div
               role="img"
               aria-label="Mapa esquemático de la ubicación de la oficina en Madrid"
-              className="relative mt-5.5 h-42.5 overflow-hidden rounded-2xl border border-line bg-[linear-gradient(0deg,rgba(67,45,215,0.06),rgba(67,45,215,0.06)),repeating-linear-gradient(0deg,#eee9fa_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,#eee9fa_0_1px,transparent_1px_34px),#f6f4fd]"
+              className="relative mt-5.5 h-42.5 overflow-hidden rounded-2xl border border-line bg-[linear-gradient(0deg,rgba(12,79,82,0.06),rgba(12,79,82,0.06)),repeating-linear-gradient(0deg,var(--color-line)_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,var(--color-line)_0_1px,transparent_1px_34px),var(--color-surface-subtle)]"
             >
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full text-primary">
                 <svg
                   viewBox="0 0 24 24"
                   fill="currentColor"
-                  className="size-8.5 drop-shadow-[0_6px_10px_rgba(67,45,215,0.35)]"
+                  className="size-8.5 drop-shadow-[0_6px_10px_rgba(12,79,82,0.35)]"
                 >
                   <path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
                 </svg>

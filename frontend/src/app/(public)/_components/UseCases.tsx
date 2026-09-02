@@ -28,10 +28,10 @@ const useCases = [
 
 export default function UseCases() {
   return (
-    <section id="casos" className="bg-ink py-24 text-white max-md:py-18">
+    <section id="casos" className="bg-ink-deep py-24 text-white max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
-          <span className="text-[13px] font-extrabold tracking-[0.12em] text-[#bdb3ff] uppercase">
+          <span className="text-[13px] font-extrabold tracking-[0.12em] text-white/60 uppercase">
             Casos de uso
           </span>
           <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-white md:text-[42px]">
@@ -48,7 +48,7 @@ export default function UseCases() {
               key={uc.title}
               className="rounded-[20px] border border-white/10 bg-white/5 p-8.5 transition hover:border-white/20 hover:bg-white/8"
             >
-              <div className="mb-5 grid size-12.5 place-items-center rounded-[13px] bg-[rgba(124,110,240,0.22)] text-[#bdb3ff]">
+              <div className="mb-5 grid size-12.5 place-items-center rounded-[13px] bg-white/10 text-white/80">
                 <uc.Icon className="size-6" />
               </div>
               <h3 className="mb-3 text-[22px] font-semibold text-white">
@@ -63,7 +63,7 @@ export default function UseCases() {
                     key={item}
                     className="flex items-center gap-2.5 text-sm font-medium text-white/85"
                   >
-                    <CheckIcon className="size-4.25 shrink-0 text-[#8effc8]" />
+                    <CheckIcon className="size-4.25 shrink-0 text-verdict-real" />
                     {item}
                   </li>
                 ))}

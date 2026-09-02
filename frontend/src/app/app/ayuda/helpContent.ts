@@ -8,8 +8,6 @@ export type HelpCategoryIconName =
 
 export interface HelpCategory {
   slug: string;
-  tint: string;
-  color: string;
   title: string;
   desc: string;
   icon: HelpCategoryIconName;
@@ -39,48 +37,36 @@ export interface HelpArticle {
 export const CATEGORIES = [
   {
     slug: 'primeros-pasos',
-    tint: '#eeebfc',
-    color: '#5446dc',
     title: 'Primeros pasos',
     desc: 'Lanza tu primer análisis en menos de un minuto.',
     icon: 'star',
   },
   {
     slug: 'leer-informe',
-    tint: '#e4f1fc',
-    color: '#2c97e8',
     title: 'Cómo leer un informe',
     desc: 'Puntuación, afirmaciones, veredictos y confianza.',
     icon: 'report',
   },
   {
     slug: 'fuentes-metodologia',
-    tint: '#def4ea',
-    color: '#13b877',
     title: 'Fuentes y metodología',
     desc: 'OMS, Cochrane y NIH: cómo verificamos cada dato.',
     icon: 'shield',
   },
   {
     slug: 'cuenta-planes',
-    tint: '#fbefda',
-    color: '#d98e29',
     title: 'Cuenta y planes',
     desc: 'Consumo, facturación y gestión del equipo.',
     icon: 'settings',
   },
   {
     slug: 'privacidad-datos',
-    tint: '#eeebfc',
-    color: '#5446dc',
     title: 'Privacidad y datos',
     desc: 'Cómo tratamos y protegemos tu contenido.',
     icon: 'lock',
   },
   {
     slug: 'solucion-problemas',
-    tint: '#fce4e0',
-    color: '#dc4433',
     title: 'Solución de problemas',
     desc: 'Errores frecuentes y cómo resolverlos.',
     icon: 'warning',

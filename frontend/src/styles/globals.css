@@ -6,23 +6,30 @@
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-instrument), ui-serif, Georgia, serif;
 
-  --color-primary: #432dd7;
-  --color-border: #1f1e1d26;
+  /* Marca: teal profundo */
+  --color-primary: #0c4f52;
+  --color-primary-strong: #073a3e;
+  --color-primary-soft: #e3eeed;
+  --color-primary-soft-strong: #d3e3e2;
+  --color-border: #12211f26;
 
   /* Acento secundario de marca, más claro que primary (eyebrows, nav activa) */
-  --color-accent: #5446dc;
+  --color-accent: #16686b;
 
-  /* Escala neutra de texto (grises con matiz violáceo de marca) */
-  --color-ink: #15162c;
-  --color-body: #33344c;
-  --color-muted: #66677f;
-  --color-faint: #73758f;
+  /* Escala neutra de texto (grises con matiz cálido) */
+  --color-ink: #12211f;
+  --color-body: #2e403d;
+  --color-muted: #556866;
+  --color-faint: #7d8f8c;
 
-  /* Líneas y superficies */
-  --color-line: #e8e6f4;
-  --color-line-strong: #dcd9ee;
-  --color-surface: #f4f2fd;
-  --color-surface-subtle: #faf9fe;
+  /* Líneas y superficies, crema */
+  --color-line: #e4e6e0;
+  --color-line-strong: #d6d9d1;
+  --color-surface: #f4f2ec;
+  --color-surface-subtle: #faf9f5;
+
+  /* Fondo de sección oscura de marca */
+  --color-ink-deep: #0a2b2e;
 
   /* Veredicto: verde (verdadero), ámbar (dudoso), rojo (falso) — sólido, fondo suave y tinta */
   --color-verdict-real: #13b877;
@@ -168,7 +175,7 @@ html {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #eceafa 25%, #f7f5fd 50%, #eceafa 75%);
+  background: linear-gradient(90deg, #e9e7e0 25%, #f6f4ee 50%, #e9e7e0 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -240,7 +247,7 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #180d7a;
+  background: var(--color-surface);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -249,11 +256,11 @@ html {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3722d0;
+  background: var(--color-primary-strong);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: #180bc9;
+  background: var(--color-ink-deep);
 }
 
 ::selection {

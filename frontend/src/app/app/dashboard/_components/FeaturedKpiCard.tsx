@@ -27,7 +27,7 @@ export default function FeaturedKpiCard({
   hint,
 }: FeaturedKpiCardProps) {
   return (
-    <article className="relative flex items-center gap-5 rounded-[20px] border border-line bg-white p-5.5 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(60,50,140,.16)]">
+    <article className="relative flex items-center gap-5 rounded-[20px] border border-line bg-white p-5.5 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(18,33,31,.16)]">
       <div
         className="grid size-11.5 shrink-0 place-items-center rounded-[13px]"
         style={{ background: tint, color }}
@@ -45,8 +45,14 @@ export default function FeaturedKpiCard({
               className="inline-flex items-center gap-1 rounded-full px-2.25 py-1 text-[12px] font-bold"
               style={
                 delta.dir === 'up'
-                  ? { color: '#0e8e5b', background: '#def4ea' }
-                  : { color: '#c23552', background: '#fbe4e8' }
+                  ? {
+                      color: 'var(--color-verdict-real-ink)',
+                      background: 'var(--color-verdict-real-soft)',
+                    }
+                  : {
+                      color: 'var(--color-verdict-fake-ink)',
+                      background: 'var(--color-verdict-fake-soft)',
+                    }
               }
             >
               {delta.dir === 'up' ? (

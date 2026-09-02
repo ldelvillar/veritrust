@@ -20,12 +20,12 @@ const sizes: Record<ButtonSize, string> = {
 };
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-white hover:bg-[#3722b8]',
-  ghost: 'bg-[#efedfc] text-[#3722b8] hover:bg-[#e7e3fb]',
-  light: 'bg-white text-[#3722b8] hover:bg-[#f3f1fc]',
+  primary: 'bg-primary text-white hover:bg-primary-strong',
+  ghost: 'bg-primary-soft text-primary-strong hover:bg-primary-soft-strong',
+  light: 'bg-white text-primary-strong hover:bg-surface-subtle',
   outline:
     'border-[1.5px] border-white/40 text-white hover:border-white hover:bg-white/12',
-  soft: 'bg-white text-body border border-line-strong hover:border-primary hover:text-[#3722b8]',
+  soft: 'bg-white text-body border border-line-strong hover:border-primary hover:text-primary-strong',
   // Variante autónoma: incluye su propia geometría, tipografía y foco, sin base ni size.
   danger:
     'inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-white px-4 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger-soft focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',

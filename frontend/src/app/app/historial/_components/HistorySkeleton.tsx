@@ -13,7 +13,7 @@ export function SkeletonRows({ count = 5 }: { count?: number }) {
           className="relative flex items-center gap-4.5 overflow-hidden rounded-2xl border border-line bg-white py-4.5 pr-5.5 pl-6 shadow-sm"
         >
           <span
-            className="absolute inset-y-0 left-0 w-1 bg-[#e6e3f5]"
+            className="absolute inset-y-0 left-0 w-1 bg-line-strong"
             aria-hidden
           />
           <div className="skeleton size-12.5 shrink-0 rounded-full" />

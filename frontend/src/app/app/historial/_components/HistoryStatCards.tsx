@@ -27,8 +27,8 @@ const STAT_CARDS = [
 const STAT_TONE_STYLES = {
   all: {
     numClass: 'text-primary',
-    barStyle: 'linear-gradient(90deg,#7166ef,#5446dc)',
-    ringColor: '#6356e6',
+    barStyle: 'var(--color-primary)',
+    ringColor: 'var(--color-primary)',
   },
   ok: {
     numClass: 'text-verdict-real-ink',
@@ -89,7 +89,7 @@ export default function HistoryStatCards({
             style={
               isActive
                 ? {
-                    boxShadow: `0 0 0 2px ${styles.ringColor}, 0 1px 2px rgba(20,22,44,.04), 0 10px 30px rgba(92,80,200,.06)`,
+                    boxShadow: `0 0 0 2px ${styles.ringColor}, 0 1px 2px rgba(18,33,31,.05), 0 10px 30px rgba(18,33,31,.06)`,
                   }
                 : undefined
             }

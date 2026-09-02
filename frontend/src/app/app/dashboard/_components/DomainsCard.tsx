@@ -32,7 +32,7 @@ export default function DomainsCard({
   const maxCount = Math.max(1, ...items.map(d => d.total));
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5">
         <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
           Dominios frecuentes
@@ -70,13 +70,13 @@ export default function DomainsCard({
                   </div>
                   <div
                     className="mt-2 h-1.5 overflow-hidden rounded-full"
-                    style={{ background: '#eeedf8' }}
+                    style={{ background: 'var(--color-surface)' }}
                   >
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${(item.total / maxCount) * 100}%`,
-                        background: 'linear-gradient(90deg,#8579f0,#5e50e0)',
+                        background: 'var(--color-primary)',
                       }}
                     />
                   </div>

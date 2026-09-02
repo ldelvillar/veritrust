@@ -90,7 +90,7 @@ export const faqEntries = [
 
 export default function Faq() {
   return (
-    <section id="faq" className="bg-[#eeedf8] py-24 max-md:py-18">
+    <section id="faq" className="bg-surface py-24 max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
@@ -105,7 +105,7 @@ export default function Faq() {
             <details
               key={item.q}
               open={item.open}
-              className="group overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
+              className="group overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]"
             >
               <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5.5 text-[17px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
                 <span className="flex-1">{item.q}</span>

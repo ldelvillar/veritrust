@@ -30,11 +30,11 @@ export default async function AnalisisPage() {
     <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-11 sm:py-14">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(#dcd9ee_1.1px,transparent_1.1px)] mask-[radial-gradient(circle_at_50%_42%,#000_50%,transparent_82%)] bg-size-[22px_22px] opacity-60 [-webkit-mask-image:radial-gradient(circle_at_50%_42%,#000_50%,transparent_82%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(var(--color-line-strong)_1.1px,transparent_1.1px)] mask-[radial-gradient(circle_at_50%_42%,#000_50%,transparent_82%)] bg-size-[22px_22px] opacity-60 [-webkit-mask-image:radial-gradient(circle_at_50%_42%,#000_50%,transparent_82%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(580px_360px_at_50%_40%,rgba(90,68,232,.15),transparent_70%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(580px_360px_at_50%_40%,rgba(12,79,82,.15),transparent_70%)]"
       />
 
       <div className="relative mb-5.5 max-w-150 text-center">

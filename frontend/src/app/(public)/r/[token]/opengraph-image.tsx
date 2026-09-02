@@ -11,8 +11,8 @@ export const contentType = 'image/png';
 type PublicReport =
   paths['/shared/{token}']['get']['responses']['200']['content']['application/json'];
 
-// Degradado de marca para el caso sin informe (token inválido o backend caído).
-const FALLBACK_BAND = 'linear-gradient(135deg,#5a44e8,#432dd7 60%,#3722b8)';
+// Teal de marca literal: next/og renderiza fuera del DOM y no resuelve los tokens CSS.
+const FALLBACK_BAND = '#0c4f52';
 
 export default async function OpengraphImage({
   params,

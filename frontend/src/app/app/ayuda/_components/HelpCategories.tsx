@@ -41,12 +41,9 @@ export default function HelpCategories({
             <a
               key={category.title}
               href={`#${category.slug}`}
-              className="group flex cursor-pointer flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d0cdf0] hover:shadow-md"
+              className="group flex cursor-pointer flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md"
             >
-              <div
-                className="grid size-11 place-items-center rounded-[13px]"
-                style={{ background: category.tint, color: category.color }}
-              >
+              <div className="grid size-11 place-items-center rounded-[13px] bg-primary-soft text-primary">
                 <HelpCategoryIcon name={category.icon} />
               </div>
               <h3 className="text-[15px] font-bold text-ink">
@@ -56,14 +53,14 @@ export default function HelpCategories({
                 {category.desc}
               </p>
               <div className="mt-auto flex items-center justify-between pt-1">
-                <span className="text-[12px] font-bold text-[#b0b1c8]">
+                <span className="text-[12px] font-bold text-muted">
                   {formatArticleCount(count)}
                 </span>
                 <ArrowRightIcon
                   className="transition group-hover:translate-x-0.5 group-hover:stroke-accent"
                   width={17}
                   height={17}
-                  stroke="#b0b1c8"
+                  stroke="var(--color-faint)"
                   strokeWidth={2.1}
                 />
               </div>

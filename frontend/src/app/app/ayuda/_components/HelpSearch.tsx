@@ -121,7 +121,7 @@ export default function HelpSearch({
           event.preventDefault();
           navigateToFirstResult();
         }}
-        className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-[0_14px_34px_rgba(36,24,90,.24)] sm:gap-3 sm:px-4.5"
+        className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-[0_14px_34px_rgba(10,43,46,.24)] sm:gap-3 sm:px-4.5"
       >
         <label htmlFor="help-search" className="sr-only">
           Buscar en el centro de ayuda
@@ -134,7 +134,7 @@ export default function HelpSearch({
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder="Busca en guías, preguntas frecuentes y fuentes..."
-          className="min-w-0 flex-1 py-2.5 text-[14.5px] text-body outline-none placeholder:text-[#b0b1c8]"
+          className="min-w-0 flex-1 py-2.5 text-[14.5px] text-body outline-none placeholder:text-faint"
         />
         {query.length > 0 && (
           <button
@@ -161,7 +161,7 @@ export default function HelpSearch({
       </form>
 
       {trimmedQuery.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-white/70 bg-white text-ink shadow-[0_16px_34px_rgba(36,24,90,.2)]">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-white/70 bg-white text-ink shadow-[0_16px_34px_rgba(10,43,46,.2)]">
           {results.length > 0 ? (
             <div className="max-h-80 overflow-y-auto">
               {results.map(result => (
@@ -169,27 +169,27 @@ export default function HelpSearch({
                   key={`${result.kind}-${result.id}`}
                   href={result.href}
                   onClick={() => setQuery(result.title)}
-                  className="block border-t border-[#eceaf6] px-4 py-3.5 text-left transition first:border-t-0 hover:bg-surface-subtle"
+                  className="block border-t border-line px-4 py-3.5 text-left transition first:border-t-0 hover:bg-surface-subtle"
                 >
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-[7px] bg-[#efedfc] px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-accent uppercase">
+                    <span className="rounded-[7px] bg-primary-soft px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-accent uppercase">
                       {result.kind}
                     </span>
-                    <span className="text-[11.5px] font-bold text-[#8b8ca6]">
+                    <span className="text-[11.5px] font-bold text-muted">
                       {result.category}
                     </span>
                   </div>
                   <div className="text-[14px] leading-snug font-bold text-ink">
                     {result.title}
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-[#6f7090]">
+                  <p className="mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-muted">
                     {result.summary}
                   </p>
                 </a>
               ))}
             </div>
           ) : (
-            <div className="px-4 py-4 text-[13.5px] font-medium text-[#6f7090]">
+            <div className="px-4 py-4 text-[13.5px] font-medium text-muted">
               No hay resultados para «{trimmedQuery}».
             </div>
           )}

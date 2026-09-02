@@ -23,7 +23,7 @@ export default function DangerZoneCard({
   return (
     <section
       aria-labelledby="cuenta-danger-title"
-      className="rounded-2xl border border-danger/30 bg-[linear-gradient(180deg,#fdf5f6,#fff_120px)] p-6 shadow-sm md:p-7"
+      className="rounded-2xl border border-danger/30 bg-[linear-gradient(180deg,var(--color-danger-soft),#fff_120px)] p-6 shadow-sm md:p-7"
     >
       <div className="flex items-start gap-3.5">
         <span

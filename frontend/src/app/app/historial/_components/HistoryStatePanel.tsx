@@ -13,8 +13,7 @@ interface HistoryStatePanelProps {
 }
 
 const ICON_STYLES: Record<Variant, string> = {
-  violet:
-    'bg-[linear-gradient(155deg,#7166ef,#5446dc)] shadow-[0_14px_30px_rgba(99,86,230,.34)]',
+  violet: 'bg-primary shadow-[0_14px_30px_rgba(12,79,82,.34)]',
   red: 'bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] shadow-[0_14px_30px_var(--tw-shadow-color)] shadow-danger-g2/30',
 };
 
@@ -44,7 +43,7 @@ export default function HistoryStatePanel({
   footer,
 }: HistoryStatePanelProps) {
   return (
-    <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-line bg-white px-6 py-16 text-center shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] sm:px-10 sm:py-20">
+    <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-line bg-white px-6 py-16 text-center shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] sm:px-10 sm:py-20">
       <span
         aria-hidden
         className={`pointer-events-none absolute inset-0 ${DOTS_STYLES[variant]} ${DOTS_MASK}`}

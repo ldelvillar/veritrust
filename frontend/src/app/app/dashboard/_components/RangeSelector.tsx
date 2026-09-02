@@ -41,7 +41,7 @@ export default function RangeSelector({
             onClick={() => onChange(range)}
             className={`h-9 rounded-[9px] px-3.5 text-[13px] font-semibold transition focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:outline-none max-sm:flex-1 max-sm:px-2 sm:min-w-10.5 ${
               isActive
-                ? 'bg-white text-primary shadow-[0_1px_2px_rgba(20,22,44,.04),0_4px_14px_rgba(92,80,200,.05)]'
+                ? 'bg-white text-primary shadow-[0_1px_2px_rgba(18,33,31,.05),0_4px_14px_rgba(18,33,31,.04)]'
                 : 'text-muted hover:text-body'
             }`}
           >

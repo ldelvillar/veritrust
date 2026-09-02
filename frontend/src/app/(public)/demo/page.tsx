@@ -68,7 +68,7 @@ export default function DemoPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* ===================== SUBHEAD ===================== */}
-      <section className="relative overflow-hidden bg-[linear-gradient(165deg,#5a44e8_0%,#432dd7_50%,#3722b8_100%)] pt-16 pb-30 text-center text-white">
+      <section className="relative overflow-hidden bg-primary pt-16 pb-30 text-center text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
@@ -85,12 +85,12 @@ export default function DemoPage() {
 
       {/* ===================== FORM CARD ===================== */}
       <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
-        <div className="grid overflow-hidden rounded-3xl border border-line bg-white shadow-[0_24px_60px_rgba(60,50,140,0.18)] md:grid-cols-[1.35fr_0.95fr]">
+        <div className="grid overflow-hidden rounded-3xl border border-line bg-white shadow-[0_24px_60px_rgba(18,33,31,0.16)] md:grid-cols-[1.35fr_0.95fr]">
           <DemoForm />
 
           {/* benefits aside */}
           <aside className="relative order-first overflow-hidden bg-ink px-9.5 py-11 text-white md:order-0">
-            <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(124,110,240,0.4),transparent_62%)]" />
+            <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.14),transparent_62%)]" />
             <div className="relative z-2">
               <h3 className="mb-2 text-[21px] font-bold text-white">
                 Qué verás en la demo
@@ -101,7 +101,7 @@ export default function DemoPage() {
               <ul className="flex flex-col gap-5">
                 {benefits.map(({ Icon, title, desc }) => (
                   <li key={title} className="flex items-start gap-3.5">
-                    <span className="grid size-9.5 shrink-0 place-items-center rounded-[11px] bg-[rgba(124,110,240,0.22)] text-[#bdb3ff]">
+                    <span className="grid size-9.5 shrink-0 place-items-center rounded-[11px] bg-white/10 text-white/80">
                       <Icon className="size-4.75" />
                     </span>
                     <div>
@@ -122,7 +122,7 @@ export default function DemoPage() {
                   informe con fuentes en minutos.»
                 </p>
                 <div className="mt-4 flex items-center gap-2.75">
-                  <span className="grid size-9.5 place-items-center rounded-full bg-[linear-gradient(150deg,#8b7ff2,#6356e6)] text-[14px] font-bold text-white">
+                  <span className="grid size-9.5 place-items-center rounded-full bg-primary text-[14px] font-bold text-white">
                     MR
                   </span>
                   <div>

@@ -43,7 +43,7 @@ export default function Header() {
     <header
       className={`sticky top-0 z-50 w-full border-b bg-white transition-[border-color,box-shadow] duration-200 ${
         scrolled
-          ? 'border-border shadow-[0_4px_20px_rgba(40,30,90,0.05)]'
+          ? 'border-border shadow-[0_4px_20px_rgba(18,33,31,0.05)]'
           : 'border-transparent'
       }`}
     >
@@ -67,7 +67,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-[9px] px-3.5 py-2.5 text-[14.5px] font-semibold text-[#6f7090] transition hover:text-primary"
+              className="rounded-[9px] px-3.5 py-2.5 text-[14.5px] font-semibold text-muted transition hover:text-primary"
             >
               {link.label}
             </Link>

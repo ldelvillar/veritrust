@@ -16,7 +16,10 @@ function alertVerdict(item: DashboardAlertItem): {
 
 const ALERT_STYLES = {
   bad: {
-    card: { background: '#fdf3f5', borderColor: '#f3d2da' },
+    card: {
+      background: 'var(--color-verdict-fake-soft)',
+      borderColor: 'var(--color-verdict-fake-soft)',
+    },
     score:
       'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
     verdict: {
@@ -25,7 +28,10 @@ const ALERT_STYLES = {
     },
   },
   warn: {
-    card: { background: '#fdf8ef', borderColor: '#f1e2c2' },
+    card: {
+      background: 'var(--color-verdict-uncertain-soft)',
+      borderColor: 'var(--color-verdict-uncertain-soft)',
+    },
     score:
       'linear-gradient(150deg,var(--color-verdict-uncertain-g1),var(--color-verdict-uncertain-g2))',
     verdict: {
@@ -49,7 +55,7 @@ export default function AlertsCard({
   total: number;
 }) {
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
@@ -60,7 +66,7 @@ export default function AlertsCard({
           </p>
         </div>
         {total > 0 && (
-          <span className="shrink-0 rounded-full border border-[#e7e3fb] bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
+          <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
             {total} {total === 1 ? 'alerta' : 'alertas'}
           </span>
         )}

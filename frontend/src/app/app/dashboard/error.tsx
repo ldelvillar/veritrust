@@ -25,7 +25,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
         subtitle="Actividad, credibilidad y riesgos detectados en los últimos días."
       />
 
-      <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] max-md:px-6 max-md:py-15">
+      <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] max-md:px-6 max-md:py-15">
         {/* Dot grid background */}
         <div
           className="pointer-events-none absolute inset-0"

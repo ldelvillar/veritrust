@@ -18,7 +18,7 @@ export default function VerdictDistributionCard({
   const safeTotal = total || 1;
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
@@ -28,7 +28,7 @@ export default function VerdictDistributionCard({
             Reparto de tus análisis completados por veracidad.
           </p>
         </div>
-        <span className="shrink-0 rounded-full border border-[#e7e3fb] bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
+        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
           {total} análisis
         </span>
       </div>
@@ -36,7 +36,7 @@ export default function VerdictDistributionCard({
       {/* Segmented bar */}
       <div
         className="mb-5 flex h-3.5 gap-0.5 overflow-hidden rounded-full"
-        style={{ background: '#eeedf8' }}
+        style={{ background: 'var(--color-surface)' }}
       >
         {VERDICT_SEGMENTS.map(v => {
           const count = distribution[v.key];

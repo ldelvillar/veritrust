@@ -122,7 +122,7 @@ function SidebarContent({
                 collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
               } ${
                 active
-                  ? 'bg-[#efedfc] text-accent'
+                  ? 'bg-primary-soft text-accent'
                   : 'text-muted hover:bg-surface hover:text-body'
               }`}
             >

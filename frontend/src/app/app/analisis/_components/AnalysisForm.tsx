@@ -193,13 +193,13 @@ export default function AnalysisForm({
 
   return (
     <form
-      className="relative w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-[#e7e3fb] bg-white shadow-[0_0_0_1px_rgba(67,45,215,.05),0_20px_54px_rgba(83,69,216,.16)]"
+      className="relative w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-primary-soft-strong bg-white shadow-[0_0_0_1px_rgba(12,79,82,.05),0_20px_54px_rgba(12,79,82,.16)]"
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
       {/* Band */}
-      <div className="flex flex-col gap-3 border-b border-[#e7e3fb] bg-[linear-gradient(120deg,#efedfc,#f7f5ff)] px-4 py-3.5 sm:flex-row sm:items-center sm:px-5.5">
-        <span className="text-sm font-extrabold tracking-tight text-[#3722b8]">
+      <div className="flex flex-col gap-3 border-b border-primary-soft-strong bg-primary-soft px-4 py-3.5 sm:flex-row sm:items-center sm:px-5.5">
+        <span className="text-sm font-extrabold tracking-tight text-primary-strong">
           Contenido a verificar
         </span>
         <div
@@ -221,7 +221,7 @@ export default function AnalysisForm({
               onKeyDown={handleTabKeyDown}
               className={`flex flex-1 items-center justify-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${
                 inputMethod === id
-                  ? 'bg-[#efedfc] text-[#3722b8]'
+                  ? 'bg-primary-soft text-primary-strong'
                   : 'text-muted hover:text-body'
               }`}
             >
@@ -248,7 +248,7 @@ export default function AnalysisForm({
               id="analysis-text"
               name="text"
               disabled={isLoading}
-              className="min-h-37.5 w-full resize-y rounded-[14px] border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_#efedfc] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-37.5 w-full resize-y rounded-[14px] border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_var(--color-primary-soft)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
               value={formData.text}
               onChange={handleChange}
@@ -263,7 +263,7 @@ export default function AnalysisForm({
                   onClick={() =>
                     setFormData({ ...formData, text: EXAMPLE_TEXT_1 })
                   }
-                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
                 >
                   Vitamina C y resfriado
                 </button>
@@ -272,7 +272,7 @@ export default function AnalysisForm({
                   onClick={() =>
                     setFormData({ ...formData, text: EXAMPLE_TEXT_2 })
                   }
-                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
                 >
                   Sol y vitamina D
                 </button>
@@ -300,7 +300,7 @@ export default function AnalysisForm({
             <label htmlFor="analysis-url" className="sr-only">
               Introduce la URL del artículo
             </label>
-            <div className="flex overflow-hidden rounded-[14px] border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_#efedfc]">
+            <div className="flex overflow-hidden rounded-[14px] border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
               <span className="flex items-center self-stretch border-r border-line bg-white px-3.5 text-[14px] font-bold text-muted">
                 https://
               </span>
@@ -324,14 +324,14 @@ export default function AnalysisForm({
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
               >
                 20minutos.es
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-[#3722b8]"
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
               >
                 larazon.es
               </button>
@@ -362,7 +362,7 @@ export default function AnalysisForm({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <div className="mb-3 grid size-13 place-items-center rounded-2xl bg-[#efedfc] text-primary">
+                <div className="mb-3 grid size-13 place-items-center rounded-2xl bg-primary-soft text-primary">
                   <UploadIcon className="size-5.5" />
                 </div>
                 {selectedFile ? (

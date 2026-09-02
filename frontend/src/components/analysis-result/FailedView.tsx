@@ -36,7 +36,7 @@ export default function FailedView({
   if (errorCode === 'NO_MEDICAL_CLAIMS') {
     return (
       <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-line bg-white p-10 text-center shadow-sm">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-[#eeebfc] text-primary">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">
           <Magnifier className="size-7" />
         </div>
         <h3 className="text-xl font-bold text-ink">

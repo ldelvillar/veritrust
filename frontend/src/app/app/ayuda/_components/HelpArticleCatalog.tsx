@@ -42,17 +42,14 @@ export default function HelpArticleCatalog({
               className="rounded-[18px] border border-line bg-white p-5.5 shadow-sm"
             >
               <div className="mb-4 flex flex-wrap items-center gap-3">
-                <div
-                  className="grid size-10 place-items-center rounded-xl"
-                  style={{ background: category.tint, color: category.color }}
-                >
+                <div className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary">
                   <HelpCategoryIcon name={category.icon} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-[16px] font-bold text-ink">
                     {category.title}
                   </h3>
-                  <p className="mt-0.5 text-[12.5px] font-semibold text-[#8b8ca6]">
+                  <p className="mt-0.5 text-[12.5px] font-semibold text-muted">
                     {formatArticleCount(categoryArticles.length)}
                   </p>
                 </div>
@@ -63,19 +60,19 @@ export default function HelpArticleCatalog({
                   <article
                     key={article.id}
                     id={article.id}
-                    className="scroll-mt-24 rounded-[14px] border border-[#eceaf6] bg-[#fbfafe] p-4 transition hover:border-[#d0cdf0] hover:bg-white"
+                    className="scroll-mt-24 rounded-[14px] border border-line bg-surface-subtle p-4 transition hover:border-line-strong hover:bg-white"
                   >
                     <h4 className="text-[14px] leading-snug font-bold text-ink">
                       {article.title}
                     </h4>
-                    <p className="mt-2 text-[12.8px] leading-relaxed text-[#6f7090]">
+                    <p className="mt-2 text-[12.8px] leading-relaxed text-muted">
                       {article.summary}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {article.tags.map(tag => (
                         <span
                           key={tag}
-                          className="rounded-[7px] border border-line bg-white px-2.5 py-1 text-[10.5px] font-bold text-[#656682]"
+                          className="rounded-[7px] border border-line bg-white px-2.5 py-1 text-[10.5px] font-bold text-muted"
                         >
                           {tag}
                         </span>

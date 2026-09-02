@@ -45,7 +45,7 @@ export default function AccountSummaryCard({
   return (
     <section
       aria-labelledby="cuenta-resumen-title"
-      className="rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] md:p-7"
+      className="rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] md:p-7"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -92,7 +92,7 @@ export default function AccountSummaryCard({
             ) : (
               <span
                 aria-hidden
-                className="grid size-14 shrink-0 place-items-center rounded-full bg-[linear-gradient(150deg,#7166ef,#5446dc)] text-xl font-bold text-white"
+                className="grid size-14 shrink-0 place-items-center rounded-full bg-primary text-xl font-bold text-white"
               >
                 {initials}
               </span>

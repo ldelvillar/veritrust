@@ -47,7 +47,7 @@ export default function HelpFaq({ items }: { items: FaqItem[] }) {
               }`}
             >
               <div
-                className="px-5.5 pb-5 pl-15.5 text-[13.5px] leading-relaxed text-[#6f7090] [&_b]:font-bold [&_b]:text-body"
+                className="px-5.5 pb-5 pl-15.5 text-[13.5px] leading-relaxed text-muted [&_b]:font-bold [&_b]:text-body"
                 dangerouslySetInnerHTML={{ __html: f.a }}
               />
             </div>

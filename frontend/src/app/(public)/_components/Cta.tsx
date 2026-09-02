@@ -10,8 +10,7 @@ export default function Cta() {
       className="bg-white py-20"
     >
       <div className={container}>
-        <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(150deg,#5a44e8,#432dd7_55%,#3722b8)] px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
-          <div className="pointer-events-none absolute -top-30 -right-25 size-95 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
+        <div className="relative overflow-hidden rounded-[28px] bg-primary px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
           <div className="relative z-2 mx-auto max-w-160">
             <h2
               id="cta-title"

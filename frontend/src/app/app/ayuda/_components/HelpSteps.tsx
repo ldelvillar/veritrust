@@ -25,7 +25,7 @@ export default function HelpSteps({ steps }: HelpStepsProps) {
             key={step.n}
             className="flex flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm"
           >
-            <div className="grid size-8.5 place-items-center rounded-[10px] bg-[#efedfc] text-[15px] font-bold text-accent">
+            <div className="grid size-8.5 place-items-center rounded-[10px] bg-primary-soft text-[15px] font-bold text-accent">
               {step.n}
             </div>
             <h3 className="text-[15px] font-bold text-ink">{step.title}</h3>

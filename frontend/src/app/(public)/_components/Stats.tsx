@@ -9,16 +9,13 @@ const stats = [
 
 export default function Stats() {
   return (
-    <section
-      aria-label="Resultados"
-      className="bg-[#eeedf8] py-24 max-md:py-18"
-    >
+    <section aria-label="Resultados" className="bg-surface py-24 max-md:py-18">
       <div className={container}>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map(stat => (
             <div
               key={stat.l}
-              className="rounded-[18px] border border-line bg-white px-6.5 py-7.5 shadow-[0_1px_2px_rgba(20,22,44,0.04),0_4px_14px_rgba(92,80,200,0.05)]"
+              className="rounded-[18px] border border-line bg-white px-6.5 py-7.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]"
             >
               <b className="block text-[42px] leading-none font-bold tracking-[-0.03em] text-primary">
                 {stat.n}

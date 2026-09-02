@@ -25,12 +25,12 @@ export default function ExportDataCard({
   return (
     <section
       aria-labelledby="cuenta-export-title"
-      className="rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)] md:p-7"
+      className="rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] md:p-7"
     >
       <div className="flex items-start gap-3.5">
         <span
           aria-hidden
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#efedfc] text-primary"
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary"
         >
           <DownloadIcon className="size-5" />
         </span>

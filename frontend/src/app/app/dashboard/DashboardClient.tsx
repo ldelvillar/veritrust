@@ -105,8 +105,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               value={String(dashboard.kpis.total_analyses)}
               sub="en total"
               icon={<ListIcon className="size-5.75" />}
-              tint="#eeebfc"
-              color="#6356e6"
+              tint="var(--color-primary-soft)"
+              color="var(--color-primary)"
               delta={{ dir: delta >= 0 ? 'up' : 'down', value: deltaStr }}
               spark={sparkTotal.length >= 2 ? sparkTotal : undefined}
               hint="Número total de análisis que has completado."
@@ -116,8 +116,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               value={String(dashboard.kpis.active_alerts)}
               sub="veredicto «falso»"
               icon={<WarningIcon className="size-5.75" strokeWidth={2.2} />}
-              tint="#fbe4e8"
-              color="#e0556b"
+              tint="var(--color-verdict-fake-soft)"
+              color="var(--color-verdict-fake-ink)"
               hint="Número total de tus análisis con veredicto «falso» (contenido no fiable)."
             />
           </div>
@@ -133,8 +133,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               value={`${dashboard.kpis.reliable_rate}%`}
               sub="veredicto «verdadero»"
               icon={<ShieldIcon className="size-4.75" strokeWidth={2.1} />}
-              tint="#def4ea"
-              color="#13b877"
+              tint="var(--color-verdict-real-soft)"
+              color="var(--color-verdict-real-ink)"
               hint="Porcentaje de tus análisis con veredicto «verdadero» sobre el total completado."
             />
             <CompactKpiCard
@@ -142,8 +142,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               value={`${dashboard.kpis.average_confidence}%`}
               sub="excluye los dudosos"
               icon={<SparkleIcon className="size-4.75" />}
-              tint="#e4f1fc"
-              color="#2c97e8"
+              tint="var(--color-primary-soft)"
+              color="var(--color-primary)"
               hint="Credibilidad media de tu contenido (0 = falso, 100 = verdadero), sobre los análisis con veredicto verdadero o falso."
             />
             <CompactKpiCard
@@ -151,8 +151,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               value={`${dashboard.kpis.average_evidence_coverage}%`}
               sub="media con literatura"
               icon={<BookIcon className="size-4.75" />}
-              tint="#d9f2ee"
-              color="#0f9e8e"
+              tint="var(--color-primary-soft)"
+              color="var(--color-primary)"
               hint="Porcentaje medio de afirmaciones con literatura biomédica relacionada, sobre tus análisis completados."
             />
           </div>
@@ -164,7 +164,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Trend + Sources row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
-        <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(20,22,44,.04),0_10px_30px_rgba(92,80,200,.06)]">
+        <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
@@ -179,7 +179,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 <span
                   className="size-3.25 rounded-sm"
                   style={{
-                    background: 'linear-gradient(180deg,#8579f0,#5e50e0)',
+                    background: 'var(--color-primary)',
                   }}
                 />
                 Volumen
