@@ -17,13 +17,26 @@ class PromptItem:
 
 
 @dataclass
+class HealthExpertPrompt(PromptItem):
+    """Prompt del experto en salud: el de sistema y las plantillas del mensaje de usuario."""
+
+    user_message: str
+    verdict_certain: str
+    verdict_uncertain: str
+    closing_certain: str
+    closing_uncertain: str
+    evidence_sources: str
+    evidence_missing: str
+
+
+@dataclass
 class Prompts:
     """Contiene los prompts para cada agente."""
 
     extractor: PromptItem
     translator: PromptItem
     judge: PromptItem
-    health_expert: PromptItem
+    health_expert: HealthExpertPrompt
 
 
 def load_prompts() -> Prompts:
@@ -42,5 +55,5 @@ def load_prompts() -> Prompts:
         extractor=PromptItem(**data["extractor"]),
         translator=PromptItem(**data["translator"]),
         judge=PromptItem(**data["judge"]),
-        health_expert=PromptItem(**data["health_expert"]),
+        health_expert=HealthExpertPrompt(**data["health_expert"]),
     )

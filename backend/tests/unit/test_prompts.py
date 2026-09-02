@@ -20,6 +20,19 @@ def test_load_prompts_reads_packaged_yaml_with_all_agents():
         assert item.version.strip()
         assert item.text.strip()
 
+    # El mensaje de usuario del experto también vive en el YAML, no inline en Python.
+    expert = prompts.health_expert
+    for template in (
+        expert.user_message,
+        expert.verdict_certain,
+        expert.verdict_uncertain,
+        expert.closing_certain,
+        expert.closing_uncertain,
+        expert.evidence_sources,
+        expert.evidence_missing,
+    ):
+        assert template.strip()
+
 
 def test_load_prompts_raises_value_error_on_invalid_yaml(tmp_path, monkeypatch):
     bad_yaml = tmp_path / "prompts.yaml"

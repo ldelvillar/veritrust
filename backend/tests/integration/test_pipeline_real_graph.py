@@ -13,7 +13,7 @@ import app.agents.translator as translator_module
 import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.agents.main import create_graph
-from app.prompts.agents import PromptItem, Prompts
+from app.prompts.agents import PromptItem, Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 
 ANALYSIS_ID = "44444444-4444-4444-4444-444444444444"
@@ -25,7 +25,8 @@ def prompts():
         extractor=PromptItem(version="v1", text="extractor"),
         translator=PromptItem(version="v1", text="translator"),
         judge=PromptItem(version="v1", text="judge"),
-        health_expert=PromptItem(version="v1", text="health_expert"),
+        # El experto renderiza las plantillas del YAML, así que aquí va el prompt real.
+        health_expert=load_prompts().health_expert,
     )
 
 
