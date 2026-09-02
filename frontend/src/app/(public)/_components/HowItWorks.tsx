@@ -49,7 +49,7 @@ export default function HowItWorks() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Cómo funciona
           </span>
-          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-ink md:text-[40px]">
+          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-ink md:text-[42px]">
             Agentes especializados, un veredicto fiable
           </h2>
           <p className="text-[17px] leading-relaxed text-muted">

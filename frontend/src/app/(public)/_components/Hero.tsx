@@ -15,13 +15,11 @@ export default function Hero() {
         className={`${container} relative z-2 grid items-center gap-14 md:grid-cols-[1.05fr_0.95fr]`}
       >
         <div>
-          <h1 className="mt-5 mb-5 pr-1 text-[34px] leading-[1.12] font-bold tracking-[-0.03em] text-white sm:text-[42px] md:text-[54px]">
+          <h1 className="mt-5 mb-5 pr-1 font-display text-[36px] leading-[1.08] font-normal tracking-[-0.01em] text-white sm:text-[44px] md:text-[56px]">
             El detector de desinformación en salud{' '}
-            <span className="bg-[linear-gradient(120deg,#c9ffea,#9be8ff)] bg-clip-text pr-1 text-transparent">
-              impulsado por IA
-            </span>
+            <em className="pr-1 italic">impulsado por IA</em>
           </h1>
-          <p className="max-w-140 text-[18.5px] leading-relaxed font-medium text-white/90">
+          <p className="max-w-140 text-[18.5px] leading-relaxed font-normal text-white/90">
             Comprueba la veracidad de cualquier texto médico de forma rigurosa.
             Nuestro sistema analiza cada afirmación y genera un informe
             respaldado por fuentes científicas.

@@ -15,7 +15,7 @@ export default function Cta() {
           <div className="relative z-2 mx-auto max-w-160">
             <h2
               id="cta-title"
-              className="mb-4 text-[40px] font-bold tracking-[-0.02em] text-white max-[560px]:text-[30px]"
+              className="mb-4 font-display text-[42px] font-normal tracking-[-0.005em] text-white max-[560px]:text-[32px]"
             >
               Frena la desinformación médica antes de que se difunda
             </h2>

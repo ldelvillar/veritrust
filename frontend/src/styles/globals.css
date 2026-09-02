@@ -2,6 +2,10 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
+  /* Tipografía: Onest para interfaz y cuerpo, Instrument Serif para titulares grandes */
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument), ui-serif, Georgia, serif;
+
   --color-primary: #432dd7;
   --color-border: #1f1e1d26;
 

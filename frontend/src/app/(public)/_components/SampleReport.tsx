@@ -73,7 +73,7 @@ export default function SampleReport() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
             Un informe real
           </span>
-          <h2 className="my-4 text-[28px] font-bold tracking-[-0.02em] text-ink md:text-[36px]">
+          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-ink md:text-[42px]">
             Mira cómo VeriTrust desmonta un bulo
           </h2>
           <p className="mb-5 text-base leading-relaxed text-muted">

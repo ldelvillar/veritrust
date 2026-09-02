@@ -34,7 +34,7 @@ export default function UseCases() {
           <span className="text-[13px] font-extrabold tracking-[0.12em] text-[#bdb3ff] uppercase">
             Casos de uso
           </span>
-          <h2 className="my-4 text-[32px] font-bold tracking-[-0.02em] text-white md:text-[40px]">
+          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-white md:text-[42px]">
             Hecho para quienes combaten la desinformación
           </h2>
           <p className="text-[17px] leading-relaxed text-white/70">
