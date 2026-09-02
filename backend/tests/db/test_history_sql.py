@@ -10,6 +10,7 @@ from app.db.history import (
     create_pending_file_analysis,
     delete_all_user_analyses,
     delete_user_analysis,
+    export_user_analysis_history,
     fail_analysis,
     fail_stale_pending_analyses,
     get_analysis_file,
@@ -406,6 +407,45 @@ async def test_search_matches_the_file_name(db_pool):
     )
     assert total == 1
     assert rows[0].analysis_id == file_id
+
+
+async def test_export_returns_only_finished_rows_of_the_user(db_pool):
+    """La exportación saca el resultado completo, pero solo de filas propias y terminadas."""
+    done_id = await _pending("La vitamina C previene el resfriado")
+    await complete_analysis(
+        analysis_id=done_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+        claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.9}],
+        sources=[
+            {"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}
+        ],
+        evidence_coverage=0.5,
+    )
+    await _pending("sigue en cola")
+    failed_id = await _pending("terminó mal")
+    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
+    other_id = await create_pending_analysis(
+        user_id="user-b", request=AnalysisRequest(text="De otro usuario")
+    )
+    await complete_analysis(
+        analysis_id=other_id, label="verdadera", confidence=0.7, explanation="Informe."
+    )
+
+    records = await export_user_analysis_history(user_id=USER)
+
+    assert [record.analysis_id for record in records] == [done_id]
+    record = records[0]
+    assert (record.label, record.confidence, record.evidence_coverage) == (
+        "falsa",
+        0.9,
+        0.5,
+    )
+    assert record.claims is not None and record.claims[0].label == "falsa"
+    assert record.sources is not None and record.sources[0].source == "BMJ"
+    # La exportación no selecciona stage: el mapeo lo deja en None.
+    assert record.stage is None
 
 
 async def test_rows_are_isolated_per_user(db_pool):
