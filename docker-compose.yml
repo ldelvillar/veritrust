@@ -122,6 +122,8 @@ services:
     command: ["python", "-m", "app.worker"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
+      LLM_PROVIDER: mistral
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:?MISTRAL_API_KEY must be set in .env}
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_EXTRACTOR_MODEL: llama3.2
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
