@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Show, SignInButton } from '@clerk/nextjs';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import Logo from '@/assets/Logo';
 
 const navLinks = [
@@ -90,7 +90,7 @@ export default function Header() {
               Ir a la app
             </Link>
           </Show>
-          <Button href="/contacto">Contacto</Button>
+          <PublicButton href="/contacto">Contacto</PublicButton>
         </div>
 
         <button
@@ -163,13 +163,13 @@ export default function Header() {
                   Ir a la app
                 </Link>
               </Show>
-              <Button
+              <PublicButton
                 href="/contacto"
                 className="h-11 w-full"
                 onClick={closeMenu}
               >
                 Contacto
-              </Button>
+              </PublicButton>
             </div>
           </div>
         </div>

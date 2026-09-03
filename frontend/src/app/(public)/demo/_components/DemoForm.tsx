@@ -9,7 +9,7 @@ import NewspaperIcon from '@/assets/Newspaper';
 import ShieldIcon from '@/assets/Shield';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import { useContactSubmission } from '@/hooks/useContactSubmission';
 
 type Values = {
@@ -187,12 +187,12 @@ export default function DemoForm() {
             agendar tu demo.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button href="/app/analisis" size="lg">
+            <PublicButton href="/app/analisis" size="lg">
               Mientras tanto, analiza gratis →
-            </Button>
-            <Button href="/" variant="soft" size="lg">
+            </PublicButton>
+            <PublicButton href="/" variant="soft" size="lg">
               Volver al inicio
-            </Button>
+            </PublicButton>
           </div>
         </div>
       </div>
@@ -409,7 +409,7 @@ export default function DemoForm() {
         )}
 
         <div className="mt-7 flex flex-wrap items-center gap-4">
-          <Button type="submit" size="lg" disabled={isLoading}>
+          <PublicButton type="submit" size="lg" disabled={isLoading}>
             {isLoading ? (
               <>
                 <Spinner className="size-5 animate-spin" />
@@ -418,7 +418,7 @@ export default function DemoForm() {
             ) : (
               'Solicitar demo'
             )}
-          </Button>
+          </PublicButton>
           <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
             <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
             Sin compromiso · respondemos en 24&nbsp;h

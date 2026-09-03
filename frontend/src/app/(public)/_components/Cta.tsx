@@ -1,5 +1,5 @@
 import Arrow from '@/assets/Arrow';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import { container } from './container';
 
 export default function Cta() {
@@ -23,12 +23,12 @@ export default function Cta() {
               analizar gratis ahora mismo.
             </p>
             <div className="flex flex-wrap justify-center gap-3.5">
-              <Button href="/demo" variant="light" size="lg">
+              <PublicButton href="/demo" variant="light" size="lg">
                 Solicitar demo
-              </Button>
-              <Button href="/app/analisis" variant="outline" size="lg">
+              </PublicButton>
+              <PublicButton href="/app/analisis" variant="outline" size="lg">
                 Analizar gratis <Arrow className="size-4 rotate-270" />
-              </Button>
+              </PublicButton>
             </div>
           </div>
         </div>

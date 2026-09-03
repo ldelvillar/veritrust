@@ -1,5 +1,5 @@
 import CheckIcon from '@/assets/Check';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import { container } from './container';
 
 const plans = [
@@ -102,13 +102,13 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Button
+              <PublicButton
                 href={plan.cta.href}
                 variant={plan.cta.soft ? 'soft' : 'primary'}
                 className="w-full"
               >
                 {plan.cta.label}
-              </Button>
+              </PublicButton>
             </article>
           ))}
         </div>

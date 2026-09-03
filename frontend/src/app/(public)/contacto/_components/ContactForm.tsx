@@ -6,7 +6,7 @@ import CheckIcon from '@/assets/Check';
 import ShieldIcon from '@/assets/Shield';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import { useContactSubmission } from '@/hooks/useContactSubmission';
 
 type Values = {
@@ -109,9 +109,9 @@ export default function ContactForm() {
             {firstName ? `Gracias, ${firstName}` : 'Gracias por escribirnos'}.
             Nuestro equipo te responderá en menos de 24&nbsp;h laborables.
           </p>
-          <Button href="/" size="lg">
+          <PublicButton href="/" size="lg">
             Volver al inicio
-          </Button>
+          </PublicButton>
         </div>
       ) : (
         <>
@@ -255,7 +255,7 @@ export default function ContactForm() {
             )}
 
             <div className="mt-7 flex flex-wrap items-center gap-4">
-              <Button type="submit" size="lg" disabled={isLoading}>
+              <PublicButton type="submit" size="lg" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Spinner className="size-5 animate-spin" />
@@ -264,7 +264,7 @@ export default function ContactForm() {
                 ) : (
                   'Enviar mensaje'
                 )}
-              </Button>
+              </PublicButton>
               <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
                 <ShieldIcon
                   className="size-3.75 text-faint"

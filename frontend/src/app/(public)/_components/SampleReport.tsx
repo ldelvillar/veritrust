@@ -5,7 +5,7 @@ import Arrow from '@/assets/Arrow';
 import CheckIcon from '@/assets/Check';
 import CrossIcon from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import { container } from './container';
 
 const highlights = [
@@ -95,9 +95,9 @@ export default function SampleReport() {
             ))}
           </div>
           <div className="mt-7.5">
-            <Button href="/ejemplo" size="lg">
+            <PublicButton href="/ejemplo" size="lg">
               Ver análisis completo <Arrow className="size-4 rotate-270" />
-            </Button>
+            </PublicButton>
           </div>
         </div>
 

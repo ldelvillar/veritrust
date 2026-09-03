@@ -10,7 +10,6 @@ export type ButtonVariant =
   | 'danger';
 export type ButtonSize = 'md' | 'lg';
 
-// Fuente única de verdad para los botones del producto: estilo «Plano compacto».
 const base =
   'inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer font-semibold no-underline transition-colors duration-150 [&_svg]:size-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:cursor-not-allowed disabled:opacity-50';
 

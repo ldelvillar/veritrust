@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import DocumentIcon from '@/assets/Document';
 import AnalysisResult from '@/components/AnalysisResult';
-import Button from '@/components/Button';
+import PublicButton from '@/components/PublicButton';
 import type { ReportView } from '@/components/analysis-result/types';
 
 export const metadata: Metadata = {
@@ -108,9 +108,9 @@ export default function EjemploPage() {
           Este es un <b className="font-bold text-ink">informe de ejemplo</b>{' '}
           con datos de muestra para que veas cómo se presenta un análisis.
         </p>
-        <Button href="/app/analisis" className="shrink-0">
+        <PublicButton href="/app/analisis" className="shrink-0">
           Analizar mi contenido
-        </Button>
+        </PublicButton>
       </div>
 
       <AnalysisResult result={SAMPLE_REPORT} isPublic={true} />
