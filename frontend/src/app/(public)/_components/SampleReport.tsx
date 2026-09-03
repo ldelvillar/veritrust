@@ -19,7 +19,7 @@ const highlights = [
   },
   {
     b: 'Fuentes para defenderlo',
-    p: 'Las revisiones de Cochrane y las fichas del NIH respaldan el veredicto.',
+    p: 'Las revisiones de las distintas fuentes científicas respaldan el veredicto.',
   },
 ];
 

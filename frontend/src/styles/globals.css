@@ -61,6 +61,24 @@
   --color-verdict-uncertain-g2: #d98e29;
   --color-verdict-fake-g1: #e2607a;
   --color-verdict-fake-g2: #d23c5d;
+
+  /* Consola oscura de las maquetas de agente en «Cómo funciona»: superficies, hairlines y escala de texto */
+  --color-console-panel: #0d3336;
+  --color-console-label: #bcd3d0;
+  --color-console-tag: #9ec5c2;
+  --color-console-line: #173f42;
+  --color-console-edge: #1d4a4d;
+  --color-console-dim: #5d8a87;
+  --color-console-meta: #7fa8a4;
+  --color-console-text: #dcece9;
+  --color-console-bright: #e4f1ef;
+  --color-console-glow: #eafaf4;
+  --color-console-mint: #bfe9d8;
+
+  /* Veredicto sobre fondo oscuro: aclarado para conservar el contraste en la consola */
+  --color-verdict-real-on-dark: #5fe0a8;
+  --color-verdict-uncertain-on-dark: #f0c479;
+  --color-verdict-fake-on-dark: #f3899b;
 }
 
 /* Exportar informe a PDF vía «Imprimir → Guardar como PDF».
@@ -239,6 +257,30 @@ html {
   .logo-track {
     animation: none;
   }
+}
+
+/* Ciclo de las maquetas de agente: barra de avance y cursor de escritura. */
+@keyframes consoleProgress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.animate-console-progress {
+  animation: consoleProgress linear forwards;
+}
+
+@keyframes caretBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-caret {
+  animation: caretBlink 0.9s steps(1) infinite;
 }
 
 ::-webkit-scrollbar {
