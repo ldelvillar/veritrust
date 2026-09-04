@@ -30,21 +30,6 @@ export default function Hero() {
               Analizar gratis <Arrow className="size-4 rotate-270" />
             </PublicButton>
           </div>
-          <div className="flex flex-wrap items-center gap-x-5.5 gap-y-3">
-            {[
-              { label: '88% de precisión' },
-              { label: '+10.000 análisis' },
-              { label: 'Fuentes citadas' },
-            ].map((item, i) => (
-              <div key={item.label} className="flex items-center gap-x-5.5">
-                {i > 0 && <span className="h-5.5 w-px bg-white/20" />}
-                <span className="flex items-center gap-2 text-sm font-semibold text-white/85">
-                  <CheckIcon className="size-4.5 shrink-0 text-white/70" />
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* product mockup */}
