@@ -7,7 +7,6 @@ import HowItWorks from './_components/HowItWorks';
 import Pricing from './_components/Pricing';
 import SampleReport from './_components/SampleReport';
 import Sources from './_components/Sources';
-import Stats from './_components/Stats';
 import UseCases from './_components/UseCases';
 import { SITE_CONFIG } from '@/config/site';
 
@@ -99,7 +98,6 @@ export default function Home() {
       />
       <Hero />
       <Sources />
-      <Stats />
       <HowItWorks />
       <Features />
       <SampleReport />
