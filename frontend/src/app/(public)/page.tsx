@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
   alternates: { canonical: '/' },
   description:
-    'Detector de noticias falsas de salud con IA. Verifica afirmaciones médicas una a una, con 88% de precisión y fuentes citadas (OMS, Cochrane, NIH).',
+    'Detector de desinformación en salud con IA. Verifica afirmaciones médicas una a una, con 88% de precisión y fuentes científicas citadas.',
   keywords: [
     'detector de noticias falsas de salud',
     'verificar bulos médicos',
