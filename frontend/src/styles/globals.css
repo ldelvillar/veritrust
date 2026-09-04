@@ -151,6 +151,16 @@ html {
   animation: slideInRight 1.2s ease-out forwards;
 }
 
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 34s linear infinite;
+}
+
 @keyframes floaty {
   0%,
   100% {
