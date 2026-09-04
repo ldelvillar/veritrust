@@ -72,8 +72,8 @@ export default function DemoPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
-          <h1 className="mt-5 mb-4 text-[34px] font-bold tracking-[-0.03em] text-white md:text-[44px]">
-            Solicita una demo de VeriTrust
+          <h1 className="mt-5 mb-4 font-display text-[34px] font-normal tracking-[-0.01em] text-white md:text-[46px]">
+            Solicita una <em className="pr-1 italic">demo</em> de VeriTrust
           </h1>
           <p className="mx-auto max-w-150 text-[18px] leading-relaxed text-white/90">
             Te mostramos cómo verificar afirmaciones médicas a escala con el
@@ -85,14 +85,14 @@ export default function DemoPage() {
 
       {/* ===================== FORM CARD ===================== */}
       <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
-        <div className="grid overflow-hidden rounded-3xl border border-line bg-white shadow-[0_24px_60px_rgba(18,33,31,0.16)] md:grid-cols-[1.35fr_0.95fr]">
+        <div className="mb-22 grid overflow-hidden rounded-xs border border-line-strong bg-white shadow-[0_24px_60px_rgba(18,33,31,0.16)] md:grid-cols-[1.35fr_0.95fr]">
           <DemoForm />
 
           {/* benefits aside */}
           <aside className="relative order-first overflow-hidden bg-ink px-9.5 py-11 text-white md:order-0">
             <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.14),transparent_62%)]" />
             <div className="relative z-2">
-              <h3 className="mb-2 text-[21px] font-bold text-white">
+              <h3 className="mb-2 font-display text-[25px] font-normal text-white">
                 Qué verás en la demo
               </h3>
               <p className="mb-7 text-[14.5px] leading-relaxed text-white/70">
@@ -101,7 +101,7 @@ export default function DemoPage() {
               <ul className="flex flex-col gap-5">
                 {benefits.map(({ Icon, title, desc }) => (
                   <li key={title} className="flex items-start gap-3.5">
-                    <span className="grid size-9.5 shrink-0 place-items-center rounded-[11px] bg-white/10 text-white/80">
+                    <span className="grid size-9.5 shrink-0 place-items-center rounded-xs bg-white/10 text-white/80">
                       <Icon className="size-4.75" />
                     </span>
                     <div>
@@ -117,12 +117,12 @@ export default function DemoPage() {
               </ul>
 
               <div className="mt-8 border-t border-white/[0.14] pt-7">
-                <p className="text-[14.5px] leading-relaxed text-white/90 italic">
+                <p className="font-display text-[19px] leading-[1.4] font-normal text-white italic">
                   «Pasamos de tardar una mañana en verificar un bulo a tener un
                   informe con fuentes en minutos.»
                 </p>
                 <div className="mt-4 flex items-center gap-2.75">
-                  <span className="grid size-9.5 place-items-center rounded-full bg-primary text-[14px] font-bold text-white">
+                  <span className="grid size-9.5 place-items-center rounded-xs bg-primary text-[14px] font-bold text-white">
                     MR
                   </span>
                   <div>

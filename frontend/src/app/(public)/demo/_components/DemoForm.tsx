@@ -43,7 +43,7 @@ const equipoOpts = [
 ];
 
 const inputBase =
-  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-soft';
+  'w-full rounded-[2px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
@@ -175,10 +175,10 @@ export default function DemoForm() {
     return (
       <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
-          <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-success-soft text-success-ink">
+          <div className="mb-5.5 grid size-18.5 place-items-center rounded-xs bg-success-soft text-success-ink">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-ink">
+          <h2 className="mb-3 font-display text-[34px] font-normal tracking-[-0.005em] text-ink">
             ¡Solicitud recibida!
           </h2>
           <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
@@ -201,11 +201,11 @@ export default function DemoForm() {
 
   return (
     <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
-      <span className="text-[12.5px] font-extrabold tracking-widest text-accent uppercase">
+      <span className="text-[12.5px] font-extrabold tracking-[0.12em] text-accent uppercase">
         Cuéntanos sobre ti
       </span>
-      <h2 className="mt-2.5 mb-2 text-[26px] font-bold tracking-[-0.02em] text-ink">
-        Reserva tu demo
+      <h2 className="mt-2.5 mb-2 font-display text-[32px] leading-[1.1] font-normal tracking-[-0.005em] text-ink md:text-[34px]">
+        Reserva tu <em className="italic">demo</em>
       </h2>
       <p className="mb-7.5 text-[15px] leading-snug text-muted">
         Un especialista te contactará en menos de 24&nbsp;h laborables para
@@ -301,9 +301,9 @@ export default function DemoForm() {
                       className="sr-only"
                     />
                     <span
-                      className={`inline-flex items-center gap-2 rounded-[11px] border px-3.75 py-2.75 text-[13.5px] font-bold transition ${
+                      className={`inline-flex items-center gap-2 rounded-xs border px-3.75 py-2.75 text-[13.5px] font-semibold transition ${
                         active
-                          ? 'border-primary bg-primary-soft text-accent ring-1 ring-primary'
+                          ? 'border-primary bg-primary-soft text-accent'
                           : 'border-line-strong bg-surface-subtle text-body hover:border-primary hover:text-accent'
                       }`}
                     >
