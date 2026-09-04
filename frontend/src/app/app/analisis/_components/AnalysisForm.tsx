@@ -1,14 +1,14 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
+import ArrowIcon from '@/assets/Arrow';
 import DocumentIcon from '@/assets/Document';
 import GlobeIcon from '@/assets/Globe';
 import Spinner from '@/assets/Spinner';
 import TypeIcon from '@/assets/Type';
 import UploadIcon from '@/assets/Upload';
 import WarningIcon from '@/assets/Warning';
-import Button from '@/components/Button';
 import PdfViewer from '@/components/PdfViewer';
 import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
 import type { components, paths } from '@/types/api';
@@ -59,6 +59,14 @@ export default function AnalysisForm({
   const [formData, setFormData] = useState({ text: '', url: '' });
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(150, Math.max(90, el.scrollHeight))}px`;
+  }, [formData.text, inputMethod]);
 
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
@@ -191,158 +199,115 @@ export default function AnalysisForm({
     document.getElementById(tabId(next))?.focus();
   };
 
-  return (
-    <form
-      className="relative w-full max-w-190 overflow-hidden rounded-[22px] border-2 border-primary-soft-strong bg-white shadow-[0_0_0_1px_rgba(12,79,82,.05),0_20px_54px_rgba(12,79,82,.16)]"
-      onSubmit={handleSubmit}
-      onKeyDown={handleKeyDown}
-    >
-      {/* Band */}
-      <div className="flex flex-col gap-3 border-b border-primary-soft-strong bg-primary-soft px-4 py-3.5 sm:flex-row sm:items-center sm:px-5.5">
-        <span className="text-sm font-extrabold tracking-tight text-primary-strong">
-          Contenido a verificar
-        </span>
-        <div
-          role="tablist"
-          aria-label="Método de entrada del contenido"
-          className="flex gap-0.75 rounded-[11px] border border-line bg-white p-1 sm:ml-auto sm:inline-flex"
-        >
-          {tabs.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              id={tabId(id)}
-              aria-selected={inputMethod === id}
-              aria-controls={panelId}
-              tabIndex={inputMethod === id ? 0 : -1}
-              disabled={isLoading}
-              onClick={() => setInputMethod(id)}
-              onKeyDown={handleTabKeyDown}
-              className={`flex flex-1 items-center justify-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${
-                inputMethod === id
-                  ? 'bg-primary-soft text-primary-strong'
-                  : 'text-muted hover:text-body'
-              }`}
-            >
-              <Icon className="size-3.75" />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
+  const controls = (
+    <>
+      <div
+        role="tablist"
+        aria-label="Método de entrada del contenido"
+        className="absolute bottom-3.5 left-3.5 inline-flex gap-0.75 rounded-[11px] border border-line bg-white p-1 shadow-[0_2px_8px_rgba(12,79,82,.12)]"
+      >
+        {tabs.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={tabId(id)}
+            aria-selected={inputMethod === id}
+            aria-controls={panelId}
+            tabIndex={inputMethod === id ? 0 : -1}
+            disabled={isLoading}
+            onClick={() => setInputMethod(id)}
+            onKeyDown={handleTabKeyDown}
+            className={`flex items-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+              inputMethod === id
+                ? 'bg-primary-soft text-primary-strong'
+                : 'text-muted hover:text-body'
+            }`}
+          >
+            <Icon className="size-3.75" />
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
+      <button
+        type="submit"
+        disabled={isLoading || !canRun}
+        className="absolute right-3.5 bottom-3.5 flex size-10 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isLoading ? (
+          <Spinner className="size-4.5 animate-spin" />
+        ) : (
+          <ArrowIcon
+            className="size-4.5 rotate-180"
+            aria-label="Analizar credibilidad"
+          />
+        )}
+      </button>
+    </>
+  );
 
-      <div className="p-4 sm:p-5.5">
+  return (
+    <>
+      <form
+        className="relative w-full max-w-190"
+        onSubmit={handleSubmit}
+        onKeyDown={handleKeyDown}
+      >
         {/* Texto tab */}
         {inputMethod === 'text' && (
-          <div
-            role="tabpanel"
-            id={panelId}
-            aria-labelledby={tabId('text')}
-            className="flex min-h-50 flex-col justify-center"
-          >
+          <div role="tabpanel" id={panelId} aria-labelledby={tabId('text')}>
             <label htmlFor="analysis-text" className="sr-only">
               Pega el texto o la afirmación a verificar
             </label>
-            <textarea
-              id="analysis-text"
-              name="text"
-              disabled={isLoading}
-              className="min-h-37.5 w-full resize-y rounded-[14px] border border-line-strong bg-surface-subtle p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_var(--color-primary-soft)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
-              value={formData.text}
-              onChange={handleChange}
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[12.5px] font-bold text-faint">
-                  Prueba:
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, text: EXAMPLE_TEXT_1 })
-                  }
-                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-                >
-                  Vitamina C y resfriado
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, text: EXAMPLE_TEXT_2 })
-                  }
-                  className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-                >
-                  Sol y vitamina D
-                </button>
-              </div>
-              <span className="shrink-0 text-[12.5px] font-semibold text-faint">
-                {formData.text.length}
-                {limits && ` / ${limits.max_input_text_length}`} caracteres
-                {limits &&
-                  trimmedTextLength > 0 &&
-                  trimmedTextLength < limits.min_input_text_length &&
-                  ` · mínimo ${limits.min_input_text_length}`}
-              </span>
+            <div className="relative rounded-[14px] border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
+              <textarea
+                id="analysis-text"
+                name="text"
+                ref={textareaRef}
+                disabled={isLoading}
+                className="max-h-37.5 min-h-22.5 w-full resize-none overflow-auto border-0 bg-transparent p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
+                value={formData.text}
+                onChange={handleChange}
+              />
+              {controls}
             </div>
           </div>
         )}
 
         {/* Enlace tab */}
         {inputMethod === 'url' && (
-          <div
-            role="tabpanel"
-            id={panelId}
-            aria-labelledby={tabId('url')}
-            className="flex min-h-50 flex-col justify-center"
-          >
+          <div role="tabpanel" id={panelId} aria-labelledby={tabId('url')}>
             <label htmlFor="analysis-url" className="sr-only">
               Introduce la URL del artículo
             </label>
-            <div className="flex overflow-hidden rounded-[14px] border border-line-strong bg-surface-subtle transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
-              <span className="flex items-center self-stretch border-r border-line bg-white px-3.5 text-[14px] font-bold text-muted">
-                https://
-              </span>
-              <input
-                id="analysis-url"
-                name="url"
-                type="text"
-                disabled={isLoading}
-                className="flex-1 border-none bg-transparent px-4 py-3.5 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="www.medio.es/salud/articulo-a-verificar"
-                value={formData.url}
-                onChange={handleChange}
-                aria-invalid={showUrlHint}
-                aria-describedby={showUrlHint ? urlHintId : undefined}
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-[12.5px] font-bold text-faint">
-                Sugerencias:
-              </span>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-              >
-                20minutos.es
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-              >
-                larazon.es
-              </button>
+            <div className="relative rounded-[14px] border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
+              <div className="flex items-center py-5">
+                <span className="pr-1 pl-4 text-[14px] font-bold text-muted">
+                  https://
+                </span>
+                <input
+                  id="analysis-url"
+                  name="url"
+                  type="text"
+                  disabled={isLoading}
+                  className="flex-1 border-none bg-transparent py-1.5 pr-4 pl-1 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder="www.medio.es/salud/articulo-a-verificar"
+                  value={formData.url}
+                  onChange={handleChange}
+                  aria-invalid={showUrlHint}
+                  aria-describedby={showUrlHint ? urlHintId : undefined}
+                />
+              </div>
               {showUrlHint && (
-                <span
+                <p
                   id={urlHintId}
-                  className="ml-auto text-[12.5px] font-semibold text-faint"
+                  className="px-4 pb-2 text-[12.5px] font-semibold text-faint"
                 >
                   Escribe un dominio completo, p. ej. medio.es
-                </span>
+                </p>
               )}
+              {controls}
             </div>
           </div>
         )}
@@ -350,7 +315,7 @@ export default function AnalysisForm({
         {/* Archivo tab */}
         {inputMethod === 'file' && (
           <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
-            <div className="flex min-h-50 flex-col justify-center">
+            <div className="relative pb-17">
               <label
                 htmlFor="file-upload"
                 className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed py-6 text-center transition-all ${
@@ -405,6 +370,7 @@ export default function AnalysisForm({
                   onChange={handleFileChange}
                 />
               </label>
+              {controls}
             </div>
 
             {selectedFile && isPdfFile(selectedFile) && (
@@ -429,30 +395,49 @@ export default function AnalysisForm({
             <p>{error}</p>
           </div>
         )}
+      </form>
 
-        {/* Footer */}
-        <div className="mt-4.5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <p className="text-[12.5px] leading-normal font-medium text-muted sm:flex-1">
-            El contenido se procesa de forma privada y no se usa para entrenar
-            modelos.
-          </p>
-          <Button
-            type="submit"
-            size="lg"
-            disabled={isLoading || !canRun}
-            className="w-full sm:w-auto sm:shrink-0"
+      {inputMethod === 'text' && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <span className="text-[12.5px] font-bold text-faint">Prueba:</span>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, text: EXAMPLE_TEXT_1 })}
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
-            {isLoading ? (
-              <>
-                <Spinner className="size-5 animate-spin" />
-                <span>Analizando...</span>
-              </>
-            ) : (
-              <span>Analizar credibilidad</span>
-            )}
-          </Button>
+            Vitamina C y resfriado
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, text: EXAMPLE_TEXT_2 })}
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+          >
+            Sol y vitamina D
+          </button>
         </div>
-      </div>
-    </form>
+      )}
+
+      {inputMethod === 'url' && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <span className="text-[12.5px] font-bold text-faint">
+            Sugerencias:
+          </span>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+          >
+            20minutos.es
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+          >
+            larazon.es
+          </button>
+        </div>
+      )}
+    </>
   );
 }

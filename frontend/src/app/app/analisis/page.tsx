@@ -38,16 +38,11 @@ export default async function AnalisisPage() {
       />
 
       <div className="relative mb-5.5 max-w-150 text-center">
-        <p className="mb-2.5 text-xs font-extrabold tracking-[0.13em] text-primary uppercase">
-          Verificación de afirmaciones médicas
-        </p>
-        <h1 className="text-[25px] leading-[1.1] font-extrabold tracking-[-0.03em] text-ink md:text-[30px]">
-          Comprueba una afirmación de salud
+        <h1 className="font-display text-[34px] leading-[1.05] font-normal tracking-[-0.005em] text-ink md:text-[46px]">
+          Antes de compartirlo,
+          <br />
+          <em className="italic">compruébalo</em>.
         </h1>
-        <p className="mt-2.25 text-[15px] leading-normal font-medium text-muted">
-          Pega un texto, un enlace o sube un documento. Lo contrastamos con la
-          literatura médica.
-        </p>
       </div>
 
       <AnalysisForm limits={limits} />
