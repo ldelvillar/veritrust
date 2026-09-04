@@ -1,10 +1,10 @@
 import type { SVGProps } from 'react';
 import CodeIcon from '@/assets/Code';
-import GlobeIcon from '@/assets/Globe';
 import ListIcon from '@/assets/List';
-import ShieldIcon from '@/assets/Shield';
-import TypeIcon from '@/assets/Type';
+import LockIcon from '@/assets/Lock';
+import DocumentIcon from '@/assets/Document';
 import UploadIcon from '@/assets/Upload';
+import UserIcon from '@/assets/User';
 import { container } from './container';
 
 type Feature = {
@@ -15,24 +15,19 @@ type Feature = {
 
 const features: Feature[] = [
   {
-    title: 'Tres vías de entrada',
-    body: 'Analiza texto pegado, enlaces de artículos o documentos (PDF, TXT y MD) desde una sola herramienta.',
-    Icon: TypeIcon,
+    title: 'Fuentes revisadas',
+    body: 'Cada afirmación se contrasta contra fuentes científicas revisadas, nunca contra la web abierta ni la memoria de un modelo.',
+    Icon: DocumentIcon,
   },
   {
-    title: 'Análisis afirmación por afirmación',
-    body: 'No una etiqueta genérica: cada frase verificable recibe su propio veredicto, con explicación y matices.',
+    title: 'Auditable afirmación por afirmación',
+    body: 'Cada fuente queda enlazada a la afirmación concreta que respalda o contradice, para que puedas defender el resultado ante un editor o un comité.',
     Icon: ListIcon,
   },
   {
-    title: 'Fuentes médicas citadas',
-    body: 'Cada veredicto enlaza las referencias usadas —OMS, Cochrane, NIH— para que puedas auditarlo y defenderlo.',
-    Icon: GlobeIcon,
-  },
-  {
-    title: 'Informes exportables',
-    body: 'Descarga el informe completo en PDF para tu fact-check, tu campaña o tu archivo editorial.',
-    Icon: UploadIcon,
+    title: 'Privacidad por diseño',
+    body: 'El contenido se procesa de forma privada y no se usa para entrenar modelos. Acuerdos de tratamientos de datos para instituciones.',
+    Icon: LockIcon,
   },
   {
     title: 'API e integración',
@@ -40,9 +35,14 @@ const features: Feature[] = [
     Icon: CodeIcon,
   },
   {
-    title: 'Privacidad por diseño',
-    body: 'El contenido se procesa de forma privada y no se usa para entrenar modelos. Acuerdos de datos para instituciones.',
-    Icon: ShieldIcon,
+    title: 'Soporte y formación',
+    body: 'Nuestro equipo de soporte y formación te ayuda a sacar el máximo partido a VeriTrust, con sesiones de onboarding y resolución de dudas.',
+    Icon: UserIcon,
+  },
+  {
+    title: 'Informes exportables',
+    body: 'Descarga cada informe en PDF o tu historial completo en CSV para tu fact-check, tu campaña o tu archivo editorial.',
+    Icon: UploadIcon,
   },
 ];
 
