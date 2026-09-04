@@ -30,7 +30,7 @@ const motivos = [
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const inputBase =
-  'w-full rounded-[11px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-soft';
+  'w-full rounded-[2px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
@@ -95,14 +95,14 @@ export default function ContactForm() {
   return (
     <div
       id="formulario"
-      className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
+      className="rounded-xs border border-line-strong bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
     >
       {sent ? (
         <div className="flex flex-col items-center px-5 py-7.5 text-center">
-          <div className="mb-5.5 grid size-18.5 place-items-center rounded-[20px] bg-success-soft text-success-ink">
+          <div className="mb-5.5 grid size-18.5 place-items-center rounded-xs bg-success-soft text-success-ink">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 text-[27px] font-bold tracking-[-0.02em] text-ink">
+          <h2 className="mb-3 font-display text-[34px] font-normal tracking-[-0.005em] text-ink">
             Mensaje enviado
           </h2>
           <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
@@ -115,8 +115,8 @@ export default function ContactForm() {
         </div>
       ) : (
         <>
-          <h3 className="text-[19px] font-bold text-ink">
-            Envíanos un mensaje
+          <h3 className="font-display text-[26px] leading-[1.1] font-normal tracking-[-0.005em] text-ink">
+            Envíanos un <em className="italic">mensaje</em>
           </h3>
           <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
             Rellena el formulario y te responderemos en menos de 24&nbsp;h

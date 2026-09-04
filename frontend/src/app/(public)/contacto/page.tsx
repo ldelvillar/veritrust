@@ -88,7 +88,7 @@ export default function ContactoPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
-          <h1 className="mt-5 mb-4 text-[34px] font-bold tracking-[-0.03em] text-white md:text-[44px]">
+          <h1 className="mt-5 mb-4 font-display text-[34px] font-normal tracking-[-0.01em] text-white md:text-[46px]">
             Hablemos
           </h1>
           <p className="mx-auto max-w-150 text-[18px] leading-relaxed text-white/90">
@@ -105,9 +105,9 @@ export default function ContactoPage() {
           {channels.map(({ Icon, title, desc, link }) => (
             <div
               key={title}
-              className="group rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)] transition hover:-translate-y-0.75 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
+              className="group rounded-xs border border-line-strong bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)] transition hover:-translate-y-0.75 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
             >
-              <div className="mb-4.5 grid size-12 place-items-center rounded-[13px] bg-primary-soft text-accent">
+              <div className="mb-4.5 grid size-12 place-items-center rounded-xs bg-primary-soft text-accent">
                 <Icon className="size-5.75" />
               </div>
               <h3 className="mb-1.75 text-[17px] font-bold text-ink">
@@ -134,8 +134,8 @@ export default function ContactoPage() {
           <ContactForm />
 
           {/* info side */}
-          <div className="rounded-[20px] border border-line bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]">
-            <h3 className="text-[19px] font-bold text-ink">
+          <div className="rounded-xs border border-line-strong bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]">
+            <h3 className="font-display text-[26px] leading-[1.1] font-normal tracking-[-0.005em] text-ink">
               Otras formas de encontrarnos
             </h3>
             <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
@@ -143,7 +143,7 @@ export default function ContactoPage() {
             </p>
 
             <div className="flex items-start gap-3.5 pt-1 pb-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xs bg-surface text-accent">
                 <MailIcon className="size-4.75" />
               </span>
               <div>
@@ -160,7 +160,7 @@ export default function ContactoPage() {
             </div>
 
             <div className="flex items-start gap-3.5 border-t border-line py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xs bg-surface text-accent">
                 <PhoneIcon className="size-4.75" />
               </span>
               <div>
@@ -172,7 +172,7 @@ export default function ContactoPage() {
             </div>
 
             <div className="flex items-start gap-3.5 border-t border-line py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xs bg-surface text-accent">
                 <PinIcon className="size-4.75" />
               </span>
               <div>
@@ -184,7 +184,7 @@ export default function ContactoPage() {
             </div>
 
             <div className="flex items-start gap-3.5 border-t border-line py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[11px] bg-surface text-accent">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xs bg-surface text-accent">
                 <ClockIcon className="size-4.75" />
               </span>
               <div>
@@ -201,7 +201,7 @@ export default function ContactoPage() {
             <div
               role="img"
               aria-label="Mapa esquemático de la ubicación de la oficina en Madrid"
-              className="relative mt-5.5 h-42.5 overflow-hidden rounded-2xl border border-line bg-[linear-gradient(0deg,rgba(12,79,82,0.06),rgba(12,79,82,0.06)),repeating-linear-gradient(0deg,var(--color-line)_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,var(--color-line)_0_1px,transparent_1px_34px),var(--color-surface-subtle)]"
+              className="relative mt-5.5 h-42.5 overflow-hidden rounded-xs border border-line-strong bg-[linear-gradient(0deg,rgba(12,79,82,0.06),rgba(12,79,82,0.06)),repeating-linear-gradient(0deg,var(--color-line)_0_1px,transparent_1px_34px),repeating-linear-gradient(90deg,var(--color-line)_0_1px,transparent_1px_34px),var(--color-surface-subtle)]"
             >
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full text-primary">
                 <svg
