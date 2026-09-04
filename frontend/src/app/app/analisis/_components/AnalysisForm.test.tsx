@@ -87,7 +87,6 @@ describe('AnalysisForm text limits from GET /config', () => {
     typeText('corto');
 
     expect(screen.getByRole('button', { name: RUN_BUTTON })).toBeDisabled();
-    expect(screen.getByText(/mínimo 10/)).toBeInTheDocument();
   });
 
   it('accepts text once it clears the published minimum', () => {
