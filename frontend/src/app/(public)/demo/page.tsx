@@ -72,10 +72,10 @@ export default function DemoPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
-          <h1 className="mt-5 mb-4 font-display text-[34px] font-normal tracking-[-0.01em] text-white md:text-[46px]">
+          <h1 className="mt-5 mb-4 font-display text-display-sm font-normal tracking-[-0.01em] text-white md:text-display-md">
             Solicita una <em className="pr-1 italic">demo</em> de VeriTrust
           </h1>
-          <p className="mx-auto max-w-150 text-[18px] leading-relaxed text-white/90">
+          <p className="mx-auto max-w-150 text-lg leading-relaxed text-white/90">
             Te mostramos cómo verificar afirmaciones médicas a escala con el
             sistema multiagente, adaptado al flujo de tu redacción o
             institución.
@@ -92,10 +92,10 @@ export default function DemoPage() {
           <aside className="relative order-first overflow-hidden bg-ink px-9.5 py-11 text-white md:order-0">
             <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.14),transparent_62%)]" />
             <div className="relative z-2">
-              <h3 className="mb-2 font-display text-[25px] font-normal text-white">
+              <h3 className="mb-2 font-display text-2xl font-normal text-white">
                 Qué verás en la demo
               </h3>
-              <p className="mb-7 text-[14.5px] leading-relaxed text-white/70">
+              <p className="mb-7 text-sm leading-relaxed text-white/70">
                 30 minutos, en directo, con tus propios ejemplos de contenido.
               </p>
               <ul className="flex flex-col gap-5">
@@ -105,10 +105,10 @@ export default function DemoPage() {
                       <Icon className="size-4.75" />
                     </span>
                     <div>
-                      <h4 className="mb-0.75 text-[15px] font-bold text-white">
+                      <h4 className="mb-0.75 text-base font-bold text-white">
                         {title}
                       </h4>
-                      <p className="text-[13px] leading-snug text-white/66">
+                      <p className="text-sm leading-snug text-white/66">
                         {desc}
                       </p>
                     </div>
@@ -117,19 +117,19 @@ export default function DemoPage() {
               </ul>
 
               <div className="mt-8 border-t border-white/[0.14] pt-7">
-                <p className="font-display text-[19px] leading-[1.4] font-normal text-white italic">
+                <p className="font-display text-xl leading-[1.4] font-normal text-white italic">
                   «Pasamos de tardar una mañana en verificar un bulo a tener un
                   informe con fuentes en minutos.»
                 </p>
                 <div className="mt-4 flex items-center gap-2.75">
-                  <span className="grid size-9.5 place-items-center rounded-xs bg-primary text-[14px] font-bold text-white">
+                  <span className="grid size-9.5 place-items-center rounded-xs bg-primary text-sm font-bold text-white">
                     MR
                   </span>
                   <div>
-                    <div className="text-[13.5px] font-bold text-white">
+                    <div className="text-sm font-bold text-white">
                       Marta Ruiz
                     </div>
-                    <div className="text-[12px] text-white/60">
+                    <div className="text-xs text-white/60">
                       Editora de verificación, redacción nacional
                     </div>
                   </div>

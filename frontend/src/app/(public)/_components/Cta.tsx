@@ -10,11 +10,11 @@ export default function Cta() {
       className="bg-white py-20"
     >
       <div className={container}>
-        <div className="relative overflow-hidden rounded-[28px] bg-primary px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
+        <div className="relative overflow-hidden rounded-3xl bg-primary px-14 py-16 text-center text-white max-[560px]:px-6.5 max-[560px]:py-12">
           <div className="relative z-2 mx-auto max-w-160">
             <h2
               id="cta-title"
-              className="mb-4 font-display text-[42px] font-normal tracking-[-0.005em] text-white max-[560px]:text-[32px]"
+              className="mb-4 font-display text-display-md font-normal tracking-[-0.005em] text-white max-[560px]:text-3xl"
             >
               Frena la desinformación médica antes de que se difunda
             </h2>

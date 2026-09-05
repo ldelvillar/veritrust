@@ -31,13 +31,13 @@ export default function UseCases() {
     <section id="casos" className="bg-ink-deep py-24 text-white max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
-          <span className="text-[13px] font-extrabold tracking-[0.12em] text-white/60 uppercase">
+          <span className="text-sm font-extrabold tracking-[0.12em] text-white/60 uppercase">
             Casos de uso
           </span>
-          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-white md:text-[42px]">
+          <h2 className="my-4 font-display text-display-sm font-normal tracking-[-0.005em] text-white md:text-display-md">
             Hecho para quienes combaten la desinformación
           </h2>
-          <p className="text-[17px] leading-relaxed text-white/70">
+          <p className="text-lg leading-relaxed text-white/70">
             Desde redacciones hasta organismos de salud pública, VeriTrust
             acelera la verificación sin renunciar al rigor.
           </p>
@@ -46,15 +46,15 @@ export default function UseCases() {
           {useCases.map(uc => (
             <article
               key={uc.title}
-              className="rounded-[20px] border border-white/10 bg-white/5 p-8.5 transition hover:border-white/20 hover:bg-white/8"
+              className="rounded-2xl border border-white/10 bg-white/5 p-8.5 transition hover:border-white/20 hover:bg-white/8"
             >
-              <div className="mb-5 grid size-12.5 place-items-center rounded-[13px] bg-white/10 text-white/80">
+              <div className="mb-5 grid size-12.5 place-items-center rounded-xl bg-white/10 text-white/80">
                 <uc.Icon className="size-6" />
               </div>
-              <h3 className="mb-3 text-[22px] font-semibold text-white">
+              <h3 className="mb-3 text-2xl font-semibold text-white">
                 {uc.title}
               </h3>
-              <p className="mb-4.5 text-[14.5px] leading-relaxed text-white/70">
+              <p className="mb-4.5 text-sm leading-relaxed text-white/70">
                 {uc.body}
               </p>
               <ul className="flex flex-col gap-2.5">

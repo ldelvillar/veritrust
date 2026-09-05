@@ -93,10 +93,10 @@ export default function Faq() {
     <section id="faq" className="bg-surface py-24 max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
-          <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
+          <span className="text-sm font-extrabold tracking-[0.12em] text-primary uppercase">
             Preguntas frecuentes
           </span>
-          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-ink md:text-[42px]">
+          <h2 className="my-4 font-display text-display-sm font-normal tracking-[-0.005em] text-ink md:text-display-md">
             Todo sobre el detector de noticias falsas de salud
           </h2>
         </div>
@@ -107,13 +107,13 @@ export default function Faq() {
               open={item.open}
               className="group overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)]"
             >
-              <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5.5 text-[17px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5.5 text-lg font-semibold text-ink [&::-webkit-details-marker]:hidden">
                 <span className="flex-1">{item.q}</span>
-                <span className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-surface text-primary transition group-open:rotate-45 group-open:bg-primary group-open:text-white">
+                <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-surface text-primary transition group-open:rotate-45 group-open:bg-primary group-open:text-white">
                   <PlusIcon className="size-3.5" />
                 </span>
               </summary>
-              <div className="px-6 pb-6 text-[14.5px] leading-relaxed text-muted [&_strong]:font-bold [&_strong]:text-body">
+              <div className="px-6 pb-6 text-sm leading-relaxed text-muted [&_strong]:font-bold [&_strong]:text-body">
                 {item.a}
               </div>
             </details>

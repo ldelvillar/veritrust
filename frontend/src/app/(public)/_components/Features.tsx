@@ -51,13 +51,13 @@ export default function Features() {
     <section id="features" className="bg-surface py-24 max-md:py-18">
       <div className={container}>
         <div className="mx-auto mb-14 max-w-170 text-center">
-          <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
+          <span className="text-sm font-extrabold tracking-[0.12em] text-primary uppercase">
             Características
           </span>
-          <h2 className="my-4 font-display text-[34px] font-normal tracking-[-0.005em] text-ink md:text-[42px]">
+          <h2 className="my-4 font-display text-display-sm font-normal tracking-[-0.005em] text-ink md:text-display-md">
             Todo lo que necesitas para verificar con rigor
           </h2>
-          <p className="text-[17px] leading-relaxed text-muted">
+          <p className="text-lg leading-relaxed text-muted">
             Pensado para equipos que no pueden permitirse publicar o difundir un
             bulo médico.
           </p>
@@ -66,15 +66,15 @@ export default function Features() {
           {features.map(feat => (
             <article
               key={feat.title}
-              className="group relative overflow-hidden rounded-[18px] border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)] transition duration-220 ease-in-out hover:-translate-y-1 hover:border-primary-soft hover:shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
+              className="group relative overflow-hidden rounded-2xl border border-line bg-white px-6.5 py-7 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_4px_14px_rgba(18,33,31,0.04)] transition duration-220 ease-in-out hover:-translate-y-1 hover:border-primary-soft hover:shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
             >
-              <div className="relative z-2 mb-4.5 grid size-12.5 place-items-center rounded-[14px] bg-primary-soft text-primary transition duration-220 ease-in-out group-hover:-translate-y-0.5">
+              <div className="relative z-2 mb-4.5 grid size-12.5 place-items-center rounded-xl bg-primary-soft text-primary transition duration-220 ease-in-out group-hover:-translate-y-0.5">
                 <feat.Icon className="size-5.75" />
               </div>
-              <h3 className="relative z-2 mb-2 text-[17px] font-semibold text-ink">
+              <h3 className="relative z-2 mb-2 text-lg font-semibold text-ink">
                 {feat.title}
               </h3>
-              <p className="relative z-2 text-[14px] leading-[1.55] text-muted">
+              <p className="relative z-2 text-sm leading-[1.55] text-muted">
                 {feat.body}
               </p>
             </article>

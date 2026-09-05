@@ -45,11 +45,11 @@ export default function Hero() {
         className={`${container} relative z-2 grid items-center gap-14 md:grid-cols-[1.05fr_0.95fr]`}
       >
         <div>
-          <h1 className="mt-5 mb-5 pr-1 font-display text-[36px] leading-[1.08] font-normal tracking-[-0.01em] text-white sm:text-[44px] md:text-[56px]">
+          <h1 className="mt-5 mb-5 pr-1 font-display text-display-sm font-normal tracking-[-0.01em] text-white sm:text-display-md md:text-display-lg">
             El detector de desinformación en salud{' '}
             <em className="pr-1 italic">impulsado por IA</em>
           </h1>
-          <p className="max-w-140 text-[18.5px] leading-relaxed font-normal text-white/90">
+          <p className="max-w-140 text-lg leading-relaxed font-normal text-white/90">
             Comprueba la veracidad de cualquier texto médico de forma rigurosa.
             Nuestro sistema analiza cada afirmación y genera un informe
             respaldado por fuentes científicas.
@@ -69,7 +69,7 @@ export default function Hero() {
           <div
             role="img"
             aria-label="Captura del informe de credibilidad de VeriTrust mostrando una puntuación de 41 sobre 100 con veredicto Falso"
-            className="transform-[rotate(0.6deg)] overflow-hidden rounded-[20px] bg-white text-body shadow-[0_24px_60px_rgba(18,33,31,0.16)]"
+            className="transform-[rotate(0.6deg)] overflow-hidden rounded-2xl bg-white text-body shadow-[0_24px_60px_rgba(18,33,31,0.16)]"
           >
             <div
               aria-hidden
@@ -78,30 +78,30 @@ export default function Hero() {
               <i className="size-2.75 rounded-full bg-verdict-fake-soft" />
               <i className="size-2.75 rounded-full bg-verdict-uncertain-soft" />
               <i className="size-2.75 rounded-full bg-verdict-real-soft" />
-              <span className="ml-2.5 font-mono text-[11.5px] text-faint">
+              <span className="ml-2.5 font-mono text-2xs text-faint">
                 https://veritrust.es/analizar
               </span>
             </div>
             <div className="px-7 pt-7.5 pb-6.5">
               <div className="flex items-start justify-between gap-5">
                 <div>
-                  <span className="text-[11px] font-extrabold tracking-[0.08em] text-verdict-fake-ink uppercase">
+                  <span className="text-2xs font-extrabold tracking-[0.08em] text-verdict-fake-ink uppercase">
                     Veredicto · Falso
                   </span>
-                  <h4 className="mt-1.5 font-display text-[34px] leading-[1.06] font-normal tracking-[-0.01em] text-ink">
+                  <h4 className="mt-1.5 font-display text-display-sm font-normal tracking-[-0.01em] text-ink">
                     Credibilidad baja
                   </h4>
                 </div>
                 <div className="shrink-0 text-right">
-                  <b className="block font-display text-[52px] leading-[0.85] font-normal text-verdict-fake-ink">
+                  <b className="block font-display text-display-lg leading-[0.85] font-normal text-verdict-fake-ink">
                     41
                   </b>
-                  <small className="font-mono text-[10px] tracking-[0.08em] text-faint">
+                  <small className="font-mono text-2xs tracking-[0.08em] text-faint">
                     / 100
                   </small>
                 </div>
               </div>
-              <p className="mt-3 max-w-[44ch] text-[13px] leading-[1.55] text-muted">
+              <p className="mt-3 max-w-[44ch] text-sm leading-[1.55] text-muted">
                 Mezcla datos ciertos con una conclusión que la evidencia
                 científica no respalda.
               </p>
@@ -112,20 +112,20 @@ export default function Hero() {
                     key={claim.n}
                     className="grid grid-cols-[26px_1fr] gap-3 border-t border-line py-3.25 first:border-t-0"
                   >
-                    <span className="pt-0.5 font-mono text-[11px] text-faint">
+                    <span className="pt-0.5 font-mono text-2xs text-faint">
                       {claim.n}
                     </span>
                     <div>
-                      <p className="text-[13.5px] leading-[1.4] font-medium text-ink">
+                      <p className="text-sm leading-[1.4] font-medium text-ink">
                         {claim.text}
                       </p>
-                      <p className="mt-1.5 flex items-center gap-2 font-mono text-[10px] tracking-[0.06em] uppercase">
+                      <p className="mt-1.5 flex items-center gap-2 font-mono text-2xs tracking-[0.06em] uppercase">
                         <span
                           aria-hidden
                           className={`size-1.5 rounded-full ${dotTone[claim.tone]}`}
                         />
                         <span
-                          className={`mt-1 inline-block text-[10.5px] font-extrabold tracking-[0.04em] ${verdictTone[claim.tone]}`}
+                          className={`mt-1 inline-block text-2xs font-extrabold tracking-[0.04em] ${verdictTone[claim.tone]}`}
                         >
                           {claim.verdict}
                         </span>

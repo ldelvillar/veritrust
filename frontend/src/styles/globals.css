@@ -6,6 +6,18 @@
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-instrument), ui-serif, Georgia, serif;
 
+  /* Tramo micro para etiquetas y badges, por debajo del text-xs de Tailwind */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.35;
+
+  /* Escala de titulares en Instrument Serif, separada de la escala de interfaz */
+  --text-display-sm: 2.125rem;
+  --text-display-sm--line-height: 1.12;
+  --text-display-md: 2.625rem;
+  --text-display-md--line-height: 1.08;
+  --text-display-lg: 3.5rem;
+  --text-display-lg--line-height: 1.06;
+
   /* Marca: teal profundo */
   --color-primary: #0c4f52;
   --color-primary-strong: #073a3e;

@@ -30,7 +30,7 @@ const motivos = [
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const inputBase =
-  'w-full rounded-[2px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
+  'w-full rounded-xs border px-3.5 py-3.25 text-sm text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
@@ -40,8 +40,8 @@ function fieldClass(invalid: boolean) {
   }`;
 }
 
-const labelClass = 'flex items-center gap-1.5 text-[13px] font-bold text-body';
-const errClass = 'text-[12px] font-semibold text-danger-ink';
+const labelClass = 'flex items-center gap-1.5 text-sm font-bold text-body';
+const errClass = 'text-xs font-semibold text-danger-ink';
 const reqMark = <span className="text-primary">*</span>;
 
 export default function ContactForm() {
@@ -102,10 +102,10 @@ export default function ContactForm() {
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-xs bg-success-soft text-success-ink">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 font-display text-[34px] font-normal tracking-[-0.005em] text-ink">
+          <h2 className="mb-3 font-display text-display-sm font-normal tracking-[-0.005em] text-ink">
             Mensaje enviado
           </h2>
-          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
+          <p className="mb-6.5 max-w-107.5 text-base leading-relaxed text-muted">
             {firstName ? `Gracias, ${firstName}` : 'Gracias por escribirnos'}.
             Nuestro equipo te responderá en menos de 24&nbsp;h laborables.
           </p>
@@ -115,10 +115,10 @@ export default function ContactForm() {
         </div>
       ) : (
         <>
-          <h3 className="font-display text-[26px] leading-[1.1] font-normal tracking-[-0.005em] text-ink">
+          <h3 className="font-display text-2xl leading-[1.1] font-normal tracking-[-0.005em] text-ink">
             Envíanos un <em className="italic">mensaje</em>
           </h3>
-          <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
+          <p className="mt-1.5 mb-6 text-sm leading-snug text-muted">
             Rellena el formulario y te responderemos en menos de 24&nbsp;h
             laborables.
           </p>
@@ -224,7 +224,7 @@ export default function ContactForm() {
                   />
                   <label
                     htmlFor="consent"
-                    className="text-[12.5px] leading-snug font-medium text-muted"
+                    className="text-xs leading-snug font-medium text-muted"
                   >
                     Acepto la{' '}
                     <Link
@@ -265,7 +265,7 @@ export default function ContactForm() {
                   'Enviar mensaje'
                 )}
               </PublicButton>
-              <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
+              <span className="flex items-center gap-1.75 text-xs text-muted">
                 <ShieldIcon
                   className="size-3.75 text-faint"
                   strokeWidth={2.1}

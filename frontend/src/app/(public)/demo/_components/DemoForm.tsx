@@ -43,7 +43,7 @@ const equipoOpts = [
 ];
 
 const inputBase =
-  'w-full rounded-[2px] border px-3.5 py-3.25 text-[14.5px] text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
+  'w-full rounded-xs border px-3.5 py-3.25 text-sm text-body transition placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-primary-soft';
 
 function fieldClass(invalid: boolean) {
   return `${inputBase} ${
@@ -53,11 +53,11 @@ function fieldClass(invalid: boolean) {
   }`;
 }
 
-const labelClass = 'flex items-center gap-1.5 text-[13px] font-bold text-body';
-const errClass = 'text-[12px] font-semibold text-danger-ink';
+const labelClass = 'flex items-center gap-1.5 text-sm font-bold text-body';
+const errClass = 'text-xs font-semibold text-danger-ink';
 const reqMark = <span className="text-primary">*</span>;
 const optMark = (
-  <span className="text-[11.5px] font-semibold text-faint">(opcional)</span>
+  <span className="text-2xs font-semibold text-faint">(opcional)</span>
 );
 
 const perfiles = [
@@ -178,10 +178,10 @@ export default function DemoForm() {
           <div className="mb-5.5 grid size-18.5 place-items-center rounded-xs bg-success-soft text-success-ink">
             <CheckIcon className="size-9.5" strokeWidth={2.2} />
           </div>
-          <h2 className="mb-3 font-display text-[34px] font-normal tracking-[-0.005em] text-ink">
+          <h2 className="mb-3 font-display text-display-sm font-normal tracking-[-0.005em] text-ink">
             ¡Solicitud recibida!
           </h2>
-          <p className="mb-6.5 max-w-107.5 text-[15.5px] leading-relaxed text-muted">
+          <p className="mb-6.5 max-w-107.5 text-base leading-relaxed text-muted">
             {firstName ? `Gracias, ${firstName}` : 'Gracias'}. Un especialista
             de VeriTrust te escribirá en menos de 24&nbsp;h laborables para
             agendar tu demo.
@@ -201,13 +201,13 @@ export default function DemoForm() {
 
   return (
     <div className="px-6.5 py-8.5 md:px-11.5 md:py-11">
-      <span className="text-[12.5px] font-extrabold tracking-[0.12em] text-accent uppercase">
+      <span className="text-xs font-extrabold tracking-[0.12em] text-accent uppercase">
         Cuéntanos sobre ti
       </span>
-      <h2 className="mt-2.5 mb-2 font-display text-[32px] leading-[1.1] font-normal tracking-[-0.005em] text-ink md:text-[34px]">
+      <h2 className="mt-2.5 mb-2 font-display text-3xl leading-[1.1] font-normal tracking-[-0.005em] text-ink md:text-display-sm">
         Reserva tu <em className="italic">demo</em>
       </h2>
-      <p className="mb-7.5 text-[15px] leading-snug text-muted">
+      <p className="mb-7.5 text-base leading-snug text-muted">
         Un especialista te contactará en menos de 24&nbsp;h laborables para
         agendar una sesión.
       </p>
@@ -301,7 +301,7 @@ export default function DemoForm() {
                       className="sr-only"
                     />
                     <span
-                      className={`inline-flex items-center gap-2 rounded-xs border px-3.75 py-2.75 text-[13.5px] font-semibold transition ${
+                      className={`inline-flex items-center gap-2 rounded-xs border px-3.75 py-2.75 text-sm font-semibold transition ${
                         active
                           ? 'border-primary bg-primary-soft text-accent'
                           : 'border-line-strong bg-surface-subtle text-body hover:border-primary hover:text-accent'
@@ -377,7 +377,7 @@ export default function DemoForm() {
               />
               <label
                 htmlFor="consent"
-                className="text-[12.5px] leading-snug font-medium text-muted"
+                className="text-xs leading-snug font-medium text-muted"
               >
                 Acepto que VeriTrust trate mis datos para contactarme sobre la
                 demo, de acuerdo con la{' '}
@@ -419,7 +419,7 @@ export default function DemoForm() {
               'Solicitar demo'
             )}
           </PublicButton>
-          <span className="flex items-center gap-1.75 text-[12.5px] text-muted">
+          <span className="flex items-center gap-1.75 text-xs text-muted">
             <ShieldIcon className="size-3.75 text-faint" strokeWidth={2.1} />
             Sin compromiso · respondemos en 24&nbsp;h
           </span>

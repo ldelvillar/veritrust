@@ -48,7 +48,7 @@ export default function Sources() {
       className="border-b border-line bg-white py-9.5"
     >
       <div className={container}>
-        <p className="mb-6 text-center text-[13px] font-bold tracking-[0.08em] text-faint uppercase">
+        <p className="mb-6 text-center text-sm font-bold tracking-[0.08em] text-faint uppercase">
           Contrastado con fuentes médicas de referencia
         </p>
         <div className="logo-marquee flex w-full overflow-hidden">

@@ -16,14 +16,14 @@ const rv = (on: boolean, delay = '') =>
   `transition duration-700 ${EASE} ${delay} ${on ? '' : 'translate-y-6.5 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100'}`;
 
 /** Rótulo de sección dentro de la consola. */
-const DH = 'font-mono text-[10px] tracking-[0.12em] text-console-dim uppercase';
+const DH = 'font-mono text-2xs tracking-[0.12em] text-console-dim uppercase';
 
 /** Metadato monoespaciado bajo cada fila de la consola. */
-const META = 'font-mono text-[9.5px] tracking-[0.04em] text-console-meta';
+const META = 'font-mono text-2xs tracking-[0.04em] text-console-meta';
 
 /** Etiqueta de veredicto sobre fondo oscuro. */
 const PILL =
-  'rounded-full px-2.25 py-1 text-center font-mono text-[9.5px] font-bold tracking-[0.06em] uppercase';
+  'rounded-full px-2.25 py-1 text-center font-mono text-2xs font-bold tracking-[0.06em] uppercase';
 
 /** Aparición de una fila de la consola, desplazándose desde abajo. */
 const enter = (on: boolean) =>
@@ -175,9 +175,9 @@ function Console({
   return (
     <div
       ref={panelRef}
-      className="overflow-hidden rounded-[20px] border border-console-line bg-ink-deep shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
+      className="overflow-hidden rounded-2xl border border-console-line bg-ink-deep shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]"
     >
-      <div className="flex items-center gap-2.25 border-b border-console-line bg-console-panel px-4 py-3.25 text-[11.5px] font-bold tracking-[0.06em] text-console-label uppercase">
+      <div className="flex items-center gap-2.25 border-b border-console-line bg-console-panel px-4 py-3.25 text-2xs font-bold tracking-[0.06em] text-console-label uppercase">
         <span
           aria-hidden="true"
           className="grid size-3.75 shrink-0 place-items-center text-verdict-real"
@@ -185,7 +185,7 @@ function Console({
           {icon}
         </span>
         {agent}
-        <span className="ml-auto rounded-full bg-white/8 px-2.5 py-1 text-[10.5px] tracking-[0.04em] text-console-tag tabular-nums">
+        <span className="ml-auto rounded-full bg-white/8 px-2.5 py-1 text-2xs tracking-[0.04em] text-console-tag tabular-nums">
           {tag}
         </span>
       </div>
@@ -311,7 +311,7 @@ function ExtractorArt() {
           <div className={`${DH} mb-3.5`}>Entrada · texto pegado</div>
           <p
             aria-hidden="true"
-            className="font-mono text-[13.5px] leading-loose tracking-[-0.01em] text-console-dim"
+            className="font-mono text-sm leading-loose tracking-[-0.01em] text-console-dim"
           >
             {extractWords.map((word, i) => (
               <span
@@ -322,8 +322,8 @@ function ExtractorArt() {
                     : !word.claim
                       ? 'text-console-text'
                       : i === head
-                        ? 'rounded-[3px] bg-verdict-real text-ink-deep shadow-[0_0_12px_rgba(19,184,119,0.45)]'
-                        : 'rounded-[3px] bg-verdict-real/16 text-console-glow'
+                        ? 'rounded-xs bg-verdict-real text-ink-deep shadow-[0_0_12px_rgba(19,184,119,0.45)]'
+                        : 'rounded-xs bg-verdict-real/16 text-console-glow'
                 }
               >
                 {word.word}{' '}
@@ -338,13 +338,13 @@ function ExtractorArt() {
           {extractClaims.map((claim, i) => (
             <div
               key={claim.id}
-              className={`rounded-[11px] border border-console-edge bg-console-panel px-3.25 py-2.75 transition-[opacity,transform] duration-450 ${POP} ${found > i ? '' : 'translate-x-6.5 opacity-0'}`}
+              className={`rounded-xl border border-console-edge bg-console-panel px-3.25 py-2.75 transition-[opacity,transform] duration-450 ${POP} ${found > i ? '' : 'translate-x-6.5 opacity-0'}`}
             >
-              <div className="flex justify-between font-mono text-[9.5px] font-bold tracking-[0.08em] text-verdict-real">
+              <div className="flex justify-between font-mono text-2xs font-bold tracking-[0.08em] text-verdict-real">
                 <span>{claim.id}</span>
                 <span>{claim.kind}</span>
               </div>
-              <div className="mt-1.5 text-[12.5px] leading-[1.45] font-medium text-console-bright">
+              <div className="mt-1.5 text-xs leading-[1.45] font-medium text-console-bright">
                 {claim.text}
               </div>
               <div className={`mt-1.75 ${META}`}>{claim.meta}</div>
@@ -397,23 +397,23 @@ function TranslationRow({
   return (
     <div className="grid items-center gap-1.5 border-b border-console-line py-3.25 last:border-b-0 lg:grid-cols-[1fr_26px_1fr] lg:gap-3.5">
       <div
-        className={`font-mono text-[12.5px] transition-colors duration-300 ${started ? 'text-console-text' : 'text-console-dim'}`}
+        className={`font-mono text-xs transition-colors duration-300 ${started ? 'text-console-text' : 'text-console-dim'}`}
       >
         {row.from}
       </div>
       <div
         aria-hidden="true"
-        className={`font-mono text-[13px] transition-colors duration-300 lg:text-center ${started ? 'text-verdict-real' : 'text-console-edge'}`}
+        className={`font-mono text-sm transition-colors duration-300 lg:text-center ${started ? 'text-verdict-real' : 'text-console-edge'}`}
       >
         →
       </div>
       <div>
-        <div className="min-h-4.75 font-mono text-[12.5px] text-console-glow">
+        <div className="min-h-4.75 font-mono text-xs text-console-glow">
           {row.to.slice(0, len)}
           {len < row.to.length && <span aria-hidden="true" className={CARET} />}
         </div>
         <span
-          className={`mt-1.25 block font-mono text-[9.5px] tracking-[0.06em] text-console-meta transition-opacity duration-400 ${done ? 'opacity-100' : 'opacity-0'}`}
+          className={`mt-1.25 block font-mono text-2xs tracking-[0.06em] text-console-meta transition-opacity duration-400 ${done ? 'opacity-100' : 'opacity-0'}`}
         >
           {row.mesh}
         </span>
@@ -448,7 +448,7 @@ function TranslatorArt() {
           />
         ))}
         <div
-          className={`mt-4 font-mono text-[10px] tracking-[0.06em] text-console-meta transition-opacity duration-500 ${done === translations.length ? 'opacity-100' : 'opacity-0'}`}
+          className={`mt-4 font-mono text-2xs tracking-[0.06em] text-console-meta transition-opacity duration-500 ${done === translations.length ? 'opacity-100' : 'opacity-0'}`}
         >
           lenguaje detectado: es · confianza 99.87%
         </div>
@@ -548,7 +548,7 @@ function InvestigatorArt() {
           {databases.map((db, i) => (
             <span
               key={db.name}
-              className={`rounded-full border px-2.75 py-1.25 font-mono text-[10px] tracking-[0.04em] transition duration-350 ${hits > i ? 'border-verdict-real/50 bg-verdict-real/12 text-console-mint' : 'border-console-edge text-console-dim'}`}
+              className={`rounded-full border px-2.75 py-1.25 font-mono text-2xs tracking-[0.04em] transition duration-350 ${hits > i ? 'border-verdict-real/50 bg-verdict-real/12 text-console-mint' : 'border-console-edge text-console-dim'}`}
             >
               {db.name}
               <em
@@ -571,7 +571,7 @@ function InvestigatorArt() {
               key={source.name}
               className={`grid items-center gap-2 border-t border-console-line py-3.5 ${enter(found > i)} lg:grid-cols-[1fr_auto] lg:gap-3.5`}
             >
-              <span className="text-[13px] leading-[1.4] font-medium text-console-bright">
+              <span className="text-sm leading-[1.4] font-medium text-console-bright">
                 {source.name}
                 <span className={`mt-1.25 block font-normal ${META}`}>
                   {source.meta}
@@ -589,7 +589,7 @@ function InvestigatorArt() {
         <div
           className={`mt-4.5 transition-opacity duration-500 ${found === investigateSources.length ? 'opacity-100' : 'opacity-0'}`}
         >
-          <small className="font-mono text-[9.5px] tracking-[0.07em] text-console-meta uppercase">
+          <small className="font-mono text-2xs tracking-[0.07em] text-console-meta uppercase">
             cobertura de evidencia · 3/3 afirmaciones con evidencia científica
           </small>
         </div>
@@ -664,10 +664,10 @@ function HealthExpertArt() {
             key={row.id}
             className={`grid grid-cols-[52px_1fr] items-center gap-x-3 gap-y-2 border-t border-console-line py-3 ${enter(judged > i)} lg:grid-cols-[52px_1fr_92px_82px] lg:gap-y-0`}
           >
-            <span className="col-start-1 row-start-1 font-mono text-[10px] font-bold tracking-[0.06em] text-verdict-real">
+            <span className="col-start-1 row-start-1 font-mono text-2xs font-bold tracking-[0.06em] text-verdict-real">
               {row.id}
             </span>
-            <span className="col-start-2 row-start-1 text-[12.5px] leading-[1.4] text-console-bright">
+            <span className="col-start-2 row-start-1 text-xs leading-[1.4] text-console-bright">
               {row.text}
               <em className={`mt-1 block not-italic ${META}`}>{row.basis}</em>
             </span>
@@ -676,7 +676,7 @@ function HealthExpertArt() {
             >
               {row.verdict}
             </span>
-            <span className="col-start-2 row-start-2 justify-self-end text-right font-mono text-[11px] text-console-mint tabular-nums lg:col-start-4 lg:row-start-1">
+            <span className="col-start-2 row-start-2 justify-self-end text-right font-mono text-2xs text-console-mint tabular-nums lg:col-start-4 lg:row-start-1">
               {row.weight}
             </span>
           </div>
@@ -685,7 +685,7 @@ function HealthExpertArt() {
         <div
           className={`grid items-center gap-3.5 border-t border-console-line pt-4.5 transition-opacity duration-500 lg:grid-cols-[1fr_auto] lg:gap-4.5 ${calc > 0 ? 'opacity-100' : 'opacity-0'}`}
         >
-          <div className="font-mono text-[11px] leading-[1.8] text-console-meta">
+          <div className="font-mono text-2xs leading-[1.8] text-console-meta">
             base <b className="font-medium text-console-text">64</b> ·
             ponderación por gravedad clínica
             <br />
@@ -693,13 +693,13 @@ function HealthExpertArt() {
             <b className="font-medium text-console-text">{EXPERT_SCORE}</b>
           </div>
           <div className="lg:text-right">
-            <div className="font-mono text-[42px] leading-none font-bold tracking-[-0.02em] text-verdict-fake-on-dark tabular-nums">
+            <div className="font-mono text-4xl leading-none font-bold tracking-[-0.02em] text-verdict-fake-on-dark tabular-nums">
               {score}
               <small className="text-sm font-medium text-console-meta">
                 /100
               </small>
             </div>
-            <span className="mt-2 inline-block rounded-full bg-verdict-fake/16 px-2.5 py-1 font-mono text-[9.5px] font-bold tracking-[0.08em] text-verdict-fake-on-dark uppercase">
+            <span className="mt-2 inline-block rounded-full bg-verdict-fake/16 px-2.5 py-1 font-mono text-2xs font-bold tracking-[0.08em] text-verdict-fake-on-dark uppercase">
               falso · credibilidad baja
             </span>
           </div>
@@ -769,18 +769,18 @@ export default function HowItWorks() {
         className={`${container} grid items-start gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:gap-16`}
       >
         <aside className="flex flex-col justify-center pt-15 lg:sticky lg:top-18 lg:h-[calc(100vh-72px)] lg:pt-24 lg:pb-10">
-          <span className="text-[13px] font-extrabold tracking-[0.12em] text-primary uppercase">
+          <span className="text-sm font-extrabold tracking-[0.12em] text-primary uppercase">
             Cómo funciona
           </span>
           <h2
             id="how-title"
-            className="my-4 font-display text-[34px] leading-[1.1] font-normal tracking-[-0.005em] text-ink md:text-[46px]"
+            className="my-4 font-display text-display-sm font-normal tracking-[-0.005em] text-ink md:text-display-md"
           >
             Agentes especializados,
             <br />
             un veredicto fiable
           </h2>
-          <p className="max-w-105 text-[16.5px] leading-[1.65] text-muted">
+          <p className="max-w-105 text-base leading-[1.65] text-muted">
             Cada afirmación pasa por una cadena de especialistas de IA que se
             complementan, y verás exactamente qué aportó cada uno.
           </p>
@@ -794,12 +794,12 @@ export default function HowItWorks() {
                 className={`relative flex items-center gap-3.5 py-2 pl-5.5 before:absolute before:top-1.5 before:bottom-1.5 before:-left-0.5 before:w-0.5 before:origin-top before:rounded-sm before:bg-primary before:transition before:duration-350 before:content-[''] ${active === i ? '' : 'before:scale-y-30 before:opacity-0'}`}
               >
                 <span
-                  className={`grid size-7 shrink-0 place-items-center rounded-full border-[1.5px] text-[11.5px] font-bold transition duration-300 ${active === i ? 'border-primary bg-primary text-white' : 'border-line-strong bg-white text-faint'}`}
+                  className={`grid size-7 shrink-0 place-items-center rounded-full border-[1.5px] text-2xs font-bold transition duration-300 ${active === i ? 'border-primary bg-primary text-white' : 'border-line-strong bg-white text-faint'}`}
                 >
                   {step.n}
                 </span>
                 <span
-                  className={`text-[15px] font-semibold transition-colors duration-300 ${active === i ? 'text-ink' : 'text-faint'}`}
+                  className={`text-base font-semibold transition-colors duration-300 ${active === i ? 'text-ink' : 'text-faint'}`}
                 >
                   {step.title}
                 </span>
@@ -822,7 +822,7 @@ export default function HowItWorks() {
                   <span className="h-[1.5px] w-6.5 bg-primary" />
                   Paso {step.n}
                 </div>
-                <h3 className="text-[27px] font-semibold tracking-[-0.01em] text-ink">
+                <h3 className="text-2xl font-semibold tracking-[-0.01em] text-ink">
                   {step.title}
                 </h3>
               </div>

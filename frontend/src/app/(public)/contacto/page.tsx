@@ -88,10 +88,10 @@ export default function ContactoPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
         <div className="relative z-2 mx-auto max-w-180 px-5">
-          <h1 className="mt-5 mb-4 font-display text-[34px] font-normal tracking-[-0.01em] text-white md:text-[46px]">
+          <h1 className="mt-5 mb-4 font-display text-display-sm font-normal tracking-[-0.01em] text-white md:text-display-md">
             Hablemos
           </h1>
-          <p className="mx-auto max-w-150 text-[18px] leading-relaxed text-white/90">
+          <p className="mx-auto max-w-150 text-lg leading-relaxed text-white/90">
             ¿Tienes una pregunta sobre VeriTrust, una propuesta de alianza o
             necesitas soporte? Elige el canal que mejor encaje o escríbenos
             directamente.
@@ -110,15 +110,11 @@ export default function ContactoPage() {
               <div className="mb-4.5 grid size-12 place-items-center rounded-xs bg-primary-soft text-accent">
                 <Icon className="size-5.75" />
               </div>
-              <h3 className="mb-1.75 text-[17px] font-bold text-ink">
-                {title}
-              </h3>
-              <p className="mb-3.5 text-[13.5px] leading-snug text-muted">
-                {desc}
-              </p>
+              <h3 className="mb-1.75 text-lg font-bold text-ink">{title}</h3>
+              <p className="mb-3.5 text-sm leading-snug text-muted">{desc}</p>
               <a
                 href={link.href}
-                className="inline-flex items-center gap-1.75 text-[14.5px] font-semibold text-accent transition hover:text-primary"
+                className="inline-flex items-center gap-1.75 text-sm font-semibold text-accent transition hover:text-primary"
               >
                 {link.label}
                 <ArrowRightIcon
@@ -135,10 +131,10 @@ export default function ContactoPage() {
 
           {/* info side */}
           <div className="rounded-xs border border-line-strong bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]">
-            <h3 className="font-display text-[26px] leading-[1.1] font-normal tracking-[-0.005em] text-ink">
+            <h3 className="font-display text-2xl leading-[1.1] font-normal tracking-[-0.005em] text-ink">
               Otras formas de encontrarnos
             </h3>
-            <p className="mt-1.5 mb-6 text-[14px] leading-snug text-muted">
+            <p className="mt-1.5 mb-6 text-sm leading-snug text-muted">
               Datos directos del equipo de VeriTrust.
             </p>
 
@@ -147,12 +143,12 @@ export default function ContactoPage() {
                 <MailIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
+                <h4 className="mb-0.5 text-sm font-bold text-ink">
                   Email general
                 </h4>
                 <a
                   href={`mailto:${SITE_CONFIG.email}`}
-                  className="text-[13.5px] font-semibold text-accent hover:underline"
+                  className="text-sm font-semibold text-accent hover:underline"
                 >
                   {SITE_CONFIG.email}
                 </a>
@@ -164,10 +160,8 @@ export default function ContactoPage() {
                 <PhoneIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
-                  Teléfono
-                </h4>
-                <p className="text-[13.5px] text-muted">{SITE_CONFIG.phone}</p>
+                <h4 className="mb-0.5 text-sm font-bold text-ink">Teléfono</h4>
+                <p className="text-sm text-muted">{SITE_CONFIG.phone}</p>
               </div>
             </div>
 
@@ -176,10 +170,8 @@ export default function ContactoPage() {
                 <PinIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
-                  Ubicación
-                </h4>
-                <p className="text-[13.5px] text-muted">Madrid, España.</p>
+                <h4 className="mb-0.5 text-sm font-bold text-ink">Ubicación</h4>
+                <p className="text-sm text-muted">Madrid, España.</p>
               </div>
             </div>
 
@@ -188,10 +180,10 @@ export default function ContactoPage() {
                 <ClockIcon className="size-4.75" />
               </span>
               <div>
-                <h4 className="mb-0.5 text-[14.5px] font-bold text-ink">
+                <h4 className="mb-0.5 text-sm font-bold text-ink">
                   Tiempo de respuesta
                 </h4>
-                <p className="text-[13.5px] text-muted">
+                <p className="text-sm text-muted">
                   Menos de 24&nbsp;h laborables en todos los canales
                 </p>
               </div>
