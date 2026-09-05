@@ -18,17 +18,17 @@ export default function SourcesCard({
   );
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
+    <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
+          <h2 className="text-lg leading-tight font-bold tracking-[-0.015em] text-ink">
             Fuentes
           </h2>
-          <p className="mt-1 text-[13px] leading-snug text-muted">
+          <p className="mt-1 text-sm leading-snug text-muted">
             Reparto por tipo de entrada.
           </p>
         </div>
-        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
+        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-2xs font-bold text-accent">
           {total} análisis
         </span>
       </div>
@@ -64,7 +64,7 @@ export default function SourcesCard({
                 className="size-2.75 shrink-0 rounded-sm"
                 style={{ background: meta.color }}
               />
-              <span className="shrink-0 text-[14px] font-bold text-ink">
+              <span className="shrink-0 text-sm font-bold text-ink">
                 {meta.label}
               </span>
               <div
@@ -79,7 +79,7 @@ export default function SourcesCard({
                   }}
                 />
               </div>
-              <span className="w-7 shrink-0 text-right text-[14px] font-bold text-ink">
+              <span className="w-7 shrink-0 text-right text-sm font-bold text-ink">
                 {s.total}
               </span>
             </div>
@@ -89,10 +89,10 @@ export default function SourcesCard({
 
       {items.length > 0 && (
         <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-          <span className="text-[12.5px] font-semibold text-muted">
+          <span className="text-xs font-semibold text-muted">
             Credibilidad media del periodo
           </span>
-          <span className="text-[13.5px] font-bold text-ink">{wavg}%</span>
+          <span className="text-sm font-bold text-ink">{wavg}%</span>
         </div>
       )}
     </section>

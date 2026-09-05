@@ -18,17 +18,17 @@ export default function VerdictDistributionCard({
   const safeTotal = total || 1;
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
+    <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
+          <h2 className="text-lg leading-tight font-bold tracking-[-0.015em] text-ink">
             Distribución de veredictos
           </h2>
-          <p className="mt-1 text-[13px] leading-snug text-muted">
+          <p className="mt-1 text-sm leading-snug text-muted">
             Reparto de tus análisis completados por veracidad.
           </p>
         </div>
-        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-[11.5px] font-bold text-accent">
+        <span className="shrink-0 rounded-full border border-primary-soft-strong bg-surface px-2.75 py-1.5 text-2xs font-bold text-accent">
           {total} análisis
         </span>
       </div>
@@ -65,17 +65,13 @@ export default function VerdictDistributionCard({
                 <span
                   className={`size-2.75 shrink-0 rounded-sm ${VERDICT_META[v.key].solid}`}
                 />
-                <span className="text-[13px] font-bold text-muted">
-                  {v.label}
-                </span>
+                <span className="text-sm font-bold text-muted">{v.label}</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-[24px] leading-none font-bold tracking-tight text-ink">
+                <span className="text-2xl leading-none font-bold tracking-tight text-ink">
                   {count}
                 </span>
-                <span className="text-[12.5px] font-semibold text-faint">
-                  {pct}%
-                </span>
+                <span className="text-xs font-semibold text-faint">{pct}%</span>
               </div>
             </div>
           );

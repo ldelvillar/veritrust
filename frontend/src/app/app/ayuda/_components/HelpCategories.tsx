@@ -19,13 +19,13 @@ export default function HelpCategories({
   return (
     <>
       <div className="mt-8 mb-2">
-        <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
+        <div className="mb-1 text-2xs font-bold tracking-[0.13em] text-primary uppercase">
           Explora
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
+        <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
           Explora por categoría
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted">
+        <p className="mt-1 text-sm text-muted">
           Seis áreas que cubren todo el ciclo: desde tu primer análisis hasta la
           facturación.
         </p>
@@ -41,19 +41,17 @@ export default function HelpCategories({
             <a
               key={category.title}
               href={`#${category.slug}`}
-              className="group flex cursor-pointer flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md"
+              className="group flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-white p-5.5 shadow-sm transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md"
             >
-              <div className="grid size-11 place-items-center rounded-[13px] bg-primary-soft text-primary">
+              <div className="grid size-11 place-items-center rounded-xl bg-primary-soft text-primary">
                 <HelpCategoryIcon name={category.icon} />
               </div>
-              <h3 className="text-[15px] font-bold text-ink">
-                {category.title}
-              </h3>
-              <p className="text-[13px] leading-relaxed text-muted">
+              <h3 className="text-base font-bold text-ink">{category.title}</h3>
+              <p className="text-sm leading-relaxed text-muted">
                 {category.desc}
               </p>
               <div className="mt-auto flex items-center justify-between pt-1">
-                <span className="text-[12px] font-bold text-muted">
+                <span className="text-xs font-bold text-muted">
                   {formatArticleCount(count)}
                 </span>
                 <ArrowRightIcon

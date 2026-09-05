@@ -8,13 +8,13 @@ export default function HelpSteps({ steps }: HelpStepsProps) {
   return (
     <>
       <div className="mt-10 mb-2">
-        <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
+        <div className="mb-1 text-2xs font-bold tracking-[0.13em] text-primary uppercase">
           Empezar
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
+        <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
           Tu primer análisis en 3 pasos
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted">
+        <p className="mt-1 text-sm text-muted">
           Así trabaja el sistema multiagente con el contenido que le aportas.
         </p>
       </div>
@@ -23,20 +23,18 @@ export default function HelpSteps({ steps }: HelpStepsProps) {
         {steps.map(step => (
           <div
             key={step.n}
-            className="flex flex-col gap-3 rounded-[18px] border border-line bg-white p-5.5 shadow-sm"
+            className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5.5 shadow-sm"
           >
-            <div className="grid size-8.5 place-items-center rounded-[10px] bg-primary-soft text-[15px] font-bold text-accent">
+            <div className="grid size-8.5 place-items-center rounded-lg bg-primary-soft text-base font-bold text-accent">
               {step.n}
             </div>
-            <h3 className="text-[15px] font-bold text-ink">{step.title}</h3>
-            <p className="text-[13px] leading-relaxed text-muted">
-              {step.desc}
-            </p>
+            <h3 className="text-base font-bold text-ink">{step.title}</h3>
+            <p className="text-sm leading-relaxed text-muted">{step.desc}</p>
             <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
               {step.tags.map(tag => (
                 <span
                   key={tag}
-                  className="rounded-[7px] border border-line bg-surface px-2.5 py-1 text-[11px] font-bold text-body"
+                  className="rounded-lg border border-line bg-surface px-2.5 py-1 text-2xs font-bold text-body"
                 >
                   {tag}
                 </span>

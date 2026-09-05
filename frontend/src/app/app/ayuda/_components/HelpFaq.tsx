@@ -14,7 +14,7 @@ export default function HelpFaq({ items }: { items: FaqItem[] }) {
   const [open, setOpen] = useState<number>(0);
 
   return (
-    <div className="overflow-hidden rounded-[18px] border border-line bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
       {items.map((f, i) => {
         const isOpen = open === i;
         return (
@@ -25,10 +25,10 @@ export default function HelpFaq({ items }: { items: FaqItem[] }) {
               aria-expanded={isOpen}
               className="flex w-full items-center gap-3.5 px-5.5 py-4.5 text-left transition-colors hover:bg-surface-subtle"
             >
-              <span className="flex-1 text-[15px] leading-snug font-semibold text-ink">
+              <span className="flex-1 text-base leading-snug font-semibold text-ink">
                 {f.q}
               </span>
-              <span className="shrink-0 rounded-[7px] border border-line bg-surface px-2.5 py-1 text-[10.5px] font-bold tracking-[0.04em] text-muted uppercase">
+              <span className="shrink-0 rounded-lg border border-line bg-surface px-2.5 py-1 text-2xs font-bold tracking-[0.04em] text-muted uppercase">
                 {f.cat}
               </span>
               <span
@@ -47,7 +47,7 @@ export default function HelpFaq({ items }: { items: FaqItem[] }) {
               }`}
             >
               <div
-                className="px-5.5 pb-5 pl-15.5 text-[13.5px] leading-relaxed text-muted [&_b]:font-bold [&_b]:text-body"
+                className="px-5.5 pb-5 pl-15.5 text-sm leading-relaxed text-muted [&_b]:font-bold [&_b]:text-body"
                 dangerouslySetInnerHTML={{ __html: f.a }}
               />
             </div>

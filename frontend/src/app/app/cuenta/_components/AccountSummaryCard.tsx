@@ -98,7 +98,7 @@ export default function AccountSummaryCard({
               </span>
             )}
             <div className="min-w-0">
-              <div className="truncate text-[17px] font-bold tracking-tight text-ink">
+              <div className="truncate text-lg font-bold tracking-tight text-ink">
                 {fullName ?? 'Mi cuenta'}
               </div>
               <div className="truncate text-sm text-muted">{email}</div>
@@ -107,27 +107,27 @@ export default function AccountSummaryCard({
 
           <dl className="mt-6 grid grid-cols-1 gap-3 border-t border-line pt-6 sm:grid-cols-2">
             <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-subtle px-4 py-3.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-white text-accent">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-accent">
                 <CalendarIcon className="size-4.5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <dt className="text-[11px] font-extrabold tracking-[0.08em] text-faint uppercase">
+                <dt className="text-2xs font-extrabold tracking-[0.08em] text-faint uppercase">
                   Miembro desde
                 </dt>
-                <dd className="mt-0.5 text-[15px] font-bold text-body capitalize">
+                <dd className="mt-0.5 text-base font-bold text-body capitalize">
                   {memberSince}
                 </dd>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-subtle px-4 py-3.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-white text-accent">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-accent">
                 <ListIcon className="size-4.5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <dt className="text-[11px] font-extrabold tracking-[0.08em] text-faint uppercase">
+                <dt className="text-2xs font-extrabold tracking-[0.08em] text-faint uppercase">
                   Análisis totales
                 </dt>
-                <dd className="mt-0.5 text-[15px] font-bold text-body">
+                <dd className="mt-0.5 text-base font-bold text-body">
                   {numberFormatter.format(totalCount)}
                 </dd>
               </div>

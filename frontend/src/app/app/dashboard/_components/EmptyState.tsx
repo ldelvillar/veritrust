@@ -43,13 +43,13 @@ export default function EmptyState() {
             <div className="pointer-events-none absolute -inset-3.5 -z-1 rounded-4xl bg-[radial-gradient(circle,rgba(12,79,82,.22),transparent_68%)]" />
           </div>
 
-          <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-accent uppercase">
+          <p className="mb-3.5 text-2xs font-extrabold tracking-[0.14em] text-accent uppercase">
             Sin datos todavía
           </p>
           <h2 className="mb-3 text-[clamp(22px,2.6vw,27px)] leading-tight font-bold tracking-[-0.025em] text-balance text-ink">
             Aún no hay nada que medir
           </h2>
-          <p className="mx-auto mb-7.5 max-w-120 text-[15.5px] leading-relaxed font-medium text-pretty text-muted">
+          <p className="mx-auto mb-7.5 max-w-120 text-base leading-relaxed font-medium text-pretty text-muted">
             Tu dashboard cobra vida con tu primer análisis. A medida que
             verifiques contenido, aquí verás tu volumen, la tasa de fiabilidad y
             las alertas de baja credibilidad.

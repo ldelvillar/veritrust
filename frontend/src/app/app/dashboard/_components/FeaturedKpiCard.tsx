@@ -27,9 +27,9 @@ export default function FeaturedKpiCard({
   hint,
 }: FeaturedKpiCardProps) {
   return (
-    <article className="relative flex items-center gap-5 rounded-[20px] border border-line bg-white p-5.5 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(18,33,31,.16)]">
+    <article className="relative flex items-center gap-5 rounded-2xl border border-line bg-white p-5.5 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(18,33,31,.16)]">
       <div
-        className="grid size-11.5 shrink-0 place-items-center rounded-[13px]"
+        className="grid size-11.5 shrink-0 place-items-center rounded-xl"
         style={{ background: tint, color }}
       >
         {icon}
@@ -37,12 +37,12 @@ export default function FeaturedKpiCard({
 
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-2.5">
-          <span className="text-[11px] leading-tight font-bold tracking-[.09em] text-faint uppercase">
+          <span className="text-2xs leading-tight font-bold tracking-[.09em] text-faint uppercase">
             {label}
           </span>
           {delta && (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2.25 py-1 text-[12px] font-bold"
+              className="inline-flex items-center gap-1 rounded-full px-2.25 py-1 text-xs font-bold"
               style={
                 delta.dir === 'up'
                   ? {
@@ -65,10 +65,10 @@ export default function FeaturedKpiCard({
             </span>
           )}
         </div>
-        <p className="text-[40px] leading-none font-bold tracking-[-0.03em] text-ink">
+        <p className="text-4xl leading-none font-bold tracking-[-0.03em] text-ink">
           {value}
         </p>
-        <p className="mt-1.75 text-[11.5px] font-semibold text-faint">{sub}</p>
+        <p className="mt-1.75 text-2xs font-semibold text-faint">{sub}</p>
       </div>
 
       {spark && <Sparkline data={spark} color={color} />}

@@ -74,7 +74,7 @@ export default function ExportDataCard({
       </div>
 
       {isEmpty ? (
-        <p className="mt-3.5 text-[13px] font-semibold text-muted">
+        <p className="mt-3.5 text-sm font-semibold text-muted">
           Aún no tienes análisis que exportar. Verifica tu primer contenido para
           empezar.
         </p>
@@ -83,7 +83,7 @@ export default function ExportDataCard({
       {errorMessage ? (
         <p
           role="alert"
-          className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-3 text-[13px] font-semibold text-danger-ink"
+          className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-3 text-sm font-semibold text-danger-ink"
         >
           <WarningIcon className="mt-px size-4 shrink-0" aria-hidden />
           {errorMessage}

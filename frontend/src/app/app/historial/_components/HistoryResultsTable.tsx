@@ -175,7 +175,7 @@ function CredibilityGauge({ score, tone }: { score: number; tone: Tone }) {
         />
       </svg>
       <span
-        className="absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums"
+        className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums"
         style={{ color: cfg.textColor }}
       >
         {score}
@@ -210,7 +210,7 @@ function GaugePlaceholder({
         ) : (
           <span
             className={
-              cfg ? 'text-[11px] font-bold' : 'text-[11px] font-bold text-faint'
+              cfg ? 'text-2xs font-bold' : 'text-2xs font-bold text-faint'
             }
             style={cfg ? { color: cfg.textColor } : undefined}
           >
@@ -264,7 +264,7 @@ export default function HistoryResultsTable({
 }: HistoryResultsTableProps) {
   if (!isLoading && !errorMessage && history.length === 0) {
     return (
-      <div className="rounded-[18px] border border-line bg-white shadow-sm">
+      <div className="rounded-2xl border border-line bg-white shadow-sm">
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
           <div className="flex size-15 items-center justify-center rounded-2xl bg-primary-soft text-primary">
             {hasActiveFilters ? (
@@ -308,7 +308,7 @@ export default function HistoryResultsTable({
     <div className="flex flex-col gap-3">
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2.75 text-[13px] font-semibold text-muted">
+          <div className="flex items-center gap-2.75 text-sm font-semibold text-muted">
             <span
               className="size-4.5 shrink-0 animate-spin rounded-full border-[2.5px] border-primary/20 border-t-primary"
               aria-hidden
@@ -339,7 +339,7 @@ export default function HistoryResultsTable({
             )
           }
           footer={
-            <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
+            <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-lg border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
               <span
                 className="size-1.75 shrink-0 rounded-full bg-danger"
                 aria-hidden
@@ -436,7 +436,7 @@ export default function HistoryResultsTable({
                 <div className="min-w-35 flex-1">
                   <div className="mb-1.5 flex flex-wrap items-center gap-2">
                     <span
-                      className="flex size-5.5 shrink-0 items-center justify-center rounded-[7px]"
+                      className="flex size-5.5 shrink-0 items-center justify-center rounded-lg"
                       style={{
                         background: typeMeta.tint,
                         color: typeMeta.color,
@@ -451,7 +451,7 @@ export default function HistoryResultsTable({
                       className="size-0.75 rounded-full bg-faint"
                       aria-hidden
                     />
-                    <span className="text-[12.5px] font-semibold whitespace-nowrap text-faint">
+                    <span className="text-xs font-semibold whitespace-nowrap text-faint">
                       {formattedDate}
                     </span>
                     {item.status === 'done' &&
@@ -461,7 +461,7 @@ export default function HistoryResultsTable({
                             className="size-0.75 rounded-full bg-faint"
                             aria-hidden
                           />
-                          <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold whitespace-nowrap text-muted">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap text-muted">
                             <BookIcon className="size-3.25" />
                             {formatCoverage(item.evidence_coverage)} cobertura
                           </span>
@@ -469,7 +469,7 @@ export default function HistoryResultsTable({
                       )}
                     {item.share_token && (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[10.5px] font-bold tracking-[.03em] text-primary uppercase"
+                        className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-2xs font-bold tracking-[.03em] text-primary uppercase"
                         title="Este informe tiene un enlace público activo"
                       >
                         <GlobeIcon className="size-3" />
@@ -477,15 +477,15 @@ export default function HistoryResultsTable({
                       </span>
                     )}
                   </div>
-                  <p className="text-[15px] font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
+                  <p className="text-base font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
                     {getTitle(item)}
                   </p>
-                  <p className="mt-1 text-[12.5px] font-semibold text-muted sm:truncate">
+                  <p className="mt-1 text-xs font-semibold text-muted sm:truncate">
                     Fuente:{' '}
                     <b className="font-bold text-body">{getSource(item)}</b>
                   </p>
                   {stageLabel && (
-                    <p className="mt-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
                       <Spinner className="size-3 shrink-0 animate-spin" />
                       {stageLabel}
                     </p>
@@ -495,7 +495,7 @@ export default function HistoryResultsTable({
                 {/* Right column */}
                 <div className="flex flex-[1_1_100%] items-center justify-between gap-2.5 border-t border-line pt-3.5 sm:flex-none sm:gap-4.5 sm:border-0 sm:pt-0">
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-[.04em] whitespace-nowrap uppercase"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-2xs font-bold tracking-[.04em] whitespace-nowrap uppercase"
                     style={{ color: badgeTextColor, background: badgeBgColor }}
                   >
                     <span
@@ -508,7 +508,7 @@ export default function HistoryResultsTable({
                   <div className="flex items-center gap-1">
                     <Link
                       href={`/app/analisis/${item.analysis_id}`}
-                      className="inline-flex items-center gap-1.5 rounded-[9px] bg-primary/8 px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-primary transition hover:bg-primary/15 sm:bg-transparent sm:hover:bg-primary/8"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary/8 px-3 py-2 text-sm font-semibold whitespace-nowrap text-primary transition hover:bg-primary/15 sm:bg-transparent sm:hover:bg-primary/8"
                     >
                       {detailLabel}
                       <ArrowRightIcon className="size-3.75 transition-transform group-hover:translate-x-0.5" />
@@ -518,7 +518,7 @@ export default function HistoryResultsTable({
                       onClick={() => onDelete(item)}
                       disabled={isDeleting}
                       aria-label="Eliminar análisis"
-                      className="flex size-8.5 items-center justify-center rounded-[9px] text-faint transition hover:bg-danger-soft hover:text-danger-ink focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex size-8.5 items-center justify-center rounded-lg text-faint transition hover:bg-danger-soft hover:text-danger-ink focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isDeleting ? (
                         <Spinner className="size-4 animate-spin text-danger" />
@@ -537,7 +537,7 @@ export default function HistoryResultsTable({
       {/* Pagination footer */}
       {!isLoading && !errorMessage && (
         <div className="mt-1 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[13px] font-semibold text-muted">
+          <p className="text-sm font-semibold text-muted">
             {`Mostrando ${startRecord}–${endRecord} de ${totalCount} registros`}
           </p>
 
@@ -547,7 +547,7 @@ export default function HistoryResultsTable({
               onClick={() => onPageChange(safePage - 1)}
               disabled={paginationDisabled || safePage === 1}
               aria-label="Página anterior"
-              className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex size-9.5 items-center justify-center rounded-lg border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
             >
               ‹
             </button>
@@ -561,7 +561,7 @@ export default function HistoryResultsTable({
                   onClick={() => onPageChange(page)}
                   disabled={paginationDisabled}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`flex size-9.5 items-center justify-center rounded-[10px] text-[13.5px] font-bold transition ${
+                  className={`flex size-9.5 items-center justify-center rounded-lg text-sm font-bold transition ${
                     isActive
                       ? 'bg-primary text-white shadow-[0_6px_16px_rgba(12,79,82,.3)]'
                       : 'border border-line-strong bg-white text-muted hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45'
@@ -577,7 +577,7 @@ export default function HistoryResultsTable({
               onClick={() => onPageChange(safePage + 1)}
               disabled={paginationDisabled || safePage === totalPages}
               aria-label="Página siguiente"
-              className="flex size-9.5 items-center justify-center rounded-[10px] border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex size-9.5 items-center justify-center rounded-lg border border-line-strong bg-white text-sm font-bold text-muted transition hover:enabled:border-primary hover:enabled:text-primary disabled:cursor-not-allowed disabled:opacity-45"
             >
               ›
             </button>

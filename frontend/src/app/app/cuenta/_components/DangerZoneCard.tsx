@@ -51,7 +51,7 @@ export default function DangerZoneCard({
         {justDeleted ? (
           <p
             role="status"
-            className="mb-4 flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-[13px] font-semibold text-success-ink"
+            className="mb-4 flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-sm font-semibold text-success-ink"
           >
             <CheckIcon className="mt-px size-4 shrink-0" aria-hidden />
             Se han eliminado {numberFormatter.format(deletedCount)} análisis. Tu
@@ -79,7 +79,7 @@ export default function DangerZoneCard({
             <TrashIcon className="size-4" aria-hidden />
             Eliminar toda mi actividad
             {!isEmpty ? (
-              <span className="ml-0.5 rounded-full bg-white/20 px-2 py-px text-[11.5px] font-extrabold">
+              <span className="ml-0.5 rounded-full bg-white/20 px-2 py-px text-2xs font-extrabold">
                 {numberFormatter.format(totalCount)}
               </span>
             ) : null}

@@ -83,7 +83,7 @@ export default function HistoryStatCards({
             type="button"
             onClick={() => onSelect(card.verdictValue)}
             aria-pressed={isActive}
-            className={`relative overflow-hidden rounded-[18px] border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+            className={`relative overflow-hidden rounded-2xl border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
               isActive ? 'border-transparent' : 'border-line'
             }`}
             style={
@@ -99,7 +99,7 @@ export default function HistoryStatCards({
             >
               {count}
             </div>
-            <div className="mt-2 text-[12.5px] font-bold text-muted">
+            <div className="mt-2 text-xs font-bold text-muted">
               {card.label}
             </div>
             <span

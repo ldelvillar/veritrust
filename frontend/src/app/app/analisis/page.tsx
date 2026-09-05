@@ -38,7 +38,7 @@ export default async function AnalisisPage() {
       />
 
       <div className="relative mb-5.5 max-w-150 text-center">
-        <h1 className="font-display text-[34px] leading-[1.05] font-normal tracking-[-0.005em] text-ink md:text-[46px]">
+        <h1 className="font-display text-display-sm font-normal tracking-[-0.005em] text-ink md:text-display-md">
           Antes de compartirlo,
           <br />
           <em className="italic">compruébalo</em>.

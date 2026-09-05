@@ -88,7 +88,7 @@ function DeleteAllDialogInner({
         </div>
 
         <label className="mt-5 block">
-          <span className="mb-2 block text-[13px] font-bold text-body">
+          <span className="mb-2 block text-sm font-bold text-body">
             Escribe{' '}
             <span className="font-extrabold tracking-wide text-danger-ink">
               {CONFIRM_PHRASE}

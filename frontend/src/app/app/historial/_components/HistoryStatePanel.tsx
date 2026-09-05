@@ -55,14 +55,14 @@ export default function HistoryStatePanel({
           {icon}
         </div>
         <p
-          className={`mt-6 text-[11px] font-extrabold tracking-[0.14em] uppercase ${EYEBROW_STYLES[variant]}`}
+          className={`mt-6 text-2xs font-extrabold tracking-[0.14em] uppercase ${EYEBROW_STYLES[variant]}`}
         >
           {eyebrow}
         </p>
         <h2 className="mt-3.5 max-w-lg text-[clamp(22px,2.6vw,27px)] leading-tight font-bold tracking-[-0.025em] text-balance text-ink">
           {title}
         </h2>
-        <div className="mt-3.5 max-w-md text-[15.5px] leading-relaxed font-medium text-pretty text-muted">
+        <div className="mt-3.5 max-w-md text-base leading-relaxed font-medium text-pretty text-muted">
           {lead}
         </div>
         {actions && (

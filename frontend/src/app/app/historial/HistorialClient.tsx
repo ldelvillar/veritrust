@@ -238,7 +238,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
       {/* Result summary line */}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3.5">
-        <div className="text-[13.5px] font-semibold text-muted">
+        <div className="text-sm font-semibold text-muted">
           {history.length > 0 ? (
             <>
               <b className="font-bold text-ink">{totalCount}</b> análisis
@@ -252,7 +252,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           <button
             type="button"
             onClick={clearFilters}
-            className="inline-flex items-center gap-1.75 rounded-[9px] bg-primary/8 px-3 py-1.5 text-[13px] font-semibold text-primary transition hover:bg-primary/15"
+            className="inline-flex items-center gap-1.75 rounded-lg bg-primary/8 px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary/15"
           >
             <CrossIcon className="size-3.5" aria-hidden />
             Limpiar filtros

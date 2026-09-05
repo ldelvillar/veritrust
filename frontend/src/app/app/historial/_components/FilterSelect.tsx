@@ -113,7 +113,7 @@ export default function FilterSelect<T extends string>({
         aria-label={ariaLabel}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onButtonKeyDown}
-        className={`group flex h-11.5 w-full cursor-pointer items-center gap-2.25 rounded-[13px] border bg-white pr-3.25 pl-3.5 text-[13.5px] font-semibold whitespace-nowrap transition outline-none hover:border-primary hover:text-primary sm:w-auto ${
+        className={`group flex h-11.5 w-full cursor-pointer items-center gap-2.25 rounded-xl border bg-white pr-3.25 pl-3.5 text-sm font-semibold whitespace-nowrap transition outline-none hover:border-primary hover:text-primary sm:w-auto ${
           open
             ? 'border-primary text-primary ring-4 ring-primary/10'
             : 'border-line-strong text-body'
@@ -143,7 +143,7 @@ export default function FilterSelect<T extends string>({
           aria-label={ariaLabel}
           aria-activedescendant={`${listId}-opt-${active}`}
           onKeyDown={onListKeyDown}
-          className="animate-select-in absolute top-[calc(100%+7px)] right-0 left-0 z-40 m-0 max-h-80 min-w-full list-none overflow-y-auto rounded-[14px] border border-line-strong bg-white p-1.5 shadow-[0_10px_30px_rgba(92,80,200,0.10),0_4px_12px_rgba(20,20,40,0.06)] outline-none sm:right-auto"
+          className="animate-select-in absolute top-[calc(100%+7px)] right-0 left-0 z-40 m-0 max-h-80 min-w-full list-none overflow-y-auto rounded-xl border border-line-strong bg-white p-1.5 shadow-[0_10px_30px_rgba(92,80,200,0.10),0_4px_12px_rgba(20,20,40,0.06)] outline-none sm:right-auto"
         >
           {options.map((opt, i) => {
             const isSelected = opt.value === value;
@@ -156,7 +156,7 @@ export default function FilterSelect<T extends string>({
                 aria-selected={isSelected}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => commit(i)}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-[9px] px-2.75 py-2.25 text-[13.5px] font-semibold whitespace-nowrap transition-colors ${
+                className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.75 py-2.25 text-sm font-semibold whitespace-nowrap transition-colors ${
                   isActive && isSelected
                     ? 'bg-primary/15 text-primary'
                     : isActive

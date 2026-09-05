@@ -60,7 +60,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           subtitle="Actividad, credibilidad y riesgos detectados en el conjunto de tus análisis."
           actions={<RangeSelector value={range} onChange={setRange} />}
         />
-        <div className="flex flex-col items-center gap-4 rounded-[20px] border border-line bg-white px-8 py-16 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-line bg-white px-8 py-16 text-center shadow-sm">
           <div className="grid size-14 place-items-center rounded-2xl bg-danger-soft text-danger-ink">
             <WarningIcon className="size-7" />
           </div>
@@ -96,7 +96,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       {/* KPI tiers */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2.25">
-          <p className="pl-0.5 text-[10.5px] font-extrabold tracking-[.11em] text-faint uppercase">
+          <p className="pl-0.5 text-2xs font-extrabold tracking-[.11em] text-faint uppercase">
             Volumen y riesgo
           </p>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -124,7 +124,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
 
         <div className="flex flex-col gap-2.25">
-          <p className="pl-0.5 text-[10.5px] font-extrabold tracking-[.11em] text-faint uppercase">
+          <p className="pl-0.5 text-2xs font-extrabold tracking-[.11em] text-faint uppercase">
             Calidad de la evidencia
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -164,18 +164,18 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Trend + Sources row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
-        <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
+        <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
+              <h2 className="text-lg leading-tight font-bold tracking-[-0.015em] text-ink">
                 Tendencia ({days} días)
               </h2>
-              <p className="mt-1 text-[13px] leading-snug text-muted">
+              <p className="mt-1 text-sm leading-snug text-muted">
                 Volumen diario de análisis y credibilidad media del periodo.
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
                 <span
                   className="size-3.25 rounded-sm"
                   style={{
@@ -184,7 +184,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 />
                 Volumen
               </span>
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
                 <span className="inline-block h-0.75 w-4.5 rounded-full bg-accent" />
                 Credibilidad
               </span>

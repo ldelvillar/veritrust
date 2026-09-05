@@ -46,13 +46,13 @@ export default function DashboardError({ error, reset }: ErrorProps) {
             <Warning className="size-9.5" />
           </div>
 
-          <p className="mb-3.5 text-[11px] font-extrabold tracking-[0.14em] text-danger-ink uppercase">
+          <p className="mb-3.5 text-2xs font-extrabold tracking-[0.14em] text-danger-ink uppercase">
             Error al cargar las métricas
           </p>
           <h2 className="mb-3 text-[clamp(22px,2.6vw,27px)] leading-tight font-bold tracking-[-0.025em] text-balance text-ink">
             No se pudo cargar tu dashboard
           </h2>
-          <p className="mx-auto mb-7.5 max-w-120 text-[15.5px] leading-relaxed font-medium text-pretty text-muted">
+          <p className="mx-auto mb-7.5 max-w-120 text-base leading-relaxed font-medium text-pretty text-muted">
             No hemos podido calcular tus métricas de actividad en este momento.
             Tus análisis siguen <b className="font-bold text-body">a salvo</b>;
             solo es un problema temporal de conexión con el servidor.
@@ -70,7 +70,7 @@ export default function DashboardError({ error, reset }: ErrorProps) {
             </Button>
           </div>
 
-          <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
+          <div className="relative mt-8 inline-flex max-w-full items-center gap-2.5 rounded-lg border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-xs text-faint">
             <span
               className="size-1.75 shrink-0 rounded-full bg-danger"
               aria-hidden

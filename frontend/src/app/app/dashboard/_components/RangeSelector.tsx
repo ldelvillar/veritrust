@@ -24,7 +24,7 @@ export default function RangeSelector({
     <div
       role="tablist"
       aria-label="Rango de fechas"
-      className="flex w-full items-center gap-0.75 rounded-[13px] border border-line bg-surface p-1 sm:w-auto sm:pl-2.75"
+      className="flex w-full items-center gap-0.75 rounded-xl border border-line bg-surface p-1 sm:w-auto sm:pl-2.75"
     >
       <CalendarIcon
         className="mr-1 size-4 shrink-0 text-faint max-sm:hidden"
@@ -39,7 +39,7 @@ export default function RangeSelector({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(range)}
-            className={`h-9 rounded-[9px] px-3.5 text-[13px] font-semibold transition focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:outline-none max-sm:flex-1 max-sm:px-2 sm:min-w-10.5 ${
+            className={`h-9 rounded-lg px-3.5 text-sm font-semibold transition focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:outline-none max-sm:flex-1 max-sm:px-2 sm:min-w-10.5 ${
               isActive
                 ? 'bg-white text-primary shadow-[0_1px_2px_rgba(18,33,31,.05),0_4px_14px_rgba(18,33,31,.04)]'
                 : 'text-muted hover:text-body'

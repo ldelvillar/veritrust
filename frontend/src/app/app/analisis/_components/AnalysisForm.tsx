@@ -204,7 +204,7 @@ export default function AnalysisForm({
       <div
         role="tablist"
         aria-label="Método de entrada del contenido"
-        className="absolute bottom-3.5 left-3.5 inline-flex gap-0.75 rounded-[11px] border border-line bg-white p-1 shadow-[0_2px_8px_rgba(12,79,82,.12)]"
+        className="absolute bottom-3.5 left-3.5 inline-flex gap-0.75 rounded-xl border border-line bg-white p-1 shadow-[0_2px_8px_rgba(12,79,82,.12)]"
       >
         {tabs.map(({ id, label, Icon }) => (
           <button
@@ -218,7 +218,7 @@ export default function AnalysisForm({
             disabled={isLoading}
             onClick={() => setInputMethod(id)}
             onKeyDown={handleTabKeyDown}
-            className={`flex items-center gap-1.75 rounded-lg px-3 py-1.75 text-[13px] font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`flex items-center gap-1.75 rounded-lg px-3 py-1.75 text-sm font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
               inputMethod === id
                 ? 'bg-primary-soft text-primary-strong'
                 : 'text-muted hover:text-body'
@@ -232,7 +232,7 @@ export default function AnalysisForm({
       <button
         type="submit"
         disabled={isLoading || !canRun}
-        className="absolute right-3.5 bottom-3.5 flex size-10 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute right-3.5 bottom-3.5 flex size-10 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? (
           <Spinner className="size-4.5 animate-spin" />
@@ -259,13 +259,13 @@ export default function AnalysisForm({
             <label htmlFor="analysis-text" className="sr-only">
               Pega el texto o la afirmación a verificar
             </label>
-            <div className="relative rounded-[14px] border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
+            <div className="relative rounded-xl border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
               <textarea
                 id="analysis-text"
                 name="text"
                 ref={textareaRef}
                 disabled={isLoading}
-                className="max-h-37.5 min-h-22.5 w-full resize-none overflow-auto border-0 bg-transparent p-4 font-[inherit] text-[15.5px] leading-relaxed font-medium text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                className="max-h-37.5 min-h-22.5 w-full resize-none overflow-auto border-0 bg-transparent p-4 font-[inherit] text-base leading-relaxed font-medium text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="Ej.: «Beber agua con limón en ayunas elimina las toxinas y previene el cáncer.»"
                 value={formData.text}
                 onChange={handleChange}
@@ -281,9 +281,9 @@ export default function AnalysisForm({
             <label htmlFor="analysis-url" className="sr-only">
               Introduce la URL del artículo
             </label>
-            <div className="relative rounded-[14px] border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
+            <div className="relative rounded-xl border border-line-strong bg-surface-subtle pb-17 transition-all focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_4px_var(--color-primary-soft)]">
               <div className="flex items-center py-5">
-                <span className="pr-1 pl-4 text-[14px] font-bold text-muted">
+                <span className="pr-1 pl-4 text-sm font-bold text-muted">
                   https://
                 </span>
                 <input
@@ -291,7 +291,7 @@ export default function AnalysisForm({
                   name="url"
                   type="text"
                   disabled={isLoading}
-                  className="flex-1 border-none bg-transparent py-1.5 pr-4 pl-1 font-[inherit] text-[15px] text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 border-none bg-transparent py-1.5 pr-4 pl-1 font-[inherit] text-base text-body placeholder:text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="www.medio.es/salud/articulo-a-verificar"
                   value={formData.url}
                   onChange={handleChange}
@@ -302,7 +302,7 @@ export default function AnalysisForm({
               {showUrlHint && (
                 <p
                   id={urlHintId}
-                  className="px-4 pb-2 text-[12.5px] font-semibold text-faint"
+                  className="px-4 pb-2 text-xs font-semibold text-faint"
                 >
                   Escribe un dominio completo, p. ej. medio.es
                 </p>
@@ -318,7 +318,7 @@ export default function AnalysisForm({
             <div className="relative pb-17">
               <label
                 htmlFor="file-upload"
-                className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed py-6 text-center transition-all ${
+                className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 text-center transition-all ${
                   isDragging
                     ? 'border-primary bg-surface'
                     : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
@@ -331,17 +331,17 @@ export default function AnalysisForm({
                   <UploadIcon className="size-5.5" />
                 </div>
                 {selectedFile ? (
-                  <p className="text-[16px] font-semibold text-ink">
+                  <p className="text-base font-semibold text-ink">
                     <span className="text-primary">{selectedFile.name}</span> ·
                     listo para analizar
                   </p>
                 ) : (
-                  <p className="text-[16px] font-semibold text-ink">
+                  <p className="text-base font-semibold text-ink">
                     Arrastra un archivo aquí o{' '}
                     <span className="text-primary">búscalo</span>
                   </p>
                 )}
-                <p className="mt-1.5 text-[13px] text-muted">
+                <p className="mt-1.5 text-sm text-muted">
                   Documentos PDF o texto plano (.txt o .md).
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -350,13 +350,13 @@ export default function AnalysisForm({
                     .map(t => (
                       <span
                         key={t}
-                        className="rounded-lg border border-line bg-white px-2.5 py-1 text-[11.5px] font-bold tracking-wide text-muted"
+                        className="rounded-lg border border-line bg-white px-2.5 py-1 text-2xs font-bold tracking-wide text-muted"
                       >
                         {t}
                       </span>
                     ))}
                   {limits && (
-                    <span className="text-[11.5px] font-bold text-faint">
+                    <span className="text-2xs font-bold text-faint">
                       máx. {megabytes(limits.max_file_bytes)}
                     </span>
                   )}
@@ -375,7 +375,7 @@ export default function AnalysisForm({
 
             {selectedFile && isPdfFile(selectedFile) && (
               <div className="mt-4">
-                <div className="mb-2 flex items-center gap-2 text-[13px] font-bold text-body">
+                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-body">
                   <DocumentIcon className="size-3.75 text-muted" />
                   Vista previa del PDF
                 </div>
@@ -399,18 +399,18 @@ export default function AnalysisForm({
 
       {inputMethod === 'text' && (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-[12.5px] font-bold text-faint">Prueba:</span>
+          <span className="text-xs font-bold text-faint">Prueba:</span>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, text: EXAMPLE_TEXT_1 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
             Vitamina C y resfriado
           </button>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, text: EXAMPLE_TEXT_2 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
             Sol y vitamina D
           </button>
@@ -419,20 +419,18 @@ export default function AnalysisForm({
 
       {inputMethod === 'url' && (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-[12.5px] font-bold text-faint">
-            Sugerencias:
-          </span>
+          <span className="text-xs font-bold text-faint">Sugerencias:</span>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
             20minutos.es
           </button>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
             larazon.es
           </button>

@@ -32,12 +32,12 @@ export default function DomainsCard({
   const maxCount = Math.max(1, ...items.map(d => d.total));
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
+    <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
       <div className="mb-5">
-        <h2 className="text-[18px] leading-tight font-bold tracking-[-0.015em] text-ink">
+        <h2 className="text-lg leading-tight font-bold tracking-[-0.015em] text-ink">
           Dominios frecuentes
         </h2>
-        <p className="mt-1 text-[13px] leading-snug text-muted">
+        <p className="mt-1 text-sm leading-snug text-muted">
           Top de enlaces analizados por frecuencia.
         </p>
       </div>
@@ -56,15 +56,15 @@ export default function DomainsCard({
                 key={item.domain}
                 className="flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0 first:pt-0.5"
               >
-                <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-subtle text-[14px] font-bold text-muted uppercase">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-surface-subtle text-sm font-bold text-muted uppercase">
                   {init}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[14px] font-bold text-ink">
+                    <span className="truncate text-sm font-bold text-ink">
                       {item.domain}
                     </span>
-                    <span className="shrink-0 text-[12px] font-semibold text-faint">
+                    <span className="shrink-0 text-xs font-semibold text-faint">
                       · {item.total} análisis
                     </span>
                   </div>
@@ -82,7 +82,7 @@ export default function DomainsCard({
                   </div>
                 </div>
                 <span
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.75 py-1.25 text-[12px] font-bold"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.75 py-1.25 text-xs font-bold"
                   style={CRED_STYLES[cred.cls]}
                 >
                   <span

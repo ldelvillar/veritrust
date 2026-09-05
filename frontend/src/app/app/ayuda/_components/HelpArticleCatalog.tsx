@@ -17,13 +17,13 @@ export default function HelpArticleCatalog({
   return (
     <>
       <div className="mt-10 mb-2" id="articulos">
-        <div className="mb-1 text-[11px] font-bold tracking-[0.13em] text-primary uppercase">
+        <div className="mb-1 text-2xs font-bold tracking-[0.13em] text-primary uppercase">
           Artículos
         </div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-ink">
+        <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
           Guías del centro de ayuda
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted">
+        <p className="mt-1 text-sm text-muted">
           Todos los artículos organizados por categoría para consultar pasos,
           criterios y solución de problemas.
         </p>
@@ -39,17 +39,17 @@ export default function HelpArticleCatalog({
             <section
               key={category.title}
               id={category.slug}
-              className="rounded-[18px] border border-line bg-white p-5.5 shadow-sm"
+              className="rounded-2xl border border-line bg-white p-5.5 shadow-sm"
             >
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <div className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary">
                   <HelpCategoryIcon name={category.icon} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[16px] font-bold text-ink">
+                  <h3 className="text-base font-bold text-ink">
                     {category.title}
                   </h3>
-                  <p className="mt-0.5 text-[12.5px] font-semibold text-muted">
+                  <p className="mt-0.5 text-xs font-semibold text-muted">
                     {formatArticleCount(categoryArticles.length)}
                   </p>
                 </div>
@@ -60,19 +60,19 @@ export default function HelpArticleCatalog({
                   <article
                     key={article.id}
                     id={article.id}
-                    className="scroll-mt-24 rounded-[14px] border border-line bg-surface-subtle p-4 transition hover:border-line-strong hover:bg-white"
+                    className="scroll-mt-24 rounded-xl border border-line bg-surface-subtle p-4 transition hover:border-line-strong hover:bg-white"
                   >
-                    <h4 className="text-[14px] leading-snug font-bold text-ink">
+                    <h4 className="text-sm leading-snug font-bold text-ink">
                       {article.title}
                     </h4>
-                    <p className="mt-2 text-[12.8px] leading-relaxed text-muted">
+                    <p className="mt-2 text-xs leading-relaxed text-muted">
                       {article.summary}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {article.tags.map(tag => (
                         <span
                           key={tag}
-                          className="rounded-[7px] border border-line bg-white px-2.5 py-1 text-[10.5px] font-bold text-muted"
+                          className="rounded-lg border border-line bg-white px-2.5 py-1 text-2xs font-bold text-muted"
                         >
                           {tag}
                         </span>

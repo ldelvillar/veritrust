@@ -10,7 +10,7 @@ export default function AppNotFound() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-5 py-8 min-[881px]:px-12 min-[881px]:py-14">
       <div className="animate-fade-in flex w-full flex-col items-center">
-        <div className="flex w-full max-w-210 flex-col overflow-hidden rounded-[20px] border border-line bg-white shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)] min-[1180px]:flex-row">
+        <div className="flex w-full max-w-210 flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)] min-[1180px]:flex-row">
           <div className="flex flex-col items-center justify-center gap-3.5 border-b border-line bg-surface-subtle px-5 py-7 min-[1180px]:basis-68 min-[1180px]:border-r min-[1180px]:border-b-0 min-[1180px]:py-8.5">
             <div className="relative size-43">
               <svg
@@ -41,25 +41,25 @@ export default function AppNotFound() {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-display text-[52px] leading-none font-normal tracking-[0.01em] text-ink">
+                <span className="font-display text-display-lg leading-none font-normal tracking-[0.01em] text-ink">
                   404
                 </span>
               </div>
             </div>
             <div className="text-center">
-              <div className="text-[11px] font-extrabold tracking-[0.12em] text-faint uppercase">
+              <div className="text-2xs font-extrabold tracking-[0.12em] text-faint uppercase">
                 Credibilidad
               </div>
-              <div className="mt-0.75 text-[13.5px] font-bold text-body">
+              <div className="mt-0.75 text-sm font-bold text-body">
                 Sin datos
               </div>
             </div>
           </div>
           <div className="min-w-0 flex-1 px-5.5 py-6.5 min-[1180px]:px-9.5 min-[1180px]:pt-9.5 min-[1180px]:pb-8.5">
-            <h1 className="mb-2.5 font-display text-[30px] leading-[1.1] font-normal tracking-[-0.015em] text-balance text-ink min-[1180px]:text-[40px] min-[1180px]:leading-[1.06]">
+            <h1 className="mb-2.5 font-display text-3xl leading-[1.1] font-normal tracking-[-0.015em] text-balance text-ink min-[1180px]:text-display-md">
               No hay nada que analizar en esta dirección
             </h1>
-            <p className="mb-6.5 max-w-[38ch] text-[14.5px] leading-relaxed text-muted">
+            <p className="mb-6.5 max-w-[38ch] text-sm leading-relaxed text-muted">
               La página que has abierto no existe, ha cambiado de sitio o el
               enlace se copió incompleto.
             </p>
@@ -73,7 +73,7 @@ export default function AppNotFound() {
             </div>
           </div>
         </div>
-        <p className="mt-8.5 text-[11.5px] font-bold tracking-[0.11em] text-faint uppercase">
+        <p className="mt-8.5 text-2xs font-bold tracking-[0.11em] text-faint uppercase">
           Error 404 · Recurso no encontrado
         </p>
       </div>

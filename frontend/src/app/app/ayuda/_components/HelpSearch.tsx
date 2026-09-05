@@ -134,7 +134,7 @@ export default function HelpSearch({
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder="Busca en guías, preguntas frecuentes y fuentes..."
-          className="min-w-0 flex-1 py-2.5 text-[14.5px] text-body outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 py-2.5 text-sm text-body outline-none placeholder:text-faint"
         />
         {query.length > 0 && (
           <button
@@ -172,24 +172,24 @@ export default function HelpSearch({
                   className="block border-t border-line px-4 py-3.5 text-left transition first:border-t-0 hover:bg-surface-subtle"
                 >
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-[7px] bg-primary-soft px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-accent uppercase">
+                    <span className="rounded-lg bg-primary-soft px-2 py-0.5 text-2xs font-bold tracking-[0.04em] text-accent uppercase">
                       {result.kind}
                     </span>
-                    <span className="text-[11.5px] font-bold text-muted">
+                    <span className="text-2xs font-bold text-muted">
                       {result.category}
                     </span>
                   </div>
-                  <div className="text-[14px] leading-snug font-bold text-ink">
+                  <div className="text-sm leading-snug font-bold text-ink">
                     {result.title}
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-muted">
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
                     {result.summary}
                   </p>
                 </a>
               ))}
             </div>
           ) : (
-            <div className="px-4 py-4 text-[13.5px] font-medium text-muted">
+            <div className="px-4 py-4 text-sm font-medium text-muted">
               No hay resultados para «{trimmedQuery}».
             </div>
           )}
@@ -197,15 +197,13 @@ export default function HelpSearch({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <span className="text-[12.5px] font-bold text-white/70">
-          Populares:
-        </span>
+        <span className="text-xs font-bold text-white/70">Populares:</span>
         {popular.map(term => (
           <button
             key={term}
             type="button"
             onClick={() => focusPopular(term)}
-            className="rounded-full border border-white/16 bg-white/14 px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition hover:bg-white/24"
+            className="rounded-full border border-white/16 bg-white/14 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/24"
           >
             {term}
           </button>
