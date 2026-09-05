@@ -16,6 +16,8 @@ from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.history import (
     AnalysisHistoryItem,
+    HistoryExportItem,
+    HistoryListItem,
     HistorySourceTypeCounts,
     HistoryVerdictCounts,
     PendingAnalysesSummary,
@@ -39,7 +41,7 @@ _SORT_ORDER_BY = {
 
 _DEFAULT_SORT = "recent"
 
-# Columnas que alimenta _map_history_record: una sola fuente para las tres consultas.
+# Columnas que alimenta _map_history_record: solo la consulta por id trae el informe entero.
 _HISTORY_COLUMNS = (
     "id",
     "user_id",
@@ -60,6 +62,48 @@ _HISTORY_COLUMNS = (
     "share_token",
 )
 _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
+
+# Columnas del listado: la tabla no pinta el informe, así que no se traen ni se envían.
+_HISTORY_LIST_COLUMNS = (
+    "id",
+    "source_type",
+    "input_url",
+    "label",
+    "confidence",
+    "evidence_coverage",
+    "created_at",
+    "status",
+    "stage",
+    "error_code",
+    "file_filename",
+    "share_token",
+)
+
+# El texto pegado llega a 10.000 caracteres y la fila solo lo usa como título: se recorta en SQL.
+HISTORY_LIST_TEXT_CHARS = 300
+
+_HISTORY_LIST_SELECT = ", ".join(
+    (
+        *_HISTORY_LIST_COLUMNS,
+        f"LEFT(input_text, {HISTORY_LIST_TEXT_CHARS}) AS input_text",
+    )
+)
+
+# Columnas del CSV: el informe tampoco se exporta, pero el texto va entero y con su duración.
+_HISTORY_EXPORT_COLUMNS = (
+    "id",
+    "source_type",
+    "input_text",
+    "input_url",
+    "label",
+    "confidence",
+    "evidence_coverage",
+    "created_at",
+    "completed_at",
+    "status",
+    "file_filename",
+)
+_HISTORY_EXPORT_SELECT = ", ".join(_HISTORY_EXPORT_COLUMNS)
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -116,8 +160,54 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         sources=row["sources"],
         file_filename=row["file_filename"],
         share_token=row["share_token"],
-        # Solo la consulta por id selecciona stage; el listado y la exportación no.
+        # stage no está en _HISTORY_COLUMNS: lo añade aparte la consulta por id.
         stage=row.get("stage"),
+    )
+
+
+def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
+    """Mapea una fila del listado a un ítem tipado, sin el cuerpo del informe."""
+    return HistoryListItem(
+        analysis_id=str(row["id"]),
+        source_type=str(row["source_type"]),
+        input_text=row["input_text"],
+        input_url=row["input_url"],
+        label=str(row["label"]) if row["label"] is not None else None,
+        confidence=float(row["confidence"]) if row["confidence"] is not None else None,
+        evidence_coverage=(
+            float(row["evidence_coverage"])
+            if row["evidence_coverage"] is not None
+            else None
+        ),
+        created_at=str(row["created_at"]),
+        status=str(row["status"]),
+        stage=row["stage"],
+        error_code=row["error_code"],
+        file_filename=row["file_filename"],
+        share_token=row["share_token"],
+    )
+
+
+def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
+    """Mapea una fila de la exportación a un ítem tipado, sin el cuerpo del informe."""
+    return HistoryExportItem(
+        analysis_id=str(row["id"]),
+        source_type=str(row["source_type"]),
+        input_text=row["input_text"],
+        input_url=row["input_url"],
+        label=str(row["label"]) if row["label"] is not None else None,
+        confidence=float(row["confidence"]) if row["confidence"] is not None else None,
+        evidence_coverage=(
+            float(row["evidence_coverage"])
+            if row["evidence_coverage"] is not None
+            else None
+        ),
+        created_at=str(row["created_at"]),
+        completed_at=(
+            str(row["completed_at"]) if row["completed_at"] is not None else None
+        ),
+        status=str(row["status"]),
+        file_filename=row["file_filename"],
     )
 
 
@@ -198,7 +288,9 @@ def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str
         WHERE {where_sql}
         ORDER BY {order_by}
         LIMIT %s OFFSET %s
-    """.format(columns=_HISTORY_SELECT, where_sql=where_sql, order_by=safe_order_by)
+    """.format(
+        columns=_HISTORY_LIST_SELECT, where_sql=where_sql, order_by=safe_order_by
+    )
 
     return count_query, list_query
 
@@ -459,7 +551,7 @@ async def list_user_analysis_history(
     sort: str = "recent",
     verdict: Optional[str] = None,
     status: Optional[str] = None,
-) -> tuple[list[AnalysisHistoryItem], int]:
+) -> tuple[list[HistoryListItem], int]:
     """Lista historial paginado del usuario y devuelve tambien el total."""
     pool = await get_pool()
 
@@ -498,7 +590,7 @@ async def list_user_analysis_history(
             )
         ) from exc
 
-    records = [_map_history_record(row) for row in rows]
+    records = [_map_history_list_record(row) for row in rows]
 
     return records, total_count
 
@@ -656,7 +748,7 @@ async def export_user_analysis_history(
     created_after: Optional[datetime] = None,
     sort: str = "recent",
     verdict: Optional[str] = None,
-) -> list[AnalysisHistoryItem]:
+) -> list[HistoryExportItem]:
     """Lista todo el historial filtrado del usuario para exportarlo (sin paginar)."""
     pool = await get_pool()
 
@@ -681,7 +773,9 @@ async def export_user_analysis_history(
         WHERE {where_sql}
         ORDER BY {order_by}
         LIMIT %s
-    """.format(columns=_HISTORY_SELECT, where_sql=where_sql, order_by=safe_order_by)
+    """.format(
+        columns=_HISTORY_EXPORT_SELECT, where_sql=where_sql, order_by=safe_order_by
+    )
 
     try:
         async with pool.connection() as conn:
@@ -695,7 +789,7 @@ async def export_user_analysis_history(
             )
         ) from exc
 
-    return [_map_history_record(row) for row in rows]
+    return [_map_history_export_record(row) for row in rows]
 
 
 async def get_user_analysis_by_id(

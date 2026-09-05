@@ -15,7 +15,7 @@ from app.schemas.dashboard import (
     DashboardSourceBreakdownItem,
     DashboardTrendPoint,
 )
-from app.schemas.history import AnalysisHistoryItem
+from app.schemas.history import AnalysisHistoryItem, HistoryListItem
 
 
 def _use_database_url(monkeypatch, database_url: str) -> None:
@@ -202,6 +202,82 @@ def test_map_history_record_reads_only_columns_the_queries_select() -> None:
     assert record.analysis_id == "123"
     # stage es la unica columna extra: solo la consulta por id la selecciona.
     assert record.stage is None
+
+
+def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
+    row = {
+        "id": 123,
+        "source_type": "text",
+        "input_text": "contenido",
+        "input_url": None,
+        "label": "falsa",
+        "confidence": 0.81,
+        "evidence_coverage": 0.5,
+        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+        "status": "pending",
+        "stage": "investigator",
+        "error_code": None,
+        "file_filename": None,
+        "share_token": "tok_xyz",
+    }
+
+    record = history_module._map_history_list_record(row)
+
+    assert isinstance(record, HistoryListItem)
+    assert record.analysis_id == "123"
+    assert record.created_at.startswith("2026-04-10")
+    assert record.evidence_coverage == 0.5
+    # El listado sí reporta la etapa: la fila 'en curso' muestra por dónde va el pipeline.
+    assert record.stage == "investigator"
+    assert record.share_token == "tok_xyz"
+    # Credibilidad y veredicto se derivan de label/confidence, no viajan como columnas.
+    assert record.verdict == "fake"
+    assert record.credibility == 19
+
+
+def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> None:
+    """Si el mapeo del listado lee una columna que la consulta no trae, esto revienta."""
+    row: dict[str, object] = {
+        column: None for column in history_module._HISTORY_LIST_COLUMNS
+    }
+    # La consulta aliasa LEFT(input_text, N) como input_text; el resto son columnas.
+    row["input_text"] = None
+    row["id"] = 123
+    row["source_type"] = "text"
+    row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
+    row["status"] = "pending"
+
+    record = history_module._map_history_list_record(row)
+
+    assert record.analysis_id == "123"
+
+
+def test_history_list_query_omits_the_report_body() -> None:
+    """El listado no debe traer el informe: es carga que la tabla nunca pinta."""
+    projection = history_module._HISTORY_LIST_SELECT
+
+    for column in ("explanation", "claims", "sources", "user_id", "file_data"):
+        assert column not in projection
+    # El texto pegado llega recortado; buscar sigue mirando la columna completa.
+    assert f"LEFT(input_text, {history_module.HISTORY_LIST_TEXT_CHARS})" in projection
+
+    _, list_query = history_module._build_history_queries(
+        "user_id = %s", "created_at DESC"
+    )
+    assert projection in list_query
+
+
+def test_history_export_query_omits_the_report_but_keeps_the_full_text() -> None:
+    """El CSV tampoco necesita el informe, pero sí el texto íntegro y la fecha de fin."""
+    projection = history_module._HISTORY_EXPORT_SELECT
+
+    for column in ("explanation", "claims", "sources", "user_id", "file_data"):
+        assert column not in projection
+    # Sin LEFT(): a diferencia del listado, la exportación no recorta el texto.
+    assert "LEFT(" not in projection
+    assert "input_text" in projection
+    # completed_at alimenta la columna «Duración (s)» del CSV.
+    assert "completed_at" in projection
 
 
 def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:

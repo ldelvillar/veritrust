@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.core.config import get_settings
 from app.core.credibility import classify_verdict
-from app.schemas.history import AnalysisHistoryItem
+from app.schemas.history import HistoryExportItem
 
 # BOM para que Excel detecte UTF-8 al abrir el CSV.
 _UTF8_BOM = "﻿"
@@ -53,7 +53,7 @@ def _export_duration_seconds(created_at: str, completed_at: str | None) -> str:
     return str(max(0, round((finished - started).total_seconds())))
 
 
-def _export_entry(record: AnalysisHistoryItem) -> str:
+def _export_entry(record: HistoryExportItem) -> str:
     """Columna «Entrada»: el mismo título que el historial muestra en pantalla."""
     if record.source_type == "file" and record.file_filename:
         return record.file_filename
@@ -67,7 +67,7 @@ def _build_report_url(base_url: str | None, analysis_id: str) -> str:
     return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
 
 
-def build_history_csv(records: list[AnalysisHistoryItem]) -> bytes:
+def build_history_csv(records: list[HistoryExportItem]) -> bytes:
     """Serializa el historial a CSV UTF-8 con BOM (compatible con Excel)."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)

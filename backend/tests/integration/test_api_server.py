@@ -1492,15 +1492,14 @@ def test_historial_returns_user_history(monkeypatch):
     history_rows = [
         {
             "analysis_id": "11111111-1111-1111-1111-111111111111",
-            "user_id": "test-user",
             "source_type": "text",
             "input_text": "Texto ejemplo",
             "input_url": None,
             "label": "falsa",
             "confidence": 0.88,
             "evidence_coverage": 0.75,
-            "explanation": "Explicación de ejemplo",
             "status": "done",
+            "stage": None,
             "error_code": None,
             "created_at": "2026-04-10T12:00:00+00:00",
             "file_filename": "documento.pdf",
@@ -1578,9 +1577,13 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["count"] == 12
     assert body["page"] == 1
     assert body["page_size"] == 10
-    assert body["items"][0]["user_id"] == "test-user"
     assert body["items"][0]["source_type"] == "text"
     assert body["items"][0]["evidence_coverage"] == 0.75
+    # El listado no arrastra el cuerpo del informe ni el id de usuario: la tabla no los pinta.
+    assert not {"explanation", "claims", "sources", "user_id"} & set(body["items"][0])
+    # El veredicto y la credibilidad siguen derivándose para pintar el indicador.
+    assert body["items"][0]["verdict"] == "fake"
+    assert body["items"][0]["credibility"] == 12
     # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
     assert body["items"][0]["file_filename"] == "documento.pdf"
     # El token de compartición debe llegar para pintar la insignia "Compartido".

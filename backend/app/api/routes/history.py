@@ -19,7 +19,6 @@ from app.db.history import (
 from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.history import (
-    AnalysisHistoryItem,
     DeleteAllResponse,
     HistoryResponse,
     PendingAnalysesSummary,
@@ -108,29 +107,9 @@ async def get_history(
             detail=make_error_detail(ErrorCode.HISTORY_FETCH_FAILED),
         ) from e
 
-    items = [
-        AnalysisHistoryItem(
-            analysis_id=record.analysis_id,
-            user_id=record.user_id,
-            source_type=record.source_type,
-            input_text=record.input_text,
-            input_url=record.input_url,
-            label=record.label,
-            confidence=record.confidence,
-            evidence_coverage=record.evidence_coverage,
-            explanation=record.explanation,
-            status=record.status,
-            error_code=record.error_code,
-            created_at=record.created_at,
-            file_filename=record.file_filename,
-            share_token=record.share_token,
-        )
-        for record in records
-    ]
-
     return {
         "status": "success",
-        "items": items,
+        "items": records,
         "count": total_count,
         "page": page,
         "page_size": page_size,

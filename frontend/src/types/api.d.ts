@@ -357,13 +357,11 @@ export interface components {
         };
         /**
          * AnalysisHistoryItem
-         * @description Modelo de datos para un ítem del historial de análisis.
+         * @description Modelo de datos para un ítem del historial de análisis, con el informe completo.
          */
         AnalysisHistoryItem: {
             /** Analysis Id */
             analysis_id: string;
-            /** User Id */
-            user_id: string;
             /** Source Type */
             source_type: string;
             /** Input Text */
@@ -376,8 +374,6 @@ export interface components {
             confidence?: number | null;
             /** Evidence Coverage */
             evidence_coverage?: number | null;
-            /** Explanation */
-            explanation?: string | null;
             /**
              * Status
              * @default done
@@ -387,18 +383,22 @@ export interface components {
             error_code?: string | null;
             /** Created At */
             created_at: string;
-            /** Completed At */
-            completed_at?: string | null;
             /** File Filename */
             file_filename?: string | null;
-            /** Claims */
-            claims?: components["schemas"]["ClaimItem"][] | null;
-            /** Sources */
-            sources?: components["schemas"]["SourceItem"][] | null;
             /** Share Token */
             share_token?: string | null;
             /** Stage */
             stage?: string | null;
+            /** User Id */
+            user_id: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Claims */
+            claims?: components["schemas"]["ClaimItem"][] | null;
+            /** Sources */
+            sources?: components["schemas"]["SourceItem"][] | null;
             feedback?: components["schemas"]["AnalysisFeedback"] | null;
             /**
              * Verdict
@@ -681,6 +681,52 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HistoryListItem
+         * @description Fila del listado de historial: lo que pinta la tabla, sin el cuerpo del informe.
+         */
+        HistoryListItem: {
+            /** Analysis Id */
+            analysis_id: string;
+            /** Source Type */
+            source_type: string;
+            /** Input Text */
+            input_text?: string | null;
+            /** Input Url */
+            input_url?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Confidence */
+            confidence?: number | null;
+            /** Evidence Coverage */
+            evidence_coverage?: number | null;
+            /**
+             * Status
+             * @default done
+             */
+            status: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Created At */
+            created_at: string;
+            /** File Filename */
+            file_filename?: string | null;
+            /** Share Token */
+            share_token?: string | null;
+            /** Stage */
+            stage?: string | null;
+            /**
+             * Verdict
+             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @enum {string}
+             */
+            readonly verdict: "real" | "fake" | "uncertain";
+            /**
+             * Credibility
+             * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
+             */
+            readonly credibility: number | null;
+        };
+        /**
          * HistoryResponse
          * @description Modelo de datos para la respuesta del endpoint de historial de análisis.
          */
@@ -688,7 +734,7 @@ export interface components {
             /** Status */
             status: string;
             /** Items */
-            items: components["schemas"]["AnalysisHistoryItem"][];
+            items: components["schemas"]["HistoryListItem"][];
             /** Count */
             count: number;
             /** Page */

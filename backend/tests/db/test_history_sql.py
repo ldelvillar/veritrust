@@ -3,6 +3,7 @@
 import pytest
 
 from app.db.history import (
+    HISTORY_LIST_TEXT_CHARS,
     clear_analysis_share_token,
     complete_analysis,
     count_history_verdict_facets,
@@ -23,6 +24,7 @@ from app.db.history import (
     reset_done_analysis_to_pending,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
+    set_analysis_stage,
 )
 from app.schemas.analysis import AnalysisRequest
 
@@ -409,8 +411,83 @@ async def test_search_matches_the_file_name(db_pool):
     assert rows[0].analysis_id == file_id
 
 
+async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
+    """El listado trae la fila que pinta la tabla: título recortado y sin informe."""
+    long_text = "La vitamina C previene el resfriado. " * 200
+    analysis_id = await create_pending_analysis(
+        user_id=USER, request=AnalysisRequest(text=long_text)
+    )
+    await complete_analysis(
+        analysis_id=analysis_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Un informe médico largo.",
+        claims=[{"text": "Afirmación", "label": "falsa", "confidence": 0.9}],
+        sources=[
+            {"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}
+        ],
+        evidence_coverage=0.5,
+    )
+
+    rows, total = await list_user_analysis_history(user_id=USER)
+
+    assert total == 1
+    row = rows[0]
+    assert row.input_text is not None
+    assert len(row.input_text) == HISTORY_LIST_TEXT_CHARS
+    # El veredicto y la cobertura sí viajan: la tabla los pinta en cada fila.
+    assert (row.verdict, row.credibility, row.evidence_coverage) == ("fake", 10, 0.5)
+    # El cuerpo del informe no forma parte del ítem de listado.
+    assert not hasattr(row, "explanation")
+    assert not hasattr(row, "claims")
+
+
+async def test_export_keeps_the_whole_input_text(db_pool):
+    """Exportar es llevarse los datos: el CSV no recorta el texto como sí hace el listado."""
+    long_text = "La vitamina C previene el resfriado. " * 200
+    analysis_id = await create_pending_analysis(
+        user_id=USER, request=AnalysisRequest(text=long_text)
+    )
+    await complete_analysis(
+        analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
+    )
+
+    records = await export_user_analysis_history(user_id=USER)
+
+    assert records[0].input_text == long_text.strip()
+    assert len(records[0].input_text or "") > HISTORY_LIST_TEXT_CHARS
+
+
+async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
+    """La fila 'en curso' del historial muestra por dónde va el pipeline."""
+    analysis_id = await _pending("Un análisis todavía en marcha")
+    await set_analysis_stage(analysis_id=analysis_id, stage="investigator")
+
+    rows, _ = await list_user_analysis_history(user_id=USER)
+
+    assert rows[0].stage == "investigator"
+
+
+async def test_search_still_matches_beyond_the_truncated_title(db_pool):
+    """El recorte es solo de salida: la búsqueda sigue mirando el texto completo."""
+    tail = "cloroquina" + "!"
+    analysis_id = await create_pending_analysis(
+        user_id=USER,
+        request=AnalysisRequest(text=("relleno " * 400) + tail),
+    )
+
+    rows, total = await list_user_analysis_history(
+        user_id=USER, search_query="CLOROQUINA"
+    )
+
+    assert total == 1
+    assert rows[0].analysis_id == analysis_id
+    # El término buscado cae fuera del título recortado y aun así la fila coincide.
+    assert rows[0].input_text is not None and "cloroquina" not in rows[0].input_text
+
+
 async def test_export_returns_only_finished_rows_of_the_user(db_pool):
-    """La exportación saca el resultado completo, pero solo de filas propias y terminadas."""
+    """La exportación saca el veredicto, pero solo de filas propias y terminadas."""
     done_id = await _pending("La vitamina C previene el resfriado")
     await complete_analysis(
         analysis_id=done_id,
@@ -442,9 +519,11 @@ async def test_export_returns_only_finished_rows_of_the_user(db_pool):
         0.9,
         0.5,
     )
-    assert record.claims is not None and record.claims[0].label == "falsa"
-    assert record.sources is not None and record.sources[0].source == "BMJ"
-    # La exportación no selecciona stage: el mapeo lo deja en None.
+    # El CSV solo lleva el veredicto de cada fila; el informe no se exporta.
+    assert not hasattr(record, "explanation")
+    assert not hasattr(record, "claims")
+    assert not hasattr(record, "sources")
+    # La exportación no selecciona stage: no es una columna del CSV.
     assert record.stage is None
 
 
