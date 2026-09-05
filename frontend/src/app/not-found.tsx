@@ -38,17 +38,17 @@ export default function NotFoundPage() {
 
           <div className="mx-auto w-full max-w-345 px-5 md:px-8">
             <div className="relative z-2 max-w-190">
-              <div className="text-[13px] font-extrabold tracking-[0.12em] text-white/62 uppercase">
+              <div className="text-sm font-extrabold tracking-[0.12em] text-white/62 uppercase">
                 Error 404 · Página no encontrada
               </div>
               <h1
                 id="nf-title"
-                className="mt-4.5 font-display text-[62px] leading-[1.06] font-normal tracking-[-0.012em] text-balance text-white max-[900px]:text-[46px] max-[600px]:text-[36px]"
+                className="mt-4.5 font-display text-display-lg font-normal tracking-[-0.012em] text-balance text-white max-[900px]:text-display-md max-[600px]:text-display-sm"
               >
                 Esta dirección{' '}
                 <em className="italic">no ha pasado la verificación</em>
               </h1>
-              <p className="mt-5 max-w-140 text-[18.5px] leading-relaxed text-white/86 max-[900px]:text-[17px]">
+              <p className="mt-5 max-w-140 text-lg leading-relaxed text-white/86">
                 El enlace que has seguido no existe, ha cambiado de sitio o se
                 copió incompleto. El resto de VeriTrust sigue en pie.
               </p>
@@ -61,14 +61,14 @@ export default function NotFoundPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-white/16 pt-6.5">
-                <b className="text-[11.5px] font-extrabold tracking-[0.11em] text-white/50 uppercase">
+                <b className="text-2xs font-extrabold tracking-[0.11em] text-white/50 uppercase">
                   O ve directamente a
                 </b>
                 {shortcuts.map(shortcut => (
                   <Link
                     key={shortcut.label}
                     href={shortcut.href}
-                    className="text-[14.5px] font-semibold text-white/90 transition hover:text-white hover:underline hover:underline-offset-[3px]"
+                    className="text-sm font-semibold text-white/90 transition hover:text-white hover:underline hover:underline-offset-[3px]"
                   >
                     {shortcut.label}
                   </Link>
