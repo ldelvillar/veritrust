@@ -20,22 +20,18 @@ export function useAnalysisSubmission() {
   const { getToken } = useAuth();
   const { mutate, isPending, error, setError } = useApiMutation();
 
-  // Texto, URL y archivo acaban igual: fila pending creada y navegación al informe.
   const startAnalysis = useCallback(
     async (request: () => Promise<CreateAnalysisResponse>) => {
-      const data = await mutate(async () => {
-        const response = await request();
-        if (!response.analysis_id) {
-          throw new Error(NO_ID_ERROR);
-        }
-        return response;
-      });
+      const data = await mutate(request);
       if (!data) return;
-      // La fila pending ya existe: el indicador global se entera al instante.
+      if (!data.analysis_id) {
+        setError(NO_ID_ERROR);
+        return;
+      }
       void refreshPendingAnalyses();
       router.push(`/app/analisis/${data.analysis_id}`);
     },
-    [mutate, router]
+    [mutate, router, setError]
   );
 
   const submit = useCallback(
