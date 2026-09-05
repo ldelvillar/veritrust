@@ -51,7 +51,7 @@ export default function PendingIndicator({
       <Link
         href={href}
         onClick={onNavigate}
-        className="mt-3 flex items-center gap-3.5 rounded-xl bg-primary-soft px-3.5 py-2.5 text-[14.5px] font-semibold text-accent transition hover:bg-primary-soft-strong"
+        className="mt-3 flex items-center gap-3.5 rounded-xl bg-primary-soft px-3.5 py-2.5 text-sm font-semibold text-accent transition hover:bg-primary-soft-strong"
       >
         <Spinner className="size-4.75 shrink-0 animate-spin text-primary" />
         <span className="leading-none">{label}</span>
@@ -84,12 +84,12 @@ export default function PendingIndicator({
       <Link
         href={href}
         onClick={handleClick}
-        className="mt-3 flex items-center gap-3.5 rounded-xl bg-primary-soft px-3.5 py-2.5 text-[14.5px] font-semibold text-accent transition hover:bg-primary-soft-strong"
+        className="mt-3 flex items-center gap-3.5 rounded-xl bg-primary-soft px-3.5 py-2.5 text-sm font-semibold text-accent transition hover:bg-primary-soft-strong"
       >
         <CheckIcon className="size-4.75 shrink-0 text-primary" />
         <span className="flex flex-col gap-1">
           <span className="leading-none">Análisis finalizado</span>
-          <span className="text-[11.5px] leading-none font-medium opacity-80">
+          <span className="text-2xs leading-none font-medium opacity-80">
             Ver resultado
           </span>
         </span>

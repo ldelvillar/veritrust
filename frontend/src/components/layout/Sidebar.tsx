@@ -57,7 +57,7 @@ function Brand({
         onClick={onNavigate}
         className="flex items-center"
       >
-        <span className="text-[19px] font-bold tracking-[-0.02em] text-ink">
+        <span className="text-xl font-bold tracking-[-0.02em] text-ink">
           VeriTrust
         </span>
       </Link>
@@ -104,7 +104,7 @@ function SidebarContent({
       />
 
       {!collapsed && (
-        <div className="px-3 pt-4.5 pb-2 text-[10.5px] font-bold tracking-[0.13em] text-faint uppercase">
+        <div className="px-3 pt-4.5 pb-2 text-2xs font-bold tracking-[0.13em] text-faint uppercase">
           Menú
         </div>
       )}
@@ -118,7 +118,7 @@ function SidebarContent({
               onClick={onNavigate}
               aria-current={active ? 'page' : undefined}
               title={collapsed ? label : undefined}
-              className={`mb-0.5 flex items-center rounded-xl py-2.5 text-[14.5px] font-semibold transition ${
+              className={`mb-0.5 flex items-center rounded-xl py-2.5 text-sm font-semibold transition ${
                 collapsed ? 'h-11 w-11 justify-center' : 'gap-3.5 px-3.5'
               } ${
                 active
@@ -147,7 +147,7 @@ function SidebarContent({
       <div className="mt-auto">
         {!collapsed && (
           <div className="mb-3.5 rounded-2xl border border-line bg-surface p-4">
-            <h4 className="text-[13.5px] font-bold text-ink">
+            <h4 className="text-sm font-bold text-ink">
               ¿Necesitas más análisis?
             </h4>
             <p className="mt-1 mb-3 text-xs leading-snug text-muted">
@@ -179,10 +179,10 @@ function SidebarContent({
             </UserButton>
             {!collapsed && (
               <div className="min-w-0">
-                <div className="truncate text-[13.5px] font-bold text-body">
+                <div className="truncate text-sm font-bold text-body">
                   {user?.fullName ?? 'Mi cuenta'}
                 </div>
-                <div className="truncate text-[11.5px] text-faint">
+                <div className="truncate text-2xs text-faint">
                   {user?.primaryEmailAddress?.emailAddress ?? ''}
                 </div>
               </div>
@@ -211,7 +211,7 @@ function SidebarContent({
                 </svg>
               </button>
             ) : (
-              <button className="w-full cursor-pointer rounded-lg border border-line-strong px-3 py-2.5 text-[14px] font-semibold text-body transition hover:border-primary hover:text-primary">
+              <button className="w-full cursor-pointer rounded-lg border border-line-strong px-3 py-2.5 text-sm font-semibold text-body transition hover:border-primary hover:text-primary">
                 Iniciar sesión
               </button>
             )}

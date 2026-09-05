@@ -18,9 +18,7 @@ export default function SourcesCard({
         <BookIcon className="size-4.5 text-primary" />
         {title}
       </h3>
-      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
-        {caption}
-      </p>
+      <p className="mt-1 mb-4 text-sm leading-relaxed text-muted">{caption}</p>
 
       <ul>
         {sources.map((source, index) => (

@@ -8,7 +8,7 @@ import Logo from '@/assets/Logo';
 
 // translate-y-px recentra el logotipo: Instrument Serif reserva un descendente que «VeriTrust» no usa
 const wordmark =
-  'translate-y-px font-display text-[21px] leading-none font-normal text-ink italic';
+  'translate-y-px font-display text-2xl leading-none font-normal text-ink italic';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
@@ -69,7 +69,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="px-3 py-2 text-[12px] font-semibold tracking-[0.05em] text-muted uppercase transition hover:text-primary"
+              className="px-3 py-2 text-xs font-semibold tracking-[0.05em] text-muted uppercase transition hover:text-primary"
             >
               {link.label}
             </Link>
@@ -79,7 +79,7 @@ export default function Header() {
         <div className="hidden items-center gap-3.5 md:flex">
           <Show when="signed-out">
             <SignInButton forceRedirectUrl="/app/analisis">
-              <button className="cursor-pointer px-2.5 py-2 text-[12px] font-semibold tracking-[0.05em] text-body uppercase transition hover:text-primary">
+              <button className="cursor-pointer px-2.5 py-2 text-xs font-semibold tracking-[0.05em] text-body uppercase transition hover:text-primary">
                 Iniciar sesión
               </button>
             </SignInButton>
@@ -87,7 +87,7 @@ export default function Header() {
           <Show when="signed-in">
             <Link
               href="/app/analisis"
-              className="px-2.5 py-2 text-[12px] font-semibold tracking-[0.05em] text-body uppercase transition hover:text-primary"
+              className="px-2.5 py-2 text-xs font-semibold tracking-[0.05em] text-body uppercase transition hover:text-primary"
             >
               Ir a la app
             </Link>

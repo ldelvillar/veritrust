@@ -50,11 +50,11 @@ function AnalyzedPdf({
         <DocumentIcon className="size-4.5 text-primary" />
         Documento analizado
       </h3>
-      <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
+      <p className="mt-1 mb-4 text-sm leading-relaxed text-muted">
         {filename ?? 'PDF original que se verificó.'}
       </p>
       {failed ? (
-        <p className="flex items-center gap-2 text-[13px] font-medium text-faint">
+        <p className="flex items-center gap-2 text-sm font-medium text-faint">
           <WarningIcon className="size-4 shrink-0 text-amber-500" />
           No se pudo cargar el PDF.
         </p>
@@ -108,7 +108,7 @@ function DownloadOriginalFile({
       type="button"
       onClick={handleDownload}
       disabled={downloading}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
     >
       {downloading ? (
         <Spinner className="size-3.5 animate-spin" />
@@ -153,7 +153,7 @@ export default function AnalyzedContent({
           <GlobeIcon className="size-4.5 text-primary" />
           Contenido analizado
         </h3>
-        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-muted">
+        <p className="mt-1 mb-3 text-sm leading-relaxed text-muted">
           Enlace de la noticia que se verificó.
         </p>
         <a
@@ -195,7 +195,7 @@ export default function AnalyzedContent({
             onClick={() => setOpen(value => !value)}
             aria-expanded={open}
             aria-controls={panelId}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary/10 focus:ring-2 focus:ring-primary/20 focus:outline-none"
           >
             {open ? 'Ocultar' : 'Ver'} texto analizado
             <Chevron
@@ -205,7 +205,7 @@ export default function AnalyzedContent({
           </button>
         </div>
       </div>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted">
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         {originalFileId
           ? 'El texto extraído del archivo original que se verificó.'
           : 'El texto original tal y como se envió a verificar.'}

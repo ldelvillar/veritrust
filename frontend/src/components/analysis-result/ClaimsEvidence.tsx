@@ -37,7 +37,7 @@ export default function ClaimsEvidence({
           <ListIcon className="size-4.5 text-primary" />
           Afirmaciones detectadas
         </h3>
-        <p className="mt-1 mb-4 text-[13px] leading-relaxed text-muted">
+        <p className="mt-1 mb-4 text-sm leading-relaxed text-muted">
           Cada afirmación verificable se evalúa por separado.
         </p>
         {claims.map((claim, index) => (
@@ -63,11 +63,11 @@ export default function ClaimsEvidence({
           <ListIcon className="size-4.5 text-primary" />
           Afirmaciones y evidencia
         </h3>
-        <p className="mt-1 mb-3 text-[13px] leading-relaxed text-muted">
+        <p className="mt-1 mb-3 text-sm leading-relaxed text-muted">
           Cada afirmación se evalúa con la literatura biomédica de nuestras
           fuentes que la aborda, a favor o en contra.
         </p>
-        <p className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-[13px] font-semibold text-primary">
+        <p className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
           <BookIcon className="size-4 shrink-0" />
           {backed} de {claims.length}{' '}
           {claims.length === 1

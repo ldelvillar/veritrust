@@ -14,8 +14,8 @@ const base =
   'inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer font-semibold no-underline transition-colors duration-150 [&_svg]:size-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:cursor-not-allowed disabled:opacity-50';
 
 const sizes: Record<ButtonSize, string> = {
-  md: 'px-[17px] py-[9px] text-[14px] rounded-[10px]',
-  lg: 'px-[22px] py-[12px] text-[15px] rounded-[11px]',
+  md: 'px-[17px] py-[9px] text-sm rounded-lg',
+  lg: 'px-[22px] py-[12px] text-base rounded-xl',
 };
 
 const variants: Record<ButtonVariant, string> = {

@@ -18,7 +18,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
       style={{ background: verdict.band }}
     >
       <div className="relative flex flex-col items-center justify-center gap-4 border-b border-white/20 bg-white/5 px-6 py-8 text-center lg:border-r lg:border-b-0">
-        <h2 className="absolute top-3 left-5 z-10 flex h-7 items-center text-[13px] font-bold tracking-[.06em] text-white/92 uppercase">
+        <h2 className="absolute top-3 left-5 z-10 flex h-7 items-center text-sm font-bold tracking-[.06em] text-white/92 uppercase">
           Veracidad
         </h2>
         <Tooltip
@@ -26,7 +26,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
           ariaLabel="Qué es la puntuación de credibilidad"
           trigger={<QuestionIcon className="size-4.25" aria-hidden="true" />}
           buttonClassName="grid size-7 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-ink-deep px-3.5 py-3 text-left text-[12.5px] leading-normal font-medium text-surface-subtle shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-ink-deep before:content-['']"
+          panelClassName="absolute top-full right-0 z-10 mt-2.25 w-65 rounded-xl bg-ink-deep px-3.5 py-3 text-left text-xs leading-normal font-medium text-surface-subtle shadow-[0_14px_34px_rgba(0,0,0,.32)] transition-opacity before:absolute before:right-3.25 before:bottom-full before:border-[7px] before:border-transparent before:border-b-ink-deep before:content-['']"
         >
           Puntuación de credibilidad (0-100): cuanto más alta, más probable es
           que el contenido sea veraz.
@@ -35,10 +35,10 @@ export default function ResultBand({ result }: { result: ReportView }) {
       </div>
 
       <div className="flex flex-col justify-center px-7 py-8">
-        <h2 className="mt-3.5 text-3xl leading-tight font-bold tracking-tight sm:text-[34px]">
+        <h2 className="mt-3.5 text-3xl leading-tight font-bold tracking-tight sm:text-4xl">
           {verdict.text}
         </h2>
-        <p className="mt-3 max-w-xl text-[15.5px] leading-relaxed font-medium text-white/90">
+        <p className="mt-3 max-w-xl text-base leading-relaxed font-medium text-white/90">
           {verdict.description}
         </p>
 

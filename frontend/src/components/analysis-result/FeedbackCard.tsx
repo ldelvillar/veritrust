@@ -64,10 +64,10 @@ export default function FeedbackCard({
           <Check className="size-4.5" />
         </div>
         <div>
-          <h4 className="text-[13.5px] font-bold text-success-ink">
+          <h4 className="text-sm font-bold text-success-ink">
             ¡Gracias por tu valoración!
           </h4>
-          <p className="mt-0.5 text-[12.5px] leading-relaxed text-success-ink">
+          <p className="mt-0.5 text-xs leading-relaxed text-success-ink">
             Nos ayuda a mejorar la precisión del sistema de detección.
           </p>
         </div>
@@ -79,10 +79,10 @@ export default function FeedbackCard({
     <div className="rounded-xl border border-line bg-white p-5 shadow-sm print:hidden">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-[15px] font-bold text-ink">
+          <h3 className="text-base font-bold text-ink">
             ¿Es correcto este veredicto?
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-xs text-muted">
             Tu valoración nos ayuda a mejorar el sistema de detección.
           </p>
         </div>
@@ -125,14 +125,14 @@ export default function FeedbackCard({
           }}
         >
           <fieldset>
-            <legend className="text-[13px] font-semibold text-body">
+            <legend className="text-sm font-semibold text-body">
               ¿Cuál crees que es el veredicto correcto?
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {VERDICT_OPTIONS.map(verdict => (
                 <label
                   key={verdict}
-                  className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-[13px] font-bold transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+                  className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-bold transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
                     suggestedVerdict === verdict
                       ? `border-transparent ${VERDICT_META[verdict].pill}`
                       : 'border-line-strong bg-white text-body hover:border-primary'
@@ -155,7 +155,7 @@ export default function FeedbackCard({
           <div>
             <label
               htmlFor={commentId}
-              className="text-[13px] font-semibold text-body"
+              className="text-sm font-semibold text-body"
             >
               Comentario (opcional)
             </label>
@@ -166,7 +166,7 @@ export default function FeedbackCard({
               disabled={isSubmitting}
               onChange={e => setComment(e.target.value)}
               placeholder="Ej.: la fuente citada desmiente esta afirmación…"
-              className="mt-2 min-h-20 w-full resize-y rounded-[10px] border border-line-strong bg-surface-subtle px-3.5 py-2.5 font-[inherit] text-[14px] leading-relaxed text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 min-h-20 w-full resize-y rounded-lg border border-line-strong bg-surface-subtle px-3.5 py-2.5 font-[inherit] text-sm leading-relaxed text-body transition-all placeholder:text-faint focus:border-primary focus:bg-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -191,10 +191,7 @@ export default function FeedbackCard({
       )}
 
       {error && (
-        <p
-          role="alert"
-          className="mt-3 text-[13px] font-semibold text-danger-ink"
-        >
+        <p role="alert" className="mt-3 text-sm font-semibold text-danger-ink">
           {error}
         </p>
       )}

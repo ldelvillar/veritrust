@@ -5,10 +5,10 @@ export type PublicButtonVariant = 'primary' | 'light' | 'outline' | 'soft';
 export type PublicButtonSize = 'md' | 'lg';
 
 const base =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[2px] uppercase tracking-[0.09em] cursor-pointer font-bold no-underline transition-colors duration-150 [&_svg]:size-3.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xs uppercase tracking-[0.09em] cursor-pointer font-bold no-underline transition-colors duration-150 [&_svg]:size-3.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:cursor-not-allowed disabled:opacity-50';
 
 const sizes: Record<PublicButtonSize, string> = {
-  md: 'px-5 py-2 text-[11.5px]',
+  md: 'px-5 py-2 text-2xs',
   lg: 'px-[22px] py-[9px] text-xs',
 };
 

@@ -47,7 +47,7 @@ export default function MedicalExplanation({
           <h3 className="flex items-center gap-2.5 text-base font-bold text-ink">
             Experto en salud
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-xs text-muted">
             Contrasta cada afirmación con el consenso médico actual
           </p>
         </div>

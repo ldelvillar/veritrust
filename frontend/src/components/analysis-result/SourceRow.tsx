@@ -37,15 +37,13 @@ export default function SourceRow({
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {stanceInfo && (
               <span
-                className={`rounded-md px-2 py-0.5 text-[10.5px] font-bold tracking-wide uppercase ${stanceInfo.className}`}
+                className={`rounded-md px-2 py-0.5 text-2xs font-bold tracking-wide uppercase ${stanceInfo.className}`}
               >
                 {stanceInfo.text}
               </span>
             )}
             {meta && (
-              <span className="text-[11.5px] font-semibold text-faint">
-                {meta}
-              </span>
+              <span className="text-2xs font-semibold text-faint">{meta}</span>
             )}
           </div>
         )}

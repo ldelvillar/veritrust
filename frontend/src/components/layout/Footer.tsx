@@ -57,7 +57,7 @@ export default function Footer() {
 
           {columns.map(column => (
             <div key={column.title}>
-              <h5 className="mb-4 text-[13px] font-bold tracking-[0.06em] text-white uppercase">
+              <h5 className="mb-4 text-sm font-bold tracking-[0.06em] text-white uppercase">
                 {column.title}
               </h5>
               {column.links.map(link =>
@@ -84,7 +84,7 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3.5 border-t border-white/10 pt-6">
-          <p className="text-[13px] text-white/60">
+          <p className="text-sm text-white/60">
             © 2026 VeriTrust. Información orientativa; no sustituye el consejo
             médico profesional.
           </p>
@@ -93,7 +93,7 @@ export default function Footer() {
               <Link
                 key={link.label}
                 href={link.href}
-                className="text-[13px] text-white/60 transition duration-150 hover:text-white"
+                className="text-sm text-white/60 transition duration-150 hover:text-white"
               >
                 {link.label}
               </Link>

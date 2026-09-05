@@ -3,7 +3,7 @@ import { SITE_CONFIG } from '@/config/site';
 
 export default function PrintFooter() {
   return (
-    <div className="hidden border-t border-line pt-4 text-[11px] leading-relaxed text-faint print:block">
+    <div className="hidden border-t border-line pt-4 text-2xs leading-relaxed text-faint print:block">
       Informe generado por VeriTrust ·{' '}
       <a
         href={SITE_CONFIG.domain}

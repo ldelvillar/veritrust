@@ -54,7 +54,7 @@ export default function CredibilityGauge({ score }: { score: number | null }) {
             <span className="text-5xl leading-none font-black text-white">
               ?
             </span>
-            <span className="mt-1 text-[13px] font-semibold tracking-wide text-white/80">
+            <span className="mt-1 text-sm font-semibold tracking-wide text-white/80">
               Sin puntuación
             </span>
           </>
@@ -63,7 +63,7 @@ export default function CredibilityGauge({ score }: { score: number | null }) {
             <span className="text-5xl leading-none font-black text-white">
               {score}
             </span>
-            <span className="mt-1 text-[13px] font-semibold tracking-wide text-white/80">
+            <span className="mt-1 text-sm font-semibold tracking-wide text-white/80">
               / 100
             </span>
           </>
