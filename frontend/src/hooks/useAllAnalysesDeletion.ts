@@ -1,37 +1,27 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
-import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import type { components } from '@/types/api';
 
 type DeleteAllResponse = components['schemas']['DeleteAllResponse'];
 
-const CONNECTION_ERROR =
-  'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
-
 export function useAllAnalysesDeletion() {
   const { getToken } = useAuth();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate, isPending, error, setError } = useApiMutation();
 
   const removeAll = useCallback(async (): Promise<boolean> => {
-    setError(null);
-    setIsDeleting(true);
-    try {
-      await fetchJsonWithAuth<DeleteAllResponse>(getToken, '/history', {
+    const data = await mutate(() =>
+      fetchJsonWithAuth<DeleteAllResponse>(getToken, '/history', {
         method: 'DELETE',
         errorContextMessage: 'No se pudo eliminar tu actividad',
-      });
-      return true;
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : CONNECTION_ERROR);
-      return false;
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [getToken]);
+      })
+    );
+    return data !== null;
+  }, [getToken, mutate]);
 
-  return { removeAll, isDeleting, error, setError };
+  return { removeAll, isDeleting: isPending, error, setError };
 }

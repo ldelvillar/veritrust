@@ -1,42 +1,32 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
-import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import type { paths } from '@/types/api';
 
 type DeleteAnalysisResponse =
   paths['/analysis/{analysis_id}']['delete']['responses']['200']['content']['application/json'];
 
-const CONNECTION_ERROR =
-  'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
-
 export function useAnalysisDeletion() {
   const { getToken } = useAuth();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate, isPending, error, setError } = useApiMutation();
 
   const remove = useCallback(
     async (analysisId: string): Promise<boolean> => {
-      setError(null);
-      setIsDeleting(true);
-      try {
-        await fetchJsonWithAuth<DeleteAnalysisResponse>(
+      const data = await mutate(() =>
+        fetchJsonWithAuth<DeleteAnalysisResponse>(
           getToken,
           `/analysis/${analysisId}`,
           { method: 'DELETE' }
-        );
-        return true;
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : CONNECTION_ERROR);
-        return false;
-      } finally {
-        setIsDeleting(false);
-      }
+        )
+      );
+      return data !== null;
     },
-    [getToken]
+    [getToken, mutate]
   );
 
-  return { remove, isDeleting, error, setError };
+  return { remove, isDeleting: isPending, error, setError };
 }

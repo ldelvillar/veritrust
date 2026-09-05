@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
-import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { fetchJsonWithAuth } from '@/lib/apiClient';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import type { paths } from '@/types/api';
 
 type ShareResponse =
@@ -11,55 +12,37 @@ type ShareResponse =
 type UnshareResponse =
   paths['/analysis/{analysis_id}/share']['delete']['responses']['200']['content']['application/json'];
 
-const CONNECTION_ERROR =
-  'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
-
 export function useAnalysisShare() {
   const { getToken } = useAuth();
-  const [isSharing, setIsSharing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate, isPending, error, setError } = useApiMutation();
 
   const createShare = useCallback(
     async (analysisId: string): Promise<string | null> => {
-      setError(null);
-      setIsSharing(true);
-      try {
-        const data = await fetchJsonWithAuth<ShareResponse>(
+      const data = await mutate(() =>
+        fetchJsonWithAuth<ShareResponse>(
           getToken,
           `/analysis/${analysisId}/share`,
           { method: 'POST' }
-        );
-        return data.share_token;
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : CONNECTION_ERROR);
-        return null;
-      } finally {
-        setIsSharing(false);
-      }
+        )
+      );
+      return data?.share_token ?? null;
     },
-    [getToken]
+    [getToken, mutate]
   );
 
   const removeShare = useCallback(
     async (analysisId: string): Promise<boolean> => {
-      setError(null);
-      setIsSharing(true);
-      try {
-        await fetchJsonWithAuth<UnshareResponse>(
+      const data = await mutate(() =>
+        fetchJsonWithAuth<UnshareResponse>(
           getToken,
           `/analysis/${analysisId}/share`,
           { method: 'DELETE' }
-        );
-        return true;
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : CONNECTION_ERROR);
-        return false;
-      } finally {
-        setIsSharing(false);
-      }
+        )
+      );
+      return data !== null;
     },
-    [getToken]
+    [getToken, mutate]
   );
 
-  return { createShare, removeShare, isSharing, error, setError };
+  return { createShare, removeShare, isSharing: isPending, error, setError };
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 
-import { ApiError, fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
+import { fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
 import type { components, paths } from '@/types/api';
 
@@ -12,79 +13,56 @@ type AnalysisRequest = components['schemas']['AnalysisRequest'];
 type CreateAnalysisResponse =
   paths['/analysis']['post']['responses']['200']['content']['application/json'];
 
-const CONNECTION_ERROR =
-  'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
 const NO_ID_ERROR = 'No se generó un ID de análisis válido.';
 
 export function useAnalysisSubmission() {
   const router = useRouter();
   const { getToken } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate, isPending, error, setError } = useApiMutation();
 
-  const submit = useCallback(
-    async (body: AnalysisRequest) => {
-      setError(null);
-      setIsLoading(true);
-      try {
-        const data = await fetchJsonWithAuth<CreateAnalysisResponse>(
-          getToken,
-          '/analysis',
-          { method: 'POST', body }
-        );
-
-        if (!data.analysis_id) {
+  // Texto, URL y archivo acaban igual: fila pending creada y navegación al informe.
+  const startAnalysis = useCallback(
+    async (request: () => Promise<CreateAnalysisResponse>) => {
+      const data = await mutate(async () => {
+        const response = await request();
+        if (!response.analysis_id) {
           throw new Error(NO_ID_ERROR);
         }
-
-        // La fila pending ya existe: el indicador global se entera al instante.
-        void refreshPendingAnalyses();
-        router.push(`/app/analisis/${data.analysis_id}`);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message);
-        } else {
-          setError(CONNECTION_ERROR);
-        }
-      } finally {
-        setIsLoading(false);
-      }
+        return response;
+      });
+      if (!data) return;
+      // La fila pending ya existe: el indicador global se entera al instante.
+      void refreshPendingAnalyses();
+      router.push(`/app/analisis/${data.analysis_id}`);
     },
-    [getToken, router]
+    [mutate, router]
+  );
+
+  const submit = useCallback(
+    (body: AnalysisRequest) =>
+      startAnalysis(() =>
+        fetchJsonWithAuth<CreateAnalysisResponse>(getToken, '/analysis', {
+          method: 'POST',
+          body,
+        })
+      ),
+    [getToken, startAnalysis]
   );
 
   const submitFile = useCallback(
-    async (file: File) => {
-      setError(null);
-      setIsLoading(true);
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const data = await postFormWithAuth<CreateAnalysisResponse>(
+    (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return startAnalysis(() =>
+        postFormWithAuth<CreateAnalysisResponse>(
           getToken,
           '/analysis/file',
           formData
-        );
-
-        if (!data.analysis_id) {
-          throw new Error(NO_ID_ERROR);
-        }
-
-        // La fila pending ya existe: el indicador global se entera al instante.
-        void refreshPendingAnalyses();
-        router.push(`/app/analisis/${data.analysis_id}`);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message);
-        } else {
-          setError(CONNECTION_ERROR);
-        }
-      } finally {
-        setIsLoading(false);
-      }
+        )
+      );
     },
-    [getToken, router]
+    [getToken, startAnalysis]
   );
 
-  return { submit, submitFile, isLoading, error, setError };
+  return { submit, submitFile, isLoading: isPending, error, setError };
 }
