@@ -23,7 +23,7 @@ Run every command from the **repo root** — never `cd` into a subdirectory. Bac
 
 ### Request flow
 
-The pipeline is slow (multiple sequential Ollama calls, medical sources lookups, BERT), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`.
+The pipeline is slow (several sequential LLM calls, plus medical-source lookups for every claim), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`. The provider and per-agent models are configurable (`LLM_PROVIDER` plus the `ollama_*`/`mistral_*` fields in `Settings`).
 
 ```text
 Web process (FastAPI)                          Worker process (arq, app/worker.py)
@@ -35,12 +35,14 @@ User (browser)
   → enqueue run_analysis on Redis ─────────────→ run_analysis(analysis_id, …)
   → Return {status: "pending", analysis_id}        → URL/file text extraction if needed
                                                    → LangGraph pipeline:
-GET /analysis/{id}  (polled by frontend            ·  Extractor     (llama3)              → claims
-  every 2s while status == "pending")              ·  Translator    (translategemma)      → EN, batched
-  → returns status + (when done) label/            ·  Investigator  (4 sources + judge)   → sources + evidence_coverage
-     confidence/explanation/claims/                ·  Health Expert (llama3.2)            → label (BioBERT) + explanation;
-     sources, or error_code when                   → Confidence attenuated by coverage; softened if evidence contradicts
-     status == "failed"                            → UPDATE row → 'done' (results) or 'failed' (error_code)
+GET /analysis/{id}  (polled by frontend            ·  Extractor     → claims
+  every 2s while status == "pending")              ·  Translator    → claims in EN, batched
+  → returns status + (when done) label/            ·  Investigator  → sources + evidence_coverage (several medical APIs, LLM relevance judge)
+     confidence/explanation/claims/                ·  Health Expert → explanation only; the LLM never decides the label
+     sources, or error_code when                   → Verdict: Laplace-smoothed stance counts per claim, averaged over the
+     status == "failed"                               claims the literature speaks to, then a three-way band (falsa/incierta/verdadera)
+                                                   → Confidence attenuated by evidence_coverage
+                                                   → UPDATE row → 'done' (results) or 'failed' (error_code)
 ```
 
 ## Conventions

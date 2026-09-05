@@ -34,17 +34,17 @@ flowchart TB
         PREP --> EX
     end
 
-    OLLAMA["Ollama<br/>llama3 · translategemma · llama3.2"]
+    LLM["LLM provider<br/>Mistral API (compose) · Ollama (local default)"]
     LIT["Europe PMC · PubMed · openFDA · AEMPS CIMA"]
 
     UI -- "JWT" --> API
     API --> PG
     API -- "enqueue" --> REDIS
     REDIS --> PREP
-    EX -.-> OLLAMA
-    TR -.-> OLLAMA
-    IN -.-> OLLAMA
-    HE -.-> OLLAMA
+    EX -.-> LLM
+    TR -.-> LLM
+    IN -.-> LLM
+    HE -.-> LLM
     IN --> LIT
     HE -- "verdict · claims · sources · report" --> PG
     UI -- "poll every 2s" --> API
@@ -77,7 +77,7 @@ Two guardrails temper the raw verdict (`app/core/credibility.py`):
 
 ## Stack
 
-- **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Ollama, raw async SQL via psycopg3 (no ORM)
+- **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Mistral/Ollama, raw async SQL via psycopg3 (no ORM)
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
 - **ML** — evaluation pipeline in `backend/ml/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
@@ -102,19 +102,19 @@ docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 
 ### Prerequisites
 
-- Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), an [Ollama](https://ollama.com/) install, PostgreSQL, and Redis
+- Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), PostgreSQL, Redis, and either a [Mistral](https://mistral.ai/) API key or an [Ollama](https://ollama.com/) install
 - A free [Clerk](https://clerk.com/) application (authentication) — copy its JWKS URL, issuer, audience, secret key, and publishable key into `.env`
 
 ### Quick start — Docker
 
 ```bash
-cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, and the Clerk values
+cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, MISTRAL_API_KEY, and the Clerk values
 docker compose up -d --build
-docker compose exec ollama ollama pull llama3.2
-docker compose exec ollama ollama pull translategemma
 ```
 
 Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
+
+The worker runs `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API and compose refuses to start without `MISTRAL_API_KEY`. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you flip that variable and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma`).
 
 ### Local development (processes on your machine)
 
