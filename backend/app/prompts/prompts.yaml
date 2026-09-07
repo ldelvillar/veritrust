@@ -28,9 +28,9 @@ extractor:
       aunque te parezcan obviamente falsas: verificarlas es justo la tarea.
     - Para CADA afirmación genera además una consulta de búsqueda en INGLÉS para
       literatura biomédica: usa SOLO los términos clínicos clave (entidades, no la
-      frase entera), entrecomilla las expresiones de varias palabras y únelos con
+      frase entera), sin comillas de ningún tipo, y únelos con
       operadores booleanos AND/OR
-      (Ej: '("garlic" OR "allium sativum") AND ("stomach cancer" OR "gastric cancer")').
+      (Ej: (garlic OR allium sativum) AND (stomach cancer OR gastric cancer)).
     - Para CADA afirmación indica además en 'drug_terms' el nombre del medicamento o
       principio activo mencionado (en español, tal y como se diría en España; Ej:
       'ibuprofeno', 'paracetamol'), o una cadena vacía '' si la afirmación no trata

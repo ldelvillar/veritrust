@@ -31,8 +31,8 @@ class MedicalStatements(BaseModel):
         description=(
             "Para CADA afirmación, en el MISMO orden y número, una consulta de "
             "búsqueda en inglés con los términos clínicos clave unidos por "
-            "operadores booleanos. Ej.: "
-            '\'("vitamin C" OR "ascorbic acid") AND ("common cold")\'.'
+            "operadores booleanos, sin comillas de ningún tipo. Ej.: "
+            "(vitamin C OR ascorbic acid) AND (common cold)."
         ),
     )
     drug_terms: List[str] = Field(

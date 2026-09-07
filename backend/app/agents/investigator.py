@@ -58,6 +58,11 @@ def _dedupe_hits(hits: list[dict]) -> list[dict]:
     return unique
 
 
+def _usable_query(query: object) -> bool:
+    """Una consulta sin caracteres alfanuméricos no recupera nada."""
+    return any(char.isalnum() for char in str(query or ""))
+
+
 def _search_source(
     index: int, query: str, search: Callable[..., list[dict]]
 ) -> tuple[int, list[dict] | None]:
@@ -105,7 +110,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
             i,
             (
                 queries[i]
-                if i < len(queries) and queries[i] and str(queries[i]).strip()
+                if i < len(queries) and _usable_query(queries[i])
                 else translated[i]
             ),
             translated[i] or "",
@@ -114,6 +119,18 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         )
         for i in range(len(translated))
     ]
+
+    # Una consulta inservible degradaría la búsqueda en silencio: se avisa.
+    degenerate = sum(
+        1
+        for i in range(len(translated))
+        if i < len(queries) and queries[i] and not _usable_query(queries[i])
+    )
+    if degenerate:
+        logger.warning(
+            "[Investigador] %d consultas inservibles; se busca con el texto traducido",
+            degenerate,
+        )
 
     # Descarta consultas vacías (relleno) antes de llamar a las fuentes.
     valid = [
