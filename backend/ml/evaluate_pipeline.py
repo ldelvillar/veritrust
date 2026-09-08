@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 from time import time
 from typing import TypedDict, cast
@@ -154,10 +155,8 @@ async def evaluate_pipeline(
                 continue
             duration = time() - started
 
-            label = result.get("label") or None
-            explanation = result.get("medical_explanation") or None
-            # Sin explicación: el texto no contenía afirmaciones médicas verificables.
-            predicted = label if (label and explanation) else None
+            # Sin etiqueta: el texto no contenía afirmaciones médicas verificables.
+            predicted = result.get("label") or None
             confidence = float(result.get("confidence") or 0.0)
             row: EvalRow = {
                 "text": sample["text"],
@@ -166,7 +165,9 @@ async def evaluate_pipeline(
                 "confidence": confidence,
                 # fake_avg cruda para poder barrer la banda global sin re-ejecutar.
                 "fake_avg": _reconstruct_fake_avg(
-                    label, confidence, float(result.get("evidence_coverage") or 0.0)
+                    predicted,
+                    confidence,
+                    float(result.get("evidence_coverage") or 0.0),
                 ),
                 # Coste por muestra: fija el n asumible en evaluaciones posteriores.
                 "duration_seconds": round(duration, 3),
@@ -308,7 +309,16 @@ def main() -> dict[str, float]:
         action="store_true",
         help="Ignora cualquier checkpoint previo y evalúa desde cero.",
     )
+    parser.add_argument(
+        "--with-explanation",
+        action="store_true",
+        help="Genera el informe del experto; por defecto se omite porque no decide la etiqueta.",
+    )
     args = parser.parse_args()
+
+    # El informe es ~1/3 de los tokens por muestra y no influye en la métrica.
+    if not args.with_explanation:
+        os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
 
     # results/ está git-ignored; el checkpoint permite reanudar una evaluación larga.
     default_dir = Path(__file__).resolve().parents[1] / "results"

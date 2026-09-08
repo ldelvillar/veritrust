@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     groq_request_timeout_seconds: int = 60
     # El plan gratuito corta a 8000 tokens/min; reintentar absorbe el 429
     groq_max_retries: int = 5
+    # La cuota diaria de Groq es por modelo: rotar reparte la carga del juez
+    groq_judge_model_rotation: str = ""
 
     # Google AI Studio; la api_key es obligatoria cuando llm_provider es "google"
     google_api_key: str | None = None
@@ -95,6 +97,9 @@ class Settings(BaseSettings):
     # La ventana de contexto la fija el servidor; solo se acota la generación
     nvidia_max_tokens: int = 2048
     nvidia_request_timeout_seconds: int = 60
+
+    # El informe del experto no decide la etiqueta: se apaga al evaluar para ahorrar tokens
+    health_expert_explanation_enabled: bool = True
 
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
@@ -179,6 +184,12 @@ class Settings(BaseSettings):
 
         audiences = [aud.strip() for aud in raw.split(",") if aud.strip()]
         return audiences if len(audiences) > 1 else audiences[0]
+
+    def groq_judge_models(self) -> list[str]:
+        """Modelos entre los que rota el juez; vacía significa no rotar."""
+        return [
+            m.strip() for m in self.groq_judge_model_rotation.split(",") if m.strip()
+        ]
 
     def llm_provider_name(self) -> str:
         """Devuelve el proveedor de LLM normalizado en minúsculas."""

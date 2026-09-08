@@ -57,7 +57,9 @@ def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
             )
 
     monkeypatch.setattr(
-        extractor_module, "get_extractor_chain", lambda prompt_text: _Chain()
+        extractor_module,
+        "get_extractor_chain",
+        lambda prompt_text, model=None: _Chain(),
     )
 
 
@@ -69,7 +71,9 @@ def _stub_translator(monkeypatch, translations):
             return SimpleNamespace(translations=translations)
 
     monkeypatch.setattr(
-        translator_module, "get_translator_chain", lambda prompt_text: _Chain()
+        translator_module,
+        "get_translator_chain",
+        lambda prompt_text, model=None: _Chain(),
     )
 
 
@@ -138,7 +142,9 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
             return SimpleNamespace(stances=[stance] * candidates)
 
     monkeypatch.setattr(
-        relevance_module, "get_relevance_chain", lambda prompt_text: _Chain()
+        relevance_module,
+        "get_relevance_chain",
+        lambda prompt_text, model=None: _Chain(),
     )
 
 

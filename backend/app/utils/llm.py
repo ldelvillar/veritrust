@@ -106,7 +106,7 @@ def _nvidia_api_key() -> str:
     return api_key
 
 
-def build_chat_model(role: str) -> BaseChatModel:
+def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     """Construye el modelo de chat del rol indicado para el proveedor configurado."""
     if role not in OLLAMA_PREFIX_BY_ROLE:
         raise LLMConfigurationError(f"Rol de LLM desconocido: {role}")
@@ -114,9 +114,13 @@ def build_chat_model(role: str) -> BaseChatModel:
     settings = get_settings()
     provider = settings.llm_provider_name()
 
+    def _model_for(attr_by_role: dict[str, str]) -> str:
+        # El override permite rotar de modelo sin tocar la configuración del rol.
+        return model or str(getattr(settings, attr_by_role[role]))
+
     if provider == "mistral":
         return ChatMistralAI(
-            model_name=getattr(settings, MISTRAL_MODEL_ATTR_BY_ROLE[role]),
+            model_name=_model_for(MISTRAL_MODEL_ATTR_BY_ROLE),
             temperature=0,
             api_key=SecretStr(_mistral_api_key()),
             max_tokens=settings.mistral_max_tokens,
@@ -125,7 +129,7 @@ def build_chat_model(role: str) -> BaseChatModel:
 
     if provider == "groq":
         return ChatGroq(
-            model=getattr(settings, GROQ_MODEL_ATTR_BY_ROLE[role]),
+            model=_model_for(GROQ_MODEL_ATTR_BY_ROLE),
             temperature=0,
             api_key=SecretStr(_groq_api_key()),
             max_tokens=settings.groq_max_tokens,
@@ -135,7 +139,7 @@ def build_chat_model(role: str) -> BaseChatModel:
 
     if provider == "google":
         return ChatGoogleGenerativeAI(
-            model=getattr(settings, GOOGLE_MODEL_ATTR_BY_ROLE[role]),
+            model=_model_for(GOOGLE_MODEL_ATTR_BY_ROLE),
             temperature=0,
             api_key=SecretStr(_google_api_key()),
             max_tokens=settings.google_max_tokens,
@@ -145,7 +149,7 @@ def build_chat_model(role: str) -> BaseChatModel:
 
     if provider == "nvidia":
         return ChatNVIDIA(
-            model=getattr(settings, NVIDIA_MODEL_ATTR_BY_ROLE[role]),
+            model=_model_for(NVIDIA_MODEL_ATTR_BY_ROLE),
             temperature=0,
             api_key=_nvidia_api_key(),
             max_completion_tokens=settings.nvidia_max_tokens,
@@ -161,7 +165,7 @@ def build_chat_model(role: str) -> BaseChatModel:
 
     prefix = OLLAMA_PREFIX_BY_ROLE[role]
     return ChatOllama(
-        model=getattr(settings, f"{prefix}_model"),
+        model=model or str(getattr(settings, f"{prefix}_model")),
         temperature=0,
         base_url=settings.ollama_base_url,
         num_ctx=getattr(settings, f"{prefix}_num_ctx"),

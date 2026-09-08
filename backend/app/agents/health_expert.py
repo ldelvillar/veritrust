@@ -10,6 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents import sanitize
+from app.core.config import get_settings
 from app.core.credibility import adjust_confidence_with_evidence
 from app.prompts.agents import HealthExpertPrompt, Prompts
 from app.utils.llm import build_chat_model
@@ -182,12 +183,14 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
         )
     )
 
-    logger.info("[Experto] Generando explicación médica")
-
-    # Invocar al LLM para generar la explicación médica basada en el resultado del modelo
-    medical_explanation = llm.invoke([system_prompt, expert_message]).content
-
-    logger.info("[Experto] Informe médico generado")
+    # El informe no decide la etiqueta: al evaluar se omite para no gastar tokens.
+    if get_settings().health_expert_explanation_enabled:
+        logger.info("[Experto] Generando explicación médica")
+        medical_explanation = llm.invoke([system_prompt, expert_message]).content
+        logger.info("[Experto] Informe médico generado")
+    else:
+        logger.info("[Experto] Explicación desactivada; solo se calcula el veredicto")
+        medical_explanation = ""
 
     return {
         "label": global_label,

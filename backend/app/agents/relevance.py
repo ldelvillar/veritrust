@@ -2,11 +2,13 @@
 
 import logging
 from functools import lru_cache
+from itertools import count
 from typing import List, Literal
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
+from app.core.config import get_settings
 from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
@@ -28,10 +30,25 @@ class EvidenceJudgments(BaseModel):
     )
 
 
-@lru_cache(maxsize=1)
-def get_relevance_chain(prompt_text: str):
-    """Devuelve la cadena de juicio de evidencia configurada y cacheada."""
-    llm = build_chat_model("judge")
+# La cuota diaria de Groq es por modelo: el juez alterna para no agotar uno solo.
+_rotation = count()
+
+
+def _next_judge_model() -> str | None:
+    """Siguiente modelo de la rotación del juez, o ``None`` si no se rota."""
+    settings = get_settings()
+    if settings.llm_provider_name() != "groq":
+        return None
+    models = settings.groq_judge_models()
+    if not models:
+        return None
+    return models[next(_rotation) % len(models)]
+
+
+@lru_cache(maxsize=8)
+def get_relevance_chain(prompt_text: str, model: str | None = None):
+    """Devuelve la cadena de juicio de evidencia configurada y cacheada por modelo."""
+    llm = build_chat_model("judge", model)
     structured_llm = llm.with_structured_output(EvidenceJudgments)
 
     prompt = ChatPromptTemplate.from_messages(
@@ -64,7 +81,7 @@ def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]
     if not hits:
         return hits
 
-    chain = get_relevance_chain(prompt_text)
+    chain = get_relevance_chain(prompt_text, _next_judge_model())
     try:
         verdict = chain.invoke({"claim": claim, "sources": _format_candidates(hits)})
     except Exception:

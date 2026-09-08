@@ -18,7 +18,7 @@ def test_judge_evidence_drops_unrelated_and_annotates_stance(monkeypatch):
     monkeypatch.setattr(
         relevance,
         "get_relevance_chain",
-        lambda prompt: _FakeChain(["supports", "unrelated"]),
+        lambda prompt, model=None: _FakeChain(["supports", "unrelated"]),
     )
     hits = [{"title": "a", "abstract": "x"}, {"title": "b", "abstract": "y"}]
 
@@ -39,7 +39,9 @@ def test_judge_evidence_returns_empty_without_calling_judge(monkeypatch):
 def test_judge_evidence_pads_missing_stances_as_inconclusive(monkeypatch):
     # Una sola postura para dos fuentes: la no juzgada se conserva sin concluir.
     monkeypatch.setattr(
-        relevance, "get_relevance_chain", lambda prompt: _FakeChain(["supports"])
+        relevance,
+        "get_relevance_chain",
+        lambda prompt, model=None: _FakeChain(["supports"]),
     )
     hits = [{"title": "a"}, {"title": "b"}]
 
@@ -56,7 +58,9 @@ def test_judge_evidence_fails_open_on_error(monkeypatch):
         def invoke(self, payload):
             raise RuntimeError("ollama caído")
 
-    monkeypatch.setattr(relevance, "get_relevance_chain", lambda prompt: _BoomChain())
+    monkeypatch.setattr(
+        relevance, "get_relevance_chain", lambda prompt, model=None: _BoomChain()
+    )
     hits = [{"title": "a"}]
 
     # Ante un fallo del juez se conservan todas las fuentes, sin postura.
@@ -76,3 +80,43 @@ def test_get_relevance_chain_builds_invocable():
     chain = get_relevance_chain("prompt de prueba")
 
     assert hasattr(chain, "invoke")
+
+
+def _rotation_settings(monkeypatch, rotation: str):
+    """Fija un Settings falso con la rotación del juez indicada."""
+    from app.agents import relevance as rel
+
+    fake = SimpleNamespace(
+        llm_provider_name=lambda: "groq",
+        groq_judge_models=lambda: [m for m in rotation.split(",") if m],
+    )
+    monkeypatch.setattr(rel, "get_settings", lambda: fake)
+    return rel
+
+
+def test_judge_rotates_across_configured_models(monkeypatch):
+    rel = _rotation_settings(monkeypatch, "m1,m2,m3")
+
+    picks = [rel._next_judge_model() for _ in range(6)]
+
+    # Reparte por igual: cada modelo recibe la misma porción de la cuota.
+    assert sorted(set(picks)) == ["m1", "m2", "m3"]
+    assert all(picks.count(m) == 2 for m in ("m1", "m2", "m3"))
+
+
+def test_judge_does_not_rotate_without_configuration(monkeypatch):
+    rel = _rotation_settings(monkeypatch, "")
+
+    assert rel._next_judge_model() is None
+
+
+def test_judge_does_not_rotate_outside_groq(monkeypatch):
+    from app.agents import relevance as rel
+
+    fake = SimpleNamespace(
+        llm_provider_name=lambda: "google",
+        groq_judge_models=lambda: ["m1", "m2"],
+    )
+    monkeypatch.setattr(rel, "get_settings", lambda: fake)
+
+    assert rel._next_judge_model() is None

@@ -620,3 +620,52 @@ def test_health_expert_llm_is_configured_from_settings_and_cached(
 
     health_module.get_health_expert_llm.cache_clear()
     get_settings.cache_clear()
+
+
+def test_health_expert_skips_explanation_when_disabled(
+    monkeypatch, health_module, dummy_prompts
+):
+    from app.core.config import get_settings
+
+    class _ExplodingLLM:
+        def invoke(self, messages):
+            pytest.fail("no debe invocarse el LLM con la explicación desactivada")
+
+    monkeypatch.setattr(health_module, "get_health_expert_llm", lambda: _ExplodingLLM())
+    monkeypatch.setenv("HEALTH_EXPERT_EXPLANATION_ENABLED", "false")
+    get_settings.cache_clear()
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "sources": _stance_sources("S1", supports=2),
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    # El veredicto sale de las cuentas de stance, así que sobrevive sin informe.
+    assert update["medical_explanation"] == ""
+    assert update["label"]
+    assert update["claims"]
+
+    get_settings.cache_clear()
+
+
+def test_health_expert_generates_explanation_by_default(
+    monkeypatch, health_module, dummy_prompts
+):
+    from app.core.config import get_settings
+
+    _stub_health_llm(monkeypatch, health_module)
+    monkeypatch.delenv("HEALTH_EXPERT_EXPLANATION_ENABLED", raising=False)
+    get_settings.cache_clear()
+
+    state = {
+        "extracted_statements": ["S1"],
+        "translated_statements": ["T1"],
+        "sources": _stance_sources("S1", supports=2),
+    }
+    update = health_module.health_expert(state, dummy_prompts)
+
+    assert update["medical_explanation"] == "Informe médico"
+
+    get_settings.cache_clear()
