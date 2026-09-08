@@ -23,7 +23,7 @@ Run every command from the **repo root** — never `cd` into a subdirectory. Bac
 
 ### Request flow
 
-The pipeline is slow (several sequential LLM calls, plus medical-source lookups for every claim), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`. The provider and per-agent models are configurable (`LLM_PROVIDER` plus the `ollama_*`/`mistral_*` fields in `Settings`).
+The pipeline is slow (several sequential LLM calls, plus medical-source lookups for every claim), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`. The provider and per-agent models are configurable (`LLM_PROVIDER` plus that provider's own fields in `Settings`); `backend/.env.example` is the source of truth for the accepted values. Production runs `ollama` self-hosted; the hosted API providers are development-only.
 
 ```text
 Web process (FastAPI)                          Worker process (arq, app/worker.py)

@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     ollama_judge_num_ctx: int = 8192
     ollama_judge_num_predict: int = 512
 
-    # Proveedor de los LLM de los agentes: "ollama" (local) o "mistral" (API alojada)
+    # Proveedor de los LLM: "ollama" (local), "mistral", "groq", "google" o "nvidia"
     llm_provider: str = "ollama"
 
     # Mistral; la api_key es obligatoria cuando llm_provider es "mistral"
@@ -61,6 +61,40 @@ class Settings(BaseSettings):
     # La ventana de contexto la fija el servidor; solo se acota la generación
     mistral_max_tokens: int = 2048
     mistral_request_timeout_seconds: int = 60
+
+    # Groq; la api_key es obligatoria cuando llm_provider es "groq"
+    # Un modelo por rol: la cuota diaria de tokens de Groq es por modelo
+    groq_api_key: str | None = None
+    groq_extractor_model: str = "openai/gpt-oss-20b"
+    groq_translator_model: str = "qwen/qwen3.8-27b"
+    groq_health_expert_model: str = "qwen/qwen3.6-27b"
+    groq_judge_model: str = "openai/gpt-oss-120b"
+    # La ventana de contexto la fija el servidor; solo se acota la generación
+    groq_max_tokens: int = 2048
+    groq_request_timeout_seconds: int = 60
+    # El plan gratuito corta a 8000 tokens/min; reintentar absorbe el 429
+    groq_max_retries: int = 5
+
+    # Google AI Studio; la api_key es obligatoria cuando llm_provider es "google"
+    google_api_key: str | None = None
+    google_extractor_model: str = "gemini-3.5-flash"
+    google_translator_model: str = "gemini-3.5-flash"
+    google_health_expert_model: str = "gemini-3.5-flash"
+    google_judge_model: str = "gemini-3.5-flash"
+    # La ventana de contexto la fija el servidor; solo se acota la generación
+    google_max_tokens: int = 2048
+    google_request_timeout_seconds: int = 60
+    google_max_retries: int = 5
+
+    # NVIDIA NIM; la api_key es obligatoria cuando llm_provider es "nvidia"
+    nvidia_api_key: str | None = None
+    nvidia_extractor_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    nvidia_translator_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    nvidia_health_expert_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    nvidia_judge_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    # La ventana de contexto la fija el servidor; solo se acota la generación
+    nvidia_max_tokens: int = 2048
+    nvidia_request_timeout_seconds: int = 60
 
     # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
     prompt_file_path: str | None = None
@@ -154,11 +188,15 @@ class Settings(BaseSettings):
         """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
         missing: list[str] = []
 
-        if (
-            self.llm_provider_name() == "mistral"
-            and not (self.mistral_api_key or "").strip()
-        ):
+        provider = self.llm_provider_name()
+        if provider == "mistral" and not (self.mistral_api_key or "").strip():
             missing.append("MISTRAL_API_KEY")
+        if provider == "groq" and not (self.groq_api_key or "").strip():
+            missing.append("GROQ_API_KEY")
+        if provider == "google" and not (self.google_api_key or "").strip():
+            missing.append("GOOGLE_API_KEY")
+        if provider == "nvidia" and not (self.nvidia_api_key or "").strip():
+            missing.append("NVIDIA_API_KEY")
 
         if not self.database_url.strip():
             missing.append("DATABASE_URL")

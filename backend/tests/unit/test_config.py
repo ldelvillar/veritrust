@@ -109,3 +109,42 @@ def test_validate_runtime_rejects_wildcard_origin_with_credentials():
 
     with pytest.raises(SettingsValidationError):
         settings.validate_runtime()
+
+
+def test_validate_runtime_requires_groq_api_key_for_groq_provider():
+    settings = _make_settings(llm_provider="GROQ", groq_api_key="  ")
+
+    with pytest.raises(SettingsValidationError, match="GROQ_API_KEY"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_accepts_groq_provider_with_api_key():
+    settings = _make_settings(llm_provider="groq", groq_api_key="clave-de-prueba")
+
+    settings.validate_runtime()
+
+
+def test_validate_runtime_requires_google_api_key_for_google_provider():
+    settings = _make_settings(llm_provider="GOOGLE", google_api_key="  ")
+
+    with pytest.raises(SettingsValidationError, match="GOOGLE_API_KEY"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_accepts_google_provider_with_api_key():
+    settings = _make_settings(llm_provider="google", google_api_key="clave-de-prueba")
+
+    settings.validate_runtime()
+
+
+def test_validate_runtime_requires_nvidia_api_key_for_nvidia_provider():
+    settings = _make_settings(llm_provider="NVIDIA", nvidia_api_key="  ")
+
+    with pytest.raises(SettingsValidationError, match="NVIDIA_API_KEY"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_accepts_nvidia_provider_with_api_key():
+    settings = _make_settings(llm_provider="nvidia", nvidia_api_key="clave-de-prueba")
+
+    settings.validate_runtime()

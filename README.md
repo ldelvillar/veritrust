@@ -102,19 +102,19 @@ docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 
 ### Prerequisites
 
-- Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), PostgreSQL, Redis, and either a [Mistral](https://mistral.ai/) API key or an [Ollama](https://ollama.com/) install
+- Docker (for the compose stack) — or, for running processes natively: Python 3.11+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+ with `pnpm` 11 (`corepack enable`), PostgreSQL, Redis, and a [Mistral](https://mistral.ai/), [Groq](https://console.groq.com/), [Google AI Studio](https://aistudio.google.com/apikey) or [NVIDIA](https://build.nvidia.com/) API key, or an [Ollama](https://ollama.com/) install
 - A free [Clerk](https://clerk.com/) application (authentication) — copy its JWKS URL, issuer, audience, secret key, and publishable key into `.env`
 
 ### Quick start — Docker
 
 ```bash
-cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, MISTRAL_API_KEY, and the Clerk values
+cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, the LLM provider's API key, and the Clerk values
 docker compose up -d --build
 ```
 
 Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
-The worker runs `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API and compose refuses to start without `MISTRAL_API_KEY`. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you flip that variable and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma`).
+The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you set `LLM_PROVIDER=ollama` and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma`).
 
 ### Local development (processes on your machine)
 
