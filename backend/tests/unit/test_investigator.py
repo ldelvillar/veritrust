@@ -20,7 +20,7 @@ def _patch_sources(monkeypatch, fake):
 
 def test_returns_empty_without_translated_statements():
     update = investigator({"translated_statements": []})
-    assert update == {"sources": [], "evidence_coverage": 0.0}
+    assert update == {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
 
 
 def test_collects_sources_and_full_coverage(monkeypatch):
@@ -33,7 +33,7 @@ def test_collects_sources_and_full_coverage(monkeypatch):
         {"translated_statements": ["A", "B"], "extracted_statements": ["a", "b"]}
     )
 
-    assert set(update.keys()) == {"sources", "evidence_coverage"}
+    assert set(update.keys()) == {"sources", "evidence_coverage", "judge_failures"}
     assert update["evidence_coverage"] == 1.0
     # Ambas fuentes devuelven la misma URL por afirmación: se deduplica a una.
     assert len(update["sources"]) == 2
@@ -201,7 +201,7 @@ def test_blank_translations_skip_lookups(monkeypatch):
     # Traducciones en blanco (relleno): no hay nada que consultar.
     update = investigator({"translated_statements": ["", "  "]})
 
-    assert update == {"sources": [], "evidence_coverage": 0.0}
+    assert update == {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
     assert called is False
 
 
@@ -419,3 +419,48 @@ def test_parallel_judge_isolates_one_failure(monkeypatch):
     assert by_url["https://x/B-en"]["statements"] == [
         {"claim_index": 1, "text": "b", "stance": None}
     ]
+
+
+def test_reports_judge_failures_when_sources_go_unjudged(monkeypatch):
+    """El juez falla en abierto: las fuentes sin postura deben quedar contabilizadas."""
+
+    def fake_search(query, max_results):
+        return [{"url": "u1", "title": "T1", "abstract": "A1"}]
+
+    _patch_sources(monkeypatch, fake_search)
+    # judge_evidence falla en abierto devolviendo los hits tal cual, sin 'stance'.
+    monkeypatch.setattr(
+        investigator_module, "judge_evidence", lambda prompt, claim, hits: hits
+    )
+
+    update = investigator(
+        {
+            "translated_statements": ["Claim in English"],
+            "extracted_statements": ["Afirmación"],
+        },
+        _PROMPTS,
+    )
+
+    assert update["judge_failures"] == 1
+
+
+def test_no_judge_failures_when_every_source_is_judged(monkeypatch):
+    def fake_search(query, max_results):
+        return [{"url": "u1", "title": "T1", "abstract": "A1"}]
+
+    _patch_sources(monkeypatch, fake_search)
+    monkeypatch.setattr(
+        investigator_module,
+        "judge_evidence",
+        lambda prompt, claim, hits: [{**h, "stance": "supports"} for h in hits],
+    )
+
+    update = investigator(
+        {
+            "translated_statements": ["Claim in English"],
+            "extracted_statements": ["Afirmación"],
+        },
+        _PROMPTS,
+    )
+
+    assert update["judge_failures"] == 0

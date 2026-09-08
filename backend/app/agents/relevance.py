@@ -85,7 +85,10 @@ def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]
     try:
         verdict = chain.invoke({"claim": claim, "sources": _format_candidates(hits)})
     except Exception:
-        logger.warning("[Juez] Fallo evaluando la evidencia; se conservan las fuentes")
+        logger.warning(
+            "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",
+            exc_info=True,
+        )
         return hits
 
     stances = list(verdict.stances)

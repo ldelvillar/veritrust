@@ -101,7 +101,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     drug_terms = state.get("drug_terms", [])
 
     if not translated:
-        return {"sources": [], "evidence_coverage": 0.0}
+        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
 
     # El índice de la afirmación viaja con su entrada: es la clave con la que el
     # informe enlaza fuente y afirmación, en vez de volver a casar el texto.
@@ -142,7 +142,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     # Denominador de la cobertura: toda afirmación válida, aunque la cota la deje sin buscar.
     total = len(valid)
     if not valid:
-        return {"sources": [], "evidence_coverage": 0.0}
+        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
     searched = valid[:EVIDENCE_MAX_STATEMENTS]
     if len(searched) < total:
         logger.warning(
@@ -227,6 +227,16 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
                 (hit, claim_index, str(original or "")) for hit in relevant
             )
 
+    # El juez falla en abierto: sin 'stance' la fuente pasó sin juzgar.
+    judge_failures = sum(
+        1 for hits in judged if any("stance" not in hit for hit in hits)
+    )
+    if judge_failures:
+        logger.warning(
+            "[Investigador] %d afirmaciones con evidencia sin juzgar",
+            judge_failures,
+        )
+
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
     if errored == len(searched):
@@ -236,4 +246,8 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
         coverage = covered / total
 
     logger.info("[Investigador] %d fuentes (cobertura %.2f)", len(sources), coverage)
-    return {"sources": sources, "evidence_coverage": coverage}
+    return {
+        "sources": sources,
+        "evidence_coverage": coverage,
+        "judge_failures": judge_failures,
+    }

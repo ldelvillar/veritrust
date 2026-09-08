@@ -48,6 +48,7 @@ class EvalRow(TypedDict):
     sources_kept: int
     stances: dict[str, int]
     evidence_coverage: float
+    judge_failures: int
 
 
 def _stance_histogram(sources: list[dict]) -> dict[str, int]:
@@ -180,6 +181,8 @@ async def evaluate_pipeline(
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
                 "evidence_coverage": float(result.get("evidence_coverage") or 0.0),
+                # Juez caido: la fila no mide el pipeline, mide una incidencia.
+                "judge_failures": int(result.get("judge_failures") or 0),
             }
             done[sample["text"]] = row
             if handle is not None:
@@ -208,10 +211,14 @@ def _is_abstention(predicted: str | None) -> bool:
 
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     """Calcula la matriz de confusión y métricas tomando 'falsa' como positivo."""
+    # Con el juez caido no hay posturas: la fila no mide nada y se excluye.
+    invalid = [r for r in rows if r.get("judge_failures")]
+    valid = [r for r in rows if not r.get("judge_failures")]
+
     # Abstenerse ('incierta') es seguro, no un error: se excluye de las métricas.
-    scored = [r for r in rows if not _is_abstention(r["predicted"])]
-    skipped = sum(1 for r in rows if r["predicted"] is None)
-    uncertain = len(rows) - len(scored) - skipped
+    scored = [r for r in valid if not _is_abstention(r["predicted"])]
+    skipped = sum(1 for r in valid if r["predicted"] is None)
+    uncertain = len(valid) - len(scored) - skipped
 
     tp = fp = tn = fn = 0
     for row in scored:
@@ -245,6 +252,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "evaluated": total,
         "uncertain": uncertain,
         "skipped": skipped,
+        "judge_failed": len(invalid),
     }
 
 
@@ -256,6 +264,8 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
         f"Muestras evaluadas : {int(metrics['evaluated'])}",
         f"Veredicto incierto : {int(metrics['uncertain'])} (abstención, excluida de las métricas)",
         f"Sin afirmaciones   : {int(metrics['skipped'])} (excluidas de las métricas)",
+        f"Juez caído         : {int(metrics['judge_failed'])} "
+        "(evidencia sin juzgar, excluidas de las métricas)",
         f"TP={int(metrics['tp'])} TN={int(metrics['tn'])} "
         f"FP={int(metrics['fp'])} FN={int(metrics['fn'])}",
         f"Accuracy  : {metrics['accuracy']:.2%}",
@@ -269,6 +279,7 @@ def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
     errors = [
         r
         for r in rows
+        if not r.get("judge_failures")
         if not _is_abstention(r["predicted"])
         and (classify_verdict(r["predicted"]) == "fake") != (r["expected"] == "falsa")
     ]

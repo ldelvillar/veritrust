@@ -32,6 +32,7 @@ class AgentState(TypedDict):
     translated_statements: List[str]
     sources: List[dict]
     evidence_coverage: float
+    judge_failures: int
     label: str
     confidence: float
     medical_explanation: str
