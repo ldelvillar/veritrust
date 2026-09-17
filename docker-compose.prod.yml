@@ -45,6 +45,7 @@ services:
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
       LOG_FORMAT: json
       APP_BASE_URL: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      MCP_RESOURCE_URL: https://${API_DOMAIN:?API_DOMAIN must be set in .env}/mcp
 
   worker:
     mem_limit: 3g

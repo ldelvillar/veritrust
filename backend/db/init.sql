@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      TEXT NOT NULL,
     source_type  TEXT NOT NULL CHECK (source_type IN ('text', 'file', 'url')),
+    -- Canal que creó el análisis: el dashboard web o un cliente MCP.
+    origin       TEXT NOT NULL DEFAULT 'web' CHECK (origin IN ('web', 'mcp')),
     input_text   TEXT,
     input_url    TEXT,
     -- Raw uploaded file (source_type = 'file': pdf/txt/md); served back so the report can render it.

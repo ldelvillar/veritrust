@@ -1,5 +1,6 @@
 """Tests de integración para la API server, verificando endpoints y manejo de errores."""
 
+import contextlib
 import csv
 import importlib
 import io
@@ -346,6 +347,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
+        origin="mcp",
         input_text="Texto ejemplo",
         input_url=None,
         label="falsa",
@@ -386,6 +388,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     body = response.json()
     assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
     assert body["user_id"] == "test-user"
+    assert body["origin"] == "mcp"
     assert body["status"] == "done"
     assert body["evidence_coverage"] == 0.6
     assert body["completed_at"] == "2026-04-10T12:03:20+00:00"
@@ -408,6 +411,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
+        origin="web",
         input_text="Texto ejemplo",
         input_url=None,
         label=None,
@@ -451,6 +455,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
+        origin="web",
         input_text="Texto sin claim",
         input_url=None,
         label=None,
@@ -2589,13 +2594,47 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
         ),
     )
 
+    class _SessionManager:
+        @contextlib.asynccontextmanager
+        async def run(self):
+            opened.append("mcp")
+            yield
+            closed.append("mcp")
+
+    built: dict = {}
+    fake_server = types.SimpleNamespace(session_manager=_SessionManager())
+
+    def fake_build_mcp_server(*, arq_pool, redis):
+        built["resources"] = (arq_pool, redis)
+        return fake_server
+
+    monkeypatch.setattr(server_module, "build_mcp_server", fake_build_mcp_server)
+    monkeypatch.setattr(
+        server_module, "build_mcp_http_app", lambda server: ("http-app", server)
+    )
+
     app_obj = types.SimpleNamespace(state=types.SimpleNamespace())
     async with server_module.lifespan(app_obj):
-        assert opened == ["db", "arq"]
+        assert opened == ["db", "arq", "mcp"]
         assert app_obj.state.arq_pool is not None
         assert app_obj.state.redis is not None
+        # El servidor MCP recibe las mismas colas que las rutas web.
+        assert built["resources"] == (app_obj.state.arq_pool, app_obj.state.redis)
+        assert app_obj.state.mcp_http_app == ("http-app", fake_server)
 
-    assert closed == ["arq", "redis", "db"]
+    assert closed == ["mcp", "arq", "redis", "db"]
+
+
+def test_mcp_routes_answer_503_until_the_lifespan_builds_the_server(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    assert client.post("/mcp", json={}).status_code == 503
+    assert client.get("/.well-known/oauth-protected-resource/mcp").status_code == 503
+    # Las rutas MCP no capturan el resto: una ruta desconocida sigue dando el 404 de la API.
+    unknown = client.get("/no-existe")
+    assert unknown.status_code == 404
+    assert unknown.json() == {"detail": "Not Found"}
 
 
 def test_config_publishes_the_limits_the_api_actually_enforces(monkeypatch):

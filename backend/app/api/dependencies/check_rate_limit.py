@@ -2,6 +2,7 @@
 
 import logging
 import time
+from typing import Any
 from uuid import uuid4
 
 from fastapi import Depends, HTTPException, Request
@@ -15,11 +16,10 @@ from app.schemas.errors import ErrorCode
 logger = logging.getLogger(__name__)
 
 
-async def _enforce_sliding_window(
-    request: Request, key: str, max_requests: int, window: int
+async def enforce_sliding_window(
+    redis: Any, key: str, max_requests: int, window: int
 ) -> None:
     """Aplica un rate limit de ventana deslizante sobre `key`; falla cerrado si Redis no responde."""
-    redis = getattr(request.app.state, "redis", None)
     if redis is None:
         # Fail-closed: sin Redis no hay control de abuso, así que rechazamos.
         logger.warning("Redis no disponible; se rechaza la petición (fail-closed)")
@@ -57,6 +57,11 @@ async def _enforce_sliding_window(
         ) from exc
 
 
+def user_rate_limit_key(user_id: str) -> str:
+    """Clave del límite por usuario, compartida por la API web y el servidor MCP."""
+    return f"rate_limit:{user_id}"
+
+
 async def check_rate_limit(
     request: Request,
     user: dict = Depends(get_current_user),
@@ -70,9 +75,9 @@ async def check_rate_limit(
         )
 
     settings = get_settings()
-    await _enforce_sliding_window(
-        request,
-        key=f"rate_limit:{user_id}",
+    await enforce_sliding_window(
+        getattr(request.app.state, "redis", None),
+        key=user_rate_limit_key(user_id),
         max_requests=settings.rate_limit_max_requests,
         window=settings.rate_limit_window_seconds,
     )
@@ -94,8 +99,8 @@ def _client_ip(request: Request) -> str:
 async def check_public_rate_limit(request: Request) -> None:
     """Dependencia que limita por IP los endpoints públicos (sin autenticación)."""
     settings = get_settings()
-    await _enforce_sliding_window(
-        request,
+    await enforce_sliding_window(
+        getattr(request.app.state, "redis", None),
         key=f"contact_rate_limit:{_client_ip(request)}",
         max_requests=settings.contact_rate_limit_max_requests,
         window=settings.contact_rate_limit_window_seconds,

@@ -26,6 +26,7 @@ from app.db.history import (
     set_analysis_share_token,
     set_analysis_stage,
 )
+from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest
 
 pytestmark = pytest.mark.db
@@ -612,3 +613,46 @@ async def test_pending_summary_ignores_finished_rows_and_other_users(db_pool):
 
     assert summary.count == 0
     assert summary.newest_analysis_id is None
+
+
+async def test_origin_defaults_to_web_and_round_trips_mcp(db_pool):
+    """El canal de origen llega intacto al detalle, al listado y a la exportación."""
+    web_id = await _pending()
+    mcp_id = await create_pending_analysis(
+        user_id=USER,
+        request=AnalysisRequest(text="La lejía cura la COVID"),
+        origin="mcp",
+    )
+
+    web = await get_user_analysis_by_id(user_id=USER, analysis_id=web_id)
+    mcp = await get_user_analysis_by_id(user_id=USER, analysis_id=mcp_id)
+    assert web is not None and web.origin == "web"
+    assert mcp is not None and mcp.origin == "mcp"
+
+    rows, _ = await list_user_analysis_history(user_id=USER)
+    assert {row.analysis_id: row.origin for row in rows} == {
+        web_id: "web",
+        mcp_id: "mcp",
+    }
+
+    # La exportación solo incluye análisis terminados.
+    for analysis_id in (web_id, mcp_id):
+        await complete_analysis(
+            analysis_id=analysis_id,
+            label="falsa",
+            confidence=0.9,
+            explanation="Informe.",
+        )
+    exported = await export_user_analysis_history(user_id=USER)
+    assert {row.analysis_id: row.origin for row in exported} == {
+        web_id: "web",
+        mcp_id: "mcp",
+    }
+
+
+async def test_origin_rejects_unknown_channels(db_pool):
+    """El CHECK de la tabla impide canales fuera de web/mcp."""
+    with pytest.raises(DatabaseError):
+        await create_pending_analysis(
+            user_id=USER, request=AnalysisRequest(text="Texto de prueba"), origin="api"
+        )

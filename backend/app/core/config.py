@@ -155,6 +155,11 @@ class Settings(BaseSettings):
     # Buzón del equipo al que llegan los formularios de contacto y demo
     contact_to_email: str = ""
 
+    # Servidor MCP: URL pública del endpoint (termina en /mcp), identificador del recurso OAuth
+    mcp_resource_url: str | None = None
+    # Espera máxima de una llamada MCP antes de responder que el trabajo sigue en curso
+    mcp_tool_wait_seconds: int = 240
+
     def cors_origins(self) -> list[str]:
         """Lista de orígenes permitidos; cae a localhost solo en desarrollo."""
         raw = self.cors_allowed_origins
@@ -195,7 +200,9 @@ class Settings(BaseSettings):
         """Devuelve el proveedor de LLM normalizado en minúsculas."""
         return self.llm_provider.strip().lower()
 
-    def validate_runtime(self, *, require_cors: bool = True) -> None:
+    def validate_runtime(
+        self, *, require_cors: bool = True, require_mcp: bool = True
+    ) -> None:
         """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
         missing: list[str] = []
 
@@ -225,11 +232,18 @@ class Settings(BaseSettings):
             missing.append("CORS_ALLOWED_ORIGINS")
         if not self.app_base_url:
             missing.append("APP_BASE_URL")
+        if require_mcp and not (self.mcp_resource_url or "").strip():
+            missing.append("MCP_RESOURCE_URL")
 
         if missing:
             raise SettingsValidationError(
                 "Faltan variables de entorno obligatorias: " + ", ".join(missing)
             )
+
+        if require_mcp and not (self.mcp_resource_url or "").rstrip("/").endswith(
+            "/mcp"
+        ):
+            raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
         if require_cors and self.cors_allow_credentials and "*" in self.cors_origins():
             raise SettingsValidationError(

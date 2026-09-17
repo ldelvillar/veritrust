@@ -46,6 +46,7 @@ _HISTORY_COLUMNS = (
     "id",
     "user_id",
     "source_type",
+    "origin",
     "input_text",
     "input_url",
     "label",
@@ -67,6 +68,7 @@ _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
 _HISTORY_LIST_COLUMNS = (
     "id",
     "source_type",
+    "origin",
     "input_url",
     "label",
     "confidence",
@@ -93,6 +95,7 @@ _HISTORY_LIST_SELECT = ", ".join(
 _HISTORY_EXPORT_COLUMNS = (
     "id",
     "source_type",
+    "origin",
     "input_text",
     "input_url",
     "label",
@@ -140,6 +143,7 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         analysis_id=str(row["id"]),
         user_id=str(row["user_id"]),
         source_type=str(row["source_type"]),
+        origin=str(row["origin"]),
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -170,6 +174,7 @@ def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
     return HistoryListItem(
         analysis_id=str(row["id"]),
         source_type=str(row["source_type"]),
+        origin=str(row["origin"]),
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -193,6 +198,7 @@ def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
     return HistoryExportItem(
         analysis_id=str(row["id"]),
         source_type=str(row["source_type"]),
+        origin=str(row["origin"]),
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -299,6 +305,7 @@ async def create_pending_analysis(
     *,
     user_id: str,
     request: AnalysisRequest,
+    origin: str = "web",
 ) -> str:
     """Inserta un análisis en estado ``pending`` y devuelve su id."""
     pool = await get_pool()
@@ -309,15 +316,17 @@ async def create_pending_analysis(
 
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, input_text, input_url, status)
-        VALUES (%s, %s, %s, %s, 'pending')
+        (user_id, source_type, origin, input_text, input_url, status)
+        VALUES (%s, %s, %s, %s, %s, 'pending')
         RETURNING id
     """
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, (user_id, source_type, input_text, input_url))
+                await cur.execute(
+                    query, (user_id, source_type, origin, input_text, input_url)
+                )
                 inserted_row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(

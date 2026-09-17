@@ -447,6 +447,14 @@ export default function HistoryResultsTable({
                     <span className="text-xs font-bold text-body">
                       {typeMeta.label}
                     </span>
+                    {item.origin === 'mcp' && (
+                      <span
+                        className="rounded-full bg-surface-subtle px-2 py-0.5 text-2xs font-bold tracking-[.03em] text-muted uppercase"
+                        title="Análisis lanzado desde un asistente de IA conectado por MCP"
+                      >
+                        MCP
+                      </span>
+                    )}
                     <span
                       className="size-0.75 rounded-full bg-faint"
                       aria-hidden

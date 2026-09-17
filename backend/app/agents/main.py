@@ -13,7 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.extractor import extractor
 from app.agents.health_expert import health_expert
-from app.agents.investigator import investigator
+from app.agents.investigator import gather_evidence, investigator
 from app.agents.translator import translator
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,18 @@ class AgentState(TypedDict):
     confidence: float
     medical_explanation: str
     claims: List[dict]
+
+
+class EvidenceState(TypedDict):
+    """Estado del grafo de solo evidencia: extracción, traducción y búsqueda juzgada."""
+
+    input_text: str
+    extracted_statements: List[str]
+    search_queries: List[str]
+    drug_terms: List[str]
+    translated_statements: List[str]
+    valid_claims: int
+    claim_evidence: List[dict]
 
 
 def _timed_run(name: str, fn: Callable[[], dict]) -> dict:
@@ -93,3 +105,34 @@ def create_graph(prompts) -> CompiledStateGraph:
     app = workflow.compile()
 
     return app
+
+
+def _evidence_node(state: dict, prompts) -> dict:
+    """Nodo del grafo de evidencia: busca y juzga las fuentes de cada afirmación."""
+    total, claims = gather_evidence(state, prompts)
+    return {"valid_claims": total, "claim_evidence": claims}
+
+
+def create_evidence_graph(prompts) -> CompiledStateGraph:
+    """Instancia el flujo de solo evidencia, sin veredicto ni explicación."""
+    workflow = StateGraph(EvidenceState)
+
+    workflow.add_node(
+        "extractor",
+        lambda state: _timed_run("extractor", lambda: extractor(state, prompts)),
+    )
+    workflow.add_node(
+        "translator",
+        lambda state: _timed_run("translator", lambda: translator(state, prompts)),
+    )
+    workflow.add_node(
+        "evidence",
+        lambda state: _timed_run("evidence", lambda: _evidence_node(state, prompts)),
+    )
+
+    workflow.add_edge(START, "extractor")
+    workflow.add_edge("extractor", "translator")
+    workflow.add_edge("translator", "evidence")
+    workflow.add_edge("evidence", END)
+
+    return workflow.compile()

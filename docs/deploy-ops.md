@@ -56,6 +56,15 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --
 
 `--no-deps` avoids restarting Postgres, Redis, and Ollama unnecessarily.
 
+## MCP server
+
+The backend serves an MCP server at `https://$API_DOMAIN/mcp` (`MCP_RESOURCE_URL` is set from `API_DOMAIN` in `docker-compose.prod.yml`). One-time Clerk Dashboard setup:
+
+- **OAuth applications → Settings → Client onboarding → Publish DCR support**: on, so MCP clients can register themselves (this also enforces the OAuth consent screen). **Publish CIMD support** can be enabled as well; it is in beta and Clerk support must unlock it.
+- **OAuth applications → Settings → Generate access tokens as JWTs**: on (the default); the backend verifies tokens locally against the JWKS.
+
+Users connect a client with, for example, `claude mcp add --transport http veritrust https://$API_DOMAIN/mcp`, then sign in with their VeriTrust account in the browser.
+
 ## Capacity & scaling
 
 The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
@@ -71,7 +80,7 @@ change the machine type or the models, revisit both.
 
 What this means for scaling:
 
-- **Adding worker replicas alone does not raise throughput** — they contend on the same Ollama container (CPU-only in this stack), and three models per run thrash a CPU instance. Scale **Ollama** first (a GPU host, or a separate Ollama per worker), *then* add workers behind it.
+- **Adding worker replicas alone does not raise throughput** — they contend on the same Ollama container (CPU-only in this stack), and three models per run thrash a CPU instance. Scale **Ollama** first (a GPU host, or a separate Ollama per worker), _then_ add workers behind it.
 - The per-user rate limit (`RATE_LIMIT_MAX_REQUESTS`/`RATE_LIMIT_WINDOW_SECONDS`, default 5/60s) is abuse control, not global throughput — it is per-user, so a few users can still fill the single queue for everyone.
 
 Watch the queue backlog as the leading indicator — latency degrades by backlog long before any request fails. arq keeps queued jobs in the `arq:queue` sorted set in Redis:

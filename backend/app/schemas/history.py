@@ -49,6 +49,7 @@ class HistoryListItem(BaseModel):
 
     analysis_id: str
     source_type: str
+    origin: str = "web"
     input_text: Optional[str] = None
     input_url: Optional[str] = None
     label: Optional[str] = None
