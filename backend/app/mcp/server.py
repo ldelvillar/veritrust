@@ -4,8 +4,9 @@ import asyncio
 import logging
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from arq.jobs import Job, JobStatus
 from fastapi import HTTPException
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.settings import AuthSettings
@@ -41,7 +42,7 @@ from app.schemas.analysis import (
 from app.schemas.errors import ErrorCode
 from app.schemas.history import AnalysisHistoryItem
 from app.schemas.mcp import (
-    MAX_ABSTRACT_CHARS,
+    EVIDENCE_RESULT_TTL_SECONDS,
     ClaimEvidence,
     EvidenceItem,
     EvidenceSearchResult,
@@ -55,6 +56,8 @@ MCP_PATH = "/mcp"
 MCP_METADATA_PATH = "/.well-known/oauth-protected-resource/mcp"
 
 _POLL_INTERVAL_SECONDS = 2.0
+# Dueño de cada búsqueda de evidencia: solo quien la lanzó puede recogerla con get_evidence.
+_EVIDENCE_OWNER_KEY = "mcp:evidence_owner:{job_id}"
 # Etapas visibles del análisis en orden, para reportar un progreso monótono.
 _ANALYSIS_STAGES: tuple[str, ...] = ("preparing", *PIPELINE_STAGES)
 
@@ -62,8 +65,9 @@ _INSTRUCTIONS = (
     "VeriTrust checks medical and health claims against the biomedical literature "
     "(Europe PMC, PubMed, openFDA, and the Spanish medicines agency's CIMA database). "
     "Use verify_claim for a verdict on a text or web page, and search_evidence when you "
-    "want the per-claim evidence to reason over yourself. Results are informational, "
-    "not medical advice."
+    "want the per-claim evidence to reason over yourself. Both run for minutes: when a "
+    "result comes back with status 'pending', resume it with get_verification or "
+    "get_evidence. Results are informational, not medical advice."
 )
 
 _VERIFY_DESCRIPTION = (
@@ -86,7 +90,14 @@ _SEARCH_DESCRIPTION = (
     "verdict. Each claim comes with the sources found, each source's abstract "
     "(verbatim third-party text) and VeriTrust's stance assessment (supports, "
     "contradicts, inconclusive). Sources judged unrelated are removed; when judged is "
-    "false the judge failed and the sources are unfiltered with no stance."
+    "false the judge failed and the sources are unfiltered with no stance. The search "
+    "takes minutes; if status is 'pending', call get_evidence with the job_id."
+)
+
+_GET_EVIDENCE_DESCRIPTION = (
+    "Get the result of a search started with search_evidence, waiting for it to finish "
+    "for a while. Returns the same result shape as search_evidence; results are kept "
+    "for one hour."
 )
 
 
@@ -191,14 +202,7 @@ async def _await_analysis(
         await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
 
-def _truncate(text: str | None) -> str | None:
-    """Recorta el resumen al tope de la respuesta MCP."""
-    if not text or len(text) <= MAX_ABSTRACT_CHARS:
-        return text
-    return text[:MAX_ABSTRACT_CHARS].rstrip() + "…"
-
-
-def _to_evidence_result(result: dict) -> EvidenceSearchResult:
+def _to_evidence_result(job_id: str, result: dict) -> EvidenceSearchResult:
     """Traduce el resultado del job de evidencia al esquema de la herramienta."""
     claims = []
     for entry in result["claims"]:
@@ -217,15 +221,64 @@ def _to_evidence_result(result: dict) -> EvidenceSearchResult:
                         source=hit.get("source"),
                         year=hit.get("year"),
                         stance=hit.get("stance"),
-                        abstract=_truncate(hit.get("abstract")),
+                        abstract=hit.get("abstract"),
                     )
                     for hit in hits or []
                 ],
             )
         )
     return EvidenceSearchResult(
-        claims=claims, unsearched_claims=int(result.get("unsearched_claims") or 0)
+        status="done",
+        job_id=job_id,
+        claims=claims,
+        unsearched_claims=int(result.get("unsearched_claims") or 0),
     )
+
+
+async def _await_evidence(
+    ctx: Context, *, arq_pool: Any, job_id: str
+) -> EvidenceSearchResult:
+    """Sondea el job de evidencia hasta que deja resultado o se agota la espera."""
+    job = Job(job_id, arq_pool)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + get_settings().mcp_tool_wait_seconds
+    last_progress = -1
+
+    while True:
+        try:
+            info = await job.result_info()
+            status = None if info is not None else await job.status()
+        except (OSError, RedisError) as exc:
+            raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if info is not None:
+            # Un job que lanzó (p. ej. el corte duro de arq) no deja un dict de resultado.
+            if not info.success or not isinstance(info.result, dict):
+                raise _tool_error(ErrorCode.INTERNAL)
+            if "error_code" in info.result:
+                raise _tool_error(ErrorCode(info.result["error_code"]))
+            return _to_evidence_result(job_id, info.result)
+
+        if status == JobStatus.not_found:
+            raise _tool_error(ErrorCode.EVIDENCE_SEARCH_NOT_FOUND)
+
+        progress = 1 if status == JobStatus.in_progress else 0
+        if progress > last_progress:
+            last_progress = progress
+            await ctx.report_progress(
+                progress, 2, "Searching the literature" if progress else "Queued"
+            )
+
+        if loop.time() >= deadline:
+            return EvidenceSearchResult(
+                status="pending",
+                job_id=job_id,
+                message=(
+                    "The evidence search is still running. Call get_evidence with "
+                    "this job_id to keep waiting for the result."
+                ),
+            )
+        await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
 
 def build_mcp_server(*, arq_pool: Any, redis: Any) -> MCPServer:
@@ -351,39 +404,52 @@ def build_mcp_server(*, arq_pool: Any, redis: Any) -> MCPServer:
         user_id = _current_user_id()
         await _consume_rate_limit(redis, user_id)
 
+        job_id = uuid4().hex
         try:
-            job = await arq_pool.enqueue_job("run_evidence_search", claim.strip())
+            # El dueño vive lo que puede durar el job más lo que se guarda su resultado.
+            await redis.set(
+                _EVIDENCE_OWNER_KEY.format(job_id=job_id),
+                user_id,
+                ex=get_settings().analysis_job_timeout_seconds
+                + EVIDENCE_RESULT_TTL_SECONDS,
+            )
+            job = await arq_pool.enqueue_job(
+                "run_evidence_search", claim.strip(), _job_id=job_id
+            )
         except (OSError, RedisError) as exc:
             logger.exception("[MCP] No se pudo encolar la búsqueda de evidencia")
             raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
         if job is None:
             raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE)
 
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + get_settings().mcp_tool_wait_seconds
-        reported_running = False
-        await ctx.report_progress(0, 2, "Queued")
+        return await _await_evidence(ctx, arq_pool=arq_pool, job_id=job_id)
 
-        while True:
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                raise _tool_error(
-                    ErrorCode.SERVICE_UNAVAILABLE,
-                    "The evidence search is still queued or running; try again later.",
-                )
-            try:
-                result = await job.result(
-                    timeout=min(_POLL_INTERVAL_SECONDS, remaining)
-                )
-                break
-            except TimeoutError:
-                if not reported_running and (await job.status()) == "in_progress":
-                    reported_running = True
-                    await ctx.report_progress(1, 2, "Searching the literature")
+    @server.tool(
+        description=_GET_EVIDENCE_DESCRIPTION,
+        annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
+    )
+    async def get_evidence(
+        ctx: Context,
+        job_id: Annotated[
+            str,
+            Field(
+                pattern=r"^[0-9a-f]{32}$",
+                description="The job_id returned by search_evidence.",
+            ),
+        ],
+    ) -> EvidenceSearchResult:
+        """Espera y devuelve el resultado de una búsqueda de evidencia del usuario."""
+        user_id = _current_user_id()
+        try:
+            owner = await redis.get(_EVIDENCE_OWNER_KEY.format(job_id=job_id))
+        except (OSError, RedisError) as exc:
+            raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
 
-        if "error_code" in result:
-            raise _tool_error(ErrorCode(result["error_code"]))
-        return _to_evidence_result(result)
+        # Una búsqueda ajena se trata igual que una inexistente, para no revelar que existe.
+        owner_id = owner.decode() if isinstance(owner, bytes) else owner
+        if owner_id != user_id:
+            raise _tool_error(ErrorCode.EVIDENCE_SEARCH_NOT_FOUND)
+        return await _await_evidence(ctx, arq_pool=arq_pool, job_id=job_id)
 
     return server
 

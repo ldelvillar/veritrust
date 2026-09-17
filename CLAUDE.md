@@ -50,7 +50,7 @@ GET /analysis/{id}  (polled by frontend            ·  Extractor     → claims
 The web process also serves a remote MCP server (`backend/app/mcp/`, official `mcp` SDK, Streamable HTTP) at `/mcp`, so AI clients can use VeriTrust on a signed-in user's behalf:
 
 - **`verify_claim`** (text or URL) — inserts an `origin='mcp'` row and enqueues the same `run_analysis` job as `POST /analysis`, then polls the row until it leaves `pending` or `MCP_TOOL_WAIT_SECONDS` runs out; **`get_verification`** resumes a long-running one.
-- **`search_evidence`** — enqueues `run_evidence_search`, which runs Extractor → Translator → evidence search + relevance judge (`create_evidence_graph`) with no verdict. It goes through the worker, never the web process, so Ollama load stays serialized.
+- **`search_evidence`** — enqueues `run_evidence_search`, which runs Extractor → Translator → evidence search + relevance judge (`create_evidence_graph`) with no verdict. It goes through the worker, never the web process, so Ollama load stays serialized. The arq result is kept for an hour and bound to the caller in Redis, so **`get_evidence`** resumes a search that outlasted the wait.
 
 Auth is Clerk OAuth: clients discover Clerk from `/.well-known/oauth-protected-resource/mcp`, and `ClerkOAuthTokenVerifier` checks the JWT access token (same JWKS, issuer, `client_id` present). The server is built in the lifespan after `validate_runtime()` and reached through two exact routes, not a catch-all mount. Tool calls share the per-user rate limit with the web API.
 

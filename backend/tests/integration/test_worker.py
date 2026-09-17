@@ -732,12 +732,9 @@ def test_worker_settings_expose_the_queue_contract():
         for fn in worker.WorkerSettings.functions
     ]
     assert names == ["run_analysis", "run_evidence_search"]
-    # La búsqueda de evidencia guarda su resultado más allá de la espera MCP.
+    # La búsqueda de evidencia guarda su resultado para que get_evidence lo recoja.
     evidence_fn = worker.WorkerSettings.functions[1]
-    assert (
-        evidence_fn.keep_result_s
-        == settings.mcp_tool_wait_seconds + worker._EVIDENCE_RESULT_GRACE_SECONDS
-    )
+    assert evidence_fn.keep_result_s == worker.EVIDENCE_RESULT_TTL_SECONDS
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
         "cron:reap_stale_analyses"
     ]
@@ -820,3 +817,33 @@ async def test_run_evidence_search_maps_failures_to_error_codes(
     result = await worker.run_evidence_search({"evidence_system": None}, "Texto")
 
     assert result == {"error_code": code}
+
+
+async def test_run_evidence_search_truncates_long_abstracts(monkeypatch):
+    long_abstract = "x" * (worker.MAX_ABSTRACT_CHARS + 50)
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {
+            "valid_claims": 1,
+            "claim_evidence": [
+                {
+                    "claim_index": 0,
+                    "hits": [
+                        {"title": "Ficha", "url": "u1", "abstract": long_abstract},
+                        {"title": "Corto", "url": "u2", "abstract": "breve"},
+                        {"title": "Sin resumen", "url": "u3"},
+                    ],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto")
+
+    long_hit, short_hit, empty_hit = result["claims"][0]["hits"]
+    # El resultado vive una hora en Redis: los resúmenes se acotan antes de guardarlo.
+    assert len(long_hit["abstract"]) == worker.MAX_ABSTRACT_CHARS + 1
+    assert long_hit["abstract"].endswith("…")
+    assert short_hit["abstract"] == "breve"
+    assert empty_hit["abstract"] is None

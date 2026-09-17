@@ -34,6 +34,7 @@ from app.db.history import (
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
+from app.schemas.mcp import EVIDENCE_RESULT_TTL_SECONDS, MAX_ABSTRACT_CHARS
 from app.utils.email import (
     send_analysis_failed_email,
     send_analysis_no_claims_email,
@@ -52,8 +53,6 @@ _PREPARING_STAGE = "preparing"
 _NEXT_STAGE = dict(zip(PIPELINE_STAGES, PIPELINE_STAGES[1:]))
 # Margen del job_timeout de arq sobre el presupuesto interno; deja notificar antes del corte duro.
 _JOB_TIMEOUT_GRACE_SECONDS = 30
-# Margen de vida del resultado de una búsqueda sobre la espera máxima de la llamada MCP.
-_EVIDENCE_RESULT_GRACE_SECONDS = 60
 
 
 async def _set_stage(analysis_id: str, stage: str) -> None:
@@ -187,6 +186,13 @@ async def run_analysis(
         await send_analysis_ready_email(to=recipient_email, analysis_id=analysis_id)
 
 
+def _truncate_abstract(text: str | None) -> str | None:
+    """Recorta el resumen para acotar el tamaño del resultado guardado en Redis."""
+    if not text or len(text) <= MAX_ABSTRACT_CHARS:
+        return text
+    return text[:MAX_ABSTRACT_CHARS].rstrip() + "…"
+
+
 async def run_evidence_search(ctx: dict, claim: str) -> dict:
     """Busca y juzga la evidencia de una afirmación sin emitir veredicto; devuelve un dict serializable."""
     logger.info("[Worker] Procesando búsqueda de evidencia")
@@ -216,6 +222,10 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
     claims = result.get("claim_evidence") or []
     if not claims:
         return {"error_code": ErrorCode.NO_MEDICAL_CLAIMS.value}
+
+    for entry in claims:
+        for hit in entry.get("hits") or []:
+            hit["abstract"] = _truncate_abstract(hit.get("abstract"))
 
     return {
         "claims": claims,
@@ -270,12 +280,8 @@ class WorkerSettings:
 
     functions = [
         run_analysis,
-        # El proceso web espera el resultado: sobrevive a la espera máxima de la llamada MCP.
-        func(
-            run_evidence_search,
-            keep_result=get_settings().mcp_tool_wait_seconds
-            + _EVIDENCE_RESULT_GRACE_SECONDS,
-        ),
+        # El resultado se guarda para que get_evidence lo recoja aunque la llamada MCP ya expirase.
+        func(run_evidence_search, keep_result=EVIDENCE_RESULT_TTL_SECONDS),
     ]
     cron_jobs = [cron(reap_stale_analyses, second=0)]  # ~una vez por minuto
     on_startup = startup

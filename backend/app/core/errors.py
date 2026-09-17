@@ -36,6 +36,7 @@ _MESSAGES: dict[ErrorCode, str] = {
     ),
     ErrorCode.INVALID_ANALYSIS_ID: "El id de análisis no es válido.",
     ErrorCode.ANALYSIS_NOT_FOUND: "Análisis no encontrado.",
+    ErrorCode.EVIDENCE_SEARCH_NOT_FOUND: "Búsqueda de evidencia no encontrada o caducada.",
     ErrorCode.ANALYSIS_FETCH_FAILED: "No se pudo recuperar el análisis.",
     ErrorCode.ANALYSIS_DELETE_FAILED: "No se pudo eliminar el análisis.",
     ErrorCode.ANALYSIS_NOT_RETRYABLE: (

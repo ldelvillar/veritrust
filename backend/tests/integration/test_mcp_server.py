@@ -1,7 +1,10 @@
 """Tests de las herramientas MCP con el cliente en proceso del SDK y dobles de cola y BD."""
 
+from types import SimpleNamespace
+
 import fakeredis
 import pytest
+from arq.jobs import JobStatus
 from fastapi.testclient import TestClient
 from mcp import Client
 from mcp.server.auth.provider import AccessToken
@@ -31,34 +34,57 @@ def _settings(**overrides) -> Settings:
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
 
 
-class _Job:
-    """Doble de un job de arq que devuelve un resultado fijo o agota la espera."""
+JOB_ID = "0123456789abcdef0123456789abcdef"
 
-    def __init__(self, result=None):
-        self._result = result
 
-    async def result(self, timeout=None, **kwargs):
-        if self._result is None:
-            raise TimeoutError
-        return self._result
+class _ScriptedJob:
+    """Doble de arq.jobs.Job que recorre una secuencia de estados y termina con un resultado."""
+
+    def __init__(self, steps):
+        self._steps = list(steps)
+
+    def _current(self):
+        return self._steps[0]
+
+    async def result_info(self):
+        step = self._current()
+        if isinstance(step, tuple):
+            success, result = step
+            return SimpleNamespace(success=success, result=result)
+        return None
 
     async def status(self):
-        return "in_progress"
+        step = self._current()
+        if len(self._steps) > 1:
+            self._steps.pop(0)
+        return step
+
+
+def _patch_job(monkeypatch, *steps):
+    """Hace que el servidor reabra los jobs de evidencia con el guion indicado."""
+    created: list[str] = []
+    job = _ScriptedJob(steps)
+
+    def factory(job_id, redis):
+        created.append(job_id)
+        return job
+
+    monkeypatch.setattr(server_module, "Job", factory)
+    return created
 
 
 class _ArqPool:
     """Doble del pool de arq que registra los encolados."""
 
-    def __init__(self, job=None, fail=False):
+    def __init__(self, fail=False):
         self.enqueued: list[tuple] = []
-        self._job = job
         self._fail = fail
 
     async def enqueue_job(self, name, *args, **kwargs):
         if self._fail:
             raise RedisError("down")
         self.enqueued.append((name, args, kwargs))
-        return self._job
+        return SimpleNamespace(job_id=kwargs.get("_job_id"))
 
 
 def _record(status="done", **overrides) -> AnalysisHistoryItem:
@@ -130,11 +156,12 @@ def _server(pool=None, redis=None):
     )
 
 
-async def test_lists_the_three_tools(env):
+async def test_lists_the_four_tools(env):
     async with Client(_server()) as client:
         tools = await client.list_tools()
 
     assert sorted(tool.name for tool in tools.tools) == [
+        "get_evidence",
         "get_verification",
         "search_evidence",
         "verify_claim",
@@ -321,87 +348,159 @@ async def test_get_verification_reports_database_errors(env, monkeypatch):
     assert "ANALYSIS_FETCH_FAILED" in result.content[0].text
 
 
-async def test_search_evidence_returns_claims_with_truncated_abstracts(env):
-    long_abstract = "x" * (server_module.MAX_ABSTRACT_CHARS + 50)
-    job = _Job(
+_EVIDENCE_RESULT = {
+    "claims": [
         {
-            "claims": [
+            "claim_index": 0,
+            "query": "vitamin C AND common cold",
+            "claim": "Vitamin C prevents colds",
+            "original": "La vitamina C previene el resfriado",
+            "hits": [
                 {
-                    "claim_index": 0,
-                    "query": "vitamin C AND common cold",
-                    "claim": "Vitamin C prevents colds",
-                    "original": "La vitamina C previene el resfriado",
-                    "hits": [
-                        {
-                            "title": "Cochrane review",
-                            "url": "https://doi.org/10.1/c",
-                            "source": "Cochrane",
-                            "year": "2013",
-                            "stance": "contradicts",
-                            "abstract": long_abstract,
-                        }
-                    ],
-                    "judged": True,
-                },
-                {
-                    "claim_index": 1,
-                    "query": "q",
-                    "claim": "B",
-                    "original": "b",
-                    "hits": None,
-                    "judged": False,
-                },
+                    "title": "Cochrane review",
+                    "url": "https://doi.org/10.1/c",
+                    "source": "Cochrane",
+                    "year": "2013",
+                    "stance": "contradicts",
+                    "abstract": "Regular supplementation does not prevent colds.",
+                }
             ],
-            "unsearched_claims": 1,
-        }
-    )
-    pool = _ArqPool(job=job)
+            "judged": True,
+        },
+        {
+            "claim_index": 1,
+            "query": "q",
+            "claim": "B",
+            "original": "b",
+            "hits": None,
+            "judged": False,
+        },
+    ],
+    "unsearched_claims": 1,
+}
 
-    async with Client(_server(pool)) as client:
+
+async def test_search_evidence_waits_for_the_result(env, monkeypatch):
+    created = _patch_job(
+        monkeypatch, JobStatus.queued, JobStatus.in_progress, (True, _EVIDENCE_RESULT)
+    )
+    pool = _ArqPool()
+    redis = fakeredis.aioredis.FakeRedis()
+    progress: list[str] = []
+
+    async def on_progress(value, total, message):
+        progress.append(message)
+
+    async with Client(_server(pool, redis)) as client:
         result = await client.call_tool(
-            "search_evidence", {"claim": "La vitamina C previene el resfriado"}
+            "search_evidence",
+            {"claim": "La vitamina C previene el resfriado"},
+            progress_callback=on_progress,
         )
 
     assert not result.is_error
     body = result.structured_content
+    assert body["status"] == "done"
     first, second = body["claims"]
     assert first["claim"] == "La vitamina C previene el resfriado"
     assert first["claim_en"] == "Vitamin C prevents colds"
     assert first["judged"] is True
     assert first["evidence"][0]["stance"] == "contradicts"
-    assert len(first["evidence"][0]["abstract"]) == server_module.MAX_ABSTRACT_CHARS + 1
+    assert first["evidence"][0]["abstract"].startswith("Regular supplementation")
     assert second["sources_unavailable"] is True
     assert second["evidence"] == []
     assert body["unsearched_claims"] == 1
-    assert pool.enqueued == [
-        ("run_evidence_search", ("La vitamina C previene el resfriado",), {})
-    ]
+    assert progress == ["Queued", "Searching the literature"]
+
+    ((name, args, kwargs),) = pool.enqueued
+    assert (name, args) == (
+        "run_evidence_search",
+        ("La vitamina C previene el resfriado",),
+    )
+    # El job se reabre por su id y queda ligado al usuario que lo lanzó.
+    assert created == [kwargs["_job_id"]] == [body["job_id"]]
+    owner_key = f"mcp:evidence_owner:{body['job_id']}"
+    assert await redis.get(owner_key) == USER_ID.encode()
+    assert await redis.ttl(owner_key) > server_module.EVIDENCE_RESULT_TTL_SECONDS
 
 
-async def test_search_evidence_maps_worker_error_codes(env):
-    pool = _ArqPool(job=_Job({"error_code": "NO_MEDICAL_CLAIMS"}))
+async def test_search_evidence_returns_pending_when_the_wait_runs_out(env, monkeypatch):
+    env.mcp_tool_wait_seconds = 0
+    _patch_job(monkeypatch, JobStatus.in_progress)
 
-    async with Client(_server(pool)) as client:
-        result = await client.call_tool("search_evidence", {"claim": "Hola, ¿qué tal?"})
-
-    assert result.is_error
-    assert "NO_MEDICAL_CLAIMS" in result.content[0].text
-
-
-async def test_search_evidence_times_out_as_service_unavailable(env):
-    env.mcp_tool_wait_seconds = 0.05
-    pool = _ArqPool(job=_Job(None))
-
-    async with Client(_server(pool)) as client:
+    async with Client(_server()) as client:
         result = await client.call_tool(
             "search_evidence", {"claim": "La vitamina C previene el resfriado"}
         )
 
+    body = result.structured_content
+    assert body["status"] == "pending"
+    assert body["claims"] == []
+    assert "get_evidence" in body["message"]
+    assert len(body["job_id"]) == 32
+
+
+async def test_get_evidence_resumes_the_users_search(env, monkeypatch):
+    _patch_job(monkeypatch, JobStatus.in_progress, (True, _EVIDENCE_RESULT))
+    redis = fakeredis.aioredis.FakeRedis()
+    await redis.set(f"mcp:evidence_owner:{JOB_ID}", USER_ID)
+
+    async with Client(_server(redis=redis)) as client:
+        result = await client.call_tool("get_evidence", {"job_id": JOB_ID})
+
+    body = result.structured_content
+    assert body["status"] == "done"
+    assert body["job_id"] == JOB_ID
+    assert len(body["claims"]) == 2
+
+
+async def test_get_evidence_hides_other_users_and_unknown_searches(env, monkeypatch):
+    _patch_job(monkeypatch, (True, _EVIDENCE_RESULT))
+    redis = fakeredis.aioredis.FakeRedis()
+    await redis.set(f"mcp:evidence_owner:{JOB_ID}", "someone_else")
+
+    async with Client(_server(redis=redis)) as client:
+        foreign = await client.call_tool("get_evidence", {"job_id": JOB_ID})
+        unknown = await client.call_tool("get_evidence", {"job_id": "f" * 32})
+        malformed = await client.call_tool("get_evidence", {"job_id": "nope"})
+
+    assert "EVIDENCE_SEARCH_NOT_FOUND" in foreign.content[0].text
+    assert "EVIDENCE_SEARCH_NOT_FOUND" in unknown.content[0].text
+    assert malformed.is_error
+
+
+async def test_get_evidence_reports_an_expired_search(env, monkeypatch):
+    _patch_job(monkeypatch, JobStatus.not_found)
+    redis = fakeredis.aioredis.FakeRedis()
+    await redis.set(f"mcp:evidence_owner:{JOB_ID}", USER_ID)
+
+    async with Client(_server(redis=redis)) as client:
+        result = await client.call_tool("get_evidence", {"job_id": JOB_ID})
+
+    assert "EVIDENCE_SEARCH_NOT_FOUND" in result.content[0].text
+
+
+@pytest.mark.parametrize(
+    ("step", "code"),
+    [
+        ((True, {"error_code": "NO_MEDICAL_CLAIMS"}), "NO_MEDICAL_CLAIMS"),
+        ((False, TimeoutError()), "INTERNAL"),
+    ],
+    ids=["worker-error-code", "job-crashed"],
+)
+async def test_search_evidence_maps_job_failures(env, monkeypatch, step, code):
+    _patch_job(monkeypatch, step)
+
+    async with Client(_server()) as client:
+        result = await client.call_tool("search_evidence", {"claim": "Hola, ¿qué tal?"})
+
     assert result.is_error
-    assert "SERVICE_UNAVAILABLE" in result.content[0].text
+    assert code in result.content[0].text
 
 
-async def test_search_evidence_reports_enqueue_failures(env):
+async def test_search_evidence_reports_enqueue_failures(env, monkeypatch):
+    _patch_job(monkeypatch, JobStatus.queued)
+
     async with Client(_server(_ArqPool(fail=True))) as client:
         result = await client.call_tool(
             "search_evidence", {"claim": "La vitamina C previene el resfriado"}

@@ -9,6 +9,8 @@ from app.schemas.history import ClaimItem, SourceItem, Stance
 
 # Tope del resumen devuelto: la ficha técnica de CIMA puede ocupar decenas de miles de caracteres.
 MAX_ABSTRACT_CHARS = 1500
+# Vida en Redis del resultado de una búsqueda de evidencia, para retomarla con get_evidence.
+EVIDENCE_RESULT_TTL_SECONDS = 3600
 
 
 class VerificationResult(BaseModel):
@@ -81,9 +83,15 @@ class ClaimEvidence(BaseModel):
 
 
 class EvidenceSearchResult(BaseModel):
-    """Evidencia por afirmación, sin veredicto."""
+    """Evidencia por afirmación, sin veredicto, o el aviso de que la búsqueda sigue en curso."""
 
-    claims: List[ClaimEvidence]
+    status: Literal["pending", "done"]
+    job_id: str = Field(description="Pass it to get_evidence while status is pending.")
+    claims: List[ClaimEvidence] = Field(default_factory=list)
     unsearched_claims: int = Field(
-        description="Claims beyond the per-request limit that were not searched."
+        default=0,
+        description="Claims beyond the per-request limit that were not searched.",
+    )
+    message: Optional[str] = Field(
+        default=None, description="What to do next when the search is not finished."
     )
