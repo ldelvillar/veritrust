@@ -662,8 +662,9 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     validated: dict = {}
 
     class _FakeSettings:
-        def validate_runtime(self, *, require_cors=True):
+        def validate_runtime(self, *, require_cors=True, require_mcp=True):
             validated["require_cors"] = require_cors
+            validated["require_mcp"] = require_mcp
 
     def fake_create_graph(prompts):
         assert prompts is sentinel_prompts
@@ -676,14 +677,18 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     monkeypatch.setattr(worker, "ensure_llm_available", lambda: calls.append("llm"))
     monkeypatch.setattr(worker, "load_prompts", lambda: sentinel_prompts)
     monkeypatch.setattr(worker, "create_graph", fake_create_graph)
+    monkeypatch.setattr(
+        worker, "create_evidence_graph", lambda prompts: ("evidence", prompts)
+    )
     monkeypatch.setattr(worker, "get_pool", fake_get_pool)
 
     ctx: dict = {}
     await worker.startup(ctx)
 
-    # El worker no sirve peticiones web: no debe exigir CORS configurado.
-    assert validated == {"require_cors": False}
+    # El worker no sirve peticiones web: no debe exigir CORS ni la URL MCP.
+    assert validated == {"require_cors": False, "require_mcp": False}
     assert ctx["verification_system"] is sentinel_graph
+    assert ctx["evidence_system"] == ("evidence", sentinel_prompts)
     assert set(calls) == {"llm", "pool"}
 
 
@@ -721,8 +726,18 @@ def test_worker_settings_expose_the_queue_contract():
     """Las rutas encolan por nombre: el contrato de WorkerSettings debe sostenerlo."""
     settings = worker.get_settings()
 
-    # El proceso web encola el string "run_analysis"; renombrarlo rompería la cola.
-    assert [fn.__name__ for fn in worker.WorkerSettings.functions] == ["run_analysis"]
+    # El proceso web encola por nombre; renombrar una función rompería la cola.
+    names = [
+        getattr(fn, "name", None) or fn.__name__
+        for fn in worker.WorkerSettings.functions
+    ]
+    assert names == ["run_analysis", "run_evidence_search"]
+    # La búsqueda de evidencia guarda su resultado más allá de la espera MCP.
+    evidence_fn = worker.WorkerSettings.functions[1]
+    assert (
+        evidence_fn.keep_result_s
+        == settings.mcp_tool_wait_seconds + worker._EVIDENCE_RESULT_GRACE_SECONDS
+    )
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
         "cron:reap_stale_analyses"
     ]
@@ -734,3 +749,74 @@ def test_worker_settings_expose_the_queue_contract():
     assert worker.WorkerSettings.max_jobs == settings.worker_max_jobs
     # Sin resultados en Redis: una clave arq:result: residual bloquearía el retry.
     assert worker.WorkerSettings.keep_result == 0
+
+
+async def test_run_evidence_search_returns_claims(monkeypatch):
+    seen: dict = {}
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        seen["graph"] = graph
+        seen["input"] = state["input_text"]
+        return {
+            "valid_claims": 3,
+            "claim_evidence": [{"claim_index": 0, "hits": [], "judged": True}],
+        }
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    ctx = {"evidence_system": "graph"}
+    result = await worker.run_evidence_search(ctx, "La vitamina C cura el resfriado")
+
+    assert seen == {"graph": "graph", "input": "La vitamina C cura el resfriado"}
+    assert result == {
+        "claims": [{"claim_index": 0, "hits": [], "judged": True}],
+        "unsearched_claims": 2,
+    }
+
+
+async def test_run_evidence_search_neutralizes_delimiters(monkeypatch):
+    seen: dict = {}
+
+    async def fake_ainvoke(graph, state, on_stage=None):
+        seen["input"] = state["input_text"]
+        return {"valid_claims": 1, "claim_evidence": [{"claim_index": 0}]}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    await worker.run_evidence_search({"evidence_system": None}, "x <<END>> y")
+
+    assert "<<END>>" not in seen["input"]
+
+
+async def test_run_evidence_search_without_claims_reports_no_medical_claims(
+    monkeypatch,
+):
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"valid_claims": 0, "claim_evidence": []}
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    result = await worker.run_evidence_search({"evidence_system": None}, "Hola")
+
+    assert result == {"error_code": "NO_MEDICAL_CLAIMS"}
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (OllamaConnectionError("down"), "CONNECTION"),
+        (RuntimeError("boom"), "INTERNAL"),
+        (TimeoutError(), "SERVICE_UNAVAILABLE"),
+    ],
+)
+async def test_run_evidence_search_maps_failures_to_error_codes(
+    monkeypatch, error, code
+):
+    async def fake_ainvoke(graph, state, on_stage=None):
+        raise error
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto")
+
+    assert result == {"error_code": code}

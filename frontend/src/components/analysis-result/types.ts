@@ -7,7 +7,11 @@ export type SourceType = NonNullable<ResultType['sources']>[number];
 export type Verdict = ResultType['verdict'];
 
 // Vista común al informe propio (autenticado) y al público compartido: este
-// último no trae datos de identidad, así que analysis_id es opcional.
-export type ReportView = Omit<ResultType, 'user_id' | 'analysis_id'> & {
+// último no trae datos de identidad, así que analysis_id y origin son opcionales.
+export type ReportView = Omit<
+  ResultType,
+  'user_id' | 'analysis_id' | 'origin'
+> & {
   analysis_id?: string;
+  origin?: string;
 };

@@ -10,7 +10,7 @@ encolado sobrevive a reinicios del servidor web.
 import asyncio
 import logging
 
-from arq import cron, run_worker
+from arq import cron, func, run_worker
 from arq.connections import RedisSettings
 from arq.constants import job_key_prefix
 
@@ -18,7 +18,7 @@ from app.agents.errors import (
     OllamaConnectionError,
     ainvoke_graph,
 )
-from app.agents.main import PIPELINE_STAGES, create_graph
+from app.agents.main import PIPELINE_STAGES, create_evidence_graph, create_graph
 from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -52,6 +52,8 @@ _PREPARING_STAGE = "preparing"
 _NEXT_STAGE = dict(zip(PIPELINE_STAGES, PIPELINE_STAGES[1:]))
 # Margen del job_timeout de arq sobre el presupuesto interno; deja notificar antes del corte duro.
 _JOB_TIMEOUT_GRACE_SECONDS = 30
+# Margen de vida del resultado de una búsqueda sobre la espera máxima de la llamada MCP.
+_EVIDENCE_RESULT_GRACE_SECONDS = 60
 
 
 async def _set_stage(analysis_id: str, stage: str) -> None:
@@ -185,6 +187,42 @@ async def run_analysis(
         await send_analysis_ready_email(to=recipient_email, analysis_id=analysis_id)
 
 
+async def run_evidence_search(ctx: dict, claim: str) -> dict:
+    """Busca y juzga la evidencia de una afirmación sin emitir veredicto; devuelve un dict serializable."""
+    logger.info("[Worker] Procesando búsqueda de evidencia")
+    initial_state: dict[str, object] = {
+        "input_text": neutralize_delimiters(claim),
+        "extracted_statements": [],
+        "translated_statements": [],
+        "claim_evidence": [],
+        "valid_claims": 0,
+    }
+
+    try:
+        result = await asyncio.wait_for(
+            ainvoke_graph(ctx["evidence_system"], initial_state),
+            timeout=get_settings().analysis_job_timeout_seconds,
+        )
+    except TimeoutError:
+        logger.warning("[Worker] La búsqueda de evidencia agotó el tiempo")
+        return {"error_code": ErrorCode.SERVICE_UNAVAILABLE.value}
+    except OllamaConnectionError:
+        logger.exception("[Worker] No se pudo conectar al LLM en la búsqueda")
+        return {"error_code": ErrorCode.CONNECTION.value}
+    except Exception:
+        logger.exception("[Worker] Error inesperado en la búsqueda de evidencia")
+        return {"error_code": ErrorCode.INTERNAL.value}
+
+    claims = result.get("claim_evidence") or []
+    if not claims:
+        return {"error_code": ErrorCode.NO_MEDICAL_CLAIMS.value}
+
+    return {
+        "claims": claims,
+        "unsearched_claims": max(0, int(result.get("valid_claims") or 0) - len(claims)),
+    }
+
+
 async def reap_stale_analyses(ctx: dict) -> None:
     """Cron: marca como ``failed`` los análisis ``pending`` huérfanos."""
     threshold = get_settings().analysis_stale_after_seconds
@@ -213,10 +251,11 @@ async def reap_stale_analyses(ctx: dict) -> None:
 
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
-    get_settings().validate_runtime(require_cors=False)
+    get_settings().validate_runtime(require_cors=False, require_mcp=False)
     ensure_llm_available()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)
+    ctx["evidence_system"] = create_evidence_graph(prompts)
     await get_pool()
     logger.info("[Worker] Listo para procesar análisis")
 
@@ -229,7 +268,15 @@ async def shutdown() -> None:
 class WorkerSettings:
     """Configuración del worker de arq."""
 
-    functions = [run_analysis]
+    functions = [
+        run_analysis,
+        # El proceso web espera el resultado: sobrevive a la espera máxima de la llamada MCP.
+        func(
+            run_evidence_search,
+            keep_result=get_settings().mcp_tool_wait_seconds
+            + _EVIDENCE_RESULT_GRACE_SECONDS,
+        ),
+    ]
     cron_jobs = [cron(reap_stale_analyses, second=0)]  # ~una vez por minuto
     on_startup = startup
     on_shutdown = shutdown

@@ -414,6 +414,7 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         analysis_id=record.analysis_id,
         user_id=record.user_id,
         source_type=record.source_type,
+        origin=record.origin,
         input_text=record.input_text,
         input_url=record.input_url,
         label=record.label,

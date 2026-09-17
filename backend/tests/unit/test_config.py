@@ -16,6 +16,7 @@ def _make_settings(**overrides) -> Settings:
         "clerk_issuer": None,
         "clerk_audience": "my-api",
         "app_base_url": "https://veritrust.es",
+        "mcp_resource_url": "https://api.veritrust.es/mcp",
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
@@ -80,6 +81,7 @@ def test_validate_runtime_reports_missing_required_vars():
         clerk_issuer=None,
         clerk_audience="",
         app_base_url="",
+        mcp_resource_url="",
     )
 
     with pytest.raises(SettingsValidationError) as exc:
@@ -89,6 +91,20 @@ def test_validate_runtime_reports_missing_required_vars():
     assert "DATABASE_URL" in message
     assert "CLERK_AUDIENCE" in message
     assert "APP_BASE_URL" in message
+    assert "MCP_RESOURCE_URL" in message
+
+
+def test_validate_runtime_requires_mcp_url_to_end_in_mcp():
+    settings = _make_settings(mcp_resource_url="https://api.veritrust.es/tools")
+
+    with pytest.raises(SettingsValidationError, match="/mcp"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_skips_mcp_url_for_the_worker():
+    settings = _make_settings(mcp_resource_url=None)
+
+    settings.validate_runtime(require_cors=False, require_mcp=False)
 
 
 def test_validate_runtime_requires_cors_origins_in_production():

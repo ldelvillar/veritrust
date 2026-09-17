@@ -86,6 +86,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
         "id": 123,
         "user_id": "user-1",
         "source_type": "text",
+        "origin": "mcp",
         "input_text": "contenido",
         "input_url": None,
         "label": "falsa",
@@ -109,6 +110,7 @@ def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     assert isinstance(record, AnalysisHistoryItem)
     assert record.analysis_id == "123"
     assert record.user_id == "user-1"
+    assert record.origin == "mcp"
     assert record.confidence == 0.81
     assert record.evidence_coverage == 0.5
     assert record.status == "done"
@@ -128,6 +130,7 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
         "id": 123,
         "user_id": "user-1",
         "source_type": "text",
+        "origin": "web",
         "input_text": "contenido",
         "input_url": None,
         "label": None,
@@ -164,6 +167,7 @@ def test_map_history_record_reads_stage_when_present() -> None:
         "id": 123,
         "user_id": "user-1",
         "source_type": "url",
+        "origin": "web",
         "input_text": None,
         "input_url": "https://ejemplo.com/x",
         "label": None,
@@ -208,6 +212,7 @@ def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
     row = {
         "id": 123,
         "source_type": "text",
+        "origin": "web",
         "input_text": "contenido",
         "input_url": None,
         "label": "falsa",

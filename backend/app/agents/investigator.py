@@ -89,19 +89,17 @@ def _judge_claim(
         return hits
 
 
-def investigator(state: dict, prompts: Prompts | None = None) -> dict:
-    """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
-    logger.info(
-        "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
-    )
-
+def gather_evidence(
+    state: dict, prompts: Prompts | None = None
+) -> tuple[int, list[dict]]:
+    """Busca y juzga la evidencia de cada afirmación; devuelve el total válido y el detalle por afirmación."""
     translated = state.get("translated_statements", [])
     queries = state.get("search_queries", [])
     originals = state.get("extracted_statements", [])
     drug_terms = state.get("drug_terms", [])
 
     if not translated:
-        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+        return 0, []
 
     # El índice de la afirmación viaja con su entrada: es la clave con la que el
     # informe enlaza fuente y afirmación, en vez de volver a casar el texto.
@@ -142,7 +140,7 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     # Denominador de la cobertura: toda afirmación válida, aunque la cota la deje sin buscar.
     total = len(valid)
     if not valid:
-        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+        return 0, []
     searched = valid[:EVIDENCE_MAX_STATEMENTS]
     if len(searched) < total:
         logger.warning(
@@ -191,11 +189,12 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
 
     # Afirmaciones con evidencia recuperada; una caída total (hits None) es un error.
     judgeable = [
-        (claim_index, query, claim, original, hits)
-        for (claim_index, query, claim, original, _), hits in zip(searched, results)
+        (position, query, claim, original, hits)
+        for position, ((_, query, claim, original, _), hits) in enumerate(
+            zip(searched, results)
+        )
         if hits is not None
     ]
-    errored = len(searched) - len(judgeable)
 
     # Se lanzan a la vez y el fallo de una no bloquea a las demás.
     if judge_prompt and judgeable:
@@ -209,10 +208,8 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
     else:
         judged = [hits for *_, hits in judgeable]
 
-    # Se reensambla en el orden original de las afirmaciones
-    collected: list[tuple[dict, int, str]] = []
-    covered = 0
-    for (claim_index, query, _, original, hits), relevant in zip(judgeable, judged):
+    relevant_by_position: dict[int, list[dict]] = {}
+    for (position, query, _, original, hits), relevant in zip(judgeable, judged):
         # Bruto -> relevante por afirmación: separa fallo de búsqueda de filtrado del juez.
         logger.info(
             "[Investigador] '%s': %d brutas -> %d relevantes (%s)",
@@ -221,15 +218,49 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
             len(relevant),
             Counter(str(hit.get("stance")) for hit in relevant).most_common(),
         )
-        if relevant:
+        relevant_by_position[position] = relevant
+
+    # Se reensambla en el orden original de las afirmaciones
+    claims = []
+    for position, (claim_index, query, claim, original, _) in enumerate(searched):
+        relevant_hits = relevant_by_position.get(position)
+        claims.append(
+            {
+                "claim_index": claim_index,
+                "query": query,
+                "claim": claim,
+                "original": original,
+                "hits": relevant_hits,
+                # El juez falla en abierto: sin 'stance' la fuente pasó sin juzgar.
+                "judged": relevant_hits is not None
+                and all("stance" in hit for hit in relevant_hits),
+            }
+        )
+    return total, claims
+
+
+def investigator(state: dict, prompts: Prompts | None = None) -> dict:
+    """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
+    logger.info(
+        "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
+    )
+
+    total, claims = gather_evidence(state, prompts)
+    if not total:
+        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+
+    collected: list[tuple[dict, int, str]] = []
+    covered = 0
+    for entry in claims:
+        if entry["hits"]:
             covered += 1
             collected.extend(
-                (hit, claim_index, str(original or "")) for hit in relevant
+                (hit, entry["claim_index"], str(entry["original"] or ""))
+                for hit in entry["hits"]
             )
 
-    # El juez falla en abierto: sin 'stance' la fuente pasó sin juzgar.
     judge_failures = sum(
-        1 for hits in judged if any("stance" not in hit for hit in hits)
+        1 for entry in claims if entry["hits"] is not None and not entry["judged"]
     )
     if judge_failures:
         logger.warning(
@@ -239,9 +270,10 @@ def investigator(state: dict, prompts: Prompts | None = None) -> dict:
 
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
-    if errored == len(searched):
+    errored = sum(1 for entry in claims if entry["hits"] is None)
+    if errored == len(claims):
         # Caída total: lo buscado no penaliza (infra nuestra); lo recortado por la cota sí.
-        coverage = len(searched) / total
+        coverage = len(claims) / total
     else:
         coverage = covered / total
 

@@ -4,7 +4,11 @@ import threading
 from types import SimpleNamespace
 
 from app.agents import investigator as investigator_module
-from app.agents.investigator import EVIDENCE_MAX_STATEMENTS, investigator
+from app.agents.investigator import (
+    EVIDENCE_MAX_STATEMENTS,
+    gather_evidence,
+    investigator,
+)
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
@@ -464,3 +468,86 @@ def test_no_judge_failures_when_every_source_is_judged(monkeypatch):
     )
 
     assert update["judge_failures"] == 0
+
+
+def test_gather_evidence_keeps_abstract_and_stance_per_claim(monkeypatch):
+    def fake_search(query, *, max_results):
+        return [{"title": "t", "url": f"https://x/{query}", "abstract": "abs"}]
+
+    _patch_sources(monkeypatch, fake_search)
+    monkeypatch.setattr(
+        investigator_module,
+        "judge_evidence",
+        lambda prompt, claim, hits: [{**h, "stance": "supports"} for h in hits],
+    )
+
+    total, claims = gather_evidence(
+        {
+            "translated_statements": ["A-en"],
+            "extracted_statements": ["a"],
+            "search_queries": ["query-a"],
+        },
+        _PROMPTS,
+    )
+
+    assert total == 1
+    assert claims == [
+        {
+            "claim_index": 0,
+            "query": "query-a",
+            "claim": "A-en",
+            "original": "a",
+            "hits": [
+                {
+                    "title": "t",
+                    "url": "https://x/query-a",
+                    "abstract": "abs",
+                    "stance": "supports",
+                }
+            ],
+            "judged": True,
+        }
+    ]
+
+
+def test_gather_evidence_marks_unjudged_and_unavailable_claims(monkeypatch):
+    def fake_search(query, *, max_results):
+        if query == "B-en":
+            raise EvidenceRetrievalError("down")
+        return [{"title": "t", "url": "https://x/a"}]
+
+    _patch_sources(monkeypatch, fake_search)
+    # El juez falla en abierto: devuelve los hits sin postura.
+    monkeypatch.setattr(
+        investigator_module, "judge_evidence", lambda prompt, claim, hits: hits
+    )
+
+    total, claims = gather_evidence(
+        {
+            "translated_statements": ["A-en", "B-en"],
+            "extracted_statements": ["a", "b"],
+        },
+        _PROMPTS,
+    )
+
+    assert total == 2
+    assert [(c["claim_index"], c["judged"]) for c in claims] == [(0, False), (1, False)]
+    assert claims[0]["hits"] == [{"title": "t", "url": "https://x/a"}]
+    # Todas las fuentes cayeron para la segunda afirmación: sin evidencia disponible.
+    assert claims[1]["hits"] is None
+
+
+def test_gather_evidence_counts_claims_beyond_the_cap(monkeypatch):
+    _patch_sources(monkeypatch, lambda query, *, max_results: [])
+
+    statements = [f"S{i}" for i in range(EVIDENCE_MAX_STATEMENTS + 2)]
+    total, claims = gather_evidence({"translated_statements": statements})
+
+    assert total == EVIDENCE_MAX_STATEMENTS + 2
+    assert len(claims) == EVIDENCE_MAX_STATEMENTS
+    # Sin fuentes que juzgar, la afirmación cuenta como juzgada.
+    assert all(c["hits"] == [] and c["judged"] for c in claims)
+
+
+def test_gather_evidence_is_empty_without_statements():
+    assert gather_evidence({"translated_statements": []}) == (0, [])

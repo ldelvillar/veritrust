@@ -364,6 +364,11 @@ export interface components {
             analysis_id: string;
             /** Source Type */
             source_type: string;
+            /**
+             * Origin
+             * @default web
+             */
+            origin: string;
             /** Input Text */
             input_text?: string | null;
             /** Input Url */
@@ -689,6 +694,11 @@ export interface components {
             analysis_id: string;
             /** Source Type */
             source_type: string;
+            /**
+             * Origin
+             * @default web
+             */
+            origin: string;
             /** Input Text */
             input_text?: string | null;
             /** Input Url */

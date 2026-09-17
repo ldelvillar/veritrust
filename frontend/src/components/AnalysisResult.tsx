@@ -154,6 +154,7 @@ export default function AnalysisResult({
         <ClockIcon className="size-3.5" />
         Analizado el {analyzedAt}
         {duration && ` · duró ${duration}`}
+        {result.origin === 'mcp' && ' · desde un asistente de IA (MCP)'}
       </p>
 
       <PrintFooter />

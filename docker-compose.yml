@@ -91,6 +91,7 @@ services:
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL}
       APP_BASE_URL: ${APP_BASE_URL}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://localhost:8000/mcp}
     ports:
       - "8000:8000"
     healthcheck:

@@ -40,6 +40,7 @@ dependencies = [
     "PyYAML>=6.0",
     "orjson>=3.11",
     "pypdf>=5",
+    "mcp>=2.2",
 ]
 
 [project.optional-dependencies]
