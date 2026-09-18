@@ -3,7 +3,7 @@ import CodeIcon from '@/assets/Code';
 import ListIcon from '@/assets/List';
 import LockIcon from '@/assets/Lock';
 import DocumentIcon from '@/assets/Document';
-import UploadIcon from '@/assets/Upload';
+import McpIcon from '@/assets/Mcp';
 import UserIcon from '@/assets/User';
 import { container } from './container';
 
@@ -40,9 +40,9 @@ const features: Feature[] = [
     Icon: UserIcon,
   },
   {
-    title: 'Informes exportables',
-    body: 'Descarga cada informe en PDF o tu historial completo en CSV para tu fact-check, tu campaña o tu archivo editorial.',
-    Icon: UploadIcon,
+    title: 'Servidor MCP',
+    body: 'Conecta VeriTrust directamente con Claude, ChatGPT y otros asistentes de IA. Verifica afirmaciones médicas sin salir de tu flujo de trabajo habitual.',
+    Icon: McpIcon,
   },
 ];
 
