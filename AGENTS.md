@@ -1,8 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-Package-specific guidance lives in `backend/CLAUDE.md` and `frontend/CLAUDE.md`; each loads when you work with files under that directory.
+Package-specific guidance lives in `backend/AGENTS.md` and `frontend/AGENTS.md`; each loads when you work with files under that directory.
 
 ## Project Overview
 
@@ -12,7 +10,7 @@ VeriTrust is an AI-powered medical misinformation detection system: users submit
 
 CI enforces all of these; fix failures at the root cause, never by suppression.
 
-- **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/CLAUDE.md`).
+- **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, prettier `--check`, and build (build also type-checks).
 
 ## Shell command conventions

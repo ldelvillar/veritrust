@@ -9,8 +9,8 @@ If `$ARGUMENTS` names a section (structure, frontend, backend, ml, scalability, 
 
 BEFORE YOU START:
 
-- Read `CLAUDE.md` (repo root) and `README.md`, then explore the actual files in each area before judging it — read the key modules, don't assume.
-- Treat the conventions documented in `CLAUDE.md` as ground truth. For each relevant one, assess whether the code adheres or has drifted, and call out drift explicitly.
+- Read `AGENTS.md` (repo root) and `README.md`, then explore the actual files in each area before judging it — read the key modules, don't assume.
+- Treat the conventions documented in `AGENTS.md` as ground truth. For each relevant one, assess whether the code adheres or has drifted, and call out drift explicitly.
 - Do NOT recommend changes that contradict an intentional, documented convention (e.g. no ORM / raw psycopg3, centralized `Settings` via `get_settings()`, agent prompts in `prompts.yaml`, the `ErrorCode` structured error contract, OpenAPI-generated frontend types, the arq worker for the slow pipeline) unless you can show the convention itself causes a concrete problem.
 
 RULES:

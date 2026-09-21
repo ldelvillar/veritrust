@@ -5,7 +5,7 @@ argument-hint: "[polish|features|strategy] (optional — defaults to all)"
 
 You are working on VeriTrust, an AI medical-misinformation detector (Next.js App
 Router frontend + FastAPI/LangGraph backend, Clerk auth, async analysis worker).
-Read `CLAUDE.md` first and treat its conventions as binding.
+Read `AGENTS.md` first and treat its conventions as binding.
 
 Your job this session: make VeriTrust feel like a more professional, complete
 product — through UI/UX polish, new user-facing features, and product strategy.
@@ -46,6 +46,7 @@ Then STOP and let me choose which items to build.
 ## PHASE 2 — Build (only what I approve)
 
 For each approved item:
+
 - Make surgical changes that trace directly to that item — no drive-by refactors,
   no speculative abstractions, match the surrounding code's style.
 - Frontend: respect the existing component patterns, `apiClient`/`ApiError`
