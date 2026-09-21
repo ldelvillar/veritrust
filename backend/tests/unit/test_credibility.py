@@ -1,6 +1,11 @@
 """Tests unitarios para la derivación de veredicto y credibilidad."""
 
-from app.core.credibility import VERDICTS, classify_verdict, compute_credibility
+from app.core.credibility import (
+    VERDICTS,
+    classify_confidence,
+    classify_verdict,
+    compute_credibility,
+)
 
 
 def test_classify_verdict_buckets_labels() -> None:
@@ -38,3 +43,15 @@ def test_compute_credibility_returns_none_for_uncertain_verdict() -> None:
 def test_compute_credibility_clamps_out_of_range_confidence() -> None:
     assert compute_credibility("falsa", -0.2) == 100  # invertido y acotado
     assert compute_credibility("verdadera", -0.5) == 0
+
+
+def test_classify_confidence_buckets_at_inclusive_lower_bounds() -> None:
+    assert classify_confidence(0.85) == "high"
+    assert classify_confidence(0.849) == "medium"
+    assert classify_confidence(0.6) == "medium"
+    assert classify_confidence(0.599) == "low"
+    assert classify_confidence(0.0) == "low"
+
+
+def test_classify_confidence_returns_none_without_confidence() -> None:
+    assert classify_confidence(None) is None

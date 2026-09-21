@@ -5,6 +5,7 @@ export type ResultType =
 export type ClaimType = NonNullable<ResultType['claims']>[number];
 export type SourceType = NonNullable<ResultType['sources']>[number];
 export type Verdict = ResultType['verdict'];
+export type ConfidenceLevel = NonNullable<ResultType['confidence_level']>;
 
 // Vista común al informe propio (autenticado) y al público compartido: este
 // último no trae datos de identidad, así que analysis_id y origin son opcionales.

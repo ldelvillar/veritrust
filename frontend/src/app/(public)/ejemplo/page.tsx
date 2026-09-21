@@ -94,6 +94,7 @@ Ante afirmaciones de salud absolutas ("previene por completo", "sin ningún ries
   stage: null,
   verdict: 'fake',
   credibility: 16,
+  confidence_level: 'medium',
 };
 
 export default function EjemploPage() {

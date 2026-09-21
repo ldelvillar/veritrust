@@ -436,6 +436,11 @@ export interface components {
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
              */
             readonly credibility: number | null;
+            /**
+             * Confidence Level
+             * @description Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta.
+             */
+            readonly confidence_level: ("high" | "medium" | "low") | null;
         };
         /**
          * AnalysisRequest
@@ -765,6 +770,11 @@ export interface components {
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
              */
             readonly credibility: number | null;
+            /**
+             * Confidence Level
+             * @description Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta.
+             */
+            readonly confidence_level: ("high" | "medium" | "low") | null;
         };
         /**
          * HistoryResponse
@@ -867,6 +877,11 @@ export interface components {
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
              */
             readonly credibility: number | null;
+            /**
+             * Confidence Level
+             * @description Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta.
+             */
+            readonly confidence_level: ("high" | "medium" | "low") | null;
         };
         /**
          * ShareResponse

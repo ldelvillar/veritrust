@@ -9,7 +9,7 @@ import type { ReportView } from './types';
 export default function ResultBand({ result }: { result: ReportView }) {
   const score = result.credibility ?? null;
   const verdict = getVerdictInfo(result.verdict);
-  const confidence = confidenceLabel(result.confidence);
+  const confidence = confidenceLabel(result.confidence_level);
   const coverage = result.evidence_coverage ?? null;
 
   return (

@@ -1659,6 +1659,7 @@ def test_historial_returns_user_history(monkeypatch):
     # El veredicto y la credibilidad siguen derivándose para pintar el indicador.
     assert body["items"][0]["verdict"] == "fake"
     assert body["items"][0]["credibility"] == 12
+    assert body["items"][0]["confidence_level"] == "high"
     # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
     assert body["items"][0]["file_filename"] == "documento.pdf"
     # El token de compartición debe llegar para pintar la insignia "Compartido".
@@ -2360,6 +2361,7 @@ def test_shared_report_returns_public_view_without_user_id(monkeypatch):
     assert "user_id" not in body
     assert "share_token" not in body
     assert body["verdict"] == "fake"
+    assert body["confidence_level"] == "high"
     assert body["input_text"] == "Bleach cures COVID"
 
 

@@ -7,6 +7,12 @@ Verdict = Literal["real", "fake", "uncertain"]
 # Vocabulario único de veredicto, reutilizado en validación y persistencia.
 VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
 
+ConfidenceLevel = Literal["high", "medium", "low"]
+
+# Cortes del tramo de confianza que ve el usuario, junto a las bandas del veredicto.
+HIGH_CONFIDENCE_THRESHOLD = 0.85
+MEDIUM_CONFIDENCE_THRESHOLD = 0.6
+
 
 def classify_verdict(label: Optional[str]) -> Verdict:
     """Clasifica una etiqueta como ``real``, ``fake`` o ``uncertain``."""
@@ -27,6 +33,17 @@ def compute_credibility(
 
     credibility = 1 - confidence if classify_verdict(label) == "fake" else confidence
     return max(0, min(100, round(credibility * 100)))
+
+
+def classify_confidence(confidence: Optional[float]) -> Optional[ConfidenceLevel]:
+    """Clasifica la confianza del veredicto como ``high``, ``medium`` o ``low``, o ``None``."""
+    if confidence is None:
+        return None
+    if confidence >= HIGH_CONFIDENCE_THRESHOLD:
+        return "high"
+    if confidence >= MEDIUM_CONFIDENCE_THRESHOLD:
+        return "medium"
+    return "low"
 
 
 # Misma credibilidad [0, 1] reproducida en SQL para ordenar y agregar; incierto/sin confianza → NULL.

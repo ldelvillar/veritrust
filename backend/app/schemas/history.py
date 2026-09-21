@@ -6,7 +6,13 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, computed_field
 
-from app.core.credibility import Verdict, classify_verdict, compute_credibility
+from app.core.credibility import (
+    ConfidenceLevel,
+    Verdict,
+    classify_confidence,
+    classify_verdict,
+    compute_credibility,
+)
 from app.schemas.feedback import AnalysisFeedback
 
 Stance = Literal["supports", "contradicts", "inconclusive"]
@@ -74,6 +80,12 @@ class HistoryListItem(BaseModel):
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
         return compute_credibility(self.label, self.confidence)
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def confidence_level(self) -> Optional[ConfidenceLevel]:
+        """Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta."""
+        return classify_confidence(self.confidence)
+
 
 class HistoryExportItem(HistoryListItem):
     """Fila del CSV: como el listado pero con ``input_text`` íntegro y el instante de fin."""
@@ -120,6 +132,12 @@ class PublicAnalysisReport(BaseModel):
     def credibility(self) -> Optional[int]:
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
         return compute_credibility(self.label, self.confidence)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def confidence_level(self) -> Optional[ConfidenceLevel]:
+        """Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta."""
+        return classify_confidence(self.confidence)
 
 
 class PendingAnalysesSummary(BaseModel):

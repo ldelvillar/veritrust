@@ -1,7 +1,7 @@
 import Check from '@/assets/Check';
 import Cross from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
-import type { Verdict } from './types';
+import type { ConfidenceLevel, Verdict } from './types';
 
 // Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
 export const VERDICT_META: Record<
@@ -84,13 +84,17 @@ export function formatDuration(
   return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
 }
 
+// Los tramos los decide el backend junto a las bandas del veredicto; aquí solo se rotulan.
+const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {
+  high: 'Confianza alta',
+  medium: 'Confianza media',
+  low: 'Confianza baja',
+};
+
 export function confidenceLabel(
-  confidence: number | null | undefined
+  level: ConfidenceLevel | null | undefined
 ): string | null {
-  if (confidence == null) return null;
-  if (confidence >= 0.85) return 'Confianza alta';
-  if (confidence >= 0.6) return 'Confianza media';
-  return 'Confianza baja';
+  return level ? CONFIDENCE_LABEL[level] : null;
 }
 
 export function getClaimStyle(verdict: Verdict): {
