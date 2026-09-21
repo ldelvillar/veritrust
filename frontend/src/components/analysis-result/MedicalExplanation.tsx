@@ -40,7 +40,7 @@ export default function MedicalExplanation({
   return (
     <div className="rounded-xl border border-line bg-white shadow-sm">
       <div className="flex items-center gap-3.5 rounded-t-xl border-b border-line bg-linear-to-b from-surface-subtle to-white px-6 py-5">
-        <div className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <div className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
           <MedicalCross className="size-6" />
         </div>
         <div className="min-w-0">

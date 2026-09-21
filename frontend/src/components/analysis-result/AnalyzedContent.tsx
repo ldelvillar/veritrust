@@ -55,7 +55,7 @@ function AnalyzedPdf({
       </p>
       {failed ? (
         <p className="flex items-center gap-2 text-sm font-medium text-faint">
-          <WarningIcon className="size-4 shrink-0 text-amber-500" />
+          <WarningIcon className="size-4 shrink-0 text-danger" />
           No se pudo cargar el PDF.
         </p>
       ) : url ? (

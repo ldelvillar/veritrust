@@ -61,7 +61,7 @@ export default function PdfDocument({ file, className }: PdfDocumentProps) {
       {failed ? (
         <CenteredMessage>
           <span className="flex flex-col items-center gap-2 text-muted">
-            <WarningIcon className="size-6 text-amber-500" />
+            <WarningIcon className="size-6 text-danger" />
             No se pudo mostrar el PDF.
           </span>
         </CenteredMessage>

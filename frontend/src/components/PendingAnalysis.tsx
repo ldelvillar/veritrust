@@ -223,11 +223,11 @@ export default function PendingAnalysis({
       </ol>
 
       {isSlow ? (
-        <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
-          <p className="text-sm font-bold text-amber-800">
+        <div className="w-full rounded-xl border border-warning/30 bg-warning-soft p-4 text-left">
+          <p className="text-sm font-bold text-warning-ink">
             Está tardando más de lo habitual
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-amber-700">
+          <p className="mt-1 text-xs leading-relaxed text-warning-ink">
             El análisis sigue en marcha y esta página se actualizará sola al
             terminar. Puedes esperar aquí o volver más tarde: lo guardamos en tu
             historial. Si no llegara a completarse, se marcará como fallido y
@@ -236,13 +236,13 @@ export default function PendingAnalysis({
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href="/app/historial"
-              className="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-300 focus:outline-none"
+              className="inline-flex items-center justify-center rounded-lg border border-warning/40 bg-white px-3.5 py-2 text-xs font-bold text-warning-ink transition hover:bg-warning/10 focus:ring-2 focus:ring-warning/40 focus:outline-none"
             >
               Ir al historial
             </Link>
             <Link
               href="/app/analisis"
-              className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-white px-3.5 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-200 focus:outline-none"
+              className="inline-flex items-center justify-center rounded-lg border border-warning/30 bg-white px-3.5 py-2 text-xs font-bold text-warning-ink transition hover:bg-warning/10 focus:ring-2 focus:ring-warning/30 focus:outline-none"
             >
               Analizar otro contenido
             </Link>

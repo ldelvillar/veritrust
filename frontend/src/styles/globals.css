@@ -66,6 +66,11 @@
   --color-success-soft: #e1f5e6;
   --color-success-ink: #217a3c;
 
+  /* Warning: avisos de UI (no veredictos) — ámbar anaranjado, distinto del ocre de "dudoso" */
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fffbeb;
+  --color-warning-ink: #b45309;
+
   /* Paradas de degradado (claro → oscuro) para raíles y medidores renderizados en navegador */
   --color-verdict-real-g1: #2bc488;
   --color-verdict-real-g2: #10a566;
