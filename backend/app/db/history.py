@@ -13,7 +13,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS, classify_verdict
 from app.db.pool import DatabaseError, _build_database_error, get_pool
-from app.schemas.analysis import AnalysisRequest, SourceType
+from app.schemas.analysis import AnalysisRequest, AnalysisStatusResponse, SourceType
 from app.schemas.history import (
     AnalysisHistoryItem,
     HistoryExportItem,
@@ -830,6 +830,37 @@ async def get_user_analysis_by_id(
         return None
 
     return _map_history_record(row)
+
+
+async def get_user_analysis_status(
+    *, user_id: str, analysis_id: str
+) -> AnalysisStatusResponse | None:
+    """Obtiene solo el estado y la etapa de un análisis propio para el sondeo."""
+    pool = await get_pool()
+
+    query = """
+        SELECT status, stage
+        FROM public.analysis_history
+        WHERE user_id = %s AND id = %s
+        LIMIT 1
+    """
+
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(query, (user_id, analysis_id))
+                row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error(
+                "No se pudo consultar el estado del análisis en la base de datos."
+            )
+        ) from exc
+
+    if not row:
+        return None
+
+    return AnalysisStatusResponse(status=str(row["status"]), stage=row["stage"])
 
 
 async def get_analysis_file(

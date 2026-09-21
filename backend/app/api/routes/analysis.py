@@ -29,12 +29,18 @@ from app.db.history import (
     fail_analysis,
     get_analysis_file,
     get_user_analysis_by_id,
+    get_user_analysis_status,
     reset_done_analysis_to_pending,
     reset_failed_analysis_to_pending,
     set_analysis_share_token,
 )
 from app.db.pool import DatabaseError
-from app.schemas.analysis import AnalysisRequest, AnalysisResponse, ShareResponse
+from app.schemas.analysis import (
+    AnalysisRequest,
+    AnalysisResponse,
+    AnalysisStatusResponse,
+    ShareResponse,
+)
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.feedback import FeedbackRequest, FeedbackResponse
 from app.schemas.history import AnalysisHistoryItem
@@ -432,6 +438,40 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
         stage=record.stage,
         feedback=feedback,
     )
+
+
+@router.get(
+    "/{analysis_id}/status",
+    response_model=AnalysisStatusResponse,
+    responses=_GET_ERROR_RESPONSES,
+)
+async def get_analysis_status(analysis_id: str, user=Depends(get_current_user)):
+    """Endpoint ligero que devuelve solo el estado y la etapa para el sondeo del detalle."""
+    try:
+        UUID(analysis_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
+        ) from e
+
+    try:
+        record = await get_user_analysis_status(
+            user_id=user["sub"], analysis_id=analysis_id
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+
+    return record
 
 
 _FILE_MEDIA_TYPES = {

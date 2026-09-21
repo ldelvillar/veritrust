@@ -19,6 +19,7 @@ from app.db.history import (
     get_pending_analyses_summary,
     get_shared_analysis_by_token,
     get_user_analysis_by_id,
+    get_user_analysis_status,
     list_stale_pending_analysis_ids,
     list_user_analysis_history,
     reset_done_analysis_to_pending,
@@ -467,6 +468,24 @@ async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
     rows, _ = await list_user_analysis_history(user_id=USER)
 
     assert rows[0].stage == "investigator"
+
+
+async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
+    """El sondeo ligero ve la etapa en curso y no filtra filas de otro usuario."""
+    analysis_id = await _pending()
+    await set_analysis_stage(analysis_id=analysis_id, stage="translator")
+
+    status = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
+    assert (status.status, status.stage) == ("pending", "translator")
+
+    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
+    failed = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
+    assert failed.status == "failed"
+
+    assert (
+        await get_user_analysis_status(user_id="user-b", analysis_id=analysis_id)
+        is None
+    )
 
 
 async def test_search_still_matches_beyond_the_truncated_title(db_pool):

@@ -21,6 +21,8 @@ import type { paths } from '@/types/api';
 
 type AnalysisDetail =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
+type AnalysisStatus =
+  paths['/analysis/{analysis_id}/status']['get']['responses']['200']['content']['application/json'];
 
 interface AnalisisClientProps {
   id: string;
@@ -58,15 +60,32 @@ export default function AnalisisClient({
 
   const {
     data,
-    error: pollError,
+    error: detailError,
     refetch,
   } = useApiQuery<AnalysisDetail>(`/analysis/${id}`, {
     fallbackData: initialData,
-    // Hacemos polling cada 2s mientras el análisis siga 'pending'
-    refreshInterval: latest => (latest?.status === 'pending' ? 2000 : 0),
   });
 
-  const current = data ?? initialData;
+  const detail = data ?? initialData;
+  const isPending = detail.status === 'pending';
+
+  // Mientras siga 'pending' sondeamos cada 2s solo estado y etapa; el informe se pide una vez al terminar.
+  const {
+    data: statusData,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useApiQuery<AnalysisStatus>(isPending ? `/analysis/${id}/status` : null, {
+    refreshInterval: 2000,
+    onSuccess: latest => {
+      if (latest.status !== 'pending') void refetch();
+    },
+  });
+
+  const current =
+    isPending && statusData?.status === 'pending'
+      ? { ...detail, stage: statusData.stage }
+      : detail;
+  const pollError = statusError ?? detailError;
   // Un fallo de polling deja la pantalla de espera congelada: lo mostramos.
   const pollErrorMessage =
     current.status === 'pending' && pollError
@@ -199,7 +218,7 @@ export default function AnalisisClient({
         isRetrying={isRetrying}
         retryError={retryError}
         pollError={pollErrorMessage}
-        onRetryPoll={refetch}
+        onRetryPoll={refetchStatus}
       />
 
       <ConfirmDialog

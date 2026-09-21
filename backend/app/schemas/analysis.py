@@ -73,3 +73,10 @@ class ShareResponse(BaseModel):
 
     status: str
     share_token: str
+
+
+class AnalysisStatusResponse(BaseModel):
+    """Estado ligero de un análisis para el sondeo mientras sigue en curso."""
+
+    status: str
+    stage: Optional[str] = None

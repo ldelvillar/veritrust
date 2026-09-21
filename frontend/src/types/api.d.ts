@@ -92,6 +92,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analysis/{analysis_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Analysis Status
+         * @description Endpoint ligero que devuelve solo el estado y la etapa para el sondeo del detalle.
+         */
+        get: operations["get_analysis_status_analysis__analysis_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analysis/{analysis_id}/file": {
         parameters: {
             query?: never;
@@ -446,6 +466,16 @@ export interface components {
             confidence?: number | null;
             /** Explanation */
             explanation?: string | null;
+        };
+        /**
+         * AnalysisStatusResponse
+         * @description Estado ligero de un análisis para el sondeo mientras sigue en curso.
+         */
+        AnalysisStatusResponse: {
+            /** Status */
+            status: string;
+            /** Stage */
+            stage?: string | null;
         };
         /** Body_analyze_file_analysis_file_post */
         Body_analyze_file_analysis_file_post: {
@@ -1300,6 +1330,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_analysis_status_analysis__analysis_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisStatusResponse"];
                 };
             };
             /** @description Bad Request */

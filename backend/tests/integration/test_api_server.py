@@ -15,7 +15,11 @@ from redis.exceptions import RedisError
 from app.api.dependencies.get_current_user import get_current_user
 from app.core.config import get_settings
 from app.db.pool import DatabaseError
-from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH, MIN_INPUT_TEXT_LENGTH
+from app.schemas.analysis import (
+    MAX_INPUT_TEXT_LENGTH,
+    MIN_INPUT_TEXT_LENGTH,
+    AnalysisStatusResponse,
+)
 from app.schemas.feedback import AnalysisFeedback
 from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
@@ -530,6 +534,72 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     )
 
     response = client.get("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
+def test_analisis_status_returns_only_status_and_stage(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_user_analysis_status(*, user_id, analysis_id):
+        assert user_id == "test-user"
+        assert analysis_id == "11111111-1111-1111-1111-111111111111"
+        return AnalysisStatusResponse(status="pending", stage="investigator")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_user_analysis_status",
+        fake_get_user_analysis_status,
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending", "stage": "investigator"}
+
+
+def test_analisis_status_returns_404_when_not_found(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_returns_none(**kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_user_analysis_status",
+        fake_returns_none,
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/status")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+
+
+def test_analisis_status_returns_400_when_id_is_invalid(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get("/analysis/not-a-uuid/status")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_analisis_status_returns_500_when_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get_user_analysis_status(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_user_analysis_status",
+        fake_get_user_analysis_status,
+    )
+
+    response = client.get("/analysis/11111111-1111-1111-1111-111111111111/status")
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
