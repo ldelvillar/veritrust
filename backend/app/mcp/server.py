@@ -23,12 +23,12 @@ from app.api.dependencies.check_rate_limit import (
     enforce_sliding_window,
     user_rate_limit_key,
 )
+from app.core.analysis_jobs import EnqueueError, enqueue_analysis
 from app.core.config import get_settings
 from app.core.credibility import classify_verdict, compute_credibility
 from app.core.errors import make_error_detail
 from app.db.history import (
     create_pending_analysis,
-    fail_analysis,
     get_user_analysis_by_id,
 )
 from app.db.pool import DatabaseError
@@ -342,27 +342,16 @@ def build_mcp_server(*, arq_pool: Any, redis: Any) -> MCPServer:
             raise _tool_error(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
 
         try:
-            # Sin email: el cliente MCP recibe el resultado en la propia llamada.
-            await arq_pool.enqueue_job(
-                "run_analysis",
-                analysis_id,
-                request.source_type.value,
-                request.text,
-                str(request.url) if request.url else None,
-                None,
-                _job_id=analysis_id,
+            await enqueue_analysis(
+                arq_pool,
+                analysis_id=analysis_id,
+                source_type=request.source_type.value,
+                text=request.text,
+                url=str(request.url) if request.url else None,
+                # Sin email: el cliente MCP recibe el resultado en la propia llamada.
+                email=None,
             )
-        except (OSError, RedisError) as exc:
-            logger.exception("[MCP] No se pudo encolar el análisis %s", analysis_id)
-            try:
-                await fail_analysis(
-                    analysis_id=analysis_id,
-                    error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-                )
-            except DatabaseError:
-                logger.exception(
-                    "[MCP] No se pudo marcar como failed el análisis %s", analysis_id
-                )
+        except EnqueueError as exc:
             raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
 
         return await _await_analysis(ctx, user_id=user_id, analysis_id=analysis_id)

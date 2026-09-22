@@ -144,7 +144,7 @@ def _patch_db(monkeypatch, records):
 
     monkeypatch.setattr(server_module, "create_pending_analysis", fake_create)
     monkeypatch.setattr(server_module, "get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(server_module, "fail_analysis", fake_fail)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail)
     return created, failed
 
 

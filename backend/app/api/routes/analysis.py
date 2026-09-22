@@ -3,7 +3,6 @@
 import logging
 from pathlib import Path
 from urllib.parse import quote
-from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -14,10 +13,11 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from redis.exceptions import RedisError
 
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
+from app.api.dependencies.valid_analysis_id import valid_analysis_id
+from app.core.analysis_jobs import EnqueueError, enqueue_analysis
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
 from app.db.feedback import create_analysis_feedback, get_analysis_feedback
@@ -26,7 +26,6 @@ from app.db.history import (
     create_pending_analysis,
     create_pending_file_analysis,
     delete_user_analysis,
-    fail_analysis,
     get_analysis_file,
     get_user_analysis_by_id,
     get_user_analysis_status,
@@ -158,28 +157,15 @@ async def analyze_news(
         ) from e
 
     try:
-        # _job_id=analysis_id: arq deduplica, un doble encolado del mismo análisis es un no-op.
-        await arq_pool.enqueue_job(
-            "run_analysis",
-            analysis_id,
-            body.source_type.value,
-            body.text,
-            str(body.url) if body.url else None,
-            user.get("email"),
-            _job_id=analysis_id,
+        await enqueue_analysis(
+            arq_pool,
+            analysis_id=analysis_id,
+            source_type=body.source_type.value,
+            text=body.text,
+            url=str(body.url) if body.url else None,
+            email=user.get("email"),
         )
-    except (OSError, RedisError) as e:
-        # Sin encolado, marcamos la fila como failed para que no quede pending indefinidamente
-        logger.exception("No se pudo encolar el análisis %s", analysis_id)
-        try:
-            await fail_analysis(
-                analysis_id=analysis_id,
-                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-            )
-        except DatabaseError:
-            logger.exception(
-                "No se pudo marcar como failed el análisis %s", analysis_id
-            )
+    except EnqueueError as e:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
@@ -193,17 +179,12 @@ async def analyze_news(
     response_model=ShareResponse,
     responses=_SHARE_ERROR_RESPONSES,
 )
-async def share_analysis(analysis_id: str, user=Depends(get_current_user)):
+async def share_analysis(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
     user_id = user["sub"]
-
-    try:
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
@@ -249,17 +230,12 @@ async def share_analysis(analysis_id: str, user=Depends(get_current_user)):
     response_model=AnalysisResponse,
     responses=_UNSHARE_ERROR_RESPONSES,
 )
-async def unshare_analysis(analysis_id: str, user=Depends(get_current_user)):
+async def unshare_analysis(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Desactiva el enlace público de un análisis propio."""
     user_id = user["sub"]
-
-    try:
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         cleared = await clear_analysis_share_token(
@@ -342,27 +318,15 @@ async def analyze_file(
         ) from e
 
     try:
-        # _job_id=analysis_id: arq deduplica, un doble encolado del mismo análisis es un no-op.
-        await arq_pool.enqueue_job(
-            "run_analysis",
-            analysis_id,
-            "file",
-            None,
-            None,
-            user.get("email"),
-            _job_id=analysis_id,
+        await enqueue_analysis(
+            arq_pool,
+            analysis_id=analysis_id,
+            source_type="file",
+            text=None,
+            url=None,
+            email=user.get("email"),
         )
-    except (OSError, RedisError) as e:
-        logger.exception("No se pudo encolar el análisis %s", analysis_id)
-        try:
-            await fail_analysis(
-                analysis_id=analysis_id,
-                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-            )
-        except DatabaseError:
-            logger.exception(
-                "No se pudo marcar como failed el análisis %s", analysis_id
-            )
+    except EnqueueError as e:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
@@ -376,18 +340,12 @@ async def analyze_file(
     response_model=AnalysisHistoryItem,
     responses=_GET_ERROR_RESPONSES,
 )
-async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
+async def get_analysis_detail(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
-
-    try:
-        # Validación rápida para evitar consultas con ids inválidos.
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
@@ -445,16 +403,11 @@ async def get_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
     response_model=AnalysisStatusResponse,
     responses=_GET_ERROR_RESPONSES,
 )
-async def get_analysis_status(analysis_id: str, user=Depends(get_current_user)):
+async def get_analysis_status(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Endpoint ligero que devuelve solo el estado y la etapa para el sondeo del detalle."""
-    try:
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
-
     try:
         record = await get_user_analysis_status(
             user_id=user["sub"], analysis_id=analysis_id
@@ -496,17 +449,12 @@ def _content_disposition_inline(filename: str) -> str:
 
 
 @router.get("/{analysis_id}/file", responses=_GET_FILE_ERROR_RESPONSES)
-async def get_analysis_file_content(analysis_id: str, user=Depends(get_current_user)):
+async def get_analysis_file_content(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Devuelve el archivo original de un análisis para mostrarlo en el informe."""
     user_id = user["sub"]
-
-    try:
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         stored = await get_analysis_file(user_id=user_id, analysis_id=analysis_id)
@@ -539,18 +487,12 @@ async def get_analysis_file_content(analysis_id: str, user=Depends(get_current_u
     response_model=AnalysisResponse,
     responses=_DELETE_ERROR_RESPONSES,
 )
-async def delete_analysis_detail(analysis_id: str, user=Depends(get_current_user)):
+async def delete_analysis_detail(
+    user=Depends(get_current_user),
+    analysis_id: str = Depends(valid_analysis_id),
+):
     """Elimina un análisis del usuario autenticado."""
     user_id = user["sub"]
-
-    try:
-        # Validación rápida para evitar consultas con ids inválidos.
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         deleted = await delete_user_analysis(user_id=user_id, analysis_id=analysis_id)
@@ -575,21 +517,12 @@ async def delete_analysis_detail(analysis_id: str, user=Depends(get_current_user
     responses=_RETRY_ERROR_RESPONSES,
 )
 async def retry_analysis(
-    analysis_id: str,
     request: Request,
     user: dict = Depends(check_rate_limit),
+    analysis_id: str = Depends(valid_analysis_id),
 ):
     """Reabre un análisis ``failed`` propio y lo reencola reutilizando su entrada."""
     user_id = user["sub"]
-
-    try:
-        # Validación rápida para evitar consultas con ids inválidos.
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     arq_pool = getattr(request.app.state, "arq_pool", None)
     if arq_pool is None:
@@ -642,28 +575,15 @@ async def retry_analysis(
         text_arg, url_arg = record.input_text, None
 
     try:
-        # _job_id=analysis_id: si el job previo sigue vivo, arq no encola un duplicado.
-        await arq_pool.enqueue_job(
-            "run_analysis",
-            analysis_id,
-            record.source_type,
-            text_arg,
-            url_arg,
-            user.get("email"),
-            _job_id=analysis_id,
+        await enqueue_analysis(
+            arq_pool,
+            analysis_id=analysis_id,
+            source_type=record.source_type,
+            text=text_arg,
+            url=url_arg,
+            email=user.get("email"),
         )
-    except (OSError, RedisError) as e:
-        # Sin encolado, se devuelve la fila a failed para que no quede pending.
-        logger.exception("No se pudo reencolar el análisis %s", analysis_id)
-        try:
-            await fail_analysis(
-                analysis_id=analysis_id,
-                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-            )
-        except DatabaseError:
-            logger.exception(
-                "No se pudo marcar como failed el análisis %s", analysis_id
-            )
+    except EnqueueError as e:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
@@ -678,21 +598,12 @@ async def retry_analysis(
     responses=_FEEDBACK_ERROR_RESPONSES,
 )
 async def submit_analysis_feedback(
-    analysis_id: str,
     body: FeedbackRequest,
     user: dict = Depends(check_rate_limit),
+    analysis_id: str = Depends(valid_analysis_id),
 ):
     """Guarda la valoración del veredicto de un análisis ``done`` propio."""
     user_id = user["sub"]
-
-    try:
-        # Validación rápida para evitar consultas con ids inválidos.
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     try:
         record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
@@ -745,21 +656,12 @@ async def submit_analysis_feedback(
     responses=_RETRY_ERROR_RESPONSES,
 )
 async def reanalyze_analysis(
-    analysis_id: str,
     request: Request,
     user: dict = Depends(check_rate_limit),
+    analysis_id: str = Depends(valid_analysis_id),
 ):
     """Reabre un análisis ``done`` propio y lo reencola con la misma entrada."""
     user_id = user["sub"]
-
-    try:
-        # Validación rápida para evitar consultas con ids inválidos.
-        UUID(analysis_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
-        ) from e
 
     arq_pool = getattr(request.app.state, "arq_pool", None)
     if arq_pool is None:
@@ -812,28 +714,15 @@ async def reanalyze_analysis(
         text_arg, url_arg = record.input_text, None
 
     try:
-        # _job_id=analysis_id: si el job previo sigue vivo, arq no encola un duplicado.
-        await arq_pool.enqueue_job(
-            "run_analysis",
-            analysis_id,
-            record.source_type,
-            text_arg,
-            url_arg,
-            user.get("email"),
-            _job_id=analysis_id,
+        await enqueue_analysis(
+            arq_pool,
+            analysis_id=analysis_id,
+            source_type=record.source_type,
+            text=text_arg,
+            url=url_arg,
+            email=user.get("email"),
         )
-    except (OSError, RedisError) as e:
-        # Sin encolado, se devuelve la fila a failed para que no quede pending.
-        logger.exception("No se pudo reencolar el análisis %s", analysis_id)
-        try:
-            await fail_analysis(
-                analysis_id=analysis_id,
-                error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-            )
-        except DatabaseError:
-            logger.exception(
-                "No se pudo marcar como failed el análisis %s", analysis_id
-            )
+    except EnqueueError as e:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),

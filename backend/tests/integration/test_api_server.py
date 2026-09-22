@@ -214,7 +214,7 @@ def test_analisis_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
         fake_create_pending_analysis,
     )
     monkeypatch.setattr(
-        "app.api.routes.analysis.fail_analysis",
+        "app.core.analysis_jobs.fail_analysis",
         fake_fail_analysis,
     )
 
@@ -519,6 +519,18 @@ def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+
+
+def test_analisis_detail_authenticates_before_validating_the_id(monkeypatch):
+    """La dependencia del id va tras la de auth: sin token responde 401, no 400."""
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.dependency_overrides.clear()
+    client = TestClient(server_module.app)
+
+    response = client.get("/analysis/not-a-uuid")
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "UNAUTHENTICATED"
 
 
 def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
@@ -919,7 +931,7 @@ def test_retry_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
     )
-    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", fake_fail_analysis)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
 
     response = client.post(f"/analysis/{_RETRY_ID}/retry")
 
@@ -1151,7 +1163,7 @@ def test_reanalyze_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
     )
-    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", fake_fail_analysis)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
 
     response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
 
@@ -2405,7 +2417,7 @@ def test_analisis_file_fails_row_and_returns_503_when_enqueue_fails(monkeypatch)
         "app.api.routes.analysis.create_pending_file_analysis",
         fake_create_pending_file_analysis,
     )
-    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", fake_fail_analysis)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
 
     response = client.post(
         "/analysis/file",
@@ -2508,7 +2520,7 @@ def test_analisis_returns_503_when_enqueue_and_fail_update_both_fail(monkeypatch
         "app.api.routes.analysis.create_pending_analysis",
         fake_create_pending_analysis,
     )
-    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", broken_fail_analysis)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", broken_fail_analysis)
 
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
@@ -2539,7 +2551,7 @@ def test_retry_returns_503_when_reenqueue_and_fail_update_both_fail(monkeypatch)
     monkeypatch.setattr(
         "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
     )
-    monkeypatch.setattr("app.api.routes.analysis.fail_analysis", broken_fail_analysis)
+    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", broken_fail_analysis)
 
     response = client.post(f"/analysis/{_RETRY_ID}/retry")
 
