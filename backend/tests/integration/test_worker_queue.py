@@ -10,6 +10,7 @@ from arq.worker import JobExecutionFailed, Worker
 import app.worker as worker_module
 
 ANALYSIS_ID = "22222222-2222-2222-2222-222222222222"
+PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +82,7 @@ async def test_enqueued_job_round_trips_through_real_arq_worker(monkeypatch, arq
 
     async def startup(ctx):
         ctx["verification_system"] = graph_sentinel
+        ctx["pipeline"] = PIPELINE
 
     # Misma forma exacta de encolado que usan las rutas del proceso web.
     await arq_pool.enqueue_job(
@@ -121,6 +123,7 @@ async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(
 
     async def startup(ctx):
         ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
 
     first = await arq_pool.enqueue_job(
         "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
@@ -157,6 +160,7 @@ async def test_finished_job_without_kept_result_can_be_reenqueued(
 
     async def startup(ctx):
         ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
 
     await arq_pool.enqueue_job(
         "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
@@ -197,6 +201,7 @@ async def test_job_exceeding_timeout_is_cancelled_without_writing_a_verdict(
 
     async def startup(ctx):
         ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
 
     job = await arq_pool.enqueue_job("run_analysis", ANALYSIS_ID, "text", "Texto", None)
 
@@ -223,6 +228,7 @@ async def test_job_with_unknown_function_name_fails_without_touching_db(
 
     async def startup(ctx):
         ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
 
     # Simula un despliegue desfasado donde la ruta encola un nombre renombrado.
     job = await arq_pool.enqueue_job(
@@ -262,6 +268,7 @@ async def test_worker_survives_a_failing_job_and_processes_the_next_one(
 
     async def startup(ctx):
         ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
 
     await arq_pool.enqueue_job("run_analysis", ANALYSIS_ID, "text", "veneno", None)
     await arq_pool.enqueue_job(

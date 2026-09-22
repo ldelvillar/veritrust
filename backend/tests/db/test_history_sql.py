@@ -51,6 +51,34 @@ async def _age_row(pool, analysis_id: str, seconds: int) -> None:
         )
 
 
+async def _stored_pipeline(pool, analysis_id: str) -> dict | None:
+    async with pool.connection() as conn:
+        cur = await conn.execute(
+            "SELECT pipeline FROM public.analysis_history WHERE id = %s",
+            (analysis_id,),
+        )
+        row = await cur.fetchone()
+    return row[0]
+
+
+async def test_pipeline_is_stored_at_completion_and_cleared_on_reanalysis(db_pool):
+    """Un resultado guarda su configuración; al reabrirlo no queda una atribución vieja."""
+    pipeline = {"provider": "ollama", "models": {"judge": "llama3.2"}, "prompts": {}}
+    analysis_id = await _pending()
+    await complete_analysis(
+        analysis_id=analysis_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+        pipeline=pipeline,
+    )
+
+    assert await _stored_pipeline(db_pool, analysis_id) == pipeline
+
+    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
+    assert await _stored_pipeline(db_pool, analysis_id) is None
+
+
 async def test_evidence_coverage_persists_none_and_zero(db_pool):
     """Cobertura None (no medible) y 0.0 (medida sin respaldo) se guardan distintas."""
     outage_id = await _pending()

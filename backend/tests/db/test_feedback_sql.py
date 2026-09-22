@@ -187,6 +187,54 @@ async def test_reanalysis_deactivates_previous_feedback(db_pool):
     ]
 
 
+async def test_feedback_keeps_the_pipeline_it_rated_across_reanalysis(db_pool):
+    """La valoración conserva la configuración valorada aunque la fila se reanalice con otra."""
+    v1 = {"provider": "ollama", "models": {}, "prompts": {"judge": "v3"}}
+    v2 = {"provider": "ollama", "models": {}, "prompts": {"judge": "v4"}}
+    analysis_id = await create_pending_analysis(
+        user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
+    )
+    await complete_analysis(
+        analysis_id=analysis_id,
+        label="falsa",
+        confidence=0.9,
+        explanation="Informe.",
+        pipeline=v1,
+    )
+    assert await create_analysis_feedback(
+        user_id=USER,
+        analysis_id=analysis_id,
+        is_correct=False,
+        suggested_verdict="real",
+        comment=None,
+    )
+
+    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
+    await complete_analysis(
+        analysis_id=analysis_id,
+        label="verdadera",
+        confidence=0.8,
+        explanation="Ok.",
+        pipeline=v2,
+    )
+    assert await create_analysis_feedback(
+        user_id=USER,
+        analysis_id=analysis_id,
+        is_correct=True,
+        suggested_verdict=None,
+        comment=None,
+    )
+
+    async with db_pool.connection() as conn:
+        cur = await conn.execute(
+            "SELECT pipeline_snapshot FROM public.analysis_feedback "
+            "WHERE analysis_id = %s ORDER BY created_at",
+            (analysis_id,),
+        )
+        snapshots = [row[0] for row in await cur.fetchall()]
+    assert snapshots == [v1, v2]
+
+
 async def test_deleting_analysis_cascades_feedback(db_pool):
     """Borrar el análisis arrastra sus valoraciones (ON DELETE CASCADE)."""
     analysis_id = await _done()

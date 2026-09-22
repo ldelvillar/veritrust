@@ -17,6 +17,7 @@ from app.prompts.agents import PromptItem, Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 
 ANALYSIS_ID = "44444444-4444-4444-4444-444444444444"
+PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
 @pytest.fixture
@@ -262,7 +263,7 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
     monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
     monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
 
-    ctx = {"verification_system": create_graph(prompts)}
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
     await worker_module.run_analysis(
         ctx, ANALYSIS_ID, "text", "Hoy hace un día soleado en Madrid", None
     )
@@ -470,7 +471,7 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
     monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
 
-    ctx = {"verification_system": create_graph(prompts)}
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
     await worker_module.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
 
     assert completed == []

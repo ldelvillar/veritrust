@@ -18,7 +18,12 @@ from app.agents.errors import (
     OllamaConnectionError,
     ainvoke_graph,
 )
-from app.agents.main import PIPELINE_STAGES, create_evidence_graph, create_graph
+from app.agents.main import (
+    PIPELINE_STAGES,
+    create_evidence_graph,
+    create_graph,
+    describe_pipeline,
+)
 from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -172,6 +177,7 @@ async def run_analysis(
             claims=result.get("claims") or [],
             sources=sources,
             evidence_coverage=evidence_coverage,
+            pipeline=ctx["pipeline"],
         )
         logger.info("[Worker] Análisis %s completado (%s)", analysis_id, label)
         completed_ok = True
@@ -265,6 +271,7 @@ async def startup(ctx: dict) -> None:
     ensure_llm_available()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)
+    ctx["pipeline"] = describe_pipeline(prompts)
     ctx["evidence_system"] = create_evidence_graph(prompts)
     await get_pool()
     logger.info("[Worker] Listo para procesar análisis")

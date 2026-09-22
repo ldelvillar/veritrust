@@ -6,6 +6,7 @@ el flujo completo para verificar noticias falsas en el ámbito de la salud.
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import fields
 from typing import Protocol, TypeVar
 
 from langgraph.graph import END, START, StateGraph
@@ -16,7 +17,9 @@ from app.agents.health_expert import health_expert
 from app.agents.investigator import gather_evidence, investigator
 from app.agents.state import AgentState, ClaimsState, EvidenceState
 from app.agents.translator import translator
+from app.core.config import get_settings
 from app.prompts.agents import Prompts
+from app.utils.llm import configured_models
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,15 @@ PIPELINE_STAGES: tuple[str, ...] = (
     "investigator",
     "health_expert",
 )
+
+
+def describe_pipeline(prompts: Prompts) -> dict:
+    """Identifica la configuración que produce un veredicto: proveedor, modelos por rol y versiones de prompt."""
+    return {
+        "provider": get_settings().llm_provider_name(),
+        "models": configured_models(),
+        "prompts": {f.name: getattr(prompts, f.name).version for f in fields(prompts)},
+    }
 
 
 def create_graph(prompts: Prompts) -> CompiledStateGraph:

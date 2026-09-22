@@ -329,7 +329,9 @@ def test_format_report_echoes_the_run_configuration() -> None:
 
 
 def test_describe_run_records_every_prompt_version(monkeypatch) -> None:
-    monkeypatch.setattr(ep, "configured_models", lambda: {"judge": "m-judge"})
+    monkeypatch.setattr(
+        "app.agents.main.configured_models", lambda: {"judge": "m-judge"}
+    )
     monkeypatch.setattr(ep, "_git_describe", lambda: "abc1234")
     prompts = ep.load_prompts()
 

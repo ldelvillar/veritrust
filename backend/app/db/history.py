@@ -419,6 +419,7 @@ async def complete_analysis(
     claims: Optional[list[dict]] = None,
     sources: Optional[list[dict]] = None,
     evidence_coverage: Any = None,
+    pipeline: Optional[dict] = None,
 ) -> None:
     """Marca un análisis pendiente como ``done`` con su resultado."""
     pool = await get_pool()
@@ -436,6 +437,7 @@ async def complete_analysis(
             explanation = %s,
             claims = %s,
             sources = %s,
+            pipeline = %s,
             status = 'done',
             error_code = NULL,
             completed_at = NOW()
@@ -455,6 +457,7 @@ async def complete_analysis(
                         explanation,
                         Jsonb(claims) if claims else None,
                         Jsonb(sources) if sources else None,
+                        Jsonb(pipeline) if pipeline else None,
                         analysis_id,
                     ),
                 )
@@ -1007,6 +1010,7 @@ async def reset_done_analysis_to_pending(*, user_id: str, analysis_id: str) -> b
             explanation = NULL,
             claims = NULL,
             sources = NULL,
+            pipeline = NULL,
             error_code = NULL,
             stage = NULL,
             created_at = NOW(),

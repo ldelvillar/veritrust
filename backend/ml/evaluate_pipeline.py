@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import subprocess
-from dataclasses import fields
 from pathlib import Path
 from time import time
 from typing import TypedDict, cast
@@ -17,11 +16,10 @@ from typing import TypedDict, cast
 import pandas as pd
 
 from app.agents.errors import ainvoke_graph
-from app.agents.main import create_graph
-from app.core.config import get_settings
+from app.agents.main import create_graph, describe_pipeline
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import Prompts, load_prompts
-from app.utils.llm import configured_models, ensure_llm_available
+from app.utils.llm import ensure_llm_available
 from ml.load_data import load_dataset
 
 logger = logging.getLogger(__name__)
@@ -158,9 +156,7 @@ def _git_describe() -> str | None:
 def describe_run(prompts: Prompts, *, partition: str, seed: int) -> dict:
     """Resume la configuración del pipeline que produce las filas de un checkpoint."""
     return {
-        "provider": get_settings().llm_provider_name(),
-        "models": configured_models(),
-        "prompts": {f.name: getattr(prompts, f.name).version for f in fields(prompts)},
+        **describe_pipeline(prompts),
         "partition": partition,
         "seed": seed,
         "git": _git_describe(),

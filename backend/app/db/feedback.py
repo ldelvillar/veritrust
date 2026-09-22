@@ -39,8 +39,8 @@ async def create_analysis_feedback(
     query = """
         INSERT INTO public.analysis_feedback
             (analysis_id, user_id, is_correct, suggested_verdict, comment,
-             verdict_snapshot, label_snapshot)
-        SELECT h.id, h.user_id, %s, %s, %s, h.verdict, h.label
+             verdict_snapshot, label_snapshot, pipeline_snapshot)
+        SELECT h.id, h.user_id, %s, %s, %s, h.verdict, h.label, h.pipeline
         FROM public.analysis_history h
         WHERE h.user_id = %s AND h.id = %s AND h.status = 'done'
           AND NOT EXISTS (

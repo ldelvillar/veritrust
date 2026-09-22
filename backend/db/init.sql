@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     claims       JSONB,
     -- Retrieved biomedical sources ([{title, url, source, year, statements}, ...]); NULL while pending.
     sources      JSONB,
+    -- Configuración que produjo el resultado ({provider, models, prompts}); NULL mientras no está 'done'.
+    pipeline     JSONB,
     status       TEXT NOT NULL DEFAULT 'done'
                  CHECK (status IN ('pending', 'done', 'failed')),
     -- Agente activo mientras status = 'pending' (preparing/extractor/translator/investigator/health_expert); NULL en reposo.
@@ -62,6 +64,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_feedback (
     -- Snapshot de lo valorado; sobrevive a un re-análisis que sobrescribe la fila.
     verdict_snapshot  TEXT NOT NULL CHECK (verdict_snapshot IN ('real', 'fake', 'uncertain')),
     label_snapshot    TEXT,
+    -- Configuración del resultado valorado; sobrevive a un re-análisis con otra configuración.
+    pipeline_snapshot JSONB,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
