@@ -166,6 +166,7 @@ uv run --directory backend mypy                                          # type-
 
 # Frontend
 pnpm --dir frontend lint
+pnpm --dir frontend typecheck           # tsc, including tests
 pnpm --dir frontend test                # vitest
 pnpm --dir frontend build               # production build (also type-checks)
 ```

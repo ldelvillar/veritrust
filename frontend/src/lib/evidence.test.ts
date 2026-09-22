@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import type { ClaimType, SourceType } from '@/components/analysis-result/types';
 import { groupSourcesByClaim, summarizeStances } from './evidence';
 
-const claim = (text: string) => ({ text, label: 'verdadera', confidence: 0.9 });
-const source = (url: string, claimIndices: number[] | null) => ({
+type Stance = NonNullable<SourceType['statements']>[number]['stance'];
+
+const claim = (text: string): ClaimType => ({
+  text,
+  label: 'verdadera',
+  confidence: 0.9,
+  verdict: 'real',
+});
+const source = (url: string, claimIndices: number[] | null): SourceType => ({
   title: `Paper ${url}`,
   url,
   statements:
@@ -14,8 +22,8 @@ const source = (url: string, claimIndices: number[] | null) => ({
 });
 const stanced = (
   url: string,
-  statements: { claim_index: number; stance: string | null }[]
-) => ({
+  statements: { claim_index: number; stance: Stance }[]
+): SourceType => ({
   title: `Paper ${url}`,
   url,
   statements: statements.map(s => ({ ...s, text: `claim ${s.claim_index}` })),

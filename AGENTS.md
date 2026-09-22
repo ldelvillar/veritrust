@@ -11,7 +11,7 @@ VeriTrust is an AI-powered medical misinformation detection system: users submit
 CI enforces all of these; fix failures at the root cause, never by suppression.
 
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
-- **Frontend** — lint, prettier `--check`, and build (build also type-checks).
+- **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, and build.
 
 ## Shell command conventions
 
