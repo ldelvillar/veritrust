@@ -66,6 +66,38 @@ describe('useApiQuery', () => {
     expect(result.current.error?.message).toBe('Error desconocido.');
   });
 
+  it('trusts server fallback data on a cold cache without refetching on mount', async () => {
+    const { result } = renderHook(
+      () => useApiQuery('/history', { fallbackData: { items: ['fresh'] } }),
+      { wrapper }
+    );
+
+    // SWR schedules the mount revalidation on the next animation frame; give it time to fire.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(mockedFetch).not.toHaveBeenCalled();
+    expect(result.current.data).toEqual({ items: ['fresh'] });
+  });
+
+  it('refetches on mount when a cached copy would hide the server fallback data', async () => {
+    mockedFetch.mockResolvedValueOnce({ items: ['fresh'] });
+    const warmCache = new Map([['/history', { data: { items: ['stale'] } }]]);
+    const warmWrapper = ({ children }: { children: ReactNode }) => (
+      <SWRConfig value={{ provider: () => warmCache, dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+
+    const { result } = renderHook(
+      () => useApiQuery('/history', { fallbackData: { items: ['fresh'] } }),
+      { wrapper: warmWrapper }
+    );
+
+    await waitFor(() =>
+      expect(result.current.data).toEqual({ items: ['fresh'] })
+    );
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('does not fetch when the path is null', async () => {
     const { result } = renderHook(() => useApiQuery(null), { wrapper });
 
