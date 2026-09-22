@@ -3,9 +3,10 @@
 import logging
 from functools import lru_cache
 from itertools import count
-from typing import List, Literal
+from typing import Any, List, Literal
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
@@ -46,7 +47,9 @@ def _next_judge_model() -> str | None:
 
 
 @lru_cache(maxsize=8)
-def get_relevance_chain(prompt_text: str, model: str | None = None):
+def get_relevance_chain(
+    prompt_text: str, model: str | None = None
+) -> Runnable[dict[str, Any], Any]:
     """Devuelve la cadena de juicio de evidencia configurada y cacheada por modelo."""
     llm = build_chat_model("judge", model)
     structured_llm = llm.with_structured_output(EvidenceJudgments)

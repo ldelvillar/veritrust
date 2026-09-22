@@ -87,3 +87,7 @@ warn_unused_ignores = true
 no_implicit_optional = true
 files = ["app", "ml"]
 exclude = "(^|/)(\\.venv|models|results|data|tests)(/|$)"
+
+[[tool.mypy.overrides]]
+module = "app.agents.*"
+disallow_untyped_defs = true

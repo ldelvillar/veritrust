@@ -1,7 +1,7 @@
 """Errores tipados del pipeline de agentes y traducción desde la capa de transporte."""
 
 from collections.abc import Awaitable, Callable
-from typing import Optional
+from typing import Any, Optional
 
 import aiohttp
 import httpx
@@ -16,7 +16,7 @@ class OllamaConnectionError(AgentError):
 
 
 async def ainvoke_graph(
-    graph,
+    graph: Any,
     state: dict,
     on_stage: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> dict:

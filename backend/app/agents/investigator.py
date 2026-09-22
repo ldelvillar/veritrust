@@ -6,6 +6,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.relevance import judge_evidence
+from app.agents.state import AgentState, ClaimsState
 from app.prompts.agents import Prompts
 from app.utils.cima import search_evidence as search_cima
 from app.utils.europepmc import search_evidence as search_europepmc
@@ -90,7 +91,7 @@ def _judge_claim(
 
 
 def gather_evidence(
-    state: dict, prompts: Prompts | None = None
+    state: ClaimsState, prompts: Prompts | None = None
 ) -> tuple[int, list[dict]]:
     """Busca y juzga la evidencia de cada afirmación; devuelve el total válido y el detalle por afirmación."""
     translated = state.get("translated_statements", [])
@@ -239,7 +240,7 @@ def gather_evidence(
     return total, claims
 
 
-def investigator(state: dict, prompts: Prompts | None = None) -> dict:
+def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentState:
     """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
     logger.info(
         "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"

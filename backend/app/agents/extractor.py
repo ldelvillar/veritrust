@@ -5,11 +5,13 @@ de un texto largo para su posterior análisis por parte de un agente experto en 
 
 import logging
 from functools import lru_cache
-from typing import List
+from typing import Any, List
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+from app.agents.state import ClaimsState
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
@@ -47,7 +49,7 @@ class MedicalStatements(BaseModel):
 
 
 @lru_cache(maxsize=1)
-def get_extractor_chain(prompt_text: str):
+def get_extractor_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
     """Devuelve la cadena de extracción configurada y cacheada."""
     llm = build_chat_model("extractor")
     structured_llm = llm.with_structured_output(MedicalStatements)
@@ -61,7 +63,7 @@ def get_extractor_chain(prompt_text: str):
     return system_prompt | structured_llm
 
 
-def extractor(state: dict, prompts: Prompts) -> dict:
+def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     """
     Recibe el estado actual, ejecuta la extracción y devuelve el estado actualizado.
     """

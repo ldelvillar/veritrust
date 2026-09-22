@@ -10,6 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents import sanitize
+from app.agents.state import AgentState
 from app.core.config import get_settings
 from app.core.credibility import adjust_confidence_with_evidence
 from app.prompts.agents import HealthExpertPrompt, Prompts
@@ -100,7 +101,7 @@ def _verdict_from_fake_prob(
     return "incierta", 1.0 - fake_prob
 
 
-def health_expert(state: dict, prompts: Prompts) -> dict:
+def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     """
     Recibe las afirmaciones extraídas, las verifica contra la postura de la
     literatura recuperada y redacta el informe médico con el LLM configurado.
@@ -155,7 +156,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     )
 
     # La confianza se atenúa según cuánta literatura biomédica respalde el análisis.
-    evidence_coverage = float(state.get("evidence_coverage", 1.0))
+    evidence_coverage = state["evidence_coverage"]
     global_confidence = adjust_confidence_with_evidence(
         global_confidence, evidence_coverage
     )
@@ -186,7 +187,7 @@ def health_expert(state: dict, prompts: Prompts) -> dict:
     # El informe no decide la etiqueta: al evaluar se omite para no gastar tokens.
     if get_settings().health_expert_explanation_enabled:
         logger.info("[Experto] Generando explicación médica")
-        medical_explanation = llm.invoke([system_prompt, expert_message]).content
+        medical_explanation = str(llm.invoke([system_prompt, expert_message]).content)
         logger.info("[Experto] Informe médico generado")
     else:
         logger.info("[Experto] Explicación desactivada; solo se calcula el veredicto")

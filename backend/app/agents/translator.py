@@ -6,11 +6,13 @@ español y devuelve sus traducciones al inglés clínico en una única llamada a
 import logging
 import re
 from functools import lru_cache
-from typing import List
+from typing import Any, List
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+from app.agents.state import ClaimsState
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
@@ -33,7 +35,7 @@ class TranslatedStatements(BaseModel):
 
 
 @lru_cache(maxsize=1)
-def get_translator_chain(prompt_text: str):
+def get_translator_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
     """Devuelve la cadena de traducción configurada y cacheada."""
     llm = build_chat_model("translator")
     structured_llm = llm.with_structured_output(TranslatedStatements)
@@ -47,7 +49,7 @@ def get_translator_chain(prompt_text: str):
     return system_prompt | structured_llm
 
 
-def translator(state: dict, prompts: Prompts) -> dict:
+def translator(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     """
     Recibe las afirmaciones en español y las traduce al inglés clínico
     en una única llamada al LLM, preservando orden y cardinalidad.
