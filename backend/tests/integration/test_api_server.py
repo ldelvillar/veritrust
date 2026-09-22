@@ -1506,6 +1506,62 @@ def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
     assert fake_pool.jobs == []
 
 
+def test_validation_errors_follow_the_structured_error_contract(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.post(
+        "/analysis",
+        json={
+            "text": "El ibuprofeno daña los riñones si se toma a diario.",
+            "url": "https://ejemplo.com/noticia",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": {
+            "code": "VALIDATION",
+            "message": "Value error, Debes enviar exactamente uno: 'text' o 'url'.",
+        }
+    }
+
+
+def test_query_validation_errors_follow_the_structured_error_contract(
+    monkeypatch,
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get("/history", params={"page": "primera"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "VALIDATION"
+
+
+def test_openapi_documents_every_422_as_the_structured_error(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    spec = server_module.app.openapi()
+
+    documented = {
+        f"{method.upper()} {path}": operation["responses"]["422"]
+        for path, operations in spec["paths"].items()
+        for method, operation in operations.items()
+        if "422" in operation["responses"]
+    }
+
+    # Toda ruta con parámetros o cuerpo puede dar 422; sin la declaración FastAPI documenta su propia forma.
+    assert "POST /analysis" in documented and "GET /history" in documented
+    assert {
+        route: schema["content"]["application/json"]["schema"]["$ref"]
+        for route, schema in documented.items()
+        if not schema["content"]["application/json"]["schema"]["$ref"].endswith(
+            "/ErrorResponse"
+        )
+    } == {}
+    assert "HTTPValidationError" not in spec["components"]["schemas"]
+
+
 def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
     server_module, fake_pool = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)

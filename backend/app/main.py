@@ -6,7 +6,8 @@ from contextlib import asynccontextmanager
 import redis.asyncio as aioredis
 from arq import create_pool
 from arq.connections import RedisSettings
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -15,6 +16,7 @@ from starlette.types import Receive, Scope, Send
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.cors import get_cors_config
+from app.core.errors import make_error_detail
 from app.core.logging import configure_logging
 from app.db.pool import close_pool, get_pool
 from app.mcp.server import (
@@ -23,6 +25,7 @@ from app.mcp.server import (
     build_mcp_http_app,
     build_mcp_server,
 )
+from app.schemas.errors import ErrorCode
 
 configure_logging()
 
@@ -74,6 +77,20 @@ class _McpDispatcher:
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Responde los 422 de validación con el detail estructurado, citando el primer error."""
+    errors = exc.errors()
+    message = str(errors[0]["msg"]) if errors else None
+    return JSONResponse(
+        status_code=422,
+        content={"detail": make_error_detail(ErrorCode.VALIDATION, message)},
+    )
+
 
 app.add_middleware(
     CORSMiddleware,

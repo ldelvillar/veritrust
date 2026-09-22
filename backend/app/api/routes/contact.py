@@ -16,7 +16,6 @@ router = APIRouter()
 
 
 _POST_CONTACT_ERROR_RESPONSES: dict[int | str, dict] = {
-    422: {"model": ErrorResponse},
     429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},

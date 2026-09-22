@@ -63,6 +63,7 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CONTACT_SEND_FAILED: (
         "No se pudo enviar tu mensaje. Por favor, inténtalo de nuevo en unos momentos."
     ),
+    ErrorCode.VALIDATION: "Los datos enviados no son válidos.",
     ErrorCode.RATE_LIMIT: (
         "Has superado el límite de peticiones. Intenta de nuevo en un minuto."
     ),

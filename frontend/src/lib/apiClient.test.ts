@@ -46,16 +46,6 @@ describe('parseErrorDetail', () => {
     });
   });
 
-  it('extracts the first msg from a FastAPI 422 validation array', () => {
-    const detail = [
-      { loc: ['body', 'url'], msg: 'field required', type: 'value_error' },
-    ];
-    expect(parseErrorDetail(detail)).toEqual({
-      message: 'field required',
-      code: null,
-    });
-  });
-
   it('returns nulls for unrecognised shapes', () => {
     expect(parseErrorDetail(null)).toEqual({ message: null, code: null });
     expect(parseErrorDetail({})).toEqual({ message: null, code: null });
