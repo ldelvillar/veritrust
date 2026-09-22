@@ -8,6 +8,8 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
+from dataclasses import fields
 from pathlib import Path
 from time import time
 from typing import TypedDict, cast
@@ -16,9 +18,10 @@ import pandas as pd
 
 from app.agents.errors import ainvoke_graph
 from app.agents.main import create_graph
+from app.core.config import get_settings
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
-from app.prompts.agents import load_prompts
-from app.utils.llm import ensure_llm_available
+from app.prompts.agents import Prompts, load_prompts
+from app.utils.llm import configured_models, ensure_llm_available
 from ml.load_data import load_dataset
 
 logger = logging.getLogger(__name__)
@@ -126,6 +129,71 @@ def load_checkpoint(path: Path) -> dict[str, EvalRow]:
             if isinstance(row, dict) and "text" in row:
                 done[row["text"]] = cast(EvalRow, row)
     return done
+
+
+# Lo que decide las filas: reanudar con otro valor mezclaría configuraciones bajo una cabecera.
+_RUN_IDENTITY_KEYS = ("provider", "models", "prompts")
+
+
+class CheckpointMismatchError(ValueError):
+    """El checkpoint se generó con otra configuración o no la registra."""
+
+
+def _git_describe() -> str | None:
+    """Commit del código evaluado, con -dirty si hay cambios sin commitear; None sin git."""
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() or None
+
+
+def describe_run(prompts: Prompts, *, partition: str, seed: int) -> dict:
+    """Resume la configuración del pipeline que produce las filas de un checkpoint."""
+    return {
+        "provider": get_settings().llm_provider_name(),
+        "models": configured_models(),
+        "prompts": {f.name: getattr(prompts, f.name).version for f in fields(prompts)},
+        "partition": partition,
+        "seed": seed,
+        "git": _git_describe(),
+    }
+
+
+def read_checkpoint_run(path: Path) -> dict | None:
+    """Devuelve la configuración registrada en la cabecera del checkpoint, si la hay."""
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(record, dict) and isinstance(record.get("run"), dict):
+                return record["run"]
+    return None
+
+
+def prepare_checkpoint(path: Path, run: dict) -> dict:
+    """Escribe la cabecera de un checkpoint nuevo o verifica que se reanuda con la misma configuración."""
+    if not path.exists() or not path.read_text(encoding="utf-8").strip():
+        path.write_text(
+            json.dumps({"run": run}, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        return run
+    recorded = read_checkpoint_run(path)
+    if recorded is None or any(recorded.get(k) != run[k] for k in _RUN_IDENTITY_KEYS):
+        raise CheckpointMismatchError(
+            f"El checkpoint {path} se generó con otra configuración o no la registra; "
+            "usa --fresh u otro --checkpoint para no mezclar resultados."
+        )
+    return recorded
 
 
 async def evaluate_pipeline(
@@ -256,11 +324,26 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     }
 
 
-def format_report(metrics: dict[str, float], rows: list[EvalRow]) -> str:
+def _format_run(run: dict) -> list[str]:
+    """Líneas del informe que atribuyen las métricas a la configuración que las produjo."""
+    models = ", ".join(f"{role}={name}" for role, name in run["models"].items())
+    prompts = ", ".join(f"{name}={version}" for name, version in run["prompts"].items())
+    return [
+        f"Proveedor : {run['provider']} · git {run.get('git') or 'desconocido'}",
+        f"Partición : {run['partition']} (seed {run['seed']})",
+        f"Modelos   : {models}",
+        f"Prompts   : {prompts}",
+    ]
+
+
+def format_report(
+    metrics: dict[str, float], rows: list[EvalRow], run: dict | None = None
+) -> str:
     """Compone un informe legible con métricas y ejemplos mal clasificados."""
     lines = [
         "",
         "===== Evaluación del pipeline multiagente =====",
+        *(_format_run(run) if run else []),
         f"Muestras evaluadas : {int(metrics['evaluated'])}",
         f"Veredicto incierto : {int(metrics['uncertain'])} (abstención, excluida de las métricas)",
         f"Sin afirmaciones   : {int(metrics['skipped'])} (excluidas de las métricas)",
@@ -344,7 +427,16 @@ def main() -> dict[str, float]:
 
     ensure_llm_available()
 
-    graph = create_graph(load_prompts())
+    prompts = load_prompts()
+    try:
+        run = prepare_checkpoint(
+            checkpoint_path,
+            describe_run(prompts, partition=args.partition, seed=args.seed),
+        )
+    except CheckpointMismatchError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    graph = create_graph(prompts)
     samples = load_samples(args.partition, args.limit, args.seed)
     logger.info(
         "Evaluando %d muestras de la partición '%s'", len(samples), args.partition
@@ -354,7 +446,7 @@ def main() -> dict[str, float]:
     rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path))
     metrics = compute_metrics(rows)
 
-    print(format_report(metrics, rows))
+    print(format_report(metrics, rows, run))
     failed = len(samples) - len(rows)
     if failed:
         logger.warning(

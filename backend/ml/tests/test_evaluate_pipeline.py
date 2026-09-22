@@ -262,5 +262,88 @@ def test_evaluate_pipeline_skips_failed_samples_for_retry(tmp_path) -> None:
     assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 1
 
 
+def _run(**overrides: object) -> dict:
+    run = {
+        "provider": "mistral",
+        "models": {"extractor": "m-ext", "judge": "m-judge"},
+        "prompts": {"extractor": "v4", "judge": "v3"},
+        "partition": "gold",
+        "seed": 42,
+        "git": "abc1234",
+    }
+    return {**run, **overrides}
+
+
+def test_prepare_checkpoint_writes_a_header_that_is_not_a_row(tmp_path) -> None:
+    path = tmp_path / "ckpt.jsonl"
+
+    recorded = ep.prepare_checkpoint(path, _run())
+
+    assert recorded == _run()
+    assert ep.read_checkpoint_run(path) == _run()
+    # La cabecera no cuenta como muestra evaluada al reanudar.
+    assert ep.load_checkpoint(path) == {}
+
+
+def test_prepare_checkpoint_resumes_with_same_config_after_a_new_commit(
+    tmp_path,
+) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    ep.prepare_checkpoint(path, _run())
+
+    recorded = ep.prepare_checkpoint(path, _run(git="def5678", seed=7))
+
+    # Se conserva la cabecera original y no se duplica.
+    assert recorded["git"] == "abc1234"
+    assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 1
+
+
+def test_prepare_checkpoint_rejects_resuming_with_another_prompt_version(
+    tmp_path,
+) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    ep.prepare_checkpoint(path, _run())
+
+    with pytest.raises(ep.CheckpointMismatchError, match="--fresh"):
+        ep.prepare_checkpoint(path, _run(prompts={"extractor": "v4", "judge": "v4"}))
+
+
+def test_prepare_checkpoint_rejects_a_legacy_checkpoint_without_header(
+    tmp_path,
+) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    path.write_text(json.dumps({"text": "a", "predicted": "falsa"}) + "\n")
+
+    with pytest.raises(ep.CheckpointMismatchError):
+        ep.prepare_checkpoint(path, _run())
+
+
+def test_format_report_echoes_the_run_configuration() -> None:
+    rows = [_row("falsa", "falsa")]
+
+    report = ep.format_report(ep.compute_metrics(rows), rows, _run())
+
+    assert "mistral · git abc1234" in report
+    assert "judge=m-judge" in report
+    assert "judge=v3" in report
+
+
+def test_describe_run_records_every_prompt_version(monkeypatch) -> None:
+    monkeypatch.setattr(ep, "configured_models", lambda: {"judge": "m-judge"})
+    monkeypatch.setattr(ep, "_git_describe", lambda: "abc1234")
+    prompts = ep.load_prompts()
+
+    run = ep.describe_run(prompts, partition="gold", seed=42)
+
+    assert run["prompts"] == {
+        "extractor": prompts.extractor.version,
+        "translator": prompts.translator.version,
+        "judge": prompts.judge.version,
+        "health_expert": prompts.health_expert.version,
+    }
+    assert run["models"] == {"judge": "m-judge"}
+    assert run["git"] == "abc1234"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

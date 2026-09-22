@@ -62,9 +62,15 @@ class _FakeSettings:
     nvidia_judge_model = "nvidia/nemotron-3-super-120b-a12b"
     nvidia_max_tokens = 2048
     nvidia_request_timeout_seconds = 60
+    groq_judge_model_rotation = ""
 
     def llm_provider_name(self) -> str:
         return self.llm_provider.strip().lower()
+
+    def groq_judge_models(self) -> list[str]:
+        return [
+            m.strip() for m in self.groq_judge_model_rotation.split(",") if m.strip()
+        ]
 
 
 def _patch_settings(monkeypatch, settings) -> None:
@@ -277,3 +283,34 @@ def test_ensure_llm_available_fails_fast_without_nvidia_api_key(monkeypatch) -> 
 
     with pytest.raises(llm_module.LLMConfigurationError, match="NVIDIA_API_KEY"):
         llm_module.ensure_llm_available()
+
+
+def test_configured_models_maps_every_role_for_the_active_provider(
+    monkeypatch,
+) -> None:
+    _patch_settings(monkeypatch, _FakeSettings("ollama"))
+
+    assert llm_module.configured_models() == {
+        "extractor": "llama3",
+        "translator": "translategemma",
+        "health_expert": "llama3.2",
+        "judge": "llama3.2",
+    }
+
+
+def test_configured_models_records_the_groq_judge_rotation(monkeypatch) -> None:
+    settings = _FakeSettings("groq", "clave-de-prueba")
+    settings.groq_judge_model_rotation = "modelo-a, modelo-b"
+    _patch_settings(monkeypatch, settings)
+
+    models = llm_module.configured_models()
+
+    assert models["judge"] == "modelo-a,modelo-b"
+    assert models["translator"] == "llama-3.1-8b-instant"
+
+
+def test_configured_models_rejects_unknown_provider(monkeypatch) -> None:
+    _patch_settings(monkeypatch, _FakeSettings("desconocido"))
+
+    with pytest.raises(llm_module.LLMConfigurationError, match="desconocido"):
+        llm_module.configured_models()

@@ -65,6 +65,17 @@ NVIDIA_MODEL_ATTR_BY_ROLE = {
     "judge": "nvidia_judge_model",
 }
 
+# Ajuste de Settings con el modelo de cada rol, por proveedor.
+MODEL_ATTR_BY_PROVIDER = {
+    "ollama": {
+        role: f"{prefix}_model" for role, prefix in OLLAMA_PREFIX_BY_ROLE.items()
+    },
+    "mistral": MISTRAL_MODEL_ATTR_BY_ROLE,
+    "groq": GROQ_MODEL_ATTR_BY_ROLE,
+    "google": GOOGLE_MODEL_ATTR_BY_ROLE,
+    "nvidia": NVIDIA_MODEL_ATTR_BY_ROLE,
+}
+
 
 def _mistral_api_key() -> str:
     """Devuelve la api_key de Mistral o falla con un mensaje accionable."""
@@ -172,6 +183,21 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
         num_predict=getattr(settings, f"{prefix}_num_predict"),
         client_kwargs={"timeout": settings.ollama_request_timeout_seconds},
     )
+
+
+def configured_models() -> dict[str, str]:
+    """Devuelve el modelo configurado para cada rol del proveedor activo."""
+    settings = get_settings()
+    attrs = MODEL_ATTR_BY_PROVIDER.get(settings.llm_provider_name())
+    if attrs is None:
+        raise LLMConfigurationError(
+            f"LLM_PROVIDER no reconocido: '{settings.llm_provider}'."
+        )
+    models = {role: str(getattr(settings, attr)) for role, attr in attrs.items()}
+    # Con rotación, el juez de Groq alterna entre varios modelos: se registran todos.
+    if settings.llm_provider_name() == "groq" and settings.groq_judge_models():
+        models["judge"] = ",".join(settings.groq_judge_models())
+    return models
 
 
 def ensure_llm_available() -> None:
