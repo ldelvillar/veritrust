@@ -198,6 +198,7 @@ def test_map_history_record_reads_only_columns_the_queries_select() -> None:
     row["id"] = 123
     row["user_id"] = "user-1"
     row["source_type"] = "text"
+    row["origin"] = "web"
     row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
     row["status"] = "pending"
 
@@ -249,6 +250,7 @@ def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> 
     row["input_text"] = None
     row["id"] = 123
     row["source_type"] = "text"
+    row["origin"] = "web"
     row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
     row["status"] = "pending"
 

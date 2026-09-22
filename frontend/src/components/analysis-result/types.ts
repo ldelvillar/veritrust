@@ -1,4 +1,4 @@
-import type { paths } from '@/types/api';
+import type { components, paths } from '@/types/api';
 
 export type ResultType =
   paths['/analysis/{analysis_id}']['get']['responses']['200']['content']['application/json'];
@@ -6,6 +6,8 @@ export type ClaimType = NonNullable<ResultType['claims']>[number];
 export type SourceType = NonNullable<ResultType['sources']>[number];
 export type Verdict = ResultType['verdict'];
 export type ConfidenceLevel = NonNullable<ResultType['confidence_level']>;
+export type AnalysisStage = NonNullable<ResultType['stage']>;
+export type ErrorCode = components['schemas']['ErrorCode'];
 
 // Vista común al informe propio (autenticado) y al público compartido: este
 // último no trae datos de identidad, así que analysis_id y origin son opcionales.

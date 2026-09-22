@@ -10,10 +10,11 @@ import LanguageIcon from '@/assets/Language';
 import Newspaper from '@/assets/Newspaper';
 import Heart from '@/assets/Heart';
 import Bell from '@/assets/Bell';
+import type { AnalysisStage } from '@/components/analysis-result/types';
 
 interface PendingAnalysisProps {
   createdAt: string;
-  stage?: string | null;
+  stage?: AnalysisStage | null;
   connectionError?: string | null;
   onRetry?: () => void;
 }
@@ -51,7 +52,7 @@ const STEPS = [
 const SLOW_AFTER_SECONDS = 600;
 
 // El worker reporta la etapa real; aquí la traducimos al paso visible.
-const STAGE_INDEX: Record<string, number> = {
+const STAGE_INDEX: Record<AnalysisStage, number> = {
   preparing: 0,
   extractor: 1,
   translator: 2,
@@ -116,7 +117,7 @@ export default function PendingAnalysis({
   );
 
   // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
-  const activeStep = stage != null ? (STAGE_INDEX[stage] ?? 0) : 0;
+  const activeStep = stage != null ? STAGE_INDEX[stage] : 0;
 
   const isSlow = elapsed >= SLOW_AFTER_SECONDS;
   const showReassurance = !isSlow && activeStep === STEPS.length - 1;

@@ -142,8 +142,8 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
     return AnalysisHistoryItem(
         analysis_id=str(row["id"]),
         user_id=str(row["user_id"]),
-        source_type=str(row["source_type"]),
-        origin=str(row["origin"]),
+        source_type=row["source_type"],
+        origin=row["origin"],
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -158,7 +158,7 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         completed_at=(
             str(row["completed_at"]) if row["completed_at"] is not None else None
         ),
-        status=str(row["status"]),
+        status=row["status"],
         error_code=row["error_code"],
         claims=row["claims"],
         sources=row["sources"],
@@ -173,8 +173,8 @@ def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
     """Mapea una fila del listado a un ítem tipado, sin el cuerpo del informe."""
     return HistoryListItem(
         analysis_id=str(row["id"]),
-        source_type=str(row["source_type"]),
-        origin=str(row["origin"]),
+        source_type=row["source_type"],
+        origin=row["origin"],
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -185,7 +185,7 @@ def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
             else None
         ),
         created_at=str(row["created_at"]),
-        status=str(row["status"]),
+        status=row["status"],
         stage=row["stage"],
         error_code=row["error_code"],
         file_filename=row["file_filename"],
@@ -197,8 +197,8 @@ def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
     """Mapea una fila de la exportación a un ítem tipado, sin el cuerpo del informe."""
     return HistoryExportItem(
         analysis_id=str(row["id"]),
-        source_type=str(row["source_type"]),
-        origin=str(row["origin"]),
+        source_type=row["source_type"],
+        origin=row["origin"],
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -212,7 +212,7 @@ def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
         completed_at=(
             str(row["completed_at"]) if row["completed_at"] is not None else None
         ),
-        status=str(row["status"]),
+        status=row["status"],
         file_filename=row["file_filename"],
     )
 
@@ -863,7 +863,7 @@ async def get_user_analysis_status(
     if not row:
         return None
 
-    return AnalysisStatusResponse(status=str(row["status"]), stage=row["stage"])
+    return AnalysisStatusResponse(status=row["status"], stage=row["stage"])
 
 
 async def get_analysis_file(
@@ -1123,7 +1123,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         return None
 
     return PublicAnalysisReport(
-        source_type=str(row["source_type"]),
+        source_type=row["source_type"],
         input_text=row["input_text"],
         input_url=row["input_url"],
         label=str(row["label"]) if row["label"] is not None else None,
@@ -1138,7 +1138,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
         completed_at=(
             str(row["completed_at"]) if row["completed_at"] is not None else None
         ),
-        status=str(row["status"]),
+        status=row["status"],
         claims=row["claims"],
         sources=row["sources"],
         file_filename=row["file_filename"],

@@ -1,10 +1,13 @@
+import type { components } from '@/types/api';
 import type { DashboardPayload } from './types';
 
-const SOURCE_META: Record<string, { label: string; color: string }> = {
+const SOURCE_META: Record<
+  components['schemas']['SourceType'],
+  { label: string; color: string }
+> = {
   text: { label: 'Texto', color: 'var(--color-primary)' },
   url: { label: 'Enlace', color: 'var(--color-accent)' },
   file: { label: 'Archivo', color: 'var(--color-primary-strong)' },
-  pdf: { label: 'Archivo', color: 'var(--color-primary-strong)' },
 };
 
 export default function SourcesCard({
@@ -36,10 +39,7 @@ export default function SourcesCard({
       {/* Segmented bar */}
       <div className="mb-5 flex h-3.5 gap-0.5 overflow-hidden rounded-full">
         {items.map(s => {
-          const meta = SOURCE_META[s.source_type] ?? {
-            label: s.source_type,
-            color: 'var(--color-faint)',
-          };
+          const meta = SOURCE_META[s.source_type];
           return (
             <div
               key={s.source_type}
@@ -51,10 +51,7 @@ export default function SourcesCard({
 
       <div className="flex flex-col">
         {items.map(s => {
-          const meta = SOURCE_META[s.source_type] ?? {
-            label: s.source_type,
-            color: 'var(--color-faint)',
-          };
+          const meta = SOURCE_META[s.source_type];
           return (
             <div
               key={s.source_type}

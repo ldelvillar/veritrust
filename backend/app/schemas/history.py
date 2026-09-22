@@ -4,7 +4,7 @@ Este módulo define los esquemas de datos relacionados con el historial de anál
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from app.core.credibility import (
     ConfidenceLevel,
@@ -13,6 +13,13 @@ from app.core.credibility import (
     classify_verdict,
     compute_credibility,
 )
+from app.schemas.analysis import (
+    AnalysisOrigin,
+    AnalysisStage,
+    AnalysisStatus,
+    SourceType,
+)
+from app.schemas.errors import ErrorCode
 from app.schemas.feedback import AnalysisFeedback
 
 Stance = Literal["supports", "contradicts", "inconclusive"]
@@ -53,20 +60,23 @@ class SourceItem(BaseModel):
 class HistoryListItem(BaseModel):
     """Fila del listado de historial: lo que pinta la tabla, sin el cuerpo del informe."""
 
+    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    model_config = ConfigDict(use_enum_values=True)
+
     analysis_id: str
-    source_type: str
-    origin: str = "web"
+    source_type: SourceType
+    origin: AnalysisOrigin = "web"
     input_text: Optional[str] = None
     input_url: Optional[str] = None
     label: Optional[str] = None
     confidence: Optional[float] = None
     evidence_coverage: Optional[float] = None
-    status: str = "done"
-    error_code: Optional[str] = None
+    status: AnalysisStatus = "done"
+    error_code: Optional[ErrorCode] = None
     created_at: str
     file_filename: Optional[str] = None
     share_token: Optional[str] = None
-    stage: Optional[str] = None
+    stage: Optional[AnalysisStage] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -107,14 +117,17 @@ class AnalysisHistoryItem(HistoryListItem):
 class PublicAnalysisReport(BaseModel):
     """Vista pública de solo lectura de un informe compartido; sin datos de identidad."""
 
-    source_type: str
+    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    model_config = ConfigDict(use_enum_values=True)
+
+    source_type: SourceType
     input_text: Optional[str] = None
     input_url: Optional[str] = None
     label: Optional[str] = None
     confidence: Optional[float] = None
     evidence_coverage: Optional[float] = None
     explanation: Optional[str] = None
-    status: str = "done"
+    status: AnalysisStatus = "done"
     created_at: str
     completed_at: Optional[str] = None
     file_filename: Optional[str] = None

@@ -2,9 +2,10 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from app.core.credibility import compute_credibility
+from app.schemas.analysis import SourceType
 
 
 class DashboardKpis(BaseModel):
@@ -29,7 +30,10 @@ class DashboardTrendPoint(BaseModel):
 class DashboardSourceBreakdownItem(BaseModel):
     """Modelo de datos para un ítem de desglose por fuente en el dashboard."""
 
-    source_type: str
+    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    model_config = ConfigDict(use_enum_values=True)
+
+    source_type: SourceType
     total: int
     average_confidence: float
 
@@ -45,8 +49,11 @@ class DashboardDomainBreakdownItem(BaseModel):
 class DashboardAlertItem(BaseModel):
     """Modelo de datos para un ítem de alerta en el dashboard."""
 
+    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str
-    source_type: str
+    source_type: SourceType
     input_text: Optional[str] = None
     input_url: Optional[str] = None
     label: str

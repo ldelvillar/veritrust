@@ -125,7 +125,7 @@ def _build_source_breakdown(
     """Mapea la distribución por fuente para el dashboard."""
     return [
         DashboardSourceBreakdownItem(
-            source_type=str(row[0]),
+            source_type=row[0],
             total=int(row[1] or 0),
             average_confidence=_round_percentage(float(row[2] or 0.0)),
         )
@@ -176,7 +176,7 @@ def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertIte
     return [
         DashboardAlertItem(
             id=str(row[0]),
-            source_type=str(row[1]),
+            source_type=row[1],
             input_text=row[2],
             input_url=row[3],
             label=str(row[4]),

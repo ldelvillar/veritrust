@@ -2,8 +2,9 @@ import Magnifier from '@/assets/Magnifier';
 import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
+import type { ErrorCode } from './types';
 
-const FAILURE_MESSAGES: Record<string, string> = {
+const FAILURE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   URL_EXTRACTION:
     'No se pudo extraer el contenido de la URL. Comprueba que el enlace sea válido y accesible.',
   CONNECTION:
@@ -19,7 +20,10 @@ const FAILURE_MESSAGES: Record<string, string> = {
 };
 
 // Fallos ligados a la entrada: reintentar el mismo enlace o archivo suele volver a fallar.
-const INPUT_ERROR_CODES = new Set(['URL_EXTRACTION', 'FILE_EXTRACTION']);
+const INPUT_ERROR_CODES = new Set<ErrorCode>([
+  'URL_EXTRACTION',
+  'FILE_EXTRACTION',
+]);
 
 export default function FailedView({
   errorCode,
@@ -27,7 +31,7 @@ export default function FailedView({
   isRetrying,
   retryError,
 }: {
-  errorCode: string | null | undefined;
+  errorCode: ErrorCode | null | undefined;
   onRetry?: () => void;
   isRetrying?: boolean;
   retryError?: string | null;

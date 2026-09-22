@@ -1,10 +1,13 @@
 """Tests unitarios para los esquemas de la API."""
 
+from typing import get_args
+
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.analysis import AnalysisRequest, SourceType
-from app.schemas.history import SourceItem
+from app.agents.main import PIPELINE_STAGES
+from app.schemas.analysis import AnalysisRequest, AnalysisStage, SourceType
+from app.schemas.history import HistoryListItem, SourceItem
 
 
 def test_analyze_request_accepts_text_with_default_source_type() -> None:
@@ -103,3 +106,44 @@ def test_source_item_rejects_a_statement_without_its_claim_index() -> None:
                 "statements": [{"text": "a", "stance": "contradicts"}],
             }
         )
+
+
+def test_analysis_stage_vocabulary_matches_the_worker_stages() -> None:
+    """El contrato de etapas es la preparación más los nodos del grafo, ni más ni menos."""
+    assert set(get_args(AnalysisStage)) == {"preparing", *PIPELINE_STAGES}
+
+
+def _history_row(**overrides: object) -> dict[str, object]:
+    return {
+        "analysis_id": "a1",
+        "source_type": "url",
+        "created_at": "2026-09-22T10:00:00+00:00",
+        "status": "failed",
+        "error_code": "URL_EXTRACTION",
+        **overrides,
+    }
+
+
+def test_history_item_keeps_closed_set_values_as_plain_strings() -> None:
+    item = HistoryListItem.model_validate(_history_row(stage="investigator"))
+
+    assert type(item.source_type) is str and item.source_type == "url"
+    assert type(item.error_code) is str and item.error_code == "URL_EXTRACTION"
+    assert item.stage == "investigator"
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("status", "running"),
+        ("stage", "verifier"),
+        ("source_type", "pdf"),
+        ("origin", "cli"),
+        ("error_code", "PDF_EXTRACTION"),
+    ],
+)
+def test_history_item_rejects_values_outside_the_contract(
+    field: str, value: str
+) -> None:
+    with pytest.raises(ValidationError):
+        HistoryListItem.model_validate(_history_row(**{field: value}))

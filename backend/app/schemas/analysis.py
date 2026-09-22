@@ -1,7 +1,7 @@
 """Este módulo define los esquemas de datos relacionados con los análisis de noticias."""
 
 from enum import Enum
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, HttpUrl, StringConstraints, model_validator
 
@@ -16,6 +16,18 @@ class SourceType(str, Enum):
     TEXT = "text"
     FILE = "file"
     URL = "url"
+
+
+# Ciclo de vida de un análisis; coincide con el CHECK de status en init.sql.
+AnalysisStatus = Literal["pending", "done", "failed"]
+
+# Etapa que reporta el worker: la preparación de la entrada y luego cada nodo del grafo.
+AnalysisStage = Literal[
+    "preparing", "extractor", "translator", "investigator", "health_expert"
+]
+
+# Canal que creó el análisis; coincide con el CHECK de origin en init.sql.
+AnalysisOrigin = Literal["web", "mcp"]
 
 
 class AnalysisRequest(BaseModel):
@@ -78,5 +90,5 @@ class ShareResponse(BaseModel):
 class AnalysisStatusResponse(BaseModel):
     """Estado ligero de un análisis para el sondeo mientras sigue en curso."""
 
-    status: str
-    stage: Optional[str] = None
+    status: AnalysisStatus
+    stage: Optional[AnalysisStage] = None

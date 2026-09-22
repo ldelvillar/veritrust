@@ -382,13 +382,13 @@ export interface components {
         AnalysisHistoryItem: {
             /** Analysis Id */
             analysis_id: string;
-            /** Source Type */
-            source_type: string;
+            source_type: components["schemas"]["SourceType"];
             /**
              * Origin
              * @default web
+             * @enum {string}
              */
-            origin: string;
+            origin: "web" | "mcp";
             /** Input Text */
             input_text?: string | null;
             /** Input Url */
@@ -402,10 +402,10 @@ export interface components {
             /**
              * Status
              * @default done
+             * @enum {string}
              */
-            status: string;
-            /** Error Code */
-            error_code?: string | null;
+            status: "pending" | "done" | "failed";
+            error_code?: components["schemas"]["ErrorCode"] | null;
             /** Created At */
             created_at: string;
             /** File Filename */
@@ -413,7 +413,7 @@ export interface components {
             /** Share Token */
             share_token?: string | null;
             /** Stage */
-            stage?: string | null;
+            stage?: ("preparing" | "extractor" | "translator" | "investigator" | "health_expert") | null;
             /** User Id */
             user_id: string;
             /** Explanation */
@@ -477,10 +477,13 @@ export interface components {
          * @description Estado ligero de un análisis para el sondeo mientras sigue en curso.
          */
         AnalysisStatusResponse: {
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "done" | "failed";
             /** Stage */
-            stage?: string | null;
+            stage?: ("preparing" | "extractor" | "translator" | "investigator" | "health_expert") | null;
         };
         /** Body_analyze_file_analysis_file_post */
         Body_analyze_file_analysis_file_post: {
@@ -560,8 +563,7 @@ export interface components {
         DashboardAlertItem: {
             /** Id */
             id: string;
-            /** Source Type */
-            source_type: string;
+            source_type: components["schemas"]["SourceType"];
             /** Input Text */
             input_text?: string | null;
             /** Input Url */
@@ -613,8 +615,7 @@ export interface components {
          * @description Modelo de datos para un ítem de desglose por fuente en el dashboard.
          */
         DashboardSourceBreakdownItem: {
-            /** Source Type */
-            source_type: string;
+            source_type: components["schemas"]["SourceType"];
             /** Total */
             total: number;
             /** Average Confidence */
@@ -727,13 +728,13 @@ export interface components {
         HistoryListItem: {
             /** Analysis Id */
             analysis_id: string;
-            /** Source Type */
-            source_type: string;
+            source_type: components["schemas"]["SourceType"];
             /**
              * Origin
              * @default web
+             * @enum {string}
              */
-            origin: string;
+            origin: "web" | "mcp";
             /** Input Text */
             input_text?: string | null;
             /** Input Url */
@@ -747,10 +748,10 @@ export interface components {
             /**
              * Status
              * @default done
+             * @enum {string}
              */
-            status: string;
-            /** Error Code */
-            error_code?: string | null;
+            status: "pending" | "done" | "failed";
+            error_code?: components["schemas"]["ErrorCode"] | null;
             /** Created At */
             created_at: string;
             /** File Filename */
@@ -758,7 +759,7 @@ export interface components {
             /** Share Token */
             share_token?: string | null;
             /** Stage */
-            stage?: string | null;
+            stage?: ("preparing" | "extractor" | "translator" | "investigator" | "health_expert") | null;
             /**
              * Verdict
              * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
@@ -837,8 +838,7 @@ export interface components {
          * @description Vista pública de solo lectura de un informe compartido; sin datos de identidad.
          */
         PublicAnalysisReport: {
-            /** Source Type */
-            source_type: string;
+            source_type: components["schemas"]["SourceType"];
             /** Input Text */
             input_text?: string | null;
             /** Input Url */
@@ -854,8 +854,9 @@ export interface components {
             /**
              * Status
              * @default done
+             * @enum {string}
              */
-            status: string;
+            status: "pending" | "done" | "failed";
             /** Created At */
             created_at: string;
             /** Completed At */

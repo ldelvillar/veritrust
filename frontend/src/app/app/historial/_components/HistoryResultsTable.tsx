@@ -87,7 +87,7 @@ const TYPE_META = {
 } as const;
 
 // El worker reporta la etapa real; aquí la traducimos a una etiqueta compacta.
-const STAGE_LABEL: Record<string, string> = {
+const STAGE_LABEL: Record<NonNullable<HistoryItem['stage']>, string> = {
   preparing: 'Preparando el contenido',
   extractor: 'Extrayendo afirmaciones',
   translator: 'Traduciendo al inglés clínico',
@@ -353,15 +353,13 @@ export default function HistoryResultsTable({
           {history.map(item => {
             const tone = toneFromItem(item);
             const toneCfg = tone ? TONE_CONFIG[tone] : null;
-            const typeMeta =
-              TYPE_META[item.source_type as keyof typeof TYPE_META] ??
-              TYPE_META.text;
+            const typeMeta = TYPE_META[item.source_type];
             const { Icon: SourceIcon } = typeMeta;
             const credibility = item.credibility ?? null;
             const isDeleting = deletingId === item.analysis_id;
             const stageLabel =
               item.status === 'pending' && item.stage
-                ? (STAGE_LABEL[item.stage] ?? null)
+                ? STAGE_LABEL[item.stage]
                 : null;
 
             const railStyle = toneCfg
