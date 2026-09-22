@@ -9,16 +9,20 @@ import json
 import logging
 import os
 import subprocess
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from time import time
 from typing import TypedDict, cast
 
 import pandas as pd
 
+from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
 from app.agents.main import create_graph, describe_pipeline
 from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
 from app.prompts.agents import Prompts, load_prompts
+from app.utils.evidence import EvidenceRetrievalError
 from app.utils.llm import ensure_llm_available
 from ml.load_data import load_dataset
 
@@ -33,6 +37,15 @@ class Sample(TypedDict):
 
     text: str
     expected: str
+
+
+class EvidenceCall(TypedDict):
+    """Una búsqueda en una fuente de evidencia con sus resultados brutos, o hits None si la fuente cayó."""
+
+    source: str
+    query: str
+    max_results: int
+    hits: list[dict] | None
 
 
 class EvalRow(TypedDict):
@@ -50,6 +63,74 @@ class EvalRow(TypedDict):
     stances: dict[str, int]
     evidence_coverage: float
     judge_failures: int
+    evidence: list[EvidenceCall]
+    evidence_live: int
+
+
+# Búsquedas del investigador por fuente: la cinta las sustituye mientras se evalúa una muestra.
+_SEARCHES = {
+    "europepmc": "search_europepmc",
+    "pubmed": "search_pubmed",
+    "openfda": "search_openfda",
+    "cima": "search_cima",
+}
+
+
+class EvidenceTape:
+    """Graba las búsquedas de evidencia de una muestra y reproduce las que ya traía grabadas."""
+
+    def __init__(self, recorded: list[EvidenceCall] | None = None) -> None:
+        self._recorded = {
+            (call["source"], call["query"], call["max_results"]): call["hits"]
+            for call in recorded or []
+        }
+        self.calls: list[EvidenceCall] = []
+        self._live: list[EvidenceCall] = []
+
+    @property
+    def live(self) -> int:
+        """Búsquedas que la grabación no cubría y fueron a la fuente."""
+        return len(self._live)
+
+    def wrap(
+        self, source: str, search: Callable[..., list[dict]]
+    ) -> Callable[..., list[dict]]:
+        """Envuelve una búsqueda: sirve la grabación si la hay y si no consulta la fuente."""
+
+        def taped(query: str, *, max_results: int) -> list[dict]:
+            # Se anota antes de buscar: si la fuente cae, queda grabada como caída.
+            call: EvidenceCall = {
+                "source": source,
+                "query": query,
+                "max_results": max_results,
+                "hits": None,
+            }
+            self.calls.append(call)
+            key = (source, query, max_results)
+            if key in self._recorded:
+                hits = self._recorded[key]
+                if hits is None:
+                    # Una caída grabada se reproduce: ambas corridas ven la misma evidencia.
+                    raise EvidenceRetrievalError(f"Caída grabada de {source}")
+            else:
+                self._live.append(call)
+                hits = search(query, max_results=max_results)
+            call["hits"] = hits
+            return hits
+
+        return taped
+
+    @contextmanager
+    def install(self) -> Iterator[None]:
+        """Sustituye las búsquedas del investigador por las de la cinta mientras dura el bloque."""
+        live = {attr: getattr(investigator_module, attr) for attr in _SEARCHES.values()}
+        for source, attr in _SEARCHES.items():
+            setattr(investigator_module, attr, self.wrap(source, live[attr]))
+        try:
+            yield
+        finally:
+            for attr, search in live.items():
+                setattr(investigator_module, attr, search)
 
 
 def _stance_histogram(sources: list[dict]) -> dict[str, int]:
@@ -129,8 +210,17 @@ def load_checkpoint(path: Path) -> dict[str, EvalRow]:
     return done
 
 
+def load_recorded_evidence(path: Path) -> dict[str, list[EvidenceCall]]:
+    """Lee la evidencia bruta grabada en un checkpoint, por texto de muestra."""
+    return {
+        text: row["evidence"]
+        for text, row in load_checkpoint(path).items()
+        if "evidence" in row
+    }
+
+
 # Lo que decide las filas: reanudar con otro valor mezclaría configuraciones bajo una cabecera.
-_RUN_IDENTITY_KEYS = ("provider", "models", "prompts")
+_RUN_IDENTITY_KEYS = ("provider", "models", "prompts", "replay_evidence")
 
 
 class CheckpointMismatchError(ValueError):
@@ -153,13 +243,20 @@ def _git_describe() -> str | None:
     return result.stdout.strip() or None
 
 
-def describe_run(prompts: Prompts, *, partition: str, seed: int) -> dict:
+def describe_run(
+    prompts: Prompts,
+    *,
+    partition: str,
+    seed: int,
+    replay_evidence: str | None = None,
+) -> dict:
     """Resume la configuración del pipeline que produce las filas de un checkpoint."""
     return {
         **describe_pipeline(prompts),
         "partition": partition,
         "seed": seed,
         "git": _git_describe(),
+        "replay_evidence": replay_evidence,
     }
 
 
@@ -193,9 +290,12 @@ def prepare_checkpoint(path: Path, run: dict) -> dict:
 
 
 async def evaluate_pipeline(
-    samples: list[Sample], graph: object, checkpoint_path: Path | None = None
+    samples: list[Sample],
+    graph: object,
+    checkpoint_path: Path | None = None,
+    replay: dict[str, list[EvidenceCall]] | None = None,
 ) -> list[EvalRow]:
-    """Ejecuta el grafo sobre cada muestra, con checkpoint y reanudación opcionales."""
+    """Ejecuta el grafo sobre cada muestra, con checkpoint, reanudación y evidencia grabada opcionales."""
     done: dict[str, EvalRow] = (
         load_checkpoint(checkpoint_path) if checkpoint_path else {}
     )
@@ -208,11 +308,13 @@ async def evaluate_pipeline(
     handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
     try:
         for i, sample in enumerate(pending, start=1):
+            tape = EvidenceTape((replay or {}).get(sample["text"]))
             started = time()
             try:
-                result = await ainvoke_graph(
-                    graph, _build_initial_state(sample["text"])
-                )
+                with tape.install():
+                    result = await ainvoke_graph(
+                        graph, _build_initial_state(sample["text"])
+                    )
             except Exception:
                 logger.exception(
                     "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
@@ -247,6 +349,10 @@ async def evaluate_pipeline(
                 "evidence_coverage": float(result.get("evidence_coverage") or 0.0),
                 # Juez caido: la fila no mide el pipeline, mide una incidencia.
                 "judge_failures": int(result.get("judge_failures") or 0),
+                # Hits brutos por búsqueda: otra corrida los reproduce con --replay-evidence.
+                "evidence": tape.calls,
+                # Búsquedas que la grabación no cubría; con --replay-evidence miden el desparejamiento.
+                "evidence_live": tape.live,
             }
             done[sample["text"]] = row
             if handle is not None:
@@ -332,6 +438,18 @@ def _format_run(run: dict) -> list[str]:
     ]
 
 
+def _format_replay(run: dict | None, rows: list[EvalRow]) -> list[str]:
+    """Línea del informe que dice cuánta evidencia se reprodujo de la grabación."""
+    if not run or not run.get("replay_evidence"):
+        return []
+    searches = sum(len(row.get("evidence") or []) for row in rows)
+    live = sum(row.get("evidence_live") or 0 for row in rows)
+    source = Path(run["replay_evidence"]).name
+    return [
+        f"Evidencia : {searches - live}/{searches} búsquedas reproducidas de {source}"
+    ]
+
+
 def format_report(
     metrics: dict[str, float], rows: list[EvalRow], run: dict | None = None
 ) -> str:
@@ -340,6 +458,7 @@ def format_report(
         "",
         "===== Evaluación del pipeline multiagente =====",
         *(_format_run(run) if run else []),
+        *_format_replay(run, rows),
         f"Muestras evaluadas : {int(metrics['evaluated'])}",
         f"Veredicto incierto : {int(metrics['uncertain'])} (abstención, excluida de las métricas)",
         f"Sin afirmaciones   : {int(metrics['skipped'])} (excluidas de las métricas)",
@@ -404,6 +523,12 @@ def main() -> dict[str, float]:
         action="store_true",
         help="Genera el informe del experto; por defecto se omite porque no decide la etiqueta.",
     )
+    parser.add_argument(
+        "--replay-evidence",
+        default=None,
+        metavar="CKPT",
+        help="Reproduce la evidencia bruta grabada en otro checkpoint; solo busca en vivo lo que no esté grabado.",
+    )
     args = parser.parse_args()
 
     # El informe es ~1/3 de los tokens por muestra y no influye en la métrica.
@@ -418,6 +543,19 @@ def main() -> dict[str, float]:
         else default_dir / f"eval_pipeline_{args.partition}.jsonl"
     )
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+
+    replay: dict[str, list[EvidenceCall]] | None = None
+    replay_path = Path(args.replay_evidence).resolve() if args.replay_evidence else None
+    if replay_path is not None:
+        # Con --fresh se borraría justo la grabación que se quiere reproducir.
+        if replay_path == checkpoint_path.resolve():
+            raise SystemExit(
+                "--replay-evidence debe apuntar a otro checkpoint que --checkpoint."
+            )
+        replay = load_recorded_evidence(replay_path)
+        if not replay:
+            raise SystemExit(f"{replay_path} no existe o no guarda evidencia bruta.")
+
     if args.fresh:
         checkpoint_path.unlink(missing_ok=True)
 
@@ -427,7 +565,12 @@ def main() -> dict[str, float]:
     try:
         run = prepare_checkpoint(
             checkpoint_path,
-            describe_run(prompts, partition=args.partition, seed=args.seed),
+            describe_run(
+                prompts,
+                partition=args.partition,
+                seed=args.seed,
+                replay_evidence=str(replay_path) if replay_path else None,
+            ),
         )
     except CheckpointMismatchError as exc:
         raise SystemExit(str(exc)) from exc
@@ -439,7 +582,7 @@ def main() -> dict[str, float]:
     )
 
     start = time()
-    rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path))
+    rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path, replay))
     metrics = compute_metrics(rows)
 
     print(format_report(metrics, rows, run))

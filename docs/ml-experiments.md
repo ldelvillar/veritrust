@@ -598,6 +598,34 @@ actual. El código sigue en el historial —`git show a95e318:backend/ml/trainin
 y ninguna de esas medidas vuelve a ser accionable, porque reintroducir el clasificador
 ya está en «No volver a intentar».
 
+## Evidencia grabada para comparaciones pareadas (2026-09-22)
+
+Las comparaciones pareadas de esta bitácora (juez v3 frente a v4 y v7) compartían los
+textos, pero no la evidencia: cada corrida consultaba en vivo Europe PMC, PubMed, openFDA
+y CIMA, y el checkpoint solo guardaba agregados (`sources_kept`, `stances`). La deriva
+de los índices y las peticiones caídas se sumaban al efecto del prompt, con un error
+estándar de ~4.7 puntos a n=100, del mismo orden que los efectos medidos.
+
+Ahora cada fila del checkpoint guarda en `evidence` una entrada por búsqueda (fuente,
+consulta, `max_results`) con sus resultados brutos, abstract incluido, o `null` si la
+fuente cayó. `--replay-evidence <ckpt>` sirve esas búsquedas desde la grabación, también
+las caídas, y solo consulta en vivo las que no encuentra:
+
+```bash
+uv run --directory backend python -m ml.evaluate_pipeline --partition gold --limit 100 --checkpoint results/base.jsonl
+uv run --directory backend python -m ml.evaluate_pipeline --partition gold --limit 100 --checkpoint results/variante.jsonl --replay-evidence results/base.jsonl
+```
+
+- **Cambios en el juez o en la regla de veredicto**: extractor y traductor corren a
+  temperatura 0, así que las consultas se repiten y casi toda la evidencia se reproduce.
+- **Cambios en extractor o traductor**: las consultas cambian y esas búsquedas van en
+  vivo. La línea `Evidencia : N/M búsquedas reproducidas` del informe dice cuántas se
+  reprodujeron; si son pocas, la comparación no está pareada en evidencia.
+- **No fija al juez**: con la evidencia congelada, la variación que queda entre corridas
+  es la del propio LLM, que sí es parte de lo que se mide.
+
+Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en

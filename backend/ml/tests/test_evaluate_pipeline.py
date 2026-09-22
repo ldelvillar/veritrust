@@ -6,6 +6,8 @@ import json
 import pandas as pd
 import pytest
 
+from app.agents import investigator as investigator_module
+from app.utils.evidence import EvidenceRetrievalError
 from ml import evaluate_pipeline as ep
 
 
@@ -270,6 +272,7 @@ def _run(**overrides: object) -> dict:
         "partition": "gold",
         "seed": 42,
         "git": "abc1234",
+        "replay_evidence": None,
     }
     return {**run, **overrides}
 
@@ -318,6 +321,17 @@ def test_prepare_checkpoint_rejects_a_legacy_checkpoint_without_header(
         ep.prepare_checkpoint(path, _run())
 
 
+def test_prepare_checkpoint_rejects_resuming_with_another_evidence_source(
+    tmp_path,
+) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    ep.prepare_checkpoint(path, _run())
+
+    # Reanudar reproduciendo evidencia mezclaría filas en vivo y reproducidas.
+    with pytest.raises(ep.CheckpointMismatchError):
+        ep.prepare_checkpoint(path, _run(replay_evidence="/r/base.jsonl"))
+
+
 def test_format_report_echoes_the_run_configuration() -> None:
     rows = [_row("falsa", "falsa")]
 
@@ -345,6 +359,175 @@ def test_describe_run_records_every_prompt_version(monkeypatch) -> None:
     }
     assert run["models"] == {"judge": "m-judge"}
     assert run["git"] == "abc1234"
+
+
+def _hit(title: str) -> dict:
+    return {"title": title, "url": f"https://doi.org/{title}", "abstract": "resumen"}
+
+
+def _call(source: str, query: str, hits: list[dict] | None) -> ep.EvidenceCall:
+    return {"source": source, "query": query, "max_results": 3, "hits": hits}
+
+
+def _unreachable(query: str, *, max_results: int) -> list[dict]:
+    raise AssertionError("una búsqueda grabada no debe ir a la fuente")
+
+
+def test_evidence_tape_records_live_hits_and_failures() -> None:
+    tape = ep.EvidenceTape()
+
+    def down(query: str, *, max_results: int) -> list[dict]:
+        raise EvidenceRetrievalError("503")
+
+    found = tape.wrap("pubmed", lambda query, *, max_results: [_hit("p")])
+    assert found("q", max_results=3) == [_hit("p")]
+    with pytest.raises(EvidenceRetrievalError):
+        tape.wrap("europepmc", down)("q", max_results=3)
+
+    assert tape.calls == [
+        _call("pubmed", "q", [_hit("p")]),
+        _call("europepmc", "q", None),
+    ]
+    assert tape.live == 2
+
+
+def test_evidence_tape_replays_hits_and_failures_without_searching() -> None:
+    tape = ep.EvidenceTape(
+        [_call("pubmed", "q", [_hit("p")]), _call("cima", "ibuprofeno", None)]
+    )
+
+    assert tape.wrap("pubmed", _unreachable)("q", max_results=3) == [_hit("p")]
+    # Una caída grabada se reproduce como caída, no se reintenta en vivo.
+    with pytest.raises(EvidenceRetrievalError):
+        tape.wrap("cima", _unreachable)("ibuprofeno", max_results=3)
+
+    assert tape.live == 0
+    assert tape.calls == [
+        _call("pubmed", "q", [_hit("p")]),
+        _call("cima", "ibuprofeno", None),
+    ]
+
+
+def test_evidence_tape_searches_live_what_the_recording_lacks() -> None:
+    tape = ep.EvidenceTape([_call("pubmed", "q", [_hit("grabada")])])
+
+    def live(query: str, *, max_results: int) -> list[dict]:
+        return [_hit("viva")]
+
+    # Otra consulta, otra fuente u otra cota no son la búsqueda grabada.
+    assert tape.wrap("pubmed", live)("otra", max_results=3) == [_hit("viva")]
+    assert tape.wrap("europepmc", live)("q", max_results=3) == [_hit("viva")]
+    assert tape.wrap("pubmed", live)("q", max_results=5) == [_hit("viva")]
+    assert tape.live == 3
+
+
+def test_evidence_tape_intercepts_every_search_of_the_investigator(
+    monkeypatch,
+) -> None:
+    sources = ("europepmc", "pubmed", "openfda", "cima")
+    for name in sources:
+        monkeypatch.setattr(
+            investigator_module,
+            f"search_{name}",
+            lambda query, *, max_results, name=name: [_hit(f"{name}:{query}")],
+        )
+    live = {name: getattr(investigator_module, f"search_{name}") for name in sources}
+    state = {
+        "translated_statements": ["Ibuprofen damages the kidneys"],
+        "search_queries": ["ibuprofen kidney damage"],
+        "drug_terms": ["ibuprofeno"],
+    }
+
+    tape = ep.EvidenceTape()
+    with tape.install():
+        _, claims = investigator_module.gather_evidence(state)
+
+    assert sorted((call["source"], call["query"]) for call in tape.calls) == [
+        ("cima", "ibuprofeno"),
+        ("europepmc", "ibuprofen kidney damage"),
+        ("openfda", "ibuprofen kidney damage"),
+        ("pubmed", "ibuprofen kidney damage"),
+    ]
+    # Al salir del bloque el investigador vuelve a usar sus búsquedas.
+    assert all(
+        getattr(investigator_module, f"search_{name}") is live[name] for name in sources
+    )
+
+    for name in sources:
+        monkeypatch.setattr(investigator_module, f"search_{name}", _unreachable)
+    replay = ep.EvidenceTape(tape.calls)
+    with replay.install():
+        _, replayed = investigator_module.gather_evidence(state)
+
+    assert replayed == claims
+    assert replay.live == 0
+
+
+def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(
+    monkeypatch, tmp_path
+) -> None:
+    samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
+
+    class FakeGraph:
+        def __init__(self) -> None:
+            self.hits: list[dict] = []
+
+        async def astream(self, state: dict, stream_mode: object = None):
+            self.hits = investigator_module.search_pubmed("q", max_results=3)
+            yield ("values", {"label": "falsa", "confidence": 0.8})
+
+    monkeypatch.setattr(
+        investigator_module,
+        "search_pubmed",
+        lambda query, *, max_results: [_hit("indice de ayer")],
+    )
+    base = tmp_path / "base.jsonl"
+    asyncio.run(ep.evaluate_pipeline(samples, FakeGraph(), base))
+    recorded = ep.load_recorded_evidence(base)
+    assert recorded == {"afirmacion": [_call("pubmed", "q", [_hit("indice de ayer")])]}
+
+    # El índice cambia entre corridas: la variante debe ver la evidencia de la base.
+    monkeypatch.setattr(
+        investigator_module,
+        "search_pubmed",
+        lambda query, *, max_results: [_hit("indice de hoy")],
+    )
+    graph = FakeGraph()
+    rows = asyncio.run(ep.evaluate_pipeline(samples, graph, replay=recorded))
+
+    assert graph.hits == [_hit("indice de ayer")]
+    assert rows[0]["evidence_live"] == 0
+
+
+def test_load_recorded_evidence_skips_rows_recorded_before_the_tape(tmp_path) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    records = [
+        {"run": _run()},
+        {"text": "vieja", "predicted": "falsa"},
+        {"text": "nueva", "evidence": [_call("pubmed", "q", None)]},
+    ]
+    path.write_text(
+        "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+    )
+
+    assert ep.load_recorded_evidence(path) == {"nueva": [_call("pubmed", "q", None)]}
+
+
+def test_format_report_says_how_much_evidence_was_replayed() -> None:
+    rows: list[ep.EvalRow] = [
+        {
+            **_row("falsa", "falsa"),
+            "evidence": [_call("pubmed", "q", []), _call("cima", "x", [])],
+            "evidence_live": 1,
+        },
+        _row("verdadera", "verdadera"),
+    ]
+    run = _run(replay_evidence="/results/base.jsonl")
+
+    report = ep.format_report(ep.compute_metrics(rows), rows, run)
+
+    assert "Evidencia : 1/2 búsquedas reproducidas de base.jsonl" in report
+    assert "Evidencia" not in ep.format_report(ep.compute_metrics(rows), rows, _run())
 
 
 if __name__ == "__main__":
