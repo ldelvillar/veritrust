@@ -16,6 +16,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directories:
@@ -23,6 +26,11 @@ updates:
       - /frontend
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+      - dependency-name: python
+        update-types: [version-update:semver-major, version-update:semver-minor]
 
   - package-ecosystem: docker-compose
     directory: /
