@@ -6,10 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { INITIAL_HISTORY_PATH, PAGE_SIZE } from '@/lib/historyQuery';
 
 export type SortOrder =
-  | 'recent'
-  | 'oldest'
-  | 'credibility_high'
-  | 'credibility_low';
+  'recent' | 'oldest' | 'credibility_high' | 'credibility_low';
 export type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
 export type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
 export type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
@@ -86,6 +83,13 @@ export function useHistoryFilters() {
     Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
   const [searchQuery, setSearchQuery] = useState(urlSearch);
+  const [syncedUrlSearch, setSyncedUrlSearch] = useState(urlSearch);
+
+  // Back/forward or a filter reset changes the URL: the input follows it during render.
+  if (urlSearch !== syncedUrlSearch) {
+    setSyncedUrlSearch(urlSearch);
+    setSearchQuery(urlSearch);
+  }
 
   const updateParams = useCallback(
     (changes: Record<string, string | null>) => {
@@ -101,10 +105,6 @@ export function useHistoryFilters() {
     },
     [pathname, router, searchParams]
   );
-
-  useEffect(() => {
-    setSearchQuery(urlSearch);
-  }, [urlSearch]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
