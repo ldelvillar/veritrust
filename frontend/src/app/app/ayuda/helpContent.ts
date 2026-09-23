@@ -1,10 +1,5 @@
 export type HelpCategoryIconName =
-  | 'star'
-  | 'report'
-  | 'shield'
-  | 'settings'
-  | 'lock'
-  | 'warning';
+  'star' | 'report' | 'shield' | 'settings' | 'lock' | 'warning';
 
 export interface HelpCategory {
   slug: string;
