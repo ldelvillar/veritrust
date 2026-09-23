@@ -2,12 +2,7 @@ import Link from 'next/link';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
 export type ButtonVariant =
-  | 'primary'
-  | 'ghost'
-  | 'light'
-  | 'outline'
-  | 'soft'
-  | 'danger';
+  'primary' | 'ghost' | 'light' | 'outline' | 'soft' | 'danger';
 export type ButtonSize = 'md' | 'lg';
 
 const base =
