@@ -74,7 +74,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         return []
 
     settings = get_settings()
-    params: dict[str, object] = {"search": cleaned, "limit": max_results}
+    params: dict[str, str | int] = {"search": cleaned, "limit": max_results}
     if settings.openfda_api_key:
         params["api_key"] = settings.openfda_api_key
 

@@ -54,7 +54,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         return []
 
     settings = get_settings()
-    params = {
+    params: dict[str, str | int] = {
         "query": cleaned,
         "format": "json",
         "pageSize": max_results,

@@ -84,7 +84,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
     base = settings.pubmed_base_url
     api_key = settings.pubmed_api_key
 
-    search_params = {
+    search_params: dict[str, str | int] = {
         "db": "pubmed",
         "retmode": "json",
         "term": cleaned,
