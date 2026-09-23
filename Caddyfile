@@ -2,14 +2,26 @@
 	email {$ACME_EMAIL}
 }
 
+# Response hardening shared by both sites
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+}
+
 # Frontend (Next.js). TLS is provisioned automatically via Let's Encrypt.
 {$APP_DOMAIN} {
+	import security_headers
 	encode zstd gzip
 	reverse_proxy frontend:3000
 }
 
 # Backend (FastAPI). The browser calls this directly via NEXT_PUBLIC_API_URL.
 {$API_DOMAIN} {
+	import security_headers
 	encode zstd gzip
 	request_body {
 		max_size 11MiB
