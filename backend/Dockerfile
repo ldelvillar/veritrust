@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.11 /uv /uvx /bin/
 
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app \
     && chown -R app:app /app
 
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app
 
