@@ -74,7 +74,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-path: backend/uv.lock
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -126,7 +126,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-path: backend/uv.lock
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
         run: uv sync --frozen --extra ml
@@ -224,7 +224,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-path: backend/uv.lock
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install backend dependencies
         working-directory: backend
