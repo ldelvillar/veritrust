@@ -13,6 +13,7 @@ import app.agents.translator as translator_module
 import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.agents.main import create_graph
+from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 
@@ -270,6 +271,59 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
+
+
+async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, prompts):
+    """Sin informe del experto el veredicto se guarda igual; nunca es NO_MEDICAL_CLAIMS."""
+    _stub_extractor(
+        monkeypatch,
+        statements=["La vitamina C previene el resfriado"],
+        queries=['"vitamin C" AND "cold"'],
+    )
+    _stub_translator(monkeypatch, ["Vitamin C prevents the common cold"])
+    _stub_health(monkeypatch)
+    monkeypatch.setattr(
+        health_module,
+        "get_settings",
+        lambda: Settings(health_expert_explanation_enabled=False),
+    )
+
+    def fake_europepmc(query, max_results=3):
+        return [
+            {
+                "title": "Vitamin C for preventing colds",
+                "url": "https://europepmc.org/vitc",
+                "abstract": "Resumen.",
+            }
+        ]
+
+    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+    _stub_judge(monkeypatch, stance="contradicts")
+
+    completed, failed = [], []
+
+    async def fake_complete(**kwargs):
+        completed.append(kwargs)
+
+    async def fake_fail(**kwargs):
+        failed.append(kwargs)
+
+    async def fake_set_stage(**kwargs):
+        pass
+
+    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
+    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
+    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
+
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    await worker_module.run_analysis(
+        ctx, ANALYSIS_ID, "text", "La vitamina C previene el resfriado", None
+    )
+
+    assert failed == []
+    assert len(completed) == 1
+    assert completed[0]["label"] == "falsa"
+    assert completed[0]["explanation"] is None
 
 
 def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prompts):

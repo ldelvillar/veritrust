@@ -415,7 +415,7 @@ async def complete_analysis(
     analysis_id: str,
     label: str,
     confidence: Any,
-    explanation: str,
+    explanation: Optional[str],
     claims: Optional[list[dict]] = None,
     sources: Optional[list[dict]] = None,
     evidence_coverage: Any = None,
@@ -425,7 +425,6 @@ async def complete_analysis(
     pool = await get_pool()
     confidence_value = _normalize_confidence(confidence)
     coverage_value = _coerce_optional_fraction(evidence_coverage)
-    # El veredicto se deriva una sola vez aquí; label queda como texto de presentación.
     verdict_value = classify_verdict(label)
 
     query = """

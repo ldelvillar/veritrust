@@ -106,6 +106,20 @@ async def test_evidence_coverage_persists_none_and_zero(db_pool):
     assert zero.evidence_coverage == pytest.approx(0.0)
 
 
+async def test_verdict_without_report_completes_with_null_explanation(db_pool):
+    """Un veredicto sin informe del experto termina en done con la explicación nula."""
+    analysis_id = await _pending()
+    await complete_analysis(
+        analysis_id=analysis_id, label="falsa", confidence=0.8, explanation=None
+    )
+
+    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
+    assert record is not None
+    assert record.status == "done"
+    assert record.label == "falsa"
+    assert record.explanation is None
+
+
 async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     """Los claims y las fuentes JSONB vuelven idénticos a como los guardó el worker."""
     analysis_id = await _pending()

@@ -600,7 +600,7 @@ def test_health_expert_returns_empty_explanation_when_no_statements(
         dummy_prompts,
     )
 
-    # Explicación vacía es el centinela que la ruta traduce a NO_MEDICAL_CLAIMS.
+    # Etiqueta vacía es el centinela que el worker traduce a NO_MEDICAL_CLAIMS.
     assert set(update.keys()) == {
         "label",
         "confidence",

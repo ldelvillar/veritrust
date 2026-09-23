@@ -1,11 +1,4 @@
-"""Worker de arq que ejecuta el pipeline multiagente fuera del request HTTP.
-
-La ruta ``POST /analysis`` solo inserta una fila ``pending`` y encola un trabajo;
-este proceso (arrancado con ``python -m app.worker``) ejecuta la extracción de
-URL y el grafo de LangGraph, y actualiza la fila a ``done``
-o ``failed``. Al vivir en un proceso aparte respaldado por Redis, un análisis
-encolado sobrevive a reinicios del servidor web.
-"""
+"""Worker de arq que ejecuta el pipeline multiagente fuera del request HTTP."""
 
 import asyncio
 import logging
@@ -107,12 +100,9 @@ async def run_analysis(
             logger.info("[Worker] Extracción de archivo fallida para %s", analysis_id)
             await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
             return
-        # Persistimos el texto para que la búsqueda del historial funcione aunque
-        # el pipeline falle después.
+        # Persistir el texto para que la búsqueda del historial funcione aunque el pipeline falle.
         await set_analysis_input_text(analysis_id=analysis_id, input_text=text)
 
-    # Neutraliza los marcadores de datos en la entrada antes de que el extractor
-    # los interpole, para que el texto del usuario no pueda romper <<USER_INPUT>>.
     if text is not None:
         text = neutralize_delimiters(text)
 
@@ -154,13 +144,12 @@ async def run_analysis(
         explanation = result.get("medical_explanation") or None
         sources = result.get("sources") or []
 
-        # Cobertura 1.0 sin fuentes es el centinela de caída total: no es una medición real.
+        # Cobertura 1.0 sin fuentes significa caída total.
         evidence_coverage = result.get("evidence_coverage")
         if evidence_coverage == 1.0 and not sources:
             evidence_coverage = None
 
-        # Sin explicación: el texto no contenía afirmaciones médicas verificables.
-        if not explanation:
+        if not label:
             await fail_analysis(
                 analysis_id=analysis_id, error_code=ErrorCode.NO_MEDICAL_CLAIMS.value
             )
@@ -169,11 +158,14 @@ async def run_analysis(
             )
             return
 
+        if not explanation:
+            logger.warning("[Worker] Análisis %s sin informe del experto", analysis_id)
+
         await complete_analysis(
             analysis_id=analysis_id,
             label=str(label),
             confidence=confidence,
-            explanation=str(explanation),
+            explanation=explanation,
             claims=result.get("claims") or [],
             sources=sources,
             evidence_coverage=evidence_coverage,
@@ -200,7 +192,10 @@ def _truncate_abstract(text: str | None) -> str | None:
 
 
 async def run_evidence_search(ctx: dict, claim: str) -> dict:
-    """Busca y juzga la evidencia de una afirmación sin emitir veredicto; devuelve un dict serializable."""
+    """
+    Busca y juzga la evidencia de una afirmación sin
+    emitir veredicto; devuelve un dict serializable.
+    """
     logger.info("[Worker] Procesando búsqueda de evidencia")
     initial_state: dict[str, object] = {
         "input_text": neutralize_delimiters(claim),
@@ -246,7 +241,6 @@ async def reap_stale_analyses(ctx: dict) -> None:
     if not stale_ids:
         return
 
-    # Las rutas encolan con _job_id=analysis_id, así que la clave del job es derivable.
     redis = ctx["redis"]
     orphan_ids = [
         analysis_id
@@ -296,11 +290,8 @@ class WorkerSettings:
     job_timeout = (
         get_settings().analysis_job_timeout_seconds + _JOB_TIMEOUT_GRACE_SECONDS
     )
-    # El pipeline satura CPU/Ollama; concurrencia >1 infla la latencia por job
     max_jobs = get_settings().worker_max_jobs
-    # Sin resultados en Redis: una clave arq:result: residual bloquearía el reencolado del retry.
     keep_result = 0
-    # Heartbeat en Redis cada 30s (por defecto arq escribe 1/h); lo lee el healthcheck del contenedor.
     health_check_interval = 30
 
 

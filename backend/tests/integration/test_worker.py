@@ -131,7 +131,13 @@ async def test_run_analysis_sends_neutral_email_on_no_medical_claims(monkeypatch
     monkeypatch.setattr(worker, "send_analysis_failed_email", fake_failed)
 
     async def fake_ainvoke(graph, state, on_stage=None):
-        return {"label": "verdadera", "confidence": 0.6, "medical_explanation": ""}
+        # Lo que devuelve el experto cuando el extractor no halla afirmaciones.
+        return {
+            "label": "",
+            "confidence": 0.0,
+            "medical_explanation": "",
+            "claims": [],
+        }
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
@@ -329,21 +335,32 @@ async def test_run_analysis_forwards_retrieved_sources(monkeypatch):
     assert completed[0]["sources"] == sources
 
 
-async def test_run_analysis_fails_with_no_medical_claims_on_empty_explanation(
+async def test_run_analysis_completes_without_report_when_explanation_is_empty(
     monkeypatch,
 ):
     completed, failed = _patch_db(monkeypatch)
 
+    claims = [{"text": "S1", "label": "falsa", "confidence": 0.8}]
+
     async def fake_ainvoke(graph, state, on_stage=None):
-        return {"label": "verdadera", "confidence": 0.6, "medical_explanation": ""}
+        # El LLM del experto devolvió un informe vacío, pero el veredicto existe.
+        return {
+            "label": "falsa",
+            "confidence": 0.8,
+            "medical_explanation": "",
+            "claims": claims,
+        }
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
     ctx = {"verification_system": object(), "pipeline": PIPELINE}
-    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto sin claim", None)
+    await worker.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
 
-    assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
+    assert failed == []
+    assert len(completed) == 1
+    assert completed[0]["label"] == "falsa"
+    assert completed[0]["claims"] == claims
+    assert completed[0]["explanation"] is None
 
 
 async def test_run_analysis_extracts_url_text_before_pipeline(monkeypatch):
