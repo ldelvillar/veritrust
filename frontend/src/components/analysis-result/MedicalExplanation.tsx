@@ -14,6 +14,27 @@ const COPY_LABEL: Record<CopyState, string> = {
   error: 'No se pudo copiar',
 };
 
+// No links or images in the report.
+const ALLOWED_ELEMENTS = [
+  'p',
+  'br',
+  'hr',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'strong',
+  'em',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'code',
+  'pre',
+];
+
 const COPY_STYLE: Record<CopyState, string> = {
   idle: 'border-line-strong bg-white text-body hover:border-primary hover:text-primary',
   copied: 'border-success-soft bg-success-soft text-success-ink',
@@ -71,7 +92,9 @@ export default function MedicalExplanation({
         </div>
 
         <div className="prose max-w-none text-body prose-headings:text-ink prose-strong:text-ink">
-          <MarkdownHooks>{explanation}</MarkdownHooks>
+          <MarkdownHooks allowedElements={ALLOWED_ELEMENTS} unwrapDisallowed>
+            {explanation}
+          </MarkdownHooks>
         </div>
       </div>
     </div>

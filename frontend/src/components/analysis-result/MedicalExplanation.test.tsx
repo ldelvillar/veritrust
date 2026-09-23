@@ -25,6 +25,31 @@ describe('MedicalExplanation', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the text of a link but not the link itself', async () => {
+    render(
+      <MedicalExplanation explanation="Consulta [esta guía](https://phish.example/login) hoy." />
+    );
+
+    expect(await screen.findByText(/esta guía/)).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('drops images from the explanation', async () => {
+    const { container } = render(
+      <MedicalExplanation explanation="Informe ![pixel](https://tracker.example/p.png)" />
+    );
+
+    expect(await screen.findByText('Informe')).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('still renders the formatting a report uses', async () => {
+    render(<MedicalExplanation explanation={EXPLANATION} />);
+
+    const emphasis = await screen.findByText('no previene');
+    expect(emphasis.tagName).toBe('STRONG');
+  });
+
   it('reports a failed copy instead of confirming', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denegado'));
     stubClipboard(writeText);
