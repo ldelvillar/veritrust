@@ -4,7 +4,7 @@ Este módulo define los esquemas de datos relacionados con el historial de anál
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.core.verdict import (
     ConfidenceLevel,
@@ -153,6 +153,25 @@ class PublicAnalysisReport(BaseModel):
         return confidence_level_of(self.confidence)
 
 
+class HistoryQuery(BaseModel):
+    """Búsqueda, filtros y orden con los que el usuario consulta su historial."""
+
+    model_config = ConfigDict(frozen=True)
+
+    search: Optional[str] = Field(default=None, max_length=200)
+    source_type: Literal["all", "text", "file", "url"] = "all"
+    verdict: Literal["all", VerdictKind] = "all"
+    status: Literal["all", AnalysisStatus] = "all"
+    date_range: Literal["all", "7d", "30d", "90d"] = "all"
+    sort: Literal["recent", "oldest", "credibility_high", "credibility_low"] = "recent"
+
+    @field_validator("search")
+    @classmethod
+    def _trim_search(cls, value: Optional[str]) -> Optional[str]:
+        """Recorta la búsqueda y trata una en blanco como ausente."""
+        return (value or "").strip() or None
+
+
 class PendingAnalysesSummary(BaseModel):
     """Análisis en curso del usuario, para el indicador global del menú."""
 
@@ -169,15 +188,6 @@ class HistoryVerdictCounts(BaseModel):
     uncertain: int
 
 
-class HistorySourceTypeCounts(BaseModel):
-    """Conteos globales por tipo de fuente del historial filtrado, para los chips."""
-
-    total: int
-    text: int
-    url: int
-    file: int
-
-
 class HistoryResponse(BaseModel):
     """Modelo de datos para la respuesta del endpoint de historial de análisis."""
 
@@ -187,7 +197,6 @@ class HistoryResponse(BaseModel):
     page: int
     page_size: int
     verdict_counts: HistoryVerdictCounts
-    source_type_counts: HistorySourceTypeCounts
 
 
 class DeleteAllResponse(BaseModel):

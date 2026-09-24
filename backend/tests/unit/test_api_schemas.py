@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.agents.main import PIPELINE_STAGES
 from app.schemas.analysis import AnalysisRequest, AnalysisStage, SourceType
-from app.schemas.history import HistoryListItem, SourceItem
+from app.schemas.history import HistoryListItem, HistoryQuery, SourceItem
 
 
 def test_analyze_request_accepts_text_with_default_source_type() -> None:
@@ -147,3 +147,14 @@ def test_history_item_rejects_values_outside_the_contract(
 ) -> None:
     with pytest.raises(ValidationError):
         HistoryListItem.model_validate(_history_row(**{field: value}))
+
+
+def test_history_query_trims_the_search_and_treats_blank_as_absent() -> None:
+    assert HistoryQuery(search="  gripe aviar ").search == "gripe aviar"
+    assert HistoryQuery(search="   ").search is None
+
+
+def test_history_query_content_types_follow_the_source_type_enum() -> None:
+    annotation = HistoryQuery.model_fields["source_type"].annotation
+
+    assert get_args(annotation) == ("all", *(member.value for member in SourceType))

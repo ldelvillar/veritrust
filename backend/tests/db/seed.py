@@ -1,7 +1,10 @@
 """Siembra de filas para las pruebas de lectura con el SQL de transiciones, sin pasar por el ciclo de vida."""
 
+from datetime import datetime
+
 from app.core.verdict import ClaimVerdict, Verdict, kind_of
 from app.db import analysis_transitions as transitions
+from app.db.pool import get_pool
 from app.schemas.analysis import AnalysisRequest, SourceType
 
 
@@ -77,3 +80,13 @@ async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
     return await transitions.reopen(
         user_id=user_id, analysis_id=analysis_id, from_status="done"
     )
+
+
+async def seed_created_at(*, analysis_id: str, created_at: datetime) -> None:
+    """Fija el instante de alta de un análisis, para probar rangos de fechas y orden."""
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        await conn.execute(
+            "UPDATE public.analysis_history SET created_at = %s WHERE id = %s",
+            (created_at, analysis_id),
+        )
