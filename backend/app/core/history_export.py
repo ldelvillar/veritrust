@@ -5,7 +5,6 @@ import io
 from datetime import datetime
 
 from app.core.config import get_settings
-from app.core.credibility import classify_verdict
 from app.schemas.history import HistoryExportItem
 
 # BOM para que Excel detecte UTF-8 al abrir el CSV.
@@ -75,7 +74,7 @@ def build_history_csv(records: list[HistoryExportItem]) -> bytes:
     writer.writerow(_EXPORT_COLUMNS)
     for record in records:
         entrada = _neutralize_csv_formula(_export_entry(record))
-        verdict = _EXPORT_VERDICT_LABELS.get(classify_verdict(record.label), "")
+        verdict = _EXPORT_VERDICT_LABELS.get(record.verdict, "")
         credibility = "" if record.credibility is None else str(record.credibility)
         coverage = (
             ""

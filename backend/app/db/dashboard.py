@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import psycopg
 
-from app.core.credibility import CREDIBILITY_SQL_EXPR
+from app.core.verdict import CREDIBILITY_SQL
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.dashboard import (
     DashboardAlertItem,
@@ -200,7 +200,7 @@ async def get_user_dashboard_summary(
     kpis_query = f"""
         SELECT
             COUNT(*) AS total_analyses,
-            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence,
+            AVG({CREDIBILITY_SQL}) AS average_confidence,
             SUM(CASE WHEN verdict = 'real' THEN 1 ELSE 0 END) AS reliable_total,
             SUM(
                 CASE
@@ -227,7 +227,7 @@ async def get_user_dashboard_summary(
         SELECT
             DATE(created_at) AS day,
             COUNT(*) AS total,
-            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence
+            AVG({CREDIBILITY_SQL}) AS average_confidence
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
@@ -240,7 +240,7 @@ async def get_user_dashboard_summary(
         SELECT
             source_type,
             COUNT(*) AS total,
-            AVG({CREDIBILITY_SQL_EXPR}) AS average_confidence
+            AVG({CREDIBILITY_SQL}) AS average_confidence
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
         GROUP BY source_type
@@ -250,7 +250,7 @@ async def get_user_dashboard_summary(
     domain_query = f"""
         SELECT
             input_url,
-            {CREDIBILITY_SQL_EXPR} AS credibility
+            {CREDIBILITY_SQL} AS credibility
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'

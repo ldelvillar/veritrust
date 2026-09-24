@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, get_args
 
+from app.core.verdict import Verdict
 from app.db import analysis_transitions as transitions
 from app.db.history import get_user_analysis_status
 from app.db.pool import DatabaseError
@@ -289,12 +290,9 @@ AnalysisContent = TextContent | UrlContent | FileContent
 class Completion:
     """Veredicto con el que una Run cierra su análisis como ``done``."""
 
-    label: str
-    confidence: float | None
+    verdict: Verdict
     explanation: str | None
-    claims: list[dict]
     sources: list[dict]
-    evidence_coverage: float | None
     pipeline: dict
 
 
@@ -435,12 +433,9 @@ class AnalysisRunner:
             try:
                 won = await transitions.complete(
                     analysis_id=analysis_id,
-                    label=result.label,
-                    confidence=result.confidence,
+                    verdict=result.verdict,
                     explanation=result.explanation,
-                    claims=result.claims,
                     sources=result.sources,
-                    evidence_coverage=result.evidence_coverage,
                     pipeline=result.pipeline,
                 )
             except DatabaseError:

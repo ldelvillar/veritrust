@@ -47,3 +47,33 @@ _Avoid_: stale, stuck, zombie
 **Origin**:
 Where an Analysis was submitted from: the web app or an MCP client.
 _Avoid_: channel, source (a source is a piece of literature)
+
+## Verdict
+
+**Claim**:
+One medical assertion taken from an Analysis's content; the unit the literature is searched and judged for.
+_Avoid_: statement, assertion
+
+**Stance**:
+Whether a source supports a Claim, contradicts it, or does not settle it.
+_Avoid_: position, polarity
+
+**Verdict**:
+The conclusion on a Claim or on a whole Analysis: true, false or uncertain, decided only from the Stances and never by the language model.
+_Avoid_: label, bucket, prediction
+
+**Confidence**:
+How strongly the Stances back the Verdict, from 0 to 1, reduced when Evidence coverage is low.
+_Avoid_: certainty, probability
+
+**Credibility**:
+How likely the content is to be true, from 0 to 100, following from the Verdict and its Confidence; an uncertain Verdict has none.
+_Avoid_: truth score, trust score
+
+**Evidence coverage**:
+The share of an Analysis's Claims that the literature speaks to.
+_Avoid_: coverage ratio, recall
+
+**Evidence outage**:
+A Run in which no literature source could be reached, so Evidence coverage is unknown rather than zero.
+_Avoid_: sentinel, blackout

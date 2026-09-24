@@ -35,11 +35,11 @@ User (browser)
                                                    → LangGraph pipeline:
 GET /analysis/{id}  (polled by frontend            ·  Extractor     → claims
   every 2s while status == "pending")              ·  Translator    → claims in EN, batched
-  → returns status + (when done) label/            ·  Investigator  → sources + evidence_coverage (several medical APIs, LLM relevance judge)
-     confidence/explanation/claims/                ·  Health Expert → explanation only; the LLM never decides the label
-     sources, or error_code when                   → Verdict: Laplace-smoothed stance counts per claim, averaged over the
-     status == "failed"                               claims the literature speaks to, then a three-way band (falsa/incierta/verdadera)
-                                                   → Confidence attenuated by evidence_coverage
+  → returns status + (when done) label/            ·  Investigator  → sources + EvidenceSearch counts (several medical APIs, LLM relevance judge)
+     confidence/explanation/claims/                ·  Health Expert → decide() the Verdict, then the explanation only; the LLM never decides it
+     sources, or error_code when                   → Verdict (app/core/verdict.py): Laplace-smoothed stance counts per claim, averaged over
+     status == "failed"                               the claims the literature speaks to, then a three-way band (falsa/incierta/verdadera)
+                                                   → Confidence attenuated by Evidence coverage (unknown, not zero, on an Evidence outage)
                                                    → guarded UPDATE (only while pending) → 'done' (results) or 'failed' (error_code)
 ```
 

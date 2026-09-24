@@ -9,9 +9,16 @@ from app.agents.investigator import (
     gather_evidence,
     investigator,
 )
+from app.core.verdict import EvidenceSearch
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
+_NOTHING_SEARCHED = EvidenceSearch(total=0, searched=0, covered=0, outage=False)
+
+
+def _search(total: int, covered: int, *, outage: bool = False) -> EvidenceSearch:
+    """Recuento esperado cuando la cota no recorta ninguna afirmación."""
+    return EvidenceSearch(total=total, searched=total, covered=covered, outage=outage)
 
 
 def _patch_sources(monkeypatch, fake):
@@ -24,7 +31,11 @@ def _patch_sources(monkeypatch, fake):
 
 def test_returns_empty_without_translated_statements():
     update = investigator({"translated_statements": []})
-    assert update == {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+    assert update == {
+        "sources": [],
+        "evidence_search": _NOTHING_SEARCHED,
+        "judge_failures": 0,
+    }
 
 
 def test_collects_sources_and_full_coverage(monkeypatch):
@@ -37,8 +48,8 @@ def test_collects_sources_and_full_coverage(monkeypatch):
         {"translated_statements": ["A", "B"], "extracted_statements": ["a", "b"]}
     )
 
-    assert set(update.keys()) == {"sources", "evidence_coverage", "judge_failures"}
-    assert update["evidence_coverage"] == 1.0
+    assert set(update.keys()) == {"sources", "evidence_search", "judge_failures"}
+    assert update["evidence_search"] == _search(2, covered=2)
     # Ambas fuentes devuelven la misma URL por afirmación: se deduplica a una.
     assert len(update["sources"]) == 2
     assert update["sources"][0]["statements"] == [
@@ -66,7 +77,7 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
     )
 
     # Resultados distintos de cada fuente se conservan ambos para la misma afirmación.
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(1, covered=1)
     assert {source["url"] for source in update["sources"]} == {
         "https://pmc/1",
         "https://pubmed/1",
@@ -81,7 +92,7 @@ def test_partial_coverage_when_some_statements_have_no_hits(monkeypatch):
 
     update = investigator({"translated_statements": ["A", "B"]})
 
-    assert update["evidence_coverage"] == 0.5
+    assert update["evidence_search"] == _search(2, covered=1)
 
 
 def test_merges_statements_for_shared_url(monkeypatch):
@@ -139,11 +150,16 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
 
     # Solo se buscan las primeras N afirmaciones; las recortadas cuentan como no cubiertas.
     assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
-    assert update["evidence_coverage"] == EVIDENCE_MAX_STATEMENTS / total
+    assert update["evidence_search"] == EvidenceSearch(
+        total=total,
+        searched=EVIDENCE_MAX_STATEMENTS,
+        covered=EVIDENCE_MAX_STATEMENTS,
+        outage=False,
+    )
     assert len(update["sources"]) == EVIDENCE_MAX_STATEMENTS
 
 
-def test_total_outage_with_cap_penalizes_only_dropped_statements(monkeypatch):
+def test_total_outage_with_cap_counts_the_dropped_statements(monkeypatch):
     def fake_search(query, *, max_results):
         raise EvidenceRetrievalError("down")
 
@@ -152,12 +168,14 @@ def test_total_outage_with_cap_penalizes_only_dropped_statements(monkeypatch):
     total = EVIDENCE_MAX_STATEMENTS + 2
     update = investigator({"translated_statements": [f"S{i}" for i in range(total)]})
 
-    # La caída total no castiga lo buscado, pero lo recortado por la cota sigue contando.
+    # La caída cubre lo buscado; lo recortado por la cota se cuenta aparte.
     assert update["sources"] == []
-    assert update["evidence_coverage"] == EVIDENCE_MAX_STATEMENTS / total
+    assert update["evidence_search"] == EvidenceSearch(
+        total=total, searched=EVIDENCE_MAX_STATEMENTS, covered=0, outage=True
+    )
 
 
-def test_total_outage_does_not_penalize_confidence(monkeypatch):
+def test_total_outage_is_reported_as_an_outage(monkeypatch):
     def fake_search(query, *, max_results):
         raise EvidenceRetrievalError("down")
 
@@ -165,9 +183,9 @@ def test_total_outage_does_not_penalize_confidence(monkeypatch):
 
     update = investigator({"translated_statements": ["A", "B"]})
 
-    # Caída total del servicio: cobertura 1.0 (no se castiga el veredicto) y sin fuentes.
+    # Caída total del servicio: se informa como corte, no como falta de literatura.
     assert update["sources"] == []
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(2, covered=0, outage=True)
 
 
 def test_one_source_down_still_uses_the_other(monkeypatch):
@@ -188,7 +206,7 @@ def test_one_source_down_still_uses_the_other(monkeypatch):
     update = investigator({"translated_statements": ["A"]})
 
     # Una fuente caída no invalida la afirmación: las demás sí aportan evidencia.
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(1, covered=1)
     assert [source["url"] for source in update["sources"]] == ["https://pubmed/1"]
 
 
@@ -205,7 +223,11 @@ def test_blank_translations_skip_lookups(monkeypatch):
     # Traducciones en blanco (relleno): no hay nada que consultar.
     update = investigator({"translated_statements": ["", "  "]})
 
-    assert update == {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+    assert update == {
+        "sources": [],
+        "evidence_search": _NOTHING_SEARCHED,
+        "judge_failures": 0,
+    }
     assert called is False
 
 
@@ -272,7 +294,7 @@ def test_evidence_gate_filters_sources_and_records_stance(monkeypatch):
 
     # Solo cuenta la afirmación con evidencia relevante; el abstract no se persiste
     # y la postura se guarda dentro de la afirmación enlazada.
-    assert update["evidence_coverage"] == 0.5
+    assert update["evidence_search"] == _search(2, covered=1)
     assert len(update["sources"]) == 1
     assert update["sources"][0]["statements"] == [
         {"claim_index": 0, "text": "a", "stance": "contradicts"}
@@ -295,7 +317,7 @@ def test_runs_lookups_concurrently(monkeypatch):
 
     update = investigator({"translated_statements": ["A", "B", "C"]})
 
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(3, covered=3)
     assert len(update["sources"]) == 3
 
 
@@ -384,7 +406,7 @@ def test_judge_runs_concurrently(monkeypatch):
         _PROMPTS,
     )
 
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(3, covered=3)
     assert len(update["sources"]) == 3
 
 
@@ -412,7 +434,7 @@ def test_parallel_judge_isolates_one_failure(monkeypatch):
 
     # La afirmación cuyo juez falló conserva su evidencia (falla en abierto) y la sana
     # se juzga con normalidad: ambas cuentan para la cobertura.
-    assert update["evidence_coverage"] == 1.0
+    assert update["evidence_search"] == _search(2, covered=2)
     by_url = {source["url"]: source for source in update["sources"]}
     assert set(by_url) == {"https://x/A-en", "https://x/B-en"}
     # La afirmación sana no se ve afectada por el fallo de la otra.

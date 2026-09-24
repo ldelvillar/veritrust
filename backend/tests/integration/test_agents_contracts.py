@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents import sanitize
+from app.core.verdict import EvidenceSearch, decide
 from app.prompts.agents import PromptItem, Prompts, load_prompts
 
 
@@ -260,6 +261,10 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
     assert update == {"translated_statements": []}
 
 
+# Búsqueda en la que la literatura trató la única afirmación.
+_ONE_COVERED = EvidenceSearch(total=1, searched=1, covered=1, outage=False)
+
+
 def _stance_sources(
     statement: str, supports: int = 0, contradicts: int = 0, claim_index: int = 0
 ) -> list[dict]:
@@ -298,28 +303,21 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
         "input_text": "Texto base",
         "extracted_statements": ["S1"],
         "translated_statements": ["T1"],
-        "evidence_coverage": 1.0,
+        "evidence_search": _ONE_COVERED,
         "sources": _stance_sources("S1", supports=2),
         "other_key": "keep-me",
     }
     update = health_module.health_expert(state, dummy_prompts)
 
-    assert set(update.keys()) == {
-        "label",
-        "confidence",
-        "medical_explanation",
-        "claims",
-    }
-    # Dos fuentes a favor: p(falsa) = 1/4, veredicto verdadera con confianza 0.75.
-    assert update["claims"] == [
-        {"text": "S1", "label": "verdadera", "confidence": 0.75}
-    ]
+    assert set(update.keys()) == {"verdict", "medical_explanation"}
+    # El veredicto es el que decide el módulo del veredicto, no el LLM.
+    assert update["verdict"] == decide(["S1"], state["sources"], _ONE_COVERED)
     merged = {**state, **update}
     assert merged["input_text"] == "Texto base"
     assert merged["other_key"] == "keep-me"
 
 
-def test_health_expert_grounds_on_sources_and_adjusts_confidence(
+def test_health_expert_grounds_its_report_on_the_sources_and_the_verdict(
     monkeypatch, health_module, dummy_prompts
 ):
     captured = {}
@@ -328,43 +326,23 @@ def test_health_expert_grounds_on_sources_and_adjusts_confidence(
     state = {
         "extracted_statements": ["S1"],
         "translated_statements": ["T1"],
-        "sources": _stance_sources("S1", supports=2),
-        # Sin cobertura: la confianza se atenúa al 75% (0.75 -> 0.5625).
-        "evidence_coverage": 0.0,
+        "sources": _stance_sources("S1", contradicts=3),
+        "evidence_search": _ONE_COVERED,
     }
-    update = health_module.health_expert(state, dummy_prompts)
+    health_module.health_expert(state, dummy_prompts)
 
     assert "Fuente 0 sobre S1" in captured["human"]
-    assert update["confidence"] == pytest.approx(0.5625)
+    # El informe justifica la etiqueta y la confianza que dio el veredicto.
+    assert "La noticia es falsa con una seguridad del 80.00%" in captured["human"]
 
 
-def test_absent_evidence_never_yields_a_false_verdict(
+def test_health_expert_fails_loudly_without_the_evidence_search(
     monkeypatch, health_module, dummy_prompts
 ):
-    """Sin literatura que se pronuncie, el veredicto es incierto y nunca falso."""
+    """Sin el recuento de la búsqueda no se publica un veredicto con confianza sin atenuar."""
     _stub_health_llm(monkeypatch, health_module)
 
-    update = health_module.health_expert(
-        {
-            "extracted_statements": ["S1"],
-            "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
-        },
-        dummy_prompts,
-    )
-
-    assert update["label"] == "incierta"
-    assert update["confidence"] == pytest.approx(0.5)
-    assert update["claims"] == [{"text": "S1", "label": "incierta", "confidence": 0.5}]
-
-
-def test_health_expert_fails_loudly_without_evidence_coverage(
-    monkeypatch, health_module, dummy_prompts
-):
-    """Sin cobertura calculada no se publica un veredicto con confianza sin atenuar."""
-    _stub_health_llm(monkeypatch, health_module)
-
-    with pytest.raises(KeyError, match="evidence_coverage"):
+    with pytest.raises(KeyError, match="evidence_search"):
         health_module.health_expert(
             {
                 "extracted_statements": ["S1"],
@@ -373,98 +351,6 @@ def test_health_expert_fails_loudly_without_evidence_coverage(
             },
             dummy_prompts,
         )
-
-
-def test_contradicting_evidence_yields_a_false_verdict(
-    monkeypatch, health_module, dummy_prompts
-):
-    _stub_health_llm(monkeypatch, health_module)
-
-    update = health_module.health_expert(
-        {
-            "extracted_statements": ["S1"],
-            "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
-            "sources": _stance_sources("S1", contradicts=3),
-        },
-        dummy_prompts,
-    )
-
-    # Tres fuentes en contra: p(falsa) = 4/5.
-    assert update["label"] == "falsa"
-    assert update["confidence"] == pytest.approx(0.8)
-
-
-def test_more_supporting_sources_increase_confidence(
-    monkeypatch, health_module, dummy_prompts
-):
-    _stub_health_llm(monkeypatch, health_module)
-
-    def _run(supports):
-        return health_module.health_expert(
-            {
-                "extracted_statements": ["S1"],
-                "translated_statements": ["T1"],
-                "evidence_coverage": 1.0,
-                "sources": _stance_sources("S1", supports=supports),
-            },
-            dummy_prompts,
-        )
-
-    one, three = _run(1), _run(3)
-
-    # El suavizado de Laplace hace crecer la confianza con el número de fuentes.
-    assert one["label"] == three["label"] == "verdadera"
-    assert one["confidence"] == pytest.approx(2 / 3)
-    assert three["confidence"] == pytest.approx(0.8)
-
-
-def test_minority_contradiction_only_reduces_confidence(
-    monkeypatch, health_module, dummy_prompts
-):
-    _stub_health_llm(monkeypatch, health_module)
-
-    state = {
-        "extracted_statements": ["S1", "S2", "S3"],
-        "translated_statements": ["T1", "T2", "T3"],
-        "evidence_coverage": 1.0,
-        "sources": (
-            _stance_sources("S1", supports=2, contradicts=1, claim_index=0)
-            + _stance_sources("S2", supports=2, claim_index=1)
-            + _stance_sources("S3", supports=2, claim_index=2)
-        ),
-    }
-    update = health_module.health_expert(state, dummy_prompts)
-
-    # fake_avg = (0.4 + 0.25 + 0.25) / 3 = 0.3: sigue verdadera, pero por debajo de 0.75.
-    assert update["label"] == "verdadera"
-    assert update["confidence"] == pytest.approx(0.7)
-
-
-def test_evidence_is_attributed_by_index_not_by_claim_text(
-    monkeypatch, health_module, dummy_prompts
-):
-    """Dos afirmaciones de texto idéntico conservan cada una su propia evidencia."""
-    _stub_health_llm(monkeypatch, health_module)
-
-    update = health_module.health_expert(
-        {
-            "extracted_statements": ["Misma frase", "Misma frase"],
-            "translated_statements": ["T1", "T2"],
-            "evidence_coverage": 1.0,
-            "sources": (
-                _stance_sources("Misma frase", contradicts=3, claim_index=0)
-                + _stance_sources("Misma frase", supports=2, claim_index=1)
-            ),
-        },
-        dummy_prompts,
-    )
-
-    # Casando por texto ambas compartirían las 5 fuentes; por índice, 4/5 y 1/4.
-    assert [(claim["label"], claim["confidence"]) for claim in update["claims"]] == [
-        ("falsa", pytest.approx(0.8)),
-        ("verdadera", pytest.approx(0.75)),
-    ]
 
 
 def test_health_expert_fences_user_text_and_neutralizes_injection(
@@ -479,7 +365,7 @@ def test_health_expert_fences_user_text_and_neutralizes_injection(
         {
             "extracted_statements": [malicious],
             "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
+            "evidence_search": _ONE_COVERED,
         },
         dummy_prompts,
     )
@@ -505,63 +391,15 @@ def test_health_expert_handles_empty_llm_output_without_exception(
         {
             "extracted_statements": ["S1"],
             "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
+            "evidence_search": _ONE_COVERED,
             "sources": _stance_sources("S1", contradicts=1),
         },
         dummy_prompts,
     )
 
-    assert set(update.keys()) == {
-        "label",
-        "confidence",
-        "medical_explanation",
-        "claims",
-    }
+    assert set(update.keys()) == {"verdict", "medical_explanation"}
     assert update["medical_explanation"] == ""
-    claim = update["claims"][0]
-    assert claim["text"] == "S1"
-    assert claim["label"] == "falsa"
-    assert claim["confidence"] == pytest.approx(2 / 3)
-
-
-@pytest.mark.parametrize(
-    ("supports", "contradicts", "expected_label", "expected_confidence"),
-    [
-        # Tres fuentes en contra: p = 4/5, muy por encima de la banda.
-        (0, 3, "falsa", 0.8),
-        # Dos a favor y una en contra: p = 0.4, por debajo de la banda.
-        (2, 1, "verdadera", 0.6),
-        # Evidencia equilibrada: p = 0.5 exacto, el punto neutro es incierto.
-        (1, 1, "incierta", 0.5),
-        # Dos a favor: p = 1/4, por debajo de la banda.
-        (2, 0, "verdadera", 0.75),
-        # Ninguna fuente se pronuncia: incierta por ausencia de evidencia.
-        (0, 0, "incierta", 0.5),
-    ],
-)
-def test_health_expert_marks_borderline_verdicts_as_uncertain(
-    monkeypatch,
-    health_module,
-    dummy_prompts,
-    supports,
-    contradicts,
-    expected_label,
-    expected_confidence,
-):
-    _stub_health_llm(monkeypatch, health_module)
-
-    update = health_module.health_expert(
-        {
-            "extracted_statements": ["S1"],
-            "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
-            "sources": _stance_sources("S1", supports, contradicts),
-        },
-        dummy_prompts,
-    )
-
-    assert update["label"] == expected_label
-    assert update["confidence"] == pytest.approx(expected_confidence)
+    assert update["verdict"].kind == "fake"
 
 
 def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
@@ -574,14 +412,14 @@ def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
         {
             "extracted_statements": ["S1"],
             "translated_statements": ["T1"],
-            "evidence_coverage": 1.0,
+            "evidence_search": _ONE_COVERED,
             "sources": _stance_sources("S1", supports=1, contradicts=1),
         },
         dummy_prompts,
     )
 
     human = captured["human"]
-    assert update["label"] == "incierta"
+    assert update["verdict"].kind == "uncertain"
     # No debe presentarse como un veredicto firme con porcentaje de seguridad.
     assert "seguridad del" not in human
     assert "INCIERTO" in human
@@ -600,17 +438,8 @@ def test_health_expert_returns_empty_explanation_when_no_statements(
         dummy_prompts,
     )
 
-    # Etiqueta vacía es el centinela que el worker traduce a NO_MEDICAL_CLAIMS.
-    assert set(update.keys()) == {
-        "label",
-        "confidence",
-        "medical_explanation",
-        "claims",
-    }
-    assert update["medical_explanation"] == ""
-    assert update["label"] == ""
-    assert update["confidence"] == 0.0
-    assert update["claims"] == []
+    # Sin veredicto, el worker cierra el análisis como NO_MEDICAL_CLAIMS.
+    assert update == {"verdict": None, "medical_explanation": ""}
 
 
 def test_extractor_chain_is_built_offline_and_cached(extractor_module):
@@ -667,15 +496,14 @@ def test_health_expert_skips_explanation_when_disabled(
     state = {
         "extracted_statements": ["S1"],
         "translated_statements": ["T1"],
-        "evidence_coverage": 1.0,
+        "evidence_search": _ONE_COVERED,
         "sources": _stance_sources("S1", supports=2),
     }
     update = health_module.health_expert(state, dummy_prompts)
 
     # El veredicto sale de las cuentas de stance, así que sobrevive sin informe.
     assert update["medical_explanation"] == ""
-    assert update["label"]
-    assert update["claims"]
+    assert update["verdict"] is not None
 
     get_settings.cache_clear()
 
@@ -692,7 +520,7 @@ def test_health_expert_generates_explanation_by_default(
     state = {
         "extracted_statements": ["S1"],
         "translated_statements": ["T1"],
-        "evidence_coverage": 1.0,
+        "evidence_search": _ONE_COVERED,
         "sources": _stance_sources("S1", supports=2),
     }
     update = health_module.health_expert(state, dummy_prompts)
