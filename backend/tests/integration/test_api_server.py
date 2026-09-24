@@ -9,32 +9,30 @@ import types
 from pathlib import Path
 
 import fakeredis
+import pytest
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
+from app.api.dependencies.analysis_intake import REFUSAL_HTTP_STATUS
 from app.api.dependencies.get_current_user import get_current_user
+from app.core.analysis_lifecycle import REFUSAL_CODES, AnalysisIntake, Submitter
 from app.core.config import get_settings
+from app.core.errors import make_error_detail
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
     MAX_INPUT_TEXT_LENGTH,
     MIN_INPUT_TEXT_LENGTH,
     AnalysisStatusResponse,
 )
+from app.schemas.errors import ErrorCode
 from app.schemas.feedback import AnalysisFeedback
 from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
+from tests.support.lifecycle import ANALYSIS_ID, StubIntake
 
 
 class _FakeArqPool:
-    """Pool de arq de mentira que registra los trabajos encolados."""
-
-    def __init__(self):
-        self.jobs = []
-        self.job_ids = []
-
-    async def enqueue_job(self, *args, **kwargs):
-        self.jobs.append(args)
-        self.job_ids.append(kwargs.get("_job_id"))
+    """Pool de arq de mentira para el healthcheck."""
 
     async def close(self):
         pass
@@ -63,9 +61,10 @@ def _load_server_module(monkeypatch):
     sys.modules.pop("app.main", None)
     server_module = importlib.import_module("app.main")
 
-    # TestClient(app) no ejecuta el lifespan, así que inyectamos el pool a mano.
+    # TestClient(app) no ejecuta el lifespan, así que inyectamos el pool y la entrada a mano.
     fake_pool = _FakeArqPool()
     server_module.app.state.arq_pool = fake_pool
+    server_module.app.state.analysis_intake = StubIntake()
 
     # Redis de mentira fresco por test: el rate limit no se acumula entre tests.
     server_module.app.state.redis = _LoopSafeFakeRedis()
@@ -132,127 +131,9 @@ def test_healthz_returns_503_when_redis_is_down(monkeypatch):
     assert response.status_code == 503
 
 
-def test_analisis_enqueues_job_and_returns_pending(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        assert kwargs["user_id"] == "test-user"
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "pending"
-    assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
-
-    # Se encoló run_analysis con el id, el tipo de fuente y el texto.
-    assert len(fake_pool.jobs) == 1
-    job = fake_pool.jobs[0]
-    assert job[0] == "run_analysis"
-    assert job[1] == "11111111-1111-1111-1111-111111111111"
-    assert job[2] == "text"
-    assert job[3] == "Bleach cures COVID"
-    assert job[4] is None
-    # El email del JWT se pasa al worker para notificar al terminar.
-    assert job[5] == "test-user@example.com"
-    # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
-    assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
-
-
-def test_analisis_enqueues_url_job(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-
-    response = client.post(
-        "/analysis",
-        json={"url": "https://ejemplo.com/noticia", "source_type": "url"},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "pending"
-    job = fake_pool.jobs[0]
-    assert job[2] == "url"
-    assert job[3] is None
-    assert job[4] == "https://ejemplo.com/noticia"
-
-
-def test_analisis_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise RedisError("redis down")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    failed = []
-
-    async def fake_fail_analysis(**kwargs):
-        failed.append(kwargs)
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-    monkeypatch.setattr(
-        "app.core.analysis_jobs.fail_analysis",
-        fake_fail_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-    # La fila pendiente se recicla a failed para que el cliente deje de hacer polling.
-    assert failed == [
-        {
-            "analysis_id": "11111111-1111-1111-1111-111111111111",
-            "error_code": "SERVICE_UNAVAILABLE",
-        }
-    ]
-
-
-def test_analisis_returns_503_when_pool_unavailable(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    server_module.app.state.arq_pool = None
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
 def test_analisis_returns_429_when_rate_limit_exceeded(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
 
     # El límite por defecto es 5 peticiones por ventana: las 5 primeras pasan.
     for _ in range(5):
@@ -276,14 +157,6 @@ def test_analisis_returns_503_when_redis_errors(monkeypatch):
     server_module.app.state.redis = _BrokenRedis()
     client = TestClient(server_module.app)
 
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 503
@@ -296,41 +169,14 @@ def test_analisis_returns_503_when_redis_unavailable(monkeypatch):
     server_module.app.state.redis = None
     client = TestClient(server_module.app)
 
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-
     response = client.post("/analysis", json={"text": "Bleach cures COVID"})
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
 
 
-def test_analisis_returns_save_failed_when_pending_insert_fails(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
-    assert fake_pool.jobs == []
-
-
 def test_analisis_rejects_invalid_url(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -340,7 +186,7 @@ def test_analisis_rejects_invalid_url(monkeypatch):
 
     # Pydantic HttpUrl validation should fail with 422
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
@@ -765,218 +611,6 @@ def _failed_record(
     )
 
 
-def test_retry_reopens_failed_analysis_and_enqueues_text(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        assert user_id == "test-user"
-        return _failed_record(source_type="text")
-
-    reopened = []
-
-    async def fake_reset(*, user_id, analysis_id):
-        reopened.append((user_id, analysis_id))
-        return True
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "pending"
-    assert body["analysis_id"] == _RETRY_ID
-    assert reopened == [("test-user", _RETRY_ID)]
-
-    job = fake_pool.jobs[0]
-    assert job[0] == "run_analysis"
-    assert job[1] == _RETRY_ID
-    assert job[2] == "text"
-    assert job[3] == "Bleach cures COVID"
-    assert job[4] is None
-    assert job[5] == "test-user@example.com"
-    # _job_id=analysis_id: si el job previo sigue vivo en arq, el retry no lo duplica.
-    assert fake_pool.job_ids == [_RETRY_ID]
-
-
-def test_retry_enqueues_url_with_stored_link(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record(
-            source_type="url",
-            input_text=None,
-            input_url="https://ejemplo.com/noticia",
-        )
-
-    async def fake_reset(*, user_id, analysis_id):
-        return True
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 200
-    job = fake_pool.jobs[0]
-    assert job[2] == "url"
-    assert job[3] is None
-    assert job[4] == "https://ejemplo.com/noticia"
-
-
-def test_retry_returns_404_when_not_found(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return None
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
-    assert fake_pool.jobs == []
-
-
-def test_retry_returns_409_when_not_failed(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record(status="done")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_RETRYABLE"
-    assert fake_pool.jobs == []
-
-
-def test_retry_returns_409_when_reopen_loses_race(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        return False
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_RETRYABLE"
-    assert fake_pool.jobs == []
-
-
-def test_retry_returns_400_when_id_is_invalid(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis/not-a-uuid/retry")
-
-    assert response.status_code == 400
-    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
-
-
-def test_retry_returns_503_when_pool_unavailable(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    server_module.app.state.arq_pool = None
-    client = TestClient(server_module.app)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
-def test_retry_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise RedisError("redis down")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        return True
-
-    failed = []
-
-    async def fake_fail_analysis(**kwargs):
-        failed.append(kwargs)
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-    # La fila reabierta se devuelve a failed para que no quede pending.
-    assert failed == [{"analysis_id": _RETRY_ID, "error_code": "SERVICE_UNAVAILABLE"}]
-
-
-def test_retry_returns_500_when_fetch_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
-
-
-def test_retry_returns_500_when_reopen_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_RETRY_FAILED"
-
-
 def _done_record(
     *,
     source_type: str = "text",
@@ -995,218 +629,6 @@ def _done_record(
         label="falsa",
         confidence=0.9,
     )
-
-
-def test_reanalyze_reopens_done_analysis_and_enqueues_text(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        assert user_id == "test-user"
-        return _done_record(source_type="text")
-
-    reopened = []
-
-    async def fake_reset(*, user_id, analysis_id):
-        reopened.append((user_id, analysis_id))
-        return True
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "pending"
-    assert body["analysis_id"] == _RETRY_ID
-    assert reopened == [("test-user", _RETRY_ID)]
-
-    job = fake_pool.jobs[0]
-    assert job[0] == "run_analysis"
-    assert job[1] == _RETRY_ID
-    assert job[2] == "text"
-    assert job[3] == "Bleach cures COVID"
-    assert job[4] is None
-    assert job[5] == "test-user@example.com"
-    # _job_id=analysis_id: si el job previo sigue vivo en arq, no se duplica.
-    assert fake_pool.job_ids == [_RETRY_ID]
-
-
-def test_reanalyze_enqueues_url_with_stored_link(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _done_record(
-            source_type="url",
-            input_text=None,
-            input_url="https://ejemplo.com/noticia",
-        )
-
-    async def fake_reset(*, user_id, analysis_id):
-        return True
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 200
-    job = fake_pool.jobs[0]
-    assert job[2] == "url"
-    assert job[3] is None
-    assert job[4] == "https://ejemplo.com/noticia"
-
-
-def test_reanalyze_returns_404_when_not_found(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return None
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
-    assert fake_pool.jobs == []
-
-
-def test_reanalyze_returns_409_when_not_done(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record(status="pending")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_REANALYZABLE"
-    assert fake_pool.jobs == []
-
-
-def test_reanalyze_returns_409_when_reopen_loses_race(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _done_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        return False
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "ANALYSIS_NOT_REANALYZABLE"
-    assert fake_pool.jobs == []
-
-
-def test_reanalyze_returns_400_when_id_is_invalid(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis/not-a-uuid/reanalyze")
-
-    assert response.status_code == 400
-    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
-
-
-def test_reanalyze_returns_503_when_pool_unavailable(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    server_module.app.state.arq_pool = None
-    client = TestClient(server_module.app)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
-def test_reanalyze_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise RedisError("redis down")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _done_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        return True
-
-    failed = []
-
-    async def fake_fail_analysis(**kwargs):
-        failed.append(kwargs)
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
-    )
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-    # La fila reabierta se devuelve a failed para que no quede pending.
-    assert failed == [{"analysis_id": _RETRY_ID, "error_code": "SERVICE_UNAVAILABLE"}]
-
-
-def test_reanalyze_returns_500_when_fetch_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
-
-
-def test_reanalyze_returns_500_when_reopen_fails(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _done_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_done_analysis_to_pending", fake_reset
-    )
-
-    response = client.post(f"/analysis/{_RETRY_ID}/reanalyze")
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_REANALYZE_FAILED"
 
 
 def _feedback(
@@ -1481,17 +903,17 @@ def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
 
 
 def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post("/analysis", json={})
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -1503,7 +925,7 @@ def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_validation_errors_follow_the_structured_error_contract(monkeypatch):
@@ -1563,7 +985,7 @@ def test_openapi_documents_every_422_as_the_structured_error(monkeypatch):
 
 
 def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -1575,11 +997,11 @@ def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -1591,11 +1013,11 @@ def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     empty_response = client.post("/analysis", json={"text": ""})
@@ -1603,18 +1025,18 @@ def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):
 
     assert empty_response.status_code == 422
     assert whitespace_response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_returns_422_when_text_is_too_long(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     very_long_text = "a" * 10001
     response = client.post("/analysis", json={"text": very_long_text})
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_requires_auth_when_dependency_is_not_overridden(monkeypatch):
@@ -2122,98 +1544,6 @@ def test_dashboard_summary_rejects_out_of_range_trend_days(monkeypatch):
 _MINIMAL_PDF = b"%PDF-1.4 minimal content"
 
 
-def test_analisis_file_enqueues_job_and_returns_pending(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_file_analysis(**kwargs):
-        assert kwargs["user_id"] == "test-user"
-        assert kwargs["filename"] == "informe.pdf"
-        assert kwargs["data"].startswith(b"%PDF")
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_file_analysis",
-        fake_create_pending_file_analysis,
-    )
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "pending"
-    job = fake_pool.jobs[0]
-    assert job[0] == "run_analysis"
-    assert job[1] == "11111111-1111-1111-1111-111111111111"
-    assert job[2] == "file"
-    assert job[3] is None
-    assert job[4] is None
-    assert job[5] == "test-user@example.com"
-    # _job_id=analysis_id: arq deduplica encolados dobles del mismo análisis.
-    assert fake_pool.job_ids == ["11111111-1111-1111-1111-111111111111"]
-
-
-def test_analisis_file_accepts_plain_text(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_file_analysis(**kwargs):
-        assert kwargs["filename"] == "nota.txt"
-        return "11111111-1111-1111-1111-111111111111"
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_file_analysis",
-        fake_create_pending_file_analysis,
-    )
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("nota.txt", b"texto plano a verificar", "text/plain")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "pending"
-    assert fake_pool.jobs[0][2] == "file"
-
-
-def test_analisis_file_rejects_unsupported_type(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis/file",
-        files={
-            "file": (
-                "documento.docx",
-                b"PK\x03\x04 zip-ish",
-                "application/octet-stream",
-            )
-        },
-    )
-
-    assert response.status_code == 415
-    assert response.json()["detail"]["code"] == "INVALID_FILE"
-
-
-def test_analisis_file_rejects_oversized(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.get_settings",
-        lambda: types.SimpleNamespace(max_file_bytes=10),
-    )
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("big.pdf", b"%PDF-1.4" + b"x" * 100, "application/pdf")},
-    )
-
-    assert response.status_code == 413
-    assert response.json()["detail"]["code"] == "FILE_TOO_LARGE"
-
-
 def test_get_file_returns_file(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
@@ -2450,171 +1780,6 @@ def test_shared_report_returns_404_for_unknown_token(monkeypatch):
     assert response.json()["detail"]["code"] == "SHARED_REPORT_NOT_FOUND"
 
 
-def test_analisis_file_fails_row_and_returns_503_when_enqueue_fails(monkeypatch):
-    """Redis caído tras guardar el archivo: la fila pasa a failed y el cliente recibe 503."""
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise RedisError("redis down")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_file_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    failed = []
-
-    async def fake_fail_analysis(**kwargs):
-        failed.append(kwargs)
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_file_analysis",
-        fake_create_pending_file_analysis,
-    )
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail_analysis)
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
-    )
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-    assert failed == [
-        {
-            "analysis_id": "11111111-1111-1111-1111-111111111111",
-            "error_code": "SERVICE_UNAVAILABLE",
-        }
-    ]
-
-
-def test_analisis_file_returns_503_when_pool_unavailable(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    server_module.app.state.arq_pool = None
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
-    )
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
-def test_analisis_file_rejects_empty_file(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("nota.txt", b"", "text/plain")},
-    )
-
-    assert response.status_code == 415
-    assert response.json()["detail"]["code"] == "INVALID_FILE"
-    assert fake_pool.jobs == []
-
-
-def test_analisis_file_rejects_pdf_without_signature(monkeypatch):
-    """Un .pdf sin firma %PDF se rechaza antes de guardar nada ni encolar trabajo."""
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("falso.pdf", b"contenido cualquiera", "application/pdf")},
-    )
-
-    assert response.status_code == 415
-    assert response.json()["detail"]["code"] == "INVALID_FILE"
-    assert fake_pool.jobs == []
-
-
-def test_analisis_file_returns_save_failed_when_insert_fails(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_file_analysis(**kwargs):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_file_analysis",
-        fake_create_pending_file_analysis,
-    )
-
-    response = client.post(
-        "/analysis/file",
-        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
-    )
-
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ANALYSIS_SAVE_FAILED"
-    assert fake_pool.jobs == []
-
-
-def test_analisis_returns_503_when_enqueue_and_fail_update_both_fail(monkeypatch):
-    """Redis y la BD caídos a la vez: el cliente sigue recibiendo un 503, no un 500 opaco."""
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise ConnectionResetError("socket perdido")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_create_pending_analysis(**kwargs):
-        return "11111111-1111-1111-1111-111111111111"
-
-    async def broken_fail_analysis(**kwargs):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr(
-        "app.api.routes.analysis.create_pending_analysis",
-        fake_create_pending_analysis,
-    )
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", broken_fail_analysis)
-
-    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
-def test_retry_returns_503_when_reenqueue_and_fail_update_both_fail(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-
-    class _BrokenArqPool(_FakeArqPool):
-        async def enqueue_job(self, *args, **kwargs):
-            raise RedisError("redis down")
-
-    server_module.app.state.arq_pool = _BrokenArqPool()
-    client = TestClient(server_module.app)
-
-    async def fake_get(*, user_id, analysis_id):
-        return _failed_record()
-
-    async def fake_reset(*, user_id, analysis_id):
-        return True
-
-    async def broken_fail_analysis(**kwargs):
-        raise DatabaseError("db down")
-
-    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr(
-        "app.api.routes.analysis.reset_failed_analysis_to_pending", fake_reset
-    )
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", broken_fail_analysis)
-
-    response = client.post(f"/analysis/{_RETRY_ID}/retry")
-
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
-
-
 def test_share_returns_500_when_fetch_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
@@ -2730,6 +1895,7 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
         "get_settings",
         lambda: types.SimpleNamespace(
             redis_url="redis://localhost:6379",
+            max_file_bytes=1024,
             validate_runtime=lambda: None,
         ),
     )
@@ -2744,8 +1910,8 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
     built: dict = {}
     fake_server = types.SimpleNamespace(session_manager=_SessionManager())
 
-    def fake_build_mcp_server(*, arq_pool, redis):
-        built["resources"] = (arq_pool, redis)
+    def fake_build_mcp_server(*, arq_pool, redis, analysis_intake):
+        built["resources"] = (arq_pool, redis, analysis_intake)
         return fake_server
 
     monkeypatch.setattr(server_module, "build_mcp_server", fake_build_mcp_server)
@@ -2758,8 +1924,13 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
         assert opened == ["db", "arq", "mcp"]
         assert app_obj.state.arq_pool is not None
         assert app_obj.state.redis is not None
-        # El servidor MCP recibe las mismas colas que las rutas web.
-        assert built["resources"] == (app_obj.state.arq_pool, app_obj.state.redis)
+        assert isinstance(app_obj.state.analysis_intake, AnalysisIntake)
+        # El servidor MCP recibe las mismas colas y la misma entrada que las rutas web.
+        assert built["resources"] == (
+            app_obj.state.arq_pool,
+            app_obj.state.redis,
+            app_obj.state.analysis_intake,
+        )
         assert app_obj.state.mcp_http_app == ("http-app", fake_server)
 
     assert closed == ["mcp", "arq", "redis", "db"]
@@ -2795,7 +1966,7 @@ def test_config_publishes_the_limits_the_api_actually_enforces(monkeypatch):
 
 
 def test_analysis_rejects_text_shorter_than_the_published_minimum(monkeypatch):
-    server_module, fake_pool = _load_server_module(monkeypatch)
+    server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
     response = client.post(
@@ -2803,4 +1974,147 @@ def test_analysis_rejects_text_shorter_than_the_published_minimum(monkeypatch):
     )
 
     assert response.status_code == 422
-    assert fake_pool.jobs == []
+    assert server_module.app.state.analysis_intake.calls == []
+
+
+_WEB_SUBMITTER = Submitter(
+    user_id="test-user", origin="web", notify_email="test-user@example.com"
+)
+
+# Cada ruta que abre un análisis, con una petición que supera la validación del cuerpo.
+_OPENINGS = {
+    "submit": ("/analysis", {"json": {"text": "Bleach cures COVID"}}),
+    "submit_file": (
+        "/analysis/file",
+        {"files": {"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")}},
+    ),
+    "retry": (f"/analysis/{ANALYSIS_ID}/retry", {}),
+    "reanalyze": (f"/analysis/{ANALYSIS_ID}/reanalyze", {}),
+}
+
+
+def test_analisis_opens_a_text_analysis_for_the_web_user(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    intake = server_module.app.state.analysis_intake
+
+    response = TestClient(server_module.app).post(
+        "/analysis", json={"text": "Bleach cures COVID"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
+    assert response.json()["analysis_id"] == ANALYSIS_ID
+    [(kind, submitter, request)] = intake.calls
+    assert (kind, submitter) == ("submit", _WEB_SUBMITTER)
+    assert request.text == "Bleach cures COVID"
+
+
+def test_analisis_opens_a_url_analysis(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    intake = server_module.app.state.analysis_intake
+
+    response = TestClient(server_module.app).post(
+        "/analysis", json={"url": "https://ejemplo.com/noticia", "source_type": "url"}
+    )
+
+    assert response.status_code == 200
+    [(_, _, request)] = intake.calls
+    assert str(request.url) == "https://ejemplo.com/noticia"
+
+
+def test_analisis_file_hands_the_upload_to_the_intake(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    intake = server_module.app.state.analysis_intake
+
+    response = TestClient(server_module.app).post(
+        "/analysis/file",
+        files={"file": ("informe.pdf", _MINIMAL_PDF, "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["analysis_id"] == ANALYSIS_ID
+    assert intake.calls == [
+        ("submit_file", _WEB_SUBMITTER, "informe.pdf", _MINIMAL_PDF)
+    ]
+
+
+@pytest.mark.parametrize("opening", ["retry", "reanalyze"])
+def test_reopening_routes_hand_the_id_to_the_intake(monkeypatch, opening):
+    server_module, _ = _load_server_module(monkeypatch)
+    intake = server_module.app.state.analysis_intake
+    path, _ = _OPENINGS[opening]
+
+    response = TestClient(server_module.app).post(path)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
+    assert response.json()["analysis_id"] == ANALYSIS_ID
+    assert intake.calls == [(opening, _WEB_SUBMITTER, ANALYSIS_ID)]
+
+
+@pytest.mark.parametrize("opening", ["retry", "reanalyze"])
+def test_reopening_routes_reject_an_invalid_id_before_the_intake(monkeypatch, opening):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    response = TestClient(server_module.app).post(f"/analysis/no-es-uuid/{opening}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_ANALYSIS_ID"
+    assert server_module.app.state.analysis_intake.calls == []
+
+
+@pytest.mark.parametrize("opening", list(_OPENINGS))
+@pytest.mark.parametrize(
+    ("code", "status"),
+    [
+        (ErrorCode.ANALYSIS_NOT_FOUND, 404),
+        (ErrorCode.ANALYSIS_NOT_RETRYABLE, 409),
+        (ErrorCode.ANALYSIS_NOT_REANALYZABLE, 409),
+        (ErrorCode.FILE_TOO_LARGE, 413),
+        (ErrorCode.INVALID_FILE, 415),
+        (ErrorCode.ANALYSIS_SAVE_FAILED, 500),
+        (ErrorCode.ANALYSIS_FETCH_FAILED, 500),
+        (ErrorCode.ANALYSIS_RETRY_FAILED, 500),
+        (ErrorCode.ANALYSIS_REANALYZE_FAILED, 500),
+        (ErrorCode.SERVICE_UNAVAILABLE, 503),
+    ],
+)
+def test_opening_refusals_follow_the_structured_error_contract(
+    monkeypatch, opening, code, status
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.analysis_intake = StubIntake(refuse=code)
+    path, kwargs = _OPENINGS[opening]
+
+    response = TestClient(server_module.app).post(path, **kwargs)
+
+    assert response.status_code == status
+    assert response.json() == {"detail": make_error_detail(code)}
+
+
+def test_every_refusal_code_has_an_http_status():
+    assert set(REFUSAL_HTTP_STATUS) == REFUSAL_CODES
+
+
+@pytest.mark.parametrize("opening", list(_OPENINGS))
+def test_opening_routes_answer_503_until_the_lifespan_builds_the_intake(
+    monkeypatch, opening
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.analysis_intake = None
+    path, kwargs = _OPENINGS[opening]
+
+    response = TestClient(server_module.app).post(path, **kwargs)
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SERVICE_UNAVAILABLE"
+
+
+def test_body_validation_still_wins_over_a_missing_intake(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.state.analysis_intake = None
+
+    response = TestClient(server_module.app).post("/analysis", json={})
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "VALIDATION"

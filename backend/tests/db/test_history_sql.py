@@ -5,30 +5,27 @@ import pytest
 from app.db.history import (
     HISTORY_LIST_TEXT_CHARS,
     clear_analysis_share_token,
-    complete_analysis,
     count_history_verdict_facets,
-    create_pending_analysis,
-    create_pending_file_analysis,
     delete_all_user_analyses,
     delete_user_analysis,
     export_user_analysis_history,
-    fail_analysis,
-    fail_stale_pending_analyses,
     get_analysis_file,
-    get_file_data_by_id,
     get_pending_analyses_summary,
     get_shared_analysis_by_token,
     get_user_analysis_by_id,
     get_user_analysis_status,
-    list_stale_pending_analysis_ids,
     list_user_analysis_history,
-    reset_done_analysis_to_pending,
-    reset_failed_analysis_to_pending,
     set_analysis_share_token,
-    set_analysis_stage,
 )
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest
+from tests.db.seed import (
+    seed_done,
+    seed_failed,
+    seed_pending,
+    seed_pending_file,
+    seed_stage,
+)
 
 pytestmark = pytest.mark.db
 
@@ -36,88 +33,7 @@ USER = "user-a"
 
 
 async def _pending(text: str = "La vitamina C previene el resfriado") -> str:
-    return await create_pending_analysis(
-        user_id=USER, request=AnalysisRequest(text=text)
-    )
-
-
-async def _age_row(pool, analysis_id: str, seconds: int) -> None:
-    """Retrocede created_at para simular una fila antigua sin esperar de verdad."""
-    async with pool.connection() as conn:
-        await conn.execute(
-            "UPDATE public.analysis_history "
-            "SET created_at = NOW() - make_interval(secs => %s) WHERE id = %s",
-            (seconds, analysis_id),
-        )
-
-
-async def _stored_pipeline(pool, analysis_id: str) -> dict | None:
-    async with pool.connection() as conn:
-        cur = await conn.execute(
-            "SELECT pipeline FROM public.analysis_history WHERE id = %s",
-            (analysis_id,),
-        )
-        row = await cur.fetchone()
-    return row[0]
-
-
-async def test_pipeline_is_stored_at_completion_and_cleared_on_reanalysis(db_pool):
-    """Un resultado guarda su configuración; al reabrirlo no queda una atribución vieja."""
-    pipeline = {"provider": "ollama", "models": {"judge": "llama3.2"}, "prompts": {}}
-    analysis_id = await _pending()
-    await complete_analysis(
-        analysis_id=analysis_id,
-        label="falsa",
-        confidence=0.9,
-        explanation="Informe.",
-        pipeline=pipeline,
-    )
-
-    assert await _stored_pipeline(db_pool, analysis_id) == pipeline
-
-    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-    assert await _stored_pipeline(db_pool, analysis_id) is None
-
-
-async def test_evidence_coverage_persists_none_and_zero(db_pool):
-    """Cobertura None (no medible) y 0.0 (medida sin respaldo) se guardan distintas."""
-    outage_id = await _pending()
-    await complete_analysis(
-        analysis_id=outage_id,
-        label="falsa",
-        confidence=0.9,
-        explanation="Informe.",
-        evidence_coverage=None,
-    )
-    outage = await get_user_analysis_by_id(user_id=USER, analysis_id=outage_id)
-    assert outage is not None
-    assert outage.evidence_coverage is None
-
-    zero_id = await _pending()
-    await complete_analysis(
-        analysis_id=zero_id,
-        label="falsa",
-        confidence=0.9,
-        explanation="Informe.",
-        evidence_coverage=0.0,
-    )
-    zero = await get_user_analysis_by_id(user_id=USER, analysis_id=zero_id)
-    assert zero is not None
-    assert zero.evidence_coverage == pytest.approx(0.0)
-
-
-async def test_verdict_without_report_completes_with_null_explanation(db_pool):
-    """Un veredicto sin informe del experto termina en done con la explicación nula."""
-    analysis_id = await _pending()
-    await complete_analysis(
-        analysis_id=analysis_id, label="falsa", confidence=0.8, explanation=None
-    )
-
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert record is not None
-    assert record.status == "done"
-    assert record.label == "falsa"
-    assert record.explanation is None
+    return await seed_pending(user_id=USER, request=AnalysisRequest(text=text))
 
 
 async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
@@ -143,7 +59,7 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
         }
     ]
 
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id,
         label="falsa",
         confidence=0.91,
@@ -175,144 +91,12 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     ]
 
 
-async def test_completed_at_marks_the_end_of_the_pipeline(db_pool):
-    """Solo se fija al salir de pending: mide la duración real, no la fecha de envío."""
-    pending_id = await _pending()
-    pending = await get_user_analysis_by_id(user_id=USER, analysis_id=pending_id)
-    assert pending.completed_at is None
-
-    await complete_analysis(
-        analysis_id=pending_id,
-        label="falsa",
-        confidence=0.9,
-        explanation="Informe.",
-    )
-    done = await get_user_analysis_by_id(user_id=USER, analysis_id=pending_id)
-    assert done.completed_at is not None
-    assert done.completed_at >= done.created_at
-
-    failed_id = await _pending("terminó mal")
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
-    failed = await get_user_analysis_by_id(user_id=USER, analysis_id=failed_id)
-    assert failed.completed_at is not None
-
-
-async def test_reopening_an_analysis_clears_completed_at(db_pool):
-    """Reanalizar no debe arrastrar el fin del intento previo: daría una duración negativa."""
-    analysis_id = await _pending()
-    await complete_analysis(
-        analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
-    )
-
-    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-    reopened = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert reopened.completed_at is None
-
-    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
-    assert await reset_failed_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-    retried = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert retried.completed_at is None
-
-
-async def test_reset_failed_analysis_reopens_and_clears_error(db_pool):
-    analysis_id = await _pending()
-    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
-
-    assert await reset_failed_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert record is not None
-    assert record.status == "pending"
-    assert record.error_code is None
-    assert record.stage is None
-
-
-async def test_reset_refuses_non_failed_rows_and_foreign_users(db_pool):
-    """La guarda de carrera del retry vive en el WHERE: solo filas failed y propias."""
-    pending_id = await _pending()
-    assert not await reset_failed_analysis_to_pending(
-        user_id=USER, analysis_id=pending_id
-    )
-
-    await complete_analysis(
-        analysis_id=pending_id, label="verdadera", confidence=0.8, explanation="Ok."
-    )
-    assert not await reset_failed_analysis_to_pending(
-        user_id=USER, analysis_id=pending_id
-    )
-
-    failed_id = await _pending()
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
-    assert not await reset_failed_analysis_to_pending(
-        user_id="otro-usuario", analysis_id=failed_id
-    )
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=failed_id)
-    assert record is not None
-    assert record.status == "failed"
-
-
-async def test_reset_done_analysis_reopens_and_clears_result(db_pool):
-    """Reanalizar reabre a pending y borra el resultado previo, conservando el token."""
-    analysis_id = await _pending()
-    await complete_analysis(
-        analysis_id=analysis_id,
-        label="falsa",
-        confidence=0.9,
-        explanation="Informe.",
-        claims=[{"text": "x", "label": "falsa", "confidence": 0.9}],
-        sources=[{"title": "T", "url": "https://x", "source": "S"}],
-        evidence_coverage=0.5,
-    )
-    token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
-    assert token is not None
-
-    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert record is not None
-    assert record.status == "pending"
-    assert record.label is None
-    assert record.confidence is None
-    assert record.evidence_coverage is None
-    assert record.explanation is None
-    assert record.claims is None
-    assert record.sources is None
-    assert record.error_code is None
-    assert record.stage is None
-    # La entrada y el enlace público sobreviven para reejecutar y no romper el share.
-    assert record.input_text == "La vitamina C previene el resfriado"
-    assert record.share_token == token
-
-
-async def test_reset_done_refuses_non_done_rows_and_foreign_users(db_pool):
-    """La guarda de carrera del reanálisis vive en el WHERE: solo filas done y propias."""
-    pending_id = await _pending()
-    assert not await reset_done_analysis_to_pending(
-        user_id=USER, analysis_id=pending_id
-    )
-
-    failed_id = await _pending()
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
-    assert not await reset_done_analysis_to_pending(user_id=USER, analysis_id=failed_id)
-
-    done_id = await _pending()
-    await complete_analysis(
-        analysis_id=done_id, label="verdadera", confidence=0.8, explanation="Ok."
-    )
-    assert not await reset_done_analysis_to_pending(
-        user_id="otro-usuario", analysis_id=done_id
-    )
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=done_id)
-    assert record is not None
-    assert record.status == "done"
-
-
 async def test_share_token_issued_only_for_done_rows(db_pool):
     """Compartir exige fila done y propia; reintentarlo conserva el mismo token."""
     analysis_id = await _pending()
     assert await set_analysis_share_token(user_id=USER, analysis_id=analysis_id) is None
 
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
     )
     assert (
@@ -336,78 +120,16 @@ async def test_share_token_issued_only_for_done_rows(db_pool):
     assert await get_shared_analysis_by_token(token=token) is None
 
 
-async def test_reaper_recycles_only_stale_pending_rows(db_pool):
-    """El reaper solo toca filas pending más viejas que el umbral, y nada más."""
-    stale_pending = await _pending("atascada en cola")
-    await _age_row(db_pool, stale_pending, 1000)
-
-    fresh_pending = await _pending("recién encolada")
-
-    old_done = await _pending("terminada hace tiempo")
-    await complete_analysis(
-        analysis_id=old_done, label="verdadera", confidence=0.8, explanation="Ok."
-    )
-    await _age_row(db_pool, old_done, 1000)
-
-    old_failed = await _pending("fallida hace tiempo")
-    await fail_analysis(analysis_id=old_failed, error_code="URL_EXTRACTION")
-    await _age_row(db_pool, old_failed, 1000)
-
-    stale_ids = await list_stale_pending_analysis_ids(older_than_seconds=900)
-    assert stale_pending in stale_ids
-    assert fresh_pending not in stale_ids
-    assert old_done not in stale_ids
-    assert old_failed not in stale_ids
-
-    count = await fail_stale_pending_analyses(
-        analysis_ids=[stale_pending],
-        older_than_seconds=900,
-        error_code="SERVICE_UNAVAILABLE",
-    )
-
-    assert count == 1
-    reaped = await get_user_analysis_by_id(user_id=USER, analysis_id=stale_pending)
-    assert (reaped.status, reaped.error_code) == ("failed", "SERVICE_UNAVAILABLE")
-    fresh = await get_user_analysis_by_id(user_id=USER, analysis_id=fresh_pending)
-    assert fresh.status == "pending"
-    done = await get_user_analysis_by_id(user_id=USER, analysis_id=old_done)
-    assert done.status == "done"
-    failed = await get_user_analysis_by_id(user_id=USER, analysis_id=old_failed)
-    assert (failed.status, failed.error_code) == ("failed", "URL_EXTRACTION")
-
-
-async def test_retry_restarts_the_reaper_grace_period(db_pool):
-    """Reabrir un análisis reinicia created_at: el reaper no debe recogerlo al instante."""
-    analysis_id = await _pending()
-    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
-    await _age_row(db_pool, analysis_id, 1000)
-
-    assert await reset_failed_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-
-    assert await list_stale_pending_analysis_ids(older_than_seconds=900) == []
-
-    # Aun con una candidata leída antes del retry, la re-verificación de edad la protege.
-    count = await fail_stale_pending_analyses(
-        analysis_ids=[analysis_id],
-        older_than_seconds=900,
-        error_code="SERVICE_UNAVAILABLE",
-    )
-
-    assert count == 0
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
-    assert record.status == "pending"
-
-
 async def test_verdict_filter_and_facets_agree_on_indexed_column(db_pool):
     """El filtro de veredicto y los facets leen la columna indexada con el mismo criterio."""
     for label in ("falsa", "falsa", "verdadera", "incierta"):
         analysis_id = await _pending(f"texto {label}")
-        await complete_analysis(
+        await seed_done(
             analysis_id=analysis_id, label=label, confidence=0.8, explanation="Informe."
         )
     await _pending("sigue en cola")
     failed_id = await _pending("terminó mal")
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
+    await seed_failed(analysis_id=failed_id, error_code="CONNECTION")
 
     rows, total = await list_user_analysis_history(user_id=USER, verdict="fake")
     assert total == 2
@@ -425,7 +147,7 @@ async def test_verdict_filter_and_facets_agree_on_indexed_column(db_pool):
 
 async def test_search_matches_text_and_url_case_insensitively(db_pool):
     text_id = await _pending("Las VACUNAS son seguras")
-    await create_pending_analysis(
+    await seed_pending(
         user_id=USER,
         request=AnalysisRequest(url="https://ejemplo.com/noticia", source_type="url"),
     )
@@ -443,7 +165,7 @@ async def test_search_matches_text_and_url_case_insensitively(db_pool):
 
 async def test_search_matches_the_file_name(db_pool):
     """Un análisis de archivo se busca por su nombre: es el título que ve el usuario."""
-    file_id = await create_pending_file_analysis(
+    file_id = await seed_pending_file(
         user_id=USER, filename="bulos-vitamina-d.pdf", data=b"%PDF-1.4 contenido"
     )
     await _pending("Un texto sin relación con el archivo")
@@ -458,10 +180,10 @@ async def test_search_matches_the_file_name(db_pool):
 async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
     """El listado trae la fila que pinta la tabla: título recortado y sin informe."""
     long_text = "La vitamina C previene el resfriado. " * 200
-    analysis_id = await create_pending_analysis(
+    analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text=long_text)
     )
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id,
         label="falsa",
         confidence=0.9,
@@ -489,10 +211,10 @@ async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
 async def test_export_keeps_the_whole_input_text(db_pool):
     """Exportar es llevarse los datos: el CSV no recorta el texto como sí hace el listado."""
     long_text = "La vitamina C previene el resfriado. " * 200
-    analysis_id = await create_pending_analysis(
+    analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text=long_text)
     )
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
     )
 
@@ -505,7 +227,7 @@ async def test_export_keeps_the_whole_input_text(db_pool):
 async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
     """La fila 'en curso' del historial muestra por dónde va el pipeline."""
     analysis_id = await _pending("Un análisis todavía en marcha")
-    await set_analysis_stage(analysis_id=analysis_id, stage="investigator")
+    await seed_stage(analysis_id=analysis_id, stage="investigator")
 
     rows, _ = await list_user_analysis_history(user_id=USER)
 
@@ -515,12 +237,12 @@ async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
 async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
     """El sondeo ligero ve la etapa en curso y no filtra filas de otro usuario."""
     analysis_id = await _pending()
-    await set_analysis_stage(analysis_id=analysis_id, stage="translator")
+    await seed_stage(analysis_id=analysis_id, stage="translator")
 
     status = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
     assert (status.status, status.stage) == ("pending", "translator")
 
-    await fail_analysis(analysis_id=analysis_id, error_code="CONNECTION")
+    await seed_failed(analysis_id=analysis_id, error_code="CONNECTION")
     failed = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
     assert failed.status == "failed"
 
@@ -533,7 +255,7 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
 async def test_search_still_matches_beyond_the_truncated_title(db_pool):
     """El recorte es solo de salida: la búsqueda sigue mirando el texto completo."""
     tail = "cloroquina" + "!"
-    analysis_id = await create_pending_analysis(
+    analysis_id = await seed_pending(
         user_id=USER,
         request=AnalysisRequest(text=("relleno " * 400) + tail),
     )
@@ -551,7 +273,7 @@ async def test_search_still_matches_beyond_the_truncated_title(db_pool):
 async def test_export_returns_only_finished_rows_of_the_user(db_pool):
     """La exportación saca el veredicto, pero solo de filas propias y terminadas."""
     done_id = await _pending("La vitamina C previene el resfriado")
-    await complete_analysis(
+    await seed_done(
         analysis_id=done_id,
         label="falsa",
         confidence=0.9,
@@ -564,11 +286,11 @@ async def test_export_returns_only_finished_rows_of_the_user(db_pool):
     )
     await _pending("sigue en cola")
     failed_id = await _pending("terminó mal")
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
-    other_id = await create_pending_analysis(
+    await seed_failed(analysis_id=failed_id, error_code="CONNECTION")
+    other_id = await seed_pending(
         user_id="user-b", request=AnalysisRequest(text="De otro usuario")
     )
-    await complete_analysis(
+    await seed_done(
         analysis_id=other_id, label="verdadera", confidence=0.7, explanation="Informe."
     )
 
@@ -591,7 +313,7 @@ async def test_export_returns_only_finished_rows_of_the_user(db_pool):
 
 async def test_rows_are_isolated_per_user(db_pool):
     analysis_id = await _pending()
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
     )
 
@@ -609,7 +331,7 @@ async def test_delete_all_removes_only_own_rows(db_pool):
     """delete_all borra todas las filas del usuario y respeta las de otros usuarios."""
     await _pending()
     await _pending("El paracetamol reduce la fiebre")
-    other_id = await create_pending_analysis(
+    other_id = await seed_pending(
         user_id="user-b", request=AnalysisRequest(text="Otro usuario")
     )
 
@@ -626,14 +348,11 @@ async def test_delete_all_returns_zero_when_history_empty(db_pool):
 
 
 async def test_file_bytes_round_trip_exactly(db_pool):
-    """El binario subido vuelve byte a byte; sin él no hay extracción en el worker."""
+    """El binario subido vuelve byte a byte en la descarga autenticada."""
     data = b"%PDF-1.4\x00\xff\x00 binario con nulos"
-    analysis_id = await create_pending_file_analysis(
+    analysis_id = await seed_pending_file(
         user_id=USER, filename="informe.pdf", data=data
     )
-
-    stored = await get_file_data_by_id(analysis_id=analysis_id)
-    assert stored == (data, "informe.pdf")
 
     # La descarga autenticada exige que el archivo sea del propio usuario.
     assert (
@@ -658,15 +377,15 @@ async def test_pending_summary_counts_all_and_names_the_newest(db_pool):
 async def test_pending_summary_ignores_finished_rows_and_other_users(db_pool):
     """Solo cuentan las filas 'pending' propias; done/failed y ajenas quedan fuera."""
     done_id = await _pending("Afirmacion que termina bien")
-    await complete_analysis(
+    await seed_done(
         analysis_id=done_id,
         label="falsa",
         confidence=0.9,
         explanation="Informe.",
     )
     failed_id = await _pending("Afirmacion que falla")
-    await fail_analysis(analysis_id=failed_id, error_code="internal_error")
-    await create_pending_analysis(
+    await seed_failed(analysis_id=failed_id, error_code="internal_error")
+    await seed_pending(
         user_id="user-b", request=AnalysisRequest(text="Pendiente de otro usuario")
     )
 
@@ -676,44 +395,9 @@ async def test_pending_summary_ignores_finished_rows_and_other_users(db_pool):
     assert summary.newest_analysis_id is None
 
 
-async def test_origin_defaults_to_web_and_round_trips_mcp(db_pool):
-    """El canal de origen llega intacto al detalle, al listado y a la exportación."""
-    web_id = await _pending()
-    mcp_id = await create_pending_analysis(
-        user_id=USER,
-        request=AnalysisRequest(text="La lejía cura la COVID"),
-        origin="mcp",
-    )
-
-    web = await get_user_analysis_by_id(user_id=USER, analysis_id=web_id)
-    mcp = await get_user_analysis_by_id(user_id=USER, analysis_id=mcp_id)
-    assert web is not None and web.origin == "web"
-    assert mcp is not None and mcp.origin == "mcp"
-
-    rows, _ = await list_user_analysis_history(user_id=USER)
-    assert {row.analysis_id: row.origin for row in rows} == {
-        web_id: "web",
-        mcp_id: "mcp",
-    }
-
-    # La exportación solo incluye análisis terminados.
-    for analysis_id in (web_id, mcp_id):
-        await complete_analysis(
-            analysis_id=analysis_id,
-            label="falsa",
-            confidence=0.9,
-            explanation="Informe.",
-        )
-    exported = await export_user_analysis_history(user_id=USER)
-    assert {row.analysis_id: row.origin for row in exported} == {
-        web_id: "web",
-        mcp_id: "mcp",
-    }
-
-
 async def test_origin_rejects_unknown_channels(db_pool):
     """El CHECK de la tabla impide canales fuera de web/mcp."""
     with pytest.raises(DatabaseError):
-        await create_pending_analysis(
+        await seed_pending(
             user_id=USER, request=AnalysisRequest(text="Texto de prueba"), origin="api"
         )

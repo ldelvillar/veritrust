@@ -3,7 +3,9 @@
 import types
 
 import httpx
+import pytest
 
+from app.schemas.errors import ErrorCode
 from app.utils import email
 
 ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
@@ -109,6 +111,33 @@ async def test_no_claims_email_uses_neutral_subject(monkeypatch):
     assert "afirmaciones médicas" in subject
     assert "no pudo" not in subject
     assert f"/app/analisis/{ANALYSIS_ID}" in recorder[0]["json"]["html"]
+
+
+@pytest.mark.parametrize(
+    ("error_code", "sender"),
+    [
+        (None, email.send_analysis_ready_email),
+        (ErrorCode.NO_MEDICAL_CLAIMS, email.send_analysis_no_claims_email),
+        (ErrorCode.CONNECTION, email.send_analysis_failed_email),
+        (ErrorCode.SERVICE_UNAVAILABLE, email.send_analysis_failed_email),
+    ],
+    ids=["done", "no-claims", "connection", "service-unavailable"],
+)
+async def test_notifier_sends_the_email_that_matches_the_outcome(
+    monkeypatch, error_code, sender
+):
+    _configure(monkeypatch)
+    expected: list[dict] = []
+    _patch_client(monkeypatch, expected)
+    await sender(to="user@example.com", analysis_id=ANALYSIS_ID)
+    sent: list[dict] = []
+    _patch_client(monkeypatch, sent)
+
+    await email.ResendNotifier().finished(
+        to="user@example.com", analysis_id=ANALYSIS_ID, error_code=error_code
+    )
+
+    assert [req["json"] for req in sent] == [req["json"] for req in expected]
 
 
 async def test_no_send_without_api_key(monkeypatch):

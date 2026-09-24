@@ -8,8 +8,10 @@ from arq.connections import ArqRedis
 from arq.worker import JobExecutionFailed, Worker
 
 import app.worker as worker_module
+from app.core.analysis_jobs import ArqAnalysisQueue
 
 ANALYSIS_ID = "22222222-2222-2222-2222-222222222222"
+HEALTHY_ID = "33333333-3333-3333-3333-333333333333"
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
@@ -30,258 +32,140 @@ def arq_pool():
     return ArqRedis(connection_pool=fake.connection_pool)
 
 
-def _patch_db(monkeypatch):
-    """Sustituye las escrituras de BD del worker por espías que registran llamadas."""
-    completed = []
-    failed = []
+class _RecordingRunner:
+    """Runner del ciclo de vida de mentira: registra cada Run y puede colgarse o fallar."""
 
-    async def fake_complete(**kwargs):
-        completed.append(kwargs)
+    def __init__(self, *, hang=False, explode_on=None):
+        self.runs: list[tuple] = []
+        self.finished: list[str] = []
+        self._hang = hang
+        self._explode_on = explode_on
 
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    async def fake_set_stage(**kwargs):
-        pass
-
-    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
-    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
-    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
-    return completed, failed
+    async def run(self, analysis_id, work, *, notify_email=None):
+        self.runs.append((analysis_id, work, notify_email))
+        if self._hang:
+            await asyncio.sleep(30)
+        if analysis_id == self._explode_on:
+            raise RuntimeError("fallo inesperado fuera del trabajo de la Run")
+        self.finished.append(analysis_id)
+        return "done"
 
 
-def _make_worker(arq_pool, **overrides) -> Worker:
+def _make_worker(arq_pool, runner, **overrides) -> Worker:
     """Construye un worker de arq en modo burst con las funciones registradas reales."""
+
+    async def startup(ctx):
+        ctx["verification_system"] = object()
+        ctx["pipeline"] = PIPELINE
+        ctx["analysis_runner"] = runner
+
     defaults = dict(
         functions=worker_module.WorkerSettings.functions,
         redis_pool=arq_pool,
         burst=True,
         handle_signals=False,
         poll_delay=0.01,
+        on_startup=startup,
     )
     defaults.update(overrides)
     return Worker(**defaults)
 
 
-async def test_enqueued_job_round_trips_through_real_arq_worker(monkeypatch, arq_pool):
-    """El nombre y los argumentos que encola la ruta llegan intactos a run_analysis."""
-    completed, failed = _patch_db(monkeypatch)
-    graph_sentinel = object()
-    seen = {}
+async def test_enqueued_job_round_trips_through_real_arq_worker(arq_pool):
+    """El nombre y los argumentos que encola la cola de la web llegan intactos a run_analysis."""
+    runner = _RecordingRunner()
 
-    async def fake_ainvoke(graph, state, on_stage=None):
-        seen["graph"] = graph
-        seen["input_text"] = state["input_text"]
-        return {
-            "label": "falsa",
-            "confidence": 0.9,
-            "medical_explanation": "Informe.",
-        }
-
-    monkeypatch.setattr(worker_module, "ainvoke_graph", fake_ainvoke)
-
-    async def startup(ctx):
-        ctx["verification_system"] = graph_sentinel
-        ctx["pipeline"] = PIPELINE
-
-    # Misma forma exacta de encolado que usan las rutas del proceso web.
-    await arq_pool.enqueue_job(
-        "run_analysis",
-        ANALYSIS_ID,
-        "text",
-        "Bleach cures COVID",
-        None,
-        _job_id=ANALYSIS_ID,
+    # El mismo adaptador de cola que usa el proceso web.
+    await ArqAnalysisQueue(arq_pool).enqueue(
+        ANALYSIS_ID, notify_email="user@example.com"
     )
-
-    worker = _make_worker(arq_pool, on_startup=startup)
+    worker = _make_worker(arq_pool, runner)
     await worker.main()
 
     assert (worker.jobs_complete, worker.jobs_failed) == (1, 0)
-    # El grafo construido en startup llega al job vía ctx["verification_system"].
-    assert seen["graph"] is graph_sentinel
-    assert seen["input_text"] == "Bleach cures COVID"
-    assert failed == []
-    assert completed[0]["analysis_id"] == ANALYSIS_ID
-    assert completed[0]["label"] == "falsa"
+    [(analysis_id, work, notify_email)] = runner.runs
+    assert (analysis_id, notify_email) == (ANALYSIS_ID, "user@example.com")
+    # El trabajo de la Run es analyse sobre el ctx que preparó startup.
+    assert work.func is worker_module.analyse
+    assert work.args[0]["pipeline"] is PIPELINE
 
 
-async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(
-    monkeypatch, arq_pool
-):
-    """Dos encolados del mismo analysis_id (p. ej. reaper + retry en carrera) corren una sola vez."""
-    completed, failed = _patch_db(monkeypatch)
+async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(arq_pool):
+    """Dos encolados del mismo analysis_id mientras su job sigue vivo corren una sola vez."""
+    runner = _RecordingRunner()
+    queue = ArqAnalysisQueue(arq_pool)
 
-    async def fake_ainvoke(graph, state, on_stage=None):
-        return {
-            "label": "falsa",
-            "confidence": 0.9,
-            "medical_explanation": "Informe.",
-        }
-
-    monkeypatch.setattr(worker_module, "ainvoke_graph", fake_ainvoke)
-
-    async def startup(ctx):
-        ctx["verification_system"] = object()
-        ctx["pipeline"] = PIPELINE
-
-    first = await arq_pool.enqueue_job(
-        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
-    )
-    second = await arq_pool.enqueue_job(
-        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
-    )
-
-    assert first is not None
-    assert second is None
-
-    worker = _make_worker(arq_pool, on_startup=startup)
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    worker = _make_worker(arq_pool, runner)
     await worker.main()
 
     assert (worker.jobs_complete, worker.jobs_failed) == (1, 0)
-    assert len(completed) == 1
-    assert failed == []
+    assert runner.finished == [ANALYSIS_ID]
 
 
-async def test_finished_job_without_kept_result_can_be_reenqueued(
-    monkeypatch, arq_pool
-):
-    """Con keep_result=0 (retry tras un fallo), el mismo _job_id puede reencolarse al acabar."""
-    completed, failed = _patch_db(monkeypatch)
+async def test_finished_job_without_kept_result_can_be_reenqueued(arq_pool):
+    """Con keep_result=0, una Run terminada suelta su job y el análisis puede reencolarse."""
+    runner = _RecordingRunner()
+    queue = ArqAnalysisQueue(arq_pool)
+    keep_result = worker_module.WorkerSettings.keep_result
 
-    async def fake_ainvoke(graph, state, on_stage=None):
-        return {
-            "label": "falsa",
-            "confidence": 0.9,
-            "medical_explanation": "Informe.",
-        }
-
-    monkeypatch.setattr(worker_module, "ainvoke_graph", fake_ainvoke)
-
-    async def startup(ctx):
-        ctx["verification_system"] = object()
-        ctx["pipeline"] = PIPELINE
-
-    await arq_pool.enqueue_job(
-        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
-    )
-    worker = _make_worker(
-        arq_pool,
-        on_startup=startup,
-        keep_result=worker_module.WorkerSettings.keep_result,
-    )
-    await worker.main()
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    await _make_worker(arq_pool, runner, keep_result=keep_result).main()
 
     # Una clave arq:result: residual haría de este segundo encolado un no-op.
-    reenqueued = await arq_pool.enqueue_job(
-        "run_analysis", ANALYSIS_ID, "text", "Texto", None, _job_id=ANALYSIS_ID
-    )
+    assert await queue.is_live(ANALYSIS_ID) is False
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    assert await queue.is_live(ANALYSIS_ID) is True
+    await _make_worker(arq_pool, runner, keep_result=keep_result).main()
 
-    assert reenqueued is not None
-    worker = _make_worker(
-        arq_pool,
-        on_startup=startup,
-        keep_result=worker_module.WorkerSettings.keep_result,
-    )
+    assert runner.finished == [ANALYSIS_ID, ANALYSIS_ID]
+
+
+async def test_job_exceeding_timeout_is_cancelled_mid_run(arq_pool):
+    """Un job colgado se cancela por el corte duro de arq sin llegar a cerrar su Run."""
+    runner = _RecordingRunner(hang=True)
+
+    job = await arq_pool.enqueue_job("run_analysis", analysis_id=ANALYSIS_ID)
+    worker = _make_worker(arq_pool, runner, job_timeout=0.2)
     await worker.main()
 
-    assert len(completed) == 2
-
-
-async def test_job_exceeding_timeout_is_cancelled_without_writing_a_verdict(
-    monkeypatch, arq_pool
-):
-    """Un job colgado se cancela por timeout y la fila queda pending para el reaper."""
-    completed, failed = _patch_db(monkeypatch)
-
-    async def hanging_ainvoke(graph, state, on_stage=None):
-        await asyncio.sleep(30)
-
-    monkeypatch.setattr(worker_module, "ainvoke_graph", hanging_ainvoke)
-
-    async def startup(ctx):
-        ctx["verification_system"] = object()
-        ctx["pipeline"] = PIPELINE
-
-    job = await arq_pool.enqueue_job("run_analysis", ANALYSIS_ID, "text", "Texto", None)
-
-    worker = _make_worker(arq_pool, on_startup=startup, job_timeout=0.2)
-    await worker.main()
-
-    # La cancelación no debe registrarse como veredicto ni como fallo del análisis:
-    # la fila sigue pending y es el cron reap_stale_analyses quien la recoge.
-    assert completed == []
-    assert failed == []
+    # La fila sigue pending y es el cron reap_orphaned_analyses quien la recoge.
+    assert runner.finished == []
     assert worker.jobs_failed == 1
-
     info = await job.result_info()
     assert info is not None
     assert info.success is False
     assert isinstance(info.result, TimeoutError)
 
 
-async def test_job_with_unknown_function_name_fails_without_touching_db(
-    monkeypatch, arq_pool
-):
-    """Un desfase de nombres web/worker falla el job en arq sin tocar la base de datos."""
-    completed, failed = _patch_db(monkeypatch)
+async def test_job_with_unknown_function_name_fails_without_running(arq_pool):
+    """Un desfase de nombres web/worker falla el job en arq sin abrir ninguna Run."""
+    runner = _RecordingRunner()
 
-    async def startup(ctx):
-        ctx["verification_system"] = object()
-        ctx["pipeline"] = PIPELINE
-
-    # Simula un despliegue desfasado donde la ruta encola un nombre renombrado.
-    job = await arq_pool.enqueue_job(
-        "run_analysis_v2", ANALYSIS_ID, "text", "Texto", None
-    )
-
-    worker = _make_worker(arq_pool, on_startup=startup)
+    # Simula un despliegue desfasado donde la web encola un nombre renombrado.
+    job = await arq_pool.enqueue_job("run_analysis_v2", analysis_id=ANALYSIS_ID)
+    worker = _make_worker(arq_pool, runner)
     await worker.main()
 
     assert worker.jobs_failed == 1
-    assert completed == []
-    assert failed == []
-
+    assert runner.runs == []
     info = await job.result_info()
     assert info is not None
     assert isinstance(info.result, JobExecutionFailed)
 
 
-async def test_worker_survives_a_failing_job_and_processes_the_next_one(
-    monkeypatch, arq_pool
-):
-    """Una excepción inesperada en un job no tumba el worker ni bloquea la cola."""
-    completed, failed = _patch_db(monkeypatch)
-    calls = []
+async def test_worker_survives_a_failing_job_and_processes_the_next_one(arq_pool):
+    """Una excepción que escapa de un job no tumba el worker ni bloquea la cola."""
+    runner = _RecordingRunner(explode_on=ANALYSIS_ID)
+    queue = ArqAnalysisQueue(arq_pool)
 
-    async def flaky_ainvoke(graph, state, on_stage=None):
-        calls.append(state["input_text"])
-        if state["input_text"] == "veneno":
-            raise RuntimeError("graph exploded")
-        return {
-            "label": "verdadera",
-            "confidence": 0.8,
-            "medical_explanation": "Informe.",
-        }
-
-    monkeypatch.setattr(worker_module, "ainvoke_graph", flaky_ainvoke)
-
-    async def startup(ctx):
-        ctx["verification_system"] = object()
-        ctx["pipeline"] = PIPELINE
-
-    await arq_pool.enqueue_job("run_analysis", ANALYSIS_ID, "text", "veneno", None)
-    await arq_pool.enqueue_job(
-        "run_analysis", "33333333-3333-3333-3333-333333333333", "text", "sano", None
-    )
-
-    worker = _make_worker(arq_pool, on_startup=startup)
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    await queue.enqueue(HEALTHY_ID, notify_email=None)
+    worker = _make_worker(arq_pool, runner)
     await worker.main()
 
     # arq no garantiza orden ante empate de score; lo que importa es que ambos corran.
-    assert sorted(calls) == ["sano", "veneno"]
-    assert worker.jobs_complete == 2
-    assert [f["error_code"] for f in failed] == ["INTERNAL"]
-    assert [c["analysis_id"] for c in completed] == [
-        "33333333-3333-3333-3333-333333333333"
-    ]
+    assert sorted(run[0] for run in runner.runs) == [ANALYSIS_ID, HEALTHY_ID]
+    assert (worker.jobs_complete, worker.jobs_failed) == (1, 1)
+    assert runner.finished == [HEALTHY_ID]

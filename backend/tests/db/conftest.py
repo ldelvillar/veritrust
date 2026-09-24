@@ -10,6 +10,7 @@ import asyncio
 import os
 import subprocess
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import psycopg
@@ -121,3 +122,69 @@ async def db_pool(database_schema, monkeypatch):
         yield pool
     finally:
         await pool_module.close_pool()
+
+
+class _FaultyCursor:
+    """Cursor real que lanza un error de psycopg en las sentencias marcadas."""
+
+    def __init__(self, cursor, faults):
+        self._cursor = cursor
+        self._faults = faults
+
+    async def __aenter__(self):
+        await self._cursor.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return await self._cursor.__aexit__(*exc_info)
+
+    async def execute(self, query, params=None):
+        if any(marker in query for marker in self._faults.markers):
+            raise psycopg.OperationalError("fallo inyectado por la prueba")
+        return await self._cursor.execute(query, params)
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _FaultyConnection:
+    """Conexión real cuyos cursores fallan en las sentencias marcadas."""
+
+    def __init__(self, conn, faults):
+        self._conn = conn
+        self._faults = faults
+
+    def cursor(self, *args, **kwargs):
+        return _FaultyCursor(self._conn.cursor(*args, **kwargs), self._faults)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+class DatabaseFaults:
+    """Pool real que hace fallar solo las sentencias que contienen un marcador."""
+
+    def __init__(self, pool):
+        self._pool = pool
+        self.markers: list[str] = []
+
+    def fail_on(self, marker: str) -> None:
+        """Hace fallar desde ahora cada sentencia SQL que contenga ``marker``."""
+        self.markers.append(marker)
+
+    @asynccontextmanager
+    async def connection(self):
+        async with self._pool.connection() as conn:
+            yield _FaultyConnection(conn, self)
+
+
+@pytest.fixture
+async def db_faults(db_pool):
+    """Sustituye el pool de la app por uno que falla en las sentencias marcadas."""
+    faults = DatabaseFaults(db_pool)
+    pool_module._pool = faults
+    try:
+        yield faults
+    finally:
+        # Se restaura antes de que db_pool cierre el pool real.
+        pool_module._pool = db_pool

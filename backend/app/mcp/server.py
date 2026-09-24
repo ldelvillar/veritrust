@@ -23,14 +23,11 @@ from app.api.dependencies.check_rate_limit import (
     enforce_sliding_window,
     user_rate_limit_key,
 )
-from app.core.analysis_jobs import EnqueueError, enqueue_analysis
+from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused, Submitter
 from app.core.config import get_settings
 from app.core.credibility import classify_verdict, compute_credibility
 from app.core.errors import make_error_detail
-from app.db.history import (
-    create_pending_analysis,
-    get_user_analysis_by_id,
-)
+from app.db.history import get_user_analysis_by_id
 from app.db.pool import DatabaseError
 from app.mcp.auth import ClerkOAuthTokenVerifier
 from app.schemas.analysis import (
@@ -281,7 +278,9 @@ async def _await_evidence(
         await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
 
-def build_mcp_server(*, arq_pool: Any, redis: Any) -> MCPServer:
+def build_mcp_server(
+    *, arq_pool: Any, redis: Any, analysis_intake: AnalysisIntake
+) -> MCPServer:
     """Construye el servidor MCP con autenticación OAuth de Clerk y sus herramientas."""
     settings = get_settings()
     server = MCPServer(
@@ -333,26 +332,12 @@ def build_mcp_server(*, arq_pool: Any, redis: Any) -> MCPServer:
         user_id = _current_user_id()
         await _consume_rate_limit(redis, user_id)
 
+        # Sin email: el cliente MCP recibe el resultado en la propia llamada.
+        submitter = Submitter(user_id=user_id, origin="mcp")
         try:
-            analysis_id = await create_pending_analysis(
-                user_id=user_id, request=request, origin="mcp"
-            )
-        except DatabaseError as exc:
-            logger.exception("[MCP] No se pudo crear el análisis pendiente")
-            raise _tool_error(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
-
-        try:
-            await enqueue_analysis(
-                arq_pool,
-                analysis_id=analysis_id,
-                source_type=request.source_type.value,
-                text=request.text,
-                url=str(request.url) if request.url else None,
-                # Sin email: el cliente MCP recibe el resultado en la propia llamada.
-                email=None,
-            )
-        except EnqueueError as exc:
-            raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
+            analysis_id = await analysis_intake.submit(submitter, request)
+        except AnalysisRefused as exc:
+            raise _tool_error(exc.code) from exc
 
         return await _await_analysis(ctx, user_id=user_id, analysis_id=analysis_id)
 
