@@ -265,7 +265,7 @@ export interface paths {
         };
         /**
          * Export History
-         * @description Exporta todo el historial filtrado del usuario como un fichero CSV.
+         * @description Exporta como CSV los análisis done que encuentra la consulta del usuario.
          */
         get: operations["export_history_history_export_get"];
         put?: never;
@@ -788,21 +788,6 @@ export interface components {
             /** Page Size */
             page_size: number;
             verdict_counts: components["schemas"]["HistoryVerdictCounts"];
-            source_type_counts: components["schemas"]["HistorySourceTypeCounts"];
-        };
-        /**
-         * HistorySourceTypeCounts
-         * @description Conteos globales por tipo de fuente del historial filtrado, para los chips.
-         */
-        HistorySourceTypeCounts: {
-            /** Total */
-            total: number;
-            /** Text */
-            text: number;
-            /** Url */
-            url: number;
-            /** File */
-            file: number;
         };
         /**
          * HistoryVerdictCounts
@@ -1858,7 +1843,7 @@ export interface operations {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
                 verdict?: "all" | "real" | "fake" | "uncertain";
-                status?: "all" | "done" | "pending" | "failed";
+                status?: "all" | "pending" | "done" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";
             };
@@ -2012,6 +1997,7 @@ export interface operations {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
                 verdict?: "all" | "real" | "fake" | "uncertain";
+                status?: "all" | "pending" | "done" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";
             };

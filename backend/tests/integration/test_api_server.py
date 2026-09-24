@@ -18,6 +18,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.core.analysis_lifecycle import REFUSAL_CODES, AnalysisIntake, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
+from app.db.history_query import HistoryPage
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
     MAX_INPUT_TEXT_LENGTH,
@@ -26,7 +27,12 @@ from app.schemas.analysis import (
 )
 from app.schemas.errors import ErrorCode
 from app.schemas.feedback import AnalysisFeedback
-from app.schemas.history import AnalysisHistoryItem, PublicAnalysisReport
+from app.schemas.history import (
+    AnalysisHistoryItem,
+    HistoryQuery,
+    HistoryVerdictCounts,
+    PublicAnalysisReport,
+)
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 from tests.support.lifecycle import ANALYSIS_ID, StubIntake
 
@@ -1072,64 +1078,24 @@ def test_historial_returns_user_history(monkeypatch):
         }
     ]
 
-    async def fake_list_user_analysis_history(
-        *,
-        user_id,
-        limit,
-        offset,
-        search_query,
-        source_type,
-        created_after,
-        sort,
-        verdict,
-        status,
-    ):
+    async def fake_search_history(*, user_id, query, page, page_size):
         assert user_id == "test-user"
-        assert verdict == "fake"
-        assert limit == 10
-        assert offset == 0
-        assert search_query == "vacuna"
-        assert source_type == "text"
-        assert created_after is not None
-        assert sort == "credibility_high"
-        # Sin parámetro 'status' explícito el filtro de estado queda en None (todos).
-        assert status is None
-        return [types.SimpleNamespace(**row) for row in history_rows], 12
+        assert (page, page_size) == (1, 10)
+        # Sin parámetro 'status' explícito el filtro de estado queda en "all".
+        assert query == HistoryQuery(
+            search="vacuna",
+            source_type="text",
+            verdict="fake",
+            date_range="30d",
+            sort="credibility_high",
+        )
+        return HistoryPage(
+            items=[types.SimpleNamespace(**row) for row in history_rows],
+            total=12,
+            verdict_counts=HistoryVerdictCounts(total=12, real=3, fake=8, uncertain=1),
+        )
 
-    monkeypatch.setattr(
-        "app.api.routes.history.list_user_analysis_history",
-        fake_list_user_analysis_history,
-    )
-
-    async def fake_count_history_verdict_facets(
-        *, user_id, search_query, source_type, created_after
-    ):
-        # Los facets ignoran el filtro de veredicto; conservan el resto de filtros.
-        assert user_id == "test-user"
-        assert search_query == "vacuna"
-        assert source_type == "text"
-        assert created_after is not None
-        return {"total": 12, "real": 3, "fake": 8, "uncertain": 1}
-
-    monkeypatch.setattr(
-        "app.api.routes.history.count_history_verdict_facets",
-        fake_count_history_verdict_facets,
-    )
-
-    async def fake_count_history_source_type_facets(
-        *, user_id, search_query, verdict, created_after
-    ):
-        # Los facets de tipo ignoran el filtro de tipo; conservan el resto.
-        assert user_id == "test-user"
-        assert search_query == "vacuna"
-        assert verdict == "fake"
-        assert created_after is not None
-        return {"total": 12, "text": 7, "url": 3, "file": 2}
-
-    monkeypatch.setattr(
-        "app.api.routes.history.count_history_source_type_facets",
-        fake_count_history_source_type_facets,
-    )
+    monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
 
     response = client.get(
         "/history?page=1&page_size=10&search=vacuna&source_type=text"
@@ -1161,43 +1127,21 @@ def test_historial_returns_user_history(monkeypatch):
         "fake": 8,
         "uncertain": 1,
     }
-    # Conteos globales por tipo de fuente para los chips (independientes de la página).
-    assert body["source_type_counts"] == {
-        "total": 12,
-        "text": 7,
-        "url": 3,
-        "file": 2,
-    }
 
 
 def test_historial_forwards_status_filter(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_list_user_analysis_history(*, status, **kwargs):
-        assert status == "failed"
-        return [], 0
+    async def fake_search_history(*, query, **kwargs):
+        assert query.status == "failed"
+        return HistoryPage(
+            items=[],
+            total=0,
+            verdict_counts=HistoryVerdictCounts(total=0, real=0, fake=0, uncertain=0),
+        )
 
-    monkeypatch.setattr(
-        "app.api.routes.history.list_user_analysis_history",
-        fake_list_user_analysis_history,
-    )
-
-    async def fake_count_history_verdict_facets(**kwargs):
-        return {"total": 0, "real": 0, "fake": 0, "uncertain": 0}
-
-    monkeypatch.setattr(
-        "app.api.routes.history.count_history_verdict_facets",
-        fake_count_history_verdict_facets,
-    )
-
-    async def fake_count_history_source_type_facets(**kwargs):
-        return {"total": 0, "text": 0, "url": 0, "file": 0}
-
-    monkeypatch.setattr(
-        "app.api.routes.history.count_history_source_type_facets",
-        fake_count_history_source_type_facets,
-    )
+    monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
 
     response = client.get("/history?status=failed")
 
@@ -1209,18 +1153,28 @@ def test_historial_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_list_user_analysis_history(**kwargs):
+    async def fake_search_history(**kwargs):
         raise DatabaseError("db down")
 
-    monkeypatch.setattr(
-        "app.api.routes.history.list_user_analysis_history",
-        fake_list_user_analysis_history,
-    )
+    monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
 
     response = client.get("/history")
 
     assert response.status_code == 500
     assert response.json()["detail"]["code"] == "HISTORY_FETCH_FAILED"
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/history?verdict=maybe", "/history?status=running", "/history/export?sort=zzz"],
+)
+def test_historial_rejects_values_outside_the_contract(monkeypatch, path):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    response = client.get(path)
+
+    assert response.status_code == 422
 
 
 def test_dashboard_summary_returns_summary(monkeypatch):
@@ -1334,20 +1288,21 @@ def test_historial_export_returns_csv(monkeypatch):
         ),
     ]
 
-    async def fake_export_user_analysis_history(
-        *, user_id, search_query, source_type, created_after, sort, verdict
-    ):
+    async def fake_export_history(*, user_id, query):
         assert user_id == "test-user"
-        assert search_query == "vacuna"
-        assert source_type == "url"
-        assert created_after is not None
-        assert sort == "credibility_low"
-        assert verdict == "real"
+        # La exportación recibe la misma consulta que el listado, estado incluido.
+        assert query == HistoryQuery(
+            search="vacuna",
+            source_type="url",
+            verdict="real",
+            status="done",
+            date_range="30d",
+            sort="credibility_low",
+        )
         return records
 
     monkeypatch.setattr(
-        "app.api.routes.history.export_user_analysis_history",
-        fake_export_user_analysis_history,
+        "app.api.routes.history.export_user_history", fake_export_history
     )
     monkeypatch.setattr(
         "app.core.history_export.get_settings",
@@ -1356,7 +1311,7 @@ def test_historial_export_returns_csv(monkeypatch):
 
     response = client.get(
         "/history/export?search=vacuna&source_type=url"
-        "&verdict=real&date_range=30d&sort=credibility_low"
+        "&verdict=real&status=done&date_range=30d&sort=credibility_low"
     )
 
     assert response.status_code == 200
@@ -1409,12 +1364,11 @@ def test_historial_export_neutralizes_csv_formula(monkeypatch):
         ),
     ]
 
-    async def fake_export_user_analysis_history(**kwargs):
+    async def fake_export_history(**kwargs):
         return records
 
     monkeypatch.setattr(
-        "app.api.routes.history.export_user_analysis_history",
-        fake_export_user_analysis_history,
+        "app.api.routes.history.export_user_history", fake_export_history
     )
 
     response = client.get("/history/export")
@@ -1448,12 +1402,11 @@ def test_historial_export_uses_the_file_name_as_entry(monkeypatch):
         ),
     ]
 
-    async def fake_export_user_analysis_history(**kwargs):
+    async def fake_export_history(**kwargs):
         return records
 
     monkeypatch.setattr(
-        "app.api.routes.history.export_user_analysis_history",
-        fake_export_user_analysis_history,
+        "app.api.routes.history.export_user_history", fake_export_history
     )
 
     response = client.get("/history/export")
@@ -1468,12 +1421,11 @@ def test_historial_export_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_export_user_analysis_history(**kwargs):
+    async def fake_export_history(**kwargs):
         raise DatabaseError("db down")
 
     monkeypatch.setattr(
-        "app.api.routes.history.export_user_analysis_history",
-        fake_export_user_analysis_history,
+        "app.api.routes.history.export_user_history", fake_export_history
     )
 
     response = client.get("/history/export")

@@ -3,84 +3,33 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { INITIAL_HISTORY_PATH, PAGE_SIZE } from '@/lib/historyQuery';
-
-export type SortOrder =
-  'recent' | 'oldest' | 'credibility_high' | 'credibility_low';
-export type DateRangeFilter = 'all' | '7d' | '30d' | '90d';
-export type SourceTypeFilter = 'all' | 'text' | 'file' | 'url';
-export type VerdictFilter = 'all' | 'real' | 'fake' | 'uncertain';
-export type StatusFilter = 'all' | 'done' | 'pending' | 'failed';
+import {
+  DEFAULT_HISTORY_FILTERS,
+  INITIAL_HISTORY_PATH,
+  historyExportPath,
+  historyPath,
+  parseHistoryFilters,
+  parseHistoryPage,
+  type DateRangeFilter,
+  type SortOrder,
+  type SourceTypeFilter,
+  type StatusFilter,
+  type VerdictFilter,
+} from '@/lib/historyQuery';
 
 const SEARCH_DEBOUNCE_MS = 300;
-
-const SOURCE_TYPES = [
-  'all',
-  'text',
-  'file',
-  'url',
-] as const satisfies readonly SourceTypeFilter[];
-const SORTS = [
-  'recent',
-  'oldest',
-  'credibility_high',
-  'credibility_low',
-] as const satisfies readonly SortOrder[];
-const VERDICTS = [
-  'all',
-  'real',
-  'fake',
-  'uncertain',
-] as const satisfies readonly VerdictFilter[];
-const STATUSES = [
-  'all',
-  'done',
-  'pending',
-  'failed',
-] as const satisfies readonly StatusFilter[];
-const DATE_RANGES = [
-  'all',
-  '7d',
-  '30d',
-  '90d',
-] as const satisfies readonly DateRangeFilter[];
-
-function parseParam<T extends string>(
-  value: string | null,
-  allowed: readonly T[],
-  fallback: T
-): T {
-  return value !== null && allowed.includes(value as T)
-    ? (value as T)
-    : fallback;
-}
 
 export function useHistoryFilters() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  const sourceTypeFilter = parseParam(
-    searchParams.get('source_type'),
-    SOURCE_TYPES,
-    'all'
+  const filters = useMemo(
+    () => parseHistoryFilters(searchParams),
+    [searchParams]
   );
-  const verdictFilter = parseParam(
-    searchParams.get('verdict'),
-    VERDICTS,
-    'all'
-  );
-  const sortOrder = parseParam(searchParams.get('sort'), SORTS, 'recent');
-  const statusFilter = parseParam(searchParams.get('status'), STATUSES, 'all');
-  const dateRangeFilter = parseParam(
-    searchParams.get('date_range'),
-    DATE_RANGES,
-    'all'
-  );
-  const urlSearch = (searchParams.get('search') ?? '').trim();
-  const parsedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
-  const currentPage =
-    Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const currentPage = parseHistoryPage(searchParams);
+  const urlSearch = filters.search;
 
   const [searchQuery, setSearchQuery] = useState(urlSearch);
   const [syncedUrlSearch, setSyncedUrlSearch] = useState(urlSearch);
@@ -115,46 +64,18 @@ export function useHistoryFilters() {
     return () => clearTimeout(handle);
   }, [searchQuery, updateParams, urlSearch]);
 
-  const path = useMemo(() => {
-    const params = new URLSearchParams({
-      page: String(currentPage),
-      page_size: String(PAGE_SIZE),
-      source_type: sourceTypeFilter,
-      verdict: verdictFilter,
-      status: statusFilter,
-      date_range: dateRangeFilter,
-      sort: sortOrder,
-    });
-    if (urlSearch) params.set('search', urlSearch);
-    return `/history?${params.toString()}`;
-  }, [
-    currentPage,
-    sortOrder,
-    sourceTypeFilter,
-    verdictFilter,
-    statusFilter,
-    dateRangeFilter,
-    urlSearch,
-  ]);
-
-  const exportPath = useMemo(() => {
-    // /history/export no acepta 'status'; solo se propaga el rango de fechas.
-    const params = new URLSearchParams({
-      source_type: sourceTypeFilter,
-      verdict: verdictFilter,
-      date_range: dateRangeFilter,
-      sort: sortOrder,
-    });
-    if (urlSearch) params.set('search', urlSearch);
-    return `/history/export?${params.toString()}`;
-  }, [sortOrder, sourceTypeFilter, verdictFilter, dateRangeFilter, urlSearch]);
+  const path = useMemo(
+    () => historyPath(filters, currentPage),
+    [filters, currentPage]
+  );
+  const exportPath = useMemo(() => historyExportPath(filters), [filters]);
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
-    sourceTypeFilter !== 'all' ||
-    verdictFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    dateRangeFilter !== 'all';
+    filters.sourceType !== 'all' ||
+    filters.verdict !== 'all' ||
+    filters.status !== 'all' ||
+    filters.dateRange !== 'all';
 
   const setFilter = useCallback(
     (key: string, value: string, defaultValue: string) => {
@@ -167,27 +88,32 @@ export function useHistoryFilters() {
   );
 
   const setSourceType = useCallback(
-    (value: SourceTypeFilter) => setFilter('source_type', value, 'all'),
+    (value: SourceTypeFilter) =>
+      setFilter('source_type', value, DEFAULT_HISTORY_FILTERS.sourceType),
     [setFilter]
   );
 
   const setVerdict = useCallback(
-    (value: VerdictFilter) => setFilter('verdict', value, 'all'),
+    (value: VerdictFilter) =>
+      setFilter('verdict', value, DEFAULT_HISTORY_FILTERS.verdict),
     [setFilter]
   );
 
   const setSort = useCallback(
-    (value: SortOrder) => setFilter('sort', value, 'recent'),
+    (value: SortOrder) =>
+      setFilter('sort', value, DEFAULT_HISTORY_FILTERS.sort),
     [setFilter]
   );
 
   const setStatus = useCallback(
-    (value: StatusFilter) => setFilter('status', value, 'all'),
+    (value: StatusFilter) =>
+      setFilter('status', value, DEFAULT_HISTORY_FILTERS.status),
     [setFilter]
   );
 
   const setDateRange = useCallback(
-    (value: DateRangeFilter) => setFilter('date_range', value, 'all'),
+    (value: DateRangeFilter) =>
+      setFilter('date_range', value, DEFAULT_HISTORY_FILTERS.dateRange),
     [setFilter]
   );
 
@@ -206,11 +132,11 @@ export function useHistoryFilters() {
 
   return {
     searchQuery,
-    sourceTypeFilter,
-    verdictFilter,
-    statusFilter,
-    dateRangeFilter,
-    sortOrder,
+    sourceTypeFilter: filters.sourceType,
+    verdictFilter: filters.verdict,
+    statusFilter: filters.status,
+    dateRangeFilter: filters.dateRange,
+    sortOrder: filters.sort,
     currentPage,
     path,
     exportPath,

@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.db import dashboard as dashboard_module
 from app.db import history as history_module
+from app.db import history_query as history_query_module
 from app.db import pool as pool_module
 from app.db.pool import DatabaseError
 from app.schemas.dashboard import (
@@ -196,7 +197,7 @@ def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
         "share_token": "tok_xyz",
     }
 
-    record = history_module._map_history_list_record(row)
+    record = history_query_module._map_history_list_record(row)
 
     assert isinstance(record, HistoryListItem)
     assert record.analysis_id == "123"
@@ -213,7 +214,7 @@ def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
 def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> None:
     """Si el mapeo del listado lee una columna que la consulta no trae, esto revienta."""
     row: dict[str, object] = {
-        column: None for column in history_module._HISTORY_LIST_COLUMNS
+        column: None for column in history_query_module._HISTORY_LIST_COLUMNS
     }
     # La consulta aliasa LEFT(input_text, N) como input_text; el resto son columnas.
     row["input_text"] = None
@@ -223,29 +224,27 @@ def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> 
     row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
     row["status"] = "pending"
 
-    record = history_module._map_history_list_record(row)
+    record = history_query_module._map_history_list_record(row)
 
     assert record.analysis_id == "123"
 
 
 def test_history_list_query_omits_the_report_body() -> None:
     """El listado no debe traer el informe: es carga que la tabla nunca pinta."""
-    projection = history_module._HISTORY_LIST_SELECT
+    projection = history_query_module._HISTORY_LIST_SELECT
 
     for column in ("explanation", "claims", "sources", "user_id", "file_data"):
         assert column not in projection
     # El texto pegado llega recortado; buscar sigue mirando la columna completa.
-    assert f"LEFT(input_text, {history_module.HISTORY_LIST_TEXT_CHARS})" in projection
-
-    _, list_query = history_module._build_history_queries(
-        "user_id = %s", "created_at DESC"
+    assert (
+        f"LEFT(input_text, {history_query_module.HISTORY_LIST_TEXT_CHARS})"
+        in projection
     )
-    assert projection in list_query
 
 
 def test_history_export_query_omits_the_report_but_keeps_the_full_text() -> None:
     """El CSV tampoco necesita el informe, pero sí el texto íntegro y la fecha de fin."""
-    projection = history_module._HISTORY_EXPORT_SELECT
+    projection = history_query_module._HISTORY_EXPORT_SELECT
 
     for column in ("explanation", "claims", "sources", "user_id", "file_data"):
         assert column not in projection
@@ -254,172 +253,6 @@ def test_history_export_query_omits_the_report_but_keeps_the_full_text() -> None
     assert "input_text" in projection
     # completed_at alimenta la columna «Duración (s)» del CSV.
     assert "completed_at" in projection
-
-
-def test_sanitize_history_query_params_clamps_and_normalizes_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_order_by = (
-        history_module._sanitize_history_query_params(
-            limit=500,
-            offset=-10,
-            source_type="audio",
-            sort="zzz",
-        )
-    )
-
-    assert safe_limit == 100
-    assert safe_offset == 0
-    assert safe_source_type is None
-    # Un sort desconocido cae al orden por defecto (más recientes primero).
-    assert safe_order_by == "created_at DESC"
-
-
-def test_sanitize_history_query_params_preserves_valid_values() -> None:
-    safe_limit, safe_offset, safe_source_type, safe_order_by = (
-        history_module._sanitize_history_query_params(
-            limit=25,
-            offset=5,
-            source_type="url",
-            sort="oldest",
-        )
-    )
-
-    assert safe_limit == 25
-    assert safe_offset == 5
-    assert safe_source_type == "url"
-    assert safe_order_by == "created_at ASC"
-
-
-def test_sanitize_history_query_params_credibility_sort_uses_computed_expression() -> (
-    None
-):
-    _, _, _, order_high = history_module._sanitize_history_query_params(
-        limit=10, offset=0, source_type=None, sort="credibility_high"
-    )
-    _, _, _, order_low = history_module._sanitize_history_query_params(
-        limit=10, offset=0, source_type=None, sort="credibility_low"
-    )
-
-    # La credibilidad se computa en SQL desde verdict/confidence; incierto va al final.
-    assert "verdict = 'fake'" in order_high
-    assert order_high.endswith("DESC NULLS LAST, created_at DESC")
-    assert order_low.endswith("ASC NULLS LAST, created_at DESC")
-
-
-def test_build_history_where_clause_with_only_user_id() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-    )
-
-    # Sin filtro de estado se listan todas las filas (en curso, completadas o fallidas).
-    assert where_sql == "user_id = %s"
-    assert params == ["user-1"]
-
-
-def test_build_history_where_clause_filters_by_status() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-        status="failed",
-    )
-
-    assert where_sql == "user_id = %s AND status = %s"
-    assert params == ["user-1", "failed"]
-
-
-def test_build_history_where_clause_ignores_unknown_status() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-        status="bogus",
-    )
-
-    assert where_sql == "user_id = %s"
-    assert params == ["user-1"]
-
-
-def test_build_history_where_clause_with_search_filters_and_date() -> None:
-    created_after = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-2",
-        search_query="  covid  ",
-        source_type="text",
-        created_after=created_after,
-    )
-
-    assert "COALESCE(input_text, '') ILIKE %s" in where_sql
-    assert "COALESCE(file_filename, '') ILIKE %s" in where_sql
-    assert "source_type = %s" in where_sql
-    assert "created_at >= %s" in where_sql
-    assert params == [
-        "user-2",
-        "%covid%",
-        "%covid%",
-        "%covid%",
-        "%covid%",
-        "%covid%",
-        "text",
-        created_after,
-    ]
-
-
-def test_build_history_where_clause_filters_by_fake_verdict() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-        verdict="fake",
-    )
-
-    # Igualdad parametrizada sobre la columna verdict.
-    assert where_sql == "user_id = %s AND verdict = %s"
-    assert params == ["user-1", "fake"]
-
-
-def test_build_history_where_clause_filters_by_uncertain_verdict() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-        verdict="uncertain",
-    )
-
-    # Las filas pending/failed tienen verdict NULL, así que la igualdad las excluye.
-    assert where_sql == "user_id = %s AND verdict = %s"
-    assert params == ["user-1", "uncertain"]
-
-
-def test_build_history_where_clause_ignores_unknown_verdict() -> None:
-    where_sql, params = history_module._build_history_where_clause(
-        user_id="user-1",
-        search_query=None,
-        source_type=None,
-        created_after=None,
-        verdict="bogus",
-    )
-
-    assert where_sql == "user_id = %s"
-    assert params == ["user-1"]
-
-
-def test_build_history_queries_includes_ordering_and_where() -> None:
-    count_query, list_query = history_module._build_history_queries(
-        "user_id = %s",
-        "created_at ASC",
-    )
-
-    assert "SELECT COUNT(*)" in count_query
-    assert "WHERE user_id = %s" in count_query
-    assert "ORDER BY created_at ASC" in list_query
-    assert "LIMIT %s OFFSET %s" in list_query
 
 
 def test_sanitize_dashboard_params_clamps_values() -> None:

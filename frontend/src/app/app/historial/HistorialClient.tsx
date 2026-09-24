@@ -18,7 +18,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useHistoryExport } from '@/hooks/useHistoryExport';
 import { useHistoryFilters } from '@/hooks/useHistoryFilters';
-import { PAGE_SIZE } from '@/lib/historyQuery';
+import { PAGE_SIZE, isExportable } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
 type HistoryPayload =
@@ -124,6 +124,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   // Conteos globales del backend, independientes de la página y del propio filtro.
   const verdictFacets = data?.verdict_counts ?? null;
+  const canExport = isExportable(statusFilter);
 
   // Primera vez (sin análisis ni filtros): panel de bienvenida en vez de tabla vacía.
   const isFirstTimeEmpty =
@@ -188,7 +189,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                 <Button
                   variant="soft"
                   onClick={runExport}
-                  disabled={isExporting || totalCount === 0}
+                  disabled={isExporting || totalCount === 0 || !canExport}
                   aria-busy={isExporting}
                   className="w-full sm:w-auto"
                 >
@@ -205,6 +206,10 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
                     className="text-xs font-semibold text-danger-ink"
                   >
                     {exportError}
+                  </p>
+                ) : !canExport ? (
+                  <p className="text-xs font-semibold text-muted">
+                    Solo se exportan análisis completados
                   </p>
                 ) : null}
               </div>
