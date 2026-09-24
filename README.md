@@ -61,7 +61,7 @@ flowchart TB
 
 ¹ In the Docker stack the Extractor runs on `llama3.2` (set in `docker-compose.yml`) so the whole pipeline fits one small model plus the translator.
 
-Two guardrails temper the raw verdict (`app/core/credibility.py`):
+Two guardrails temper the raw verdict (`app/core/verdict.py`):
 
 - **Evidence attenuation** — confidence is scaled down when little of the input is covered by actual literature, so the system never sounds sure about claims nobody has studied.
 - **Silence is not falsehood** — a claim no retrieved source speaks to comes out *Dudoso* by construction, never *Falso*, and Laplace smoothing keeps thin evidence away from certainty.
