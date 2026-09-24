@@ -1,20 +1,18 @@
-"""Persistencia del historial de análisis: altas, actualizaciones y consultas."""
+"""Persistencia del historial de análisis: consultas, enlace público y borrados; el estado lo escribe el ciclo de vida."""
 
 from __future__ import annotations
 
 import logging
 import secrets
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
 
-from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS, classify_verdict
-from app.db.analysis_transitions import _coerce_optional_fraction, _normalize_confidence
+from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS
 from app.db.pool import DatabaseError, _build_database_error, get_pool
-from app.schemas.analysis import AnalysisRequest, AnalysisStatusResponse, SourceType
+from app.schemas.analysis import AnalysisStatusResponse, SourceType
 from app.schemas.history import (
     AnalysisHistoryItem,
     HistoryExportItem,
@@ -272,256 +270,6 @@ def _build_history_queries(where_sql: str, safe_order_by: str) -> tuple[str, str
     )
 
     return count_query, list_query
-
-
-async def create_pending_analysis(
-    *,
-    user_id: str,
-    request: AnalysisRequest,
-    origin: str = "web",
-) -> str:
-    """Inserta un análisis en estado ``pending`` y devuelve su id."""
-    pool = await get_pool()
-
-    source_type = request.source_type.value
-    input_text = request.text if source_type in {"text", "file"} else None
-    input_url = str(request.url) if source_type == "url" and request.url else None
-
-    query = """
-        INSERT INTO public.analysis_history
-        (user_id, source_type, origin, input_text, input_url, status)
-        VALUES (%s, %s, %s, %s, %s, 'pending')
-        RETURNING id
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    query, (user_id, source_type, origin, input_text, input_url)
-                )
-                inserted_row = await cur.fetchone()
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo guardar el analisis en la base de datos.")
-        ) from exc
-
-    if not inserted_row:
-        raise DatabaseError("No se pudo obtener el id del análisis guardado.")
-
-    return str(inserted_row[0])
-
-
-async def create_pending_file_analysis(
-    *,
-    user_id: str,
-    filename: str,
-    data: bytes,
-) -> str:
-    """Inserta un análisis ``pending`` de tipo ``file`` guardando el binario."""
-    pool = await get_pool()
-
-    query = """
-        INSERT INTO public.analysis_history
-        (user_id, source_type, file_data, file_filename, status)
-        VALUES (%s, 'file', %s, %s, 'pending')
-        RETURNING id
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (user_id, data, filename))
-                inserted_row = await cur.fetchone()
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo guardar el archivo en la base de datos.")
-        ) from exc
-
-    if not inserted_row:
-        raise DatabaseError("No se pudo obtener el id del análisis guardado.")
-
-    return str(inserted_row[0])
-
-
-async def set_analysis_input_text(*, analysis_id: str, input_text: str) -> None:
-    """Persiste el texto extraído de un archivo antes de ejecutar el pipeline."""
-    pool = await get_pool()
-
-    query = "UPDATE public.analysis_history SET input_text = %s WHERE id = %s"
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (input_text, analysis_id))
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo actualizar el texto del análisis en la base de datos."
-            )
-        ) from exc
-
-
-async def set_analysis_stage(*, analysis_id: str, stage: str) -> None:
-    """Registra el agente activo de un análisis en curso para el sondeo del detalle."""
-    pool = await get_pool()
-
-    query = (
-        "UPDATE public.analysis_history SET stage = %s "
-        "WHERE id = %s AND status = 'pending'"
-    )
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (stage, analysis_id))
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo actualizar la etapa del análisis en la base de datos."
-            )
-        ) from exc
-
-
-async def complete_analysis(
-    *,
-    analysis_id: str,
-    label: str,
-    confidence: Any,
-    explanation: Optional[str],
-    claims: Optional[list[dict]] = None,
-    sources: Optional[list[dict]] = None,
-    evidence_coverage: Any = None,
-    pipeline: Optional[dict] = None,
-) -> None:
-    """Marca un análisis pendiente como ``done`` con su resultado."""
-    pool = await get_pool()
-    confidence_value = _normalize_confidence(confidence)
-    coverage_value = _coerce_optional_fraction(evidence_coverage)
-    verdict_value = classify_verdict(label)
-
-    query = """
-        UPDATE public.analysis_history
-        SET label = %s,
-            verdict = %s,
-            confidence = %s,
-            evidence_coverage = %s,
-            explanation = %s,
-            claims = %s,
-            sources = %s,
-            pipeline = %s,
-            status = 'done',
-            error_code = NULL,
-            completed_at = NOW()
-        WHERE id = %s
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    query,
-                    (
-                        label,
-                        verdict_value,
-                        confidence_value,
-                        coverage_value,
-                        explanation,
-                        Jsonb(claims) if claims else None,
-                        Jsonb(sources) if sources else None,
-                        Jsonb(pipeline) if pipeline else None,
-                        analysis_id,
-                    ),
-                )
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo guardar el analisis en la base de datos.")
-        ) from exc
-
-
-async def fail_analysis(*, analysis_id: str, error_code: str) -> None:
-    """Marca un análisis pendiente como ``failed`` con un código de error estable."""
-    pool = await get_pool()
-
-    query = """
-        UPDATE public.analysis_history
-        SET status = 'failed', error_code = %s, completed_at = NOW()
-        WHERE id = %s
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (error_code, analysis_id))
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo actualizar el analisis en la base de datos."
-            )
-        ) from exc
-
-
-async def list_stale_pending_analysis_ids(*, older_than_seconds: int) -> list[str]:
-    """Lista los ids de filas ``pending`` más antiguas que el umbral (candidatas del reaper)."""
-    pool = await get_pool()
-
-    query = """
-        SELECT id::text
-        FROM public.analysis_history
-        WHERE status = 'pending'
-          AND created_at < NOW() - make_interval(secs => %s)
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (older_than_seconds,))
-                rows = await cur.fetchall()
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo consultar análisis atascados en la base de datos."
-            )
-        ) from exc
-
-    return [str(row[0]) for row in rows]
-
-
-async def fail_stale_pending_analyses(
-    *, analysis_ids: Sequence[str], older_than_seconds: int, error_code: str
-) -> int:
-    """Marca como ``failed`` las filas indicadas si siguen ``pending`` y estancadas.
-
-    Devuelve cuántas filas se reciclaron. Re-verifica estado y antigüedad para no
-    pisar un análisis reabierto (retry reinicia ``created_at``) entre la lectura
-    de candidatas y esta escritura.
-    """
-    if not analysis_ids:
-        return 0
-
-    pool = await get_pool()
-
-    query = """
-        UPDATE public.analysis_history
-        SET status = 'failed', error_code = %s, completed_at = NOW()
-        WHERE id::text = ANY(%s)
-          AND status = 'pending'
-          AND created_at < NOW() - make_interval(secs => %s)
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    query, (error_code, list(analysis_ids), older_than_seconds)
-                )
-                return cur.rowcount
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo reciclar análisis atascados en la base de datos."
-            )
-        ) from exc
 
 
 async def list_user_analysis_history(
@@ -869,35 +617,6 @@ async def get_analysis_file(
     return bytes(row[0]), row[1]
 
 
-async def get_file_data_by_id(*, analysis_id: str) -> tuple[bytes, str | None] | None:
-    """Devuelve ``(file_data, file_filename)`` de un análisis por id (uso del worker)."""
-    pool = await get_pool()
-
-    query = """
-        SELECT file_data, file_filename
-        FROM public.analysis_history
-        WHERE id = %s AND source_type = 'file'
-        LIMIT 1
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (analysis_id,))
-                row = await cur.fetchone()
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error(
-                "No se pudo consultar el archivo en la base de datos."
-            )
-        ) from exc
-
-    if not row or row[0] is None:
-        return None
-
-    return bytes(row[0]), row[1]
-
-
 async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
     """Elimina un análisis propio del usuario. Devuelve True si borró una fila."""
     pool = await get_pool()
@@ -933,71 +652,6 @@ async def delete_all_user_analyses(*, user_id: str) -> int:
             _build_database_error(
                 "No se pudo eliminar el historial en la base de datos."
             )
-        ) from exc
-
-
-async def reset_failed_analysis_to_pending(*, user_id: str, analysis_id: str) -> bool:
-    """Reabre a ``pending`` un análisis ``failed`` propio. Devuelve True si cambió una fila."""
-    pool = await get_pool()
-
-    # created_at se reinicia a NOW(); stage se limpia para no mostrar la etapa del intento previo.
-    query = """
-        UPDATE public.analysis_history
-        SET status = 'pending',
-            error_code = NULL,
-            stage = NULL,
-            created_at = NOW(),
-            completed_at = NULL
-        WHERE user_id = %s AND id = %s AND status = 'failed'
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (user_id, analysis_id))
-                return cur.rowcount > 0
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo reabrir el análisis en la base de datos.")
-        ) from exc
-
-
-async def reset_done_analysis_to_pending(*, user_id: str, analysis_id: str) -> bool:
-    """Reabre a ``pending`` un análisis ``done`` propio para volver a analizarlo.
-
-    Devuelve True si cambió una fila. Borra el resultado previo para no contarlo en
-    agregados mientras se re-ejecuta; conserva la entrada, el archivo y el share_token.
-    """
-    pool = await get_pool()
-
-    # created_at se reinicia a NOW(); el veredicto se limpia para
-    # no seguir sumando en dashboard/historial mientras la fila está pending.
-    query = """
-        UPDATE public.analysis_history
-        SET status = 'pending',
-            label = NULL,
-            verdict = NULL,
-            confidence = NULL,
-            evidence_coverage = NULL,
-            explanation = NULL,
-            claims = NULL,
-            sources = NULL,
-            pipeline = NULL,
-            error_code = NULL,
-            stage = NULL,
-            created_at = NOW(),
-            completed_at = NULL
-        WHERE user_id = %s AND id = %s AND status = 'done'
-    """
-
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, (user_id, analysis_id))
-                return cur.rowcount > 0
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo reabrir el análisis en la base de datos.")
         ) from exc
 
 

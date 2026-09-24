@@ -4,13 +4,15 @@ import pytest
 
 from app.db.feedback import create_analysis_feedback, get_analysis_feedback
 from app.db.history import (
-    complete_analysis,
-    create_pending_analysis,
     delete_user_analysis,
-    fail_analysis,
-    reset_done_analysis_to_pending,
 )
 from app.schemas.analysis import AnalysisRequest
+from tests.db.seed import (
+    seed_done,
+    seed_failed,
+    seed_pending,
+    seed_reopened_done,
+)
 
 pytestmark = pytest.mark.db
 
@@ -18,10 +20,10 @@ USER = "user-a"
 
 
 async def _done(label: str = "falsa") -> str:
-    analysis_id = await create_pending_analysis(
+    analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id, label=label, confidence=0.9, explanation="Informe."
     )
     return analysis_id
@@ -94,7 +96,7 @@ async def test_feedback_allows_single_active_submission(db_pool):
 
 async def test_feedback_requires_done_own_row(db_pool):
     """Solo se valora una fila done y propia; el resto no inserta ni se lee."""
-    pending_id = await create_pending_analysis(
+    pending_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="sigue en cola")
     )
     assert (
@@ -108,10 +110,10 @@ async def test_feedback_requires_done_own_row(db_pool):
         is None
     )
 
-    failed_id = await create_pending_analysis(
+    failed_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="terminó mal")
     )
-    await fail_analysis(analysis_id=failed_id, error_code="CONNECTION")
+    await seed_failed(analysis_id=failed_id, error_code="CONNECTION")
     assert (
         await create_analysis_feedback(
             user_id=USER,
@@ -161,8 +163,8 @@ async def test_reanalysis_deactivates_previous_feedback(db_pool):
         comment=None,
     )
 
-    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-    await complete_analysis(
+    assert await seed_reopened_done(user_id=USER, analysis_id=analysis_id)
+    await seed_done(
         analysis_id=analysis_id, label="verdadera", confidence=0.8, explanation="Ok."
     )
 
@@ -191,10 +193,10 @@ async def test_feedback_keeps_the_pipeline_it_rated_across_reanalysis(db_pool):
     """La valoración conserva la configuración valorada aunque la fila se reanalice con otra."""
     v1 = {"provider": "ollama", "models": {}, "prompts": {"judge": "v3"}}
     v2 = {"provider": "ollama", "models": {}, "prompts": {"judge": "v4"}}
-    analysis_id = await create_pending_analysis(
+    analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
-    await complete_analysis(
+    await seed_done(
         analysis_id=analysis_id,
         label="falsa",
         confidence=0.9,
@@ -209,8 +211,8 @@ async def test_feedback_keeps_the_pipeline_it_rated_across_reanalysis(db_pool):
         comment=None,
     )
 
-    assert await reset_done_analysis_to_pending(user_id=USER, analysis_id=analysis_id)
-    await complete_analysis(
+    assert await seed_reopened_done(user_id=USER, analysis_id=analysis_id)
+    await seed_done(
         analysis_id=analysis_id,
         label="verdadera",
         confidence=0.8,

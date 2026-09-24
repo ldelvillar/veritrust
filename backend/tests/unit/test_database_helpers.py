@@ -50,37 +50,6 @@ def test_build_database_error_appends_configuration_hint() -> None:
     assert "DATABASE_URL" in message
 
 
-def test_normalize_confidence_accepts_valid_numeric_values() -> None:
-    assert history_module._normalize_confidence(0) == 0.0
-    assert history_module._normalize_confidence("1") == 1.0
-    assert history_module._normalize_confidence(0.75) == 0.75
-
-
-def test_normalize_confidence_rejects_non_numeric_values() -> None:
-    with pytest.raises(DatabaseError) as exc:
-        history_module._normalize_confidence("no-num")
-
-    assert "no es numerico" in str(exc.value)
-
-
-def test_normalize_confidence_rejects_out_of_range_values() -> None:
-    with pytest.raises(DatabaseError):
-        history_module._normalize_confidence(1.2)
-
-    with pytest.raises(DatabaseError):
-        history_module._normalize_confidence(-0.01)
-
-
-def test_coerce_optional_fraction_passes_none_and_validates_range() -> None:
-    assert history_module._coerce_optional_fraction(None) is None
-    assert history_module._coerce_optional_fraction(0.0) == 0.0
-    assert history_module._coerce_optional_fraction(1.0) == 1.0
-    with pytest.raises(DatabaseError):
-        history_module._coerce_optional_fraction(1.5)
-    with pytest.raises(DatabaseError):
-        history_module._coerce_optional_fraction("no-num")
-
-
 def test_map_history_record_converts_sql_row_to_dataclass() -> None:
     row = {
         "id": 123,

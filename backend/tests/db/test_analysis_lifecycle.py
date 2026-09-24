@@ -516,17 +516,22 @@ async def test_run_completes_the_analysis_and_notifies_the_submitter(
     assert notifier.sent == [(EMAIL, analysis_id, None)]
 
 
-async def test_run_stores_a_verdict_without_report_or_coverage(db_pool, intake, runner):
+@pytest.mark.parametrize("coverage", [None, 0.0], ids=["unmeasured", "unsupported"])
+async def test_run_stores_a_verdict_without_report_and_keeps_its_coverage_apart(
+    db_pool, intake, runner, coverage
+):
     analysis_id = await _submit(intake)
 
     await runner.run(
         analysis_id,
-        _returning(_completion(explanation=None, evidence_coverage=None)),
+        _returning(_completion(explanation=None, evidence_coverage=coverage)),
     )
 
     row = await _row(db_pool, analysis_id)
     assert (row["status"], row["explanation"]) == ("done", None)
-    assert row["evidence_coverage"] is None
+    # None (sin medir) y 0.0 (medida sin respaldo) no deben confundirse.
+    assert row["evidence_coverage"] == coverage
+    assert row["completed_at"] >= row["created_at"]
 
 
 @pytest.mark.parametrize(
@@ -776,8 +781,18 @@ async def test_a_stage_that_cannot_be_shown_never_breaks_the_run(
 
 @pytest.mark.parametrize(
     ("marker", "completion"),
-    [("SET label", _completion()), (None, _completion(confidence=None))],
-    ids=["write-fails", "invalid-confidence"],
+    [
+        ("SET label", _completion()),
+        (None, _completion(confidence=None)),
+        (None, _completion(confidence=1.2)),
+        (None, _completion(evidence_coverage=1.5)),
+    ],
+    ids=[
+        "write-fails",
+        "missing-confidence",
+        "confidence-out-of-range",
+        "coverage-out-of-range",
+    ],
 )
 async def test_a_verdict_that_cannot_be_saved_fails_the_run_as_internal(
     db_pool, db_faults, intake, runner, notifier, marker, completion
