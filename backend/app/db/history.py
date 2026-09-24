@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import secrets
 from datetime import datetime
 from typing import Any, Optional
@@ -22,8 +21,6 @@ from app.schemas.history import (
     PendingAnalysesSummary,
     PublicAnalysisReport,
 )
-
-logger = logging.getLogger(__name__)
 
 # Vocabulario único: derivado del enum SourceType para no divergir del contrato.
 _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
