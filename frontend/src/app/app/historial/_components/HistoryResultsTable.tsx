@@ -113,13 +113,16 @@ const STATUS_BADGES = {
   },
 } as const;
 
+// El tono lo decide el veredicto; la credibilidad solo se muestra como número.
+const TONE_BY_VERDICT = {
+  real: 'ok',
+  uncertain: 'warn',
+  fake: 'bad',
+} as const satisfies Record<HistoryItem['verdict'], Tone>;
+
 function toneFromItem(item: HistoryItem): Tone | null {
   if (item.status !== 'done') return null;
-  const s = item.credibility;
-  if (s === null || s === undefined) return 'warn';
-  if (s >= 70) return 'ok';
-  if (s >= 45) return 'warn';
-  return 'bad';
+  return TONE_BY_VERDICT[item.verdict];
 }
 
 function getTitle(item: HistoryItem): string {

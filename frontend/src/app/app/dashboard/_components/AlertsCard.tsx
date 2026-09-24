@@ -3,41 +3,17 @@ import ArrowRightIcon from '@/assets/ArrowRight';
 import { VERDICT_LABEL } from '@/components/analysis-result/format';
 import type { DashboardAlertItem } from './types';
 
-// Estas alertas ya vienen filtradas por el backend a veredicto 'fake': el
-// texto es siempre el mismo, solo cambia el tono según la severidad.
-function alertVerdict(item: DashboardAlertItem): {
-  label: string;
-  tone: 'bad' | 'warn';
-} {
-  const score = item.credibility ?? 0;
-  const tone = item.label === 'falsa' || score < 40 ? 'bad' : 'warn';
-  return { label: VERDICT_LABEL.fake, tone };
-}
-
-const ALERT_STYLES = {
-  bad: {
-    card: {
-      background: 'var(--color-verdict-fake-soft)',
-      borderColor: 'var(--color-verdict-fake-soft)',
-    },
-    score:
-      'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
-    verdict: {
-      color: 'var(--color-verdict-fake-ink)',
-      background: 'var(--color-verdict-fake-soft)',
-    },
+// Las alertas ya vienen filtradas por el backend a veredicto 'fake', así que todas se pintan como falsas.
+const ALERT_STYLE = {
+  card: {
+    background: 'var(--color-verdict-fake-soft)',
+    borderColor: 'var(--color-verdict-fake-soft)',
   },
-  warn: {
-    card: {
-      background: 'var(--color-verdict-uncertain-soft)',
-      borderColor: 'var(--color-verdict-uncertain-soft)',
-    },
-    score:
-      'linear-gradient(150deg,var(--color-verdict-uncertain-g1),var(--color-verdict-uncertain-g2))',
-    verdict: {
-      color: 'var(--color-verdict-uncertain-ink)',
-      background: 'var(--color-verdict-uncertain-soft)',
-    },
+  score:
+    'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
+  verdict: {
+    color: 'var(--color-verdict-fake-ink)',
+    background: 'var(--color-verdict-fake-soft)',
   },
 };
 
@@ -80,8 +56,6 @@ export default function AlertsCard({
         <>
           <div className="flex flex-col gap-3">
             {items.map(item => {
-              const { label, tone } = alertVerdict(item);
-              const st = ALERT_STYLES[tone];
               const score = item.credibility ?? 0;
               const date = new Date(item.created_at).toLocaleString('es-ES', {
                 day: 'numeric',
@@ -94,11 +68,11 @@ export default function AlertsCard({
                   key={item.id}
                   href={`/app/analisis/${item.id}`}
                   className="group flex items-start gap-3.5 rounded-xl border p-4.25 transition-all duration-150 hover:shadow-sm"
-                  style={st.card}
+                  style={ALERT_STYLE.card}
                 >
                   <div
                     className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl text-white"
-                    style={{ background: st.score }}
+                    style={{ background: ALERT_STYLE.score }}
                   >
                     <span className="text-lg leading-none font-bold">
                       {score}
@@ -115,9 +89,9 @@ export default function AlertsCard({
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
                       <span
                         className="rounded-md px-2.25 py-0.75 text-2xs font-bold tracking-[.05em] uppercase"
-                        style={st.verdict}
+                        style={ALERT_STYLE.verdict}
                       >
-                        {label}
+                        {VERDICT_LABEL.fake}
                       </span>
                       <span className="text-xs font-semibold text-muted">
                         {date}
