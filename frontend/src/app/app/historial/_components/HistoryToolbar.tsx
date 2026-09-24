@@ -8,7 +8,7 @@ import type {
   SortOrder,
   SourceTypeFilter,
   StatusFilter,
-} from '@/hooks/useHistoryFilters';
+} from '@/lib/historyQuery';
 import FilterSelect from './FilterSelect';
 
 const SOURCE_TYPE_OPTIONS = [

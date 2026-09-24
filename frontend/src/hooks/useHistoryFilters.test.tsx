@@ -67,13 +67,13 @@ describe('useHistoryFilters', () => {
     expect(result.current.path).toBe(INITIAL_HISTORY_PATH);
   });
 
-  it('omits status from the export path, which the endpoint does not accept', () => {
+  it('carries the status filter into the export path, without the page', () => {
     currentQuery = 'status=failed&verdict=real&page=2';
 
     const { result } = renderHook(() => useHistoryFilters());
 
     expect(result.current.exportPath).toBe(
-      '/history/export?source_type=all&verdict=real&date_range=all&sort=recent'
+      '/history/export?source_type=all&verdict=real&status=failed&date_range=all&sort=recent'
     );
   });
 

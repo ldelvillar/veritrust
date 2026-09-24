@@ -1,4 +1,4 @@
-import type { VerdictFilter } from '@/hooks/useHistoryFilters';
+import type { VerdictFilter } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
 type HistoryPayload =
