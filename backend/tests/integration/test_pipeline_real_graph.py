@@ -47,6 +47,21 @@ def _initial_state(text: str) -> dict:
     }
 
 
+def _serve_pending_text(monkeypatch, text: str) -> None:
+    """Hace que el worker lea ``text`` como entrada de la fila pendiente."""
+
+    async def fake_load(analysis_id):
+        return {
+            "source_type": "text",
+            "input_text": text,
+            "input_url": None,
+            "file_data": None,
+            "file_filename": None,
+        }
+
+    monkeypatch.setattr(worker_module, "load_pending_content", fake_load)
+
+
 def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
     """Simula solo la llamada al LLM del extractor; el resto del agente es real."""
 
@@ -265,9 +280,8 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
     monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
 
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    await worker_module.run_analysis(
-        ctx, ANALYSIS_ID, "text", "Hoy hace un día soleado en Madrid", None
-    )
+    _serve_pending_text(monkeypatch, "Hoy hace un día soleado en Madrid")
+    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
@@ -316,9 +330,8 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
     monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
 
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    await worker_module.run_analysis(
-        ctx, ANALYSIS_ID, "text", "La vitamina C previene el resfriado", None
-    )
+    _serve_pending_text(monkeypatch, "La vitamina C previene el resfriado")
+    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
 
     assert failed == []
     assert len(completed) == 1
@@ -526,7 +539,8 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
 
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    await worker_module.run_analysis(ctx, ANALYSIS_ID, "text", "Texto", None)
+    _serve_pending_text(monkeypatch, "Texto")
+    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
 
     assert completed == []
     assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]

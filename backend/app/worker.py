@@ -20,11 +20,11 @@ from app.agents.main import (
 from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.db.analysis_transitions import load_pending_content
 from app.db.history import (
     complete_analysis,
     fail_analysis,
     fail_stale_pending_analyses,
-    get_file_data_by_id,
     list_stale_pending_analysis_ids,
     set_analysis_input_text,
     set_analysis_stage,
@@ -65,35 +65,40 @@ async def _set_stage(analysis_id: str, stage: str) -> None:
 
 async def run_analysis(
     ctx: dict,
+    *,
     analysis_id: str,
-    source_type: str,
-    text: str | None,
-    url: str | None,
-    recipient_email: str | None = None,
+    notify_email: str | None = None,
 ) -> None:
     """Ejecuta el pipeline para un análisis pendiente y persiste el resultado."""
     logger.info("[Worker] Procesando análisis %s", analysis_id)
+    content = await load_pending_content(analysis_id)
+    if content is None:
+        logger.warning("[Worker] El análisis %s ya no está pendiente", analysis_id)
+        return
     await _set_stage(analysis_id, _PREPARING_STAGE)
+    source_type = content["source_type"]
+    text: str | None = content["input_text"]
 
     async def _fail_and_notify(error_code: str) -> None:
         await fail_analysis(analysis_id=analysis_id, error_code=error_code)
-        await send_analysis_failed_email(to=recipient_email, analysis_id=analysis_id)
+        await send_analysis_failed_email(to=notify_email, analysis_id=analysis_id)
 
     try:
         if source_type == "url":
-            text = await asyncio.to_thread(extract_text_from_url, str(url))
+            text = await asyncio.to_thread(
+                extract_text_from_url, str(content["input_url"])
+            )
     except URLExtractionError:
         logger.info("[Worker] Extracción de URL fallida para %s", analysis_id)
         await _fail_and_notify(ErrorCode.URL_EXTRACTION.value)
         return
 
     if source_type == "file":
-        stored = await get_file_data_by_id(analysis_id=analysis_id)
-        if stored is None:
+        if content["file_data"] is None:
             logger.warning("[Worker] Archivo no encontrado para %s", analysis_id)
             await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
             return
-        data, filename = stored
+        data, filename = bytes(content["file_data"]), content["file_filename"]
         try:
             text = await asyncio.to_thread(extract_text_from_file, data, filename or "")
         except FileExtractionError:
@@ -154,7 +159,7 @@ async def run_analysis(
                 analysis_id=analysis_id, error_code=ErrorCode.NO_MEDICAL_CLAIMS.value
             )
             await send_analysis_no_claims_email(
-                to=recipient_email, analysis_id=analysis_id
+                to=notify_email, analysis_id=analysis_id
             )
             return
 
@@ -181,7 +186,7 @@ async def run_analysis(
         await _fail_and_notify(ErrorCode.INTERNAL.value)
 
     if completed_ok:
-        await send_analysis_ready_email(to=recipient_email, analysis_id=analysis_id)
+        await send_analysis_ready_email(to=notify_email, analysis_id=analysis_id)
 
 
 def _truncate_abstract(text: str | None) -> str | None:

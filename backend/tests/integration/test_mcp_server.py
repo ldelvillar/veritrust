@@ -11,9 +11,13 @@ from mcp.server.auth.provider import AccessToken
 from redis.exceptions import RedisError
 
 import app.mcp.server as server_module
+from app.core.analysis_lifecycle import Submitter
 from app.core.config import Settings
+from app.core.errors import make_error_detail
 from app.db.pool import DatabaseError
+from app.schemas.errors import ErrorCode
 from app.schemas.history import AnalysisHistoryItem
+from tests.support.lifecycle import StubIntake
 
 ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
 USER_ID = "user_123"
@@ -126,33 +130,22 @@ def env(monkeypatch):
 
 
 def _patch_db(monkeypatch, records):
-    """Sustituye la BD: crea análisis y devuelve las filas indicadas en orden."""
-    created: list[dict] = []
-    failed: list[dict] = []
+    """Sustituye la lectura del sondeo por las filas indicadas, en orden."""
     pending = list(records)
-
-    async def fake_create(**kwargs):
-        created.append(kwargs)
-        return ANALYSIS_ID
 
     async def fake_get(*, user_id, analysis_id):
         assert user_id == USER_ID
         return pending.pop(0) if len(pending) > 1 else pending[0]
 
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    monkeypatch.setattr(server_module, "create_pending_analysis", fake_create)
     monkeypatch.setattr(server_module, "get_user_analysis_by_id", fake_get)
-    monkeypatch.setattr("app.core.analysis_jobs.fail_analysis", fake_fail)
-    return created, failed
 
 
-def _server(pool=None, redis=None):
-    """Construye el servidor MCP con dobles de cola y Redis."""
+def _server(pool=None, redis=None, intake=None):
+    """Construye el servidor MCP con dobles de cola, Redis y entrada de análisis."""
     return server_module.build_mcp_server(
         arq_pool=pool or _ArqPool(),
         redis=redis if redis is not None else fakeredis.aioredis.FakeRedis(),
+        analysis_intake=intake if intake is not None else StubIntake(),
     )
 
 
@@ -168,17 +161,15 @@ async def test_lists_the_four_tools(env):
     ]
 
 
-async def test_verify_claim_enqueues_and_waits_until_done(env, monkeypatch):
-    created, _ = _patch_db(
-        monkeypatch, [_record("pending", stage="investigator"), _record("done")]
-    )
-    pool = _ArqPool()
+async def test_verify_claim_opens_the_analysis_and_waits_until_done(env, monkeypatch):
+    _patch_db(monkeypatch, [_record("pending", stage="investigator"), _record("done")])
+    intake = StubIntake()
     progress: list[float] = []
 
     async def on_progress(value, total, message):
         progress.append(value)
 
-    async with Client(_server(pool)) as client:
+    async with Client(_server(intake=intake)) as client:
         result = await client.call_tool(
             "verify_claim",
             {"text": "La lejía cura la COVID"},
@@ -191,29 +182,25 @@ async def test_verify_claim_enqueues_and_waits_until_done(env, monkeypatch):
     assert body["verdict"] == "fake"
     assert body["credibility"] == 10
     assert body["report_url"] == f"https://veritrust.es/app/analisis/{ANALYSIS_ID}"
-    assert created[0]["origin"] == "mcp"
-    assert created[0]["user_id"] == USER_ID
-    # Mismo contrato de cola que la ruta web, sin email para el cliente MCP.
-    assert pool.enqueued == [
-        (
-            "run_analysis",
-            (ANALYSIS_ID, "text", "La lejía cura la COVID", None, None),
-            {"_job_id": ANALYSIS_ID},
-        )
-    ]
+    # Misma entrada que la ruta web, con Origin mcp y sin email para el cliente MCP.
+    [(kind, submitter, request)] = intake.calls
+    assert (kind, submitter) == ("submit", Submitter(user_id=USER_ID, origin="mcp"))
+    assert request.text == "La lejía cura la COVID"
 
 
 async def test_verify_claim_accepts_a_url(env, monkeypatch):
     _patch_db(monkeypatch, [_record("done", source_type="url")])
-    pool = _ArqPool()
+    intake = StubIntake()
 
-    async with Client(_server(pool)) as client:
+    async with Client(_server(intake=intake)) as client:
         result = await client.call_tool(
             "verify_claim", {"url": "https://ejemplo.com/noticia"}
         )
 
     assert not result.is_error
-    assert pool.enqueued[0][1][1:4] == ("url", None, "https://ejemplo.com/noticia")
+    [(_, _, request)] = intake.calls
+    assert request.source_type.value == "url"
+    assert str(request.url) == "https://ejemplo.com/noticia"
 
 
 async def test_verify_claim_returns_pending_when_the_wait_runs_out(env, monkeypatch):
@@ -237,43 +224,30 @@ async def test_verify_claim_returns_pending_when_the_wait_runs_out(env, monkeypa
     ids=["neither", "both"],
 )
 async def test_verify_claim_requires_exactly_one_input(env, monkeypatch, arguments):
-    created, _ = _patch_db(monkeypatch, [_record()])
+    _patch_db(monkeypatch, [_record()])
+    intake = StubIntake()
 
-    async with Client(_server()) as client:
+    async with Client(_server(intake=intake)) as client:
         result = await client.call_tool("verify_claim", arguments)
 
     assert result.is_error
-    assert created == []
+    assert intake.calls == []
 
 
-async def test_verify_claim_fails_the_row_when_enqueue_fails(env, monkeypatch):
-    _, failed = _patch_db(monkeypatch, [_record()])
-
-    async with Client(_server(_ArqPool(fail=True))) as client:
-        result = await client.call_tool(
-            "verify_claim", {"text": "La lejía cura la COVID"}
-        )
-
-    assert result.is_error
-    assert "SERVICE_UNAVAILABLE" in result.content[0].text
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "SERVICE_UNAVAILABLE"}]
-
-
-async def test_verify_claim_reports_save_failures(env, monkeypatch):
+@pytest.mark.parametrize(
+    "code", [ErrorCode.SERVICE_UNAVAILABLE, ErrorCode.ANALYSIS_SAVE_FAILED]
+)
+async def test_verify_claim_reports_the_intake_refusal(env, monkeypatch, code):
     _patch_db(monkeypatch, [_record()])
 
-    async def broken_create(**kwargs):
-        raise DatabaseError("down")
-
-    monkeypatch.setattr(server_module, "create_pending_analysis", broken_create)
-
-    async with Client(_server()) as client:
+    async with Client(_server(intake=StubIntake(refuse=code))) as client:
         result = await client.call_tool(
             "verify_claim", {"text": "La lejía cura la COVID"}
         )
 
     assert result.is_error
-    assert "ANALYSIS_SAVE_FAILED" in result.content[0].text
+    detail = make_error_detail(code)
+    assert result.content[0].text.endswith(f"{detail['code']}: {detail['message']}")
 
 
 async def test_verify_claim_shares_the_web_rate_limit(env, monkeypatch):

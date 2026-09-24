@@ -13,7 +13,10 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
+from app.api.dependencies.analysis_intake import refusal_response
 from app.api.router import api_router
+from app.core.analysis_jobs import ArqAnalysisQueue
+from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused
 from app.core.config import get_settings
 from app.core.cors import get_cors_config
 from app.core.errors import make_error_detail
@@ -37,6 +40,7 @@ async def lifespan(application: FastAPI):
     """Inicializa los recursos del proceso web."""
     application.state.arq_pool = None
     application.state.redis = None
+    application.state.analysis_intake = None
     application.state.mcp_http_app = None
 
     settings = get_settings()
@@ -46,9 +50,15 @@ async def lifespan(application: FastAPI):
         RedisSettings.from_dsn(settings.redis_url)
     )
     application.state.redis = aioredis.from_url(settings.redis_url)
+    application.state.analysis_intake = AnalysisIntake(
+        ArqAnalysisQueue(application.state.arq_pool),
+        max_file_bytes=settings.max_file_bytes,
+    )
 
     mcp_server = build_mcp_server(
-        arq_pool=application.state.arq_pool, redis=application.state.redis
+        arq_pool=application.state.arq_pool,
+        redis=application.state.redis,
+        analysis_intake=application.state.analysis_intake,
     )
     application.state.mcp_http_app = build_mcp_http_app(mcp_server)
     logger.info("Proceso web listo: pool de Redis y de base de datos abiertos")
@@ -90,6 +100,12 @@ async def _validation_error(
         status_code=422,
         content={"detail": make_error_detail(ErrorCode.VALIDATION, message)},
     )
+
+
+@app.exception_handler(AnalysisRefused)
+async def _analysis_refused(request: Request, exc: AnalysisRefused) -> JSONResponse:
+    """Responde un rechazo del ciclo de vida con su estado HTTP y el detail del contrato."""
+    return refusal_response(exc)
 
 
 app.add_middleware(

@@ -1,6 +1,5 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
-import logging
 from pathlib import Path
 from urllib.parse import quote
 
@@ -9,28 +8,23 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
-    Request,
     Response,
     UploadFile,
 )
 
+from app.api.dependencies.analysis_intake import analysis_intake, web_submitter
 from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.api.dependencies.valid_analysis_id import valid_analysis_id
-from app.core.analysis_jobs import EnqueueError, enqueue_analysis
-from app.core.config import get_settings
+from app.core.analysis_lifecycle import AnalysisIntake, Submitter
 from app.core.errors import make_error_detail
 from app.db.feedback import create_analysis_feedback, get_analysis_feedback
 from app.db.history import (
     clear_analysis_share_token,
-    create_pending_analysis,
-    create_pending_file_analysis,
     delete_user_analysis,
     get_analysis_file,
     get_user_analysis_by_id,
     get_user_analysis_status,
-    reset_done_analysis_to_pending,
-    reset_failed_analysis_to_pending,
     set_analysis_share_token,
 )
 from app.db.pool import DatabaseError
@@ -43,10 +37,8 @@ from app.schemas.analysis import (
 from app.schemas.errors import ErrorCode, ErrorResponse
 from app.schemas.feedback import FeedbackRequest, FeedbackResponse
 from app.schemas.history import AnalysisHistoryItem
-from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
@@ -132,43 +124,11 @@ _UNSHARE_ERROR_RESPONSES: dict[int | str, dict] = {
 )
 async def analyze_news(
     body: AnalysisRequest,
-    request: Request,
-    user: dict = Depends(check_rate_limit),
+    submitter: Submitter = Depends(web_submitter),
+    intake: AnalysisIntake = Depends(analysis_intake),
 ):
     """Encola el análisis de una noticia y devuelve su id en estado ``pending``."""
-    user_id = user["sub"]
-
-    arq_pool = getattr(request.app.state, "arq_pool", None)
-    if arq_pool is None:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        )
-
-    try:
-        analysis_id = await create_pending_analysis(user_id=user_id, request=body)
-    except DatabaseError as e:
-        logger.exception("No se pudo crear el análisis pendiente")
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
-        ) from e
-
-    try:
-        await enqueue_analysis(
-            arq_pool,
-            analysis_id=analysis_id,
-            source_type=body.source_type.value,
-            text=body.text,
-            url=str(body.url) if body.url else None,
-            email=user.get("email"),
-        )
-    except EnqueueError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        ) from e
-
+    analysis_id = await intake.submit(submitter, body)
     return {"status": "pending", "analysis_id": analysis_id}
 
 
@@ -260,76 +220,12 @@ async def unshare_analysis(
     responses=_POST_FILE_ERROR_RESPONSES,
 )
 async def analyze_file(
-    request: Request,
     file: UploadFile = File(...),
-    user: dict = Depends(check_rate_limit),
+    submitter: Submitter = Depends(web_submitter),
+    intake: AnalysisIntake = Depends(analysis_intake),
 ):
     """Sube un archivo (PDF/TXT/MD), guarda el binario y encola su análisis ``pending``."""
-    user_id = user["sub"]
-    settings = get_settings()
-
-    arq_pool = getattr(request.app.state, "arq_pool", None)
-    if arq_pool is None:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        )
-
-    filename = (file.filename or "documento")[:255]
-    suffix = Path(filename).suffix.lower()
-    if suffix not in ALLOWED_FILE_SUFFIXES:
-        raise HTTPException(
-            status_code=415,
-            detail=make_error_detail(ErrorCode.INVALID_FILE),
-        )
-
-    # Rechaza por tamaño antes de leer todo el cuerpo en memoria cuando es posible.
-    if file.size is not None and file.size > settings.max_file_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=make_error_detail(ErrorCode.FILE_TOO_LARGE),
-        )
-
-    data = await file.read()
-    if len(data) > settings.max_file_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=make_error_detail(ErrorCode.FILE_TOO_LARGE),
-        )
-
-    # Un PDF debe llevar su firma; los .txt/.md se decodifican en el worker.
-    if not data or (suffix == ".pdf" and not data.startswith(b"%PDF")):
-        raise HTTPException(
-            status_code=415,
-            detail=make_error_detail(ErrorCode.INVALID_FILE),
-        )
-
-    try:
-        analysis_id = await create_pending_file_analysis(
-            user_id=user_id, filename=filename, data=data
-        )
-    except DatabaseError as e:
-        logger.exception("No se pudo crear el análisis de archivo pendiente")
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_SAVE_FAILED),
-        ) from e
-
-    try:
-        await enqueue_analysis(
-            arq_pool,
-            analysis_id=analysis_id,
-            source_type="file",
-            text=None,
-            url=None,
-            email=user.get("email"),
-        )
-    except EnqueueError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        ) from e
-
+    analysis_id = await intake.submit_file(submitter, file)
     return {"status": "pending", "analysis_id": analysis_id}
 
 
@@ -515,78 +411,12 @@ async def delete_analysis_detail(
     responses=_RETRY_ERROR_RESPONSES,
 )
 async def retry_analysis(
-    request: Request,
-    user: dict = Depends(check_rate_limit),
+    submitter: Submitter = Depends(web_submitter),
     analysis_id: str = Depends(valid_analysis_id),
+    intake: AnalysisIntake = Depends(analysis_intake),
 ):
     """Reabre un análisis ``failed`` propio y lo reencola reutilizando su entrada."""
-    user_id = user["sub"]
-
-    arq_pool = getattr(request.app.state, "arq_pool", None)
-    if arq_pool is None:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        )
-
-    try:
-        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
-
-    # Solo tiene sentido reintentar lo que falló; un 'pending'/'done' no se toca.
-    if record.status != "failed":
-        raise HTTPException(
-            status_code=409,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_RETRYABLE),
-        )
-
-    try:
-        reopened = await reset_failed_analysis_to_pending(
-            user_id=user_id, analysis_id=analysis_id
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_RETRY_FAILED),
-        ) from e
-
-    if not reopened:
-        # Perdió la carrera: el estado cambió entre la lectura y el reinicio.
-        raise HTTPException(
-            status_code=409,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_RETRYABLE),
-        )
-
-    if record.source_type == "url":
-        text_arg, url_arg = None, record.input_url
-    else:
-        text_arg, url_arg = record.input_text, None
-
-    try:
-        await enqueue_analysis(
-            arq_pool,
-            analysis_id=analysis_id,
-            source_type=record.source_type,
-            text=text_arg,
-            url=url_arg,
-            email=user.get("email"),
-        )
-    except EnqueueError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        ) from e
-
+    await intake.retry(submitter, analysis_id)
     return {"status": "pending", "analysis_id": analysis_id}
 
 
@@ -654,76 +484,10 @@ async def submit_analysis_feedback(
     responses=_RETRY_ERROR_RESPONSES,
 )
 async def reanalyze_analysis(
-    request: Request,
-    user: dict = Depends(check_rate_limit),
+    submitter: Submitter = Depends(web_submitter),
     analysis_id: str = Depends(valid_analysis_id),
+    intake: AnalysisIntake = Depends(analysis_intake),
 ):
     """Reabre un análisis ``done`` propio y lo reencola con la misma entrada."""
-    user_id = user["sub"]
-
-    arq_pool = getattr(request.app.state, "arq_pool", None)
-    if arq_pool is None:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        )
-
-    try:
-        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
-
-    # Solo tiene sentido reanalizar un informe terminado; pending/failed no se tocan.
-    if record.status != "done":
-        raise HTTPException(
-            status_code=409,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_REANALYZABLE),
-        )
-
-    try:
-        reopened = await reset_done_analysis_to_pending(
-            user_id=user_id, analysis_id=analysis_id
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_REANALYZE_FAILED),
-        ) from e
-
-    if not reopened:
-        # Perdió la carrera: el estado cambió entre la lectura y el reinicio.
-        raise HTTPException(
-            status_code=409,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_REANALYZABLE),
-        )
-
-    if record.source_type == "url":
-        text_arg, url_arg = None, record.input_url
-    else:
-        text_arg, url_arg = record.input_text, None
-
-    try:
-        await enqueue_analysis(
-            arq_pool,
-            analysis_id=analysis_id,
-            source_type=record.source_type,
-            text=text_arg,
-            url=url_arg,
-            email=user.get("email"),
-        )
-    except EnqueueError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
-        ) from e
-
+    await intake.reanalyze(submitter, analysis_id)
     return {"status": "pending", "analysis_id": analysis_id}
