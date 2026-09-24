@@ -2,42 +2,37 @@
 
 import asyncio
 import logging
+from functools import partial
 
 from arq import cron, func, run_worker
 from arq.connections import RedisSettings
-from arq.constants import job_key_prefix
 
 from app.agents.errors import (
     OllamaConnectionError,
     ainvoke_graph,
 )
 from app.agents.main import (
-    PIPELINE_STAGES,
     create_evidence_graph,
     create_graph,
     describe_pipeline,
 )
 from app.agents.sanitize import neutralize_delimiters
+from app.core.analysis_jobs import ArqAnalysisQueue
+from app.core.analysis_lifecycle import (
+    AnalysisFailure,
+    AnalysisRun,
+    AnalysisRunner,
+    Completion,
+    FileContent,
+    UrlContent,
+)
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.analysis_transitions import load_pending_content
-from app.db.history import (
-    complete_analysis,
-    fail_analysis,
-    fail_stale_pending_analyses,
-    list_stale_pending_analysis_ids,
-    set_analysis_input_text,
-    set_analysis_stage,
-)
 from app.db.pool import close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
 from app.schemas.mcp import EVIDENCE_RESULT_TTL_SECONDS, MAX_ABSTRACT_CHARS
-from app.utils.email import (
-    send_analysis_failed_email,
-    send_analysis_no_claims_email,
-    send_analysis_ready_email,
-)
+from app.utils.email import ResendNotifier
 from app.utils.extract_text_from_file import FileExtractionError, extract_text_from_file
 from app.utils.extract_text_from_url import URLExtractionError, extract_text_from_url
 from app.utils.llm import ensure_llm_available
@@ -45,72 +40,39 @@ from app.utils.llm import ensure_llm_available
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# Etapa previa al grafo (extracción de URL/archivo y preparación del texto).
-_PREPARING_STAGE = "preparing"
-# Nodo terminado -> siguiente nodo en ejecución, para mostrar la etapa activa.
-_NEXT_STAGE = dict(zip(PIPELINE_STAGES, PIPELINE_STAGES[1:]))
 # Margen del job_timeout de arq sobre el presupuesto interno; deja notificar antes del corte duro.
 _JOB_TIMEOUT_GRACE_SECONDS = 30
 
 
-async def _set_stage(analysis_id: str, stage: str) -> None:
-    """Actualiza la etapa visible del análisis; un fallo aquí nunca debe romper el pipeline."""
-    try:
-        await set_analysis_stage(analysis_id=analysis_id, stage=stage)
-    except Exception:
-        logger.warning(
-            "[Worker] No se pudo fijar la etapa %s de %s", stage, analysis_id
-        )
-
-
-async def run_analysis(
-    ctx: dict,
-    *,
-    analysis_id: str,
-    notify_email: str | None = None,
-) -> None:
-    """Ejecuta el pipeline para un análisis pendiente y persiste el resultado."""
-    logger.info("[Worker] Procesando análisis %s", analysis_id)
-    content = await load_pending_content(analysis_id)
-    if content is None:
-        logger.warning("[Worker] El análisis %s ya no está pendiente", analysis_id)
-        return
-    await _set_stage(analysis_id, _PREPARING_STAGE)
-    source_type = content["source_type"]
-    text: str | None = content["input_text"]
-
-    async def _fail_and_notify(error_code: str) -> None:
-        await fail_analysis(analysis_id=analysis_id, error_code=error_code)
-        await send_analysis_failed_email(to=notify_email, analysis_id=analysis_id)
-
-    try:
-        if source_type == "url":
-            text = await asyncio.to_thread(
-                extract_text_from_url, str(content["input_url"])
-            )
-    except URLExtractionError:
-        logger.info("[Worker] Extracción de URL fallida para %s", analysis_id)
-        await _fail_and_notify(ErrorCode.URL_EXTRACTION.value)
-        return
-
-    if source_type == "file":
-        if content["file_data"] is None:
-            logger.warning("[Worker] Archivo no encontrado para %s", analysis_id)
-            await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
-            return
-        data, filename = bytes(content["file_data"]), content["file_filename"]
+async def _input_text(run: AnalysisRun) -> str:
+    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo."""
+    content = run.content
+    if isinstance(content, UrlContent):
         try:
-            text = await asyncio.to_thread(extract_text_from_file, data, filename or "")
-        except FileExtractionError:
-            logger.info("[Worker] Extracción de archivo fallida para %s", analysis_id)
-            await _fail_and_notify(ErrorCode.FILE_EXTRACTION.value)
-            return
-        # Persistir el texto para que la búsqueda del historial funcione aunque el pipeline falle.
-        await set_analysis_input_text(analysis_id=analysis_id, input_text=text)
+            return await asyncio.to_thread(extract_text_from_url, content.url)
+        except URLExtractionError as exc:
+            logger.info("[Worker] Extracción de URL fallida para %s", run.analysis_id)
+            raise AnalysisFailure(ErrorCode.URL_EXTRACTION) from exc
 
-    if text is not None:
-        text = neutralize_delimiters(text)
+    if isinstance(content, FileContent):
+        try:
+            text = await asyncio.to_thread(
+                extract_text_from_file, content.data, content.filename
+            )
+        except FileExtractionError as exc:
+            logger.info(
+                "[Worker] Extracción de archivo fallida para %s", run.analysis_id
+            )
+            raise AnalysisFailure(ErrorCode.FILE_EXTRACTION) from exc
+        await run.keep_input_text(text)
+        return text
 
+    return content.text
+
+
+async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
+    """Convierte la entrada de un análisis pendiente en su veredicto con el grafo multiagente."""
+    text = neutralize_delimiters(await _input_text(run))
     initial_state: dict[str, object] = {
         "input_text": text,
         "extracted_statements": [],
@@ -123,70 +85,52 @@ async def run_analysis(
         "claims": [],
     }
 
-    completed_ok = False
+    await run.stage_finished("preparing")
     try:
-
-        async def _advance_stage(completed_node: str) -> None:
-            next_stage = _NEXT_STAGE.get(completed_node)
-            if next_stage:
-                await _set_stage(analysis_id, next_stage)
-
-        await _set_stage(analysis_id, PIPELINE_STAGES[0])
-        try:
-            result = await asyncio.wait_for(
-                ainvoke_graph(
-                    ctx["verification_system"], initial_state, on_stage=_advance_stage
-                ),
-                timeout=get_settings().analysis_job_timeout_seconds,
-            )
-        except TimeoutError:
-            logger.warning("[Worker] El pipeline agotó el tiempo para %s", analysis_id)
-            await _fail_and_notify(ErrorCode.SERVICE_UNAVAILABLE.value)
-            return
-
-        label = result.get("label") or None
-        confidence = result.get("confidence") or None
-        explanation = result.get("medical_explanation") or None
-        sources = result.get("sources") or []
-
-        # Cobertura 1.0 sin fuentes significa caída total.
-        evidence_coverage = result.get("evidence_coverage")
-        if evidence_coverage == 1.0 and not sources:
-            evidence_coverage = None
-
-        if not label:
-            await fail_analysis(
-                analysis_id=analysis_id, error_code=ErrorCode.NO_MEDICAL_CLAIMS.value
-            )
-            await send_analysis_no_claims_email(
-                to=notify_email, analysis_id=analysis_id
-            )
-            return
-
-        if not explanation:
-            logger.warning("[Worker] Análisis %s sin informe del experto", analysis_id)
-
-        await complete_analysis(
-            analysis_id=analysis_id,
-            label=str(label),
-            confidence=confidence,
-            explanation=explanation,
-            claims=result.get("claims") or [],
-            sources=sources,
-            evidence_coverage=evidence_coverage,
-            pipeline=ctx["pipeline"],
+        result = await ainvoke_graph(
+            ctx["verification_system"], initial_state, on_stage=run.stage_finished
         )
-        logger.info("[Worker] Análisis %s completado (%s)", analysis_id, label)
-        completed_ok = True
-    except OllamaConnectionError:
-        logger.exception("[Worker] No se pudo conectar a Ollama para %s", analysis_id)
-        await _fail_and_notify(ErrorCode.CONNECTION.value)
-    except Exception:
-        logger.exception("[Worker] Error inesperado analizando %s", analysis_id)
-        await _fail_and_notify(ErrorCode.INTERNAL.value)
+    except OllamaConnectionError as exc:
+        logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
+        raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
-    if completed_ok:
-        await send_analysis_ready_email(to=notify_email, analysis_id=analysis_id)
+    label = result.get("label") or None
+    if not label:
+        raise AnalysisFailure(ErrorCode.NO_MEDICAL_CLAIMS)
+
+    sources = result.get("sources") or []
+    # Cobertura 1.0 sin fuentes significa caída total.
+    evidence_coverage = result.get("evidence_coverage")
+    if evidence_coverage == 1.0 and not sources:
+        evidence_coverage = None
+
+    explanation = result.get("medical_explanation") or None
+    if not explanation:
+        logger.warning("[Worker] Análisis %s sin informe del experto", run.analysis_id)
+
+    return Completion(
+        label=str(label),
+        confidence=result.get("confidence") or None,
+        explanation=explanation,
+        claims=result.get("claims") or [],
+        sources=sources,
+        evidence_coverage=evidence_coverage,
+        pipeline=ctx["pipeline"],
+    )
+
+
+async def run_analysis(
+    ctx: dict,
+    *,
+    analysis_id: str,
+    notify_email: str | None = None,
+) -> None:
+    """Ejecuta la Run de un análisis pendiente a través del ciclo de vida."""
+    logger.info("[Worker] Procesando análisis %s", analysis_id)
+    outcome = await ctx["analysis_runner"].run(
+        analysis_id, partial(analyse, ctx), notify_email=notify_email
+    )
+    logger.info("[Worker] Análisis %s: %s", analysis_id, outcome)
 
 
 def _truncate_abstract(text: str | None) -> str | None:
@@ -239,39 +183,26 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
     }
 
 
-async def reap_stale_analyses(ctx: dict) -> None:
-    """Cron: marca como ``failed`` los análisis ``pending`` huérfanos."""
-    threshold = get_settings().analysis_stale_after_seconds
-    stale_ids = await list_stale_pending_analysis_ids(older_than_seconds=threshold)
-    if not stale_ids:
-        return
-
-    redis = ctx["redis"]
-    orphan_ids = [
-        analysis_id
-        for analysis_id in stale_ids
-        if not await redis.exists(job_key_prefix + analysis_id)
-    ]
-    if not orphan_ids:
-        return
-
-    count = await fail_stale_pending_analyses(
-        analysis_ids=orphan_ids,
-        older_than_seconds=threshold,
-        error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
-    )
-    if count:
-        logger.warning("[Worker] Reaper marcó %d análisis huérfanos como failed", count)
+async def reap_orphaned_analyses(ctx: dict) -> None:
+    """Cron: marca como ``failed`` los análisis huérfanos."""
+    await ctx["analysis_runner"].reap_orphans()
 
 
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
-    get_settings().validate_runtime(require_cors=False, require_mcp=False)
+    settings = get_settings()
+    settings.validate_runtime(require_cors=False, require_mcp=False)
     ensure_llm_available()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)
     ctx["pipeline"] = describe_pipeline(prompts)
     ctx["evidence_system"] = create_evidence_graph(prompts)
+    ctx["analysis_runner"] = AnalysisRunner(
+        queue=ArqAnalysisQueue(ctx["redis"]),
+        notifier=ResendNotifier(),
+        run_timeout_seconds=settings.analysis_job_timeout_seconds,
+        stale_after_seconds=settings.analysis_stale_after_seconds,
+    )
     await get_pool()
     logger.info("[Worker] Listo para procesar análisis")
 
@@ -289,7 +220,7 @@ class WorkerSettings:
         # El resultado se guarda para que get_evidence lo recoja aunque la llamada MCP ya expirase.
         func(run_evidence_search, keep_result=EVIDENCE_RESULT_TTL_SECONDS),
     ]
-    cron_jobs = [cron(reap_stale_analyses, second=0)]  # ~una vez por minuto
+    cron_jobs = [cron(reap_orphaned_analyses, second=0)]  # ~una vez por minuto
     on_startup = startup
     on_shutdown = shutdown
     job_timeout = (

@@ -1,16 +1,23 @@
-"""Ciclo de vida de un análisis: la única vía para abrirlo, encolarlo y reabrirlo."""
+"""Ciclo de vida de un análisis: la única vía para abrirlo, ejecutar sus Runs y cerrarlo."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
 
 from app.db import analysis_transitions as transitions
 from app.db.history import get_user_analysis_status
 from app.db.pool import DatabaseError
-from app.schemas.analysis import AnalysisOrigin, AnalysisRequest, SourceType
+from app.schemas.analysis import (
+    AnalysisOrigin,
+    AnalysisRequest,
+    AnalysisStage,
+    SourceType,
+)
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
 
@@ -19,6 +26,11 @@ logger = logging.getLogger(__name__)
 _DEFAULT_FILENAME = "documento"
 _MAX_FILENAME_CHARS = 255
 _PDF_SIGNATURE = b"%PDF"
+
+# Etapas visibles en orden: la preparación de la entrada y luego cada agente del grafo.
+_STAGES: tuple[AnalysisStage, ...] = get_args(AnalysisStage)
+# Etapa terminada -> siguiente etapa en ejecución.
+_NEXT_STAGE: dict[str, AnalysisStage] = dict(zip(_STAGES, _STAGES[1:]))
 
 
 class QueueUnavailable(RuntimeError):
@@ -246,3 +258,234 @@ class AnalysisIntake:
                     "No se pudo marcar como failed el análisis %s", analysis_id
                 )
             raise AnalysisRefused(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+
+@dataclass(frozen=True)
+class TextContent:
+    """Texto pegado por el usuario."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class UrlContent:
+    """Página web cuyo texto hay que extraer."""
+
+    url: str
+
+
+@dataclass(frozen=True)
+class FileContent:
+    """Archivo subido cuyo texto hay que extraer."""
+
+    data: bytes
+    filename: str
+
+
+AnalysisContent = TextContent | UrlContent | FileContent
+
+
+@dataclass(frozen=True)
+class Completion:
+    """Veredicto con el que una Run cierra su análisis como ``done``."""
+
+    label: str
+    confidence: float | None
+    explanation: str | None
+    claims: list[dict]
+    sources: list[dict]
+    evidence_coverage: float | None
+    pipeline: dict
+
+
+class AnalysisFailure(Exception):
+    """La Run termina sin veredicto; ``code`` es el motivo que se guarda en el análisis."""
+
+    def __init__(self, code: ErrorCode) -> None:
+        super().__init__(code.value)
+        self.code = code
+
+
+class AnalysisNotifier(Protocol):
+    """Aviso al usuario de que su análisis terminó."""
+
+    async def finished(
+        self, *, to: str, analysis_id: str, error_code: ErrorCode | None
+    ) -> None:
+        """Avisa del final; ``error_code`` es None si terminó con veredicto."""
+        ...
+
+
+RunOutcome = Literal["done", "failed", "skipped", "discarded"]
+
+
+class AnalysisRun:
+    """Una Run en curso: su entrada y cómo reporta su avance mientras sigue ``pending``."""
+
+    def __init__(self, analysis_id: str, content: AnalysisContent) -> None:
+        self.analysis_id = analysis_id
+        self.content = content
+
+    async def stage_finished(self, stage: str) -> None:
+        """Muestra la etapa que sigue a ``stage`` (la preparación o un agente) recién terminada."""
+        next_stage = _NEXT_STAGE.get(stage)
+        if next_stage:
+            await self._show(next_stage)
+
+    async def _show(self, stage: AnalysisStage) -> None:
+        """Muestra la etapa activa; un fallo aquí nunca rompe la Run."""
+        try:
+            await transitions.set_stage(analysis_id=self.analysis_id, stage=stage)
+        except Exception:
+            logger.warning(
+                "No se pudo fijar la etapa %s de %s", stage, self.analysis_id
+            )
+
+    async def keep_input_text(self, text: str) -> None:
+        """Guarda el texto extraído de un archivo para que el historial lo encuentre aunque la Run falle."""
+        await transitions.set_input_text(analysis_id=self.analysis_id, input_text=text)
+
+
+Work = Callable[[AnalysisRun], Awaitable[Completion]]
+
+
+class AnalysisRunner:
+    """Ejecuta las Runs de los análisis pendientes y recoge los análisis huérfanos."""
+
+    def __init__(
+        self,
+        *,
+        queue: AnalysisQueue,
+        notifier: AnalysisNotifier,
+        run_timeout_seconds: float,
+        stale_after_seconds: int,
+    ) -> None:
+        self._queue = queue
+        self._notifier = notifier
+        self._run_timeout_seconds = run_timeout_seconds
+        self._stale_after_seconds = stale_after_seconds
+
+    async def run(
+        self, analysis_id: str, work: Work, *, notify_email: str | None = None
+    ) -> RunOutcome:
+        """Lleva un análisis ``pending`` a ``done`` o ``failed`` con lo que devuelva ``work``."""
+        row = await transitions.load_pending_content(analysis_id)
+        if row is None:
+            logger.warning("El análisis %s ya no está pendiente", analysis_id)
+            return "skipped"
+
+        content = _content_from_row(row)
+        if content is None:
+            logger.warning("Archivo no encontrado para %s", analysis_id)
+            return await self._finish(
+                analysis_id, ErrorCode.FILE_EXTRACTION, notify_email
+            )
+
+        run = AnalysisRun(analysis_id, content)
+        await run._show(_STAGES[0])
+        result: Completion | ErrorCode
+        try:
+            async with asyncio.timeout(self._run_timeout_seconds):
+                result = await work(run)
+        except AnalysisFailure as exc:
+            result = exc.code
+        except TimeoutError:
+            logger.warning("La Run de %s agotó el tiempo", analysis_id)
+            result = ErrorCode.SERVICE_UNAVAILABLE
+        except Exception:
+            logger.exception("Error inesperado en la Run de %s", analysis_id)
+            result = ErrorCode.INTERNAL
+
+        return await self._finish(analysis_id, result, notify_email)
+
+    async def reap_orphans(self) -> int:
+        """Pasa a ``failed`` los análisis huérfanos y devuelve cuántos recogió."""
+        threshold = self._stale_after_seconds
+        stale_ids = await transitions.list_stale_pending_ids(
+            older_than_seconds=threshold
+        )
+        if not stale_ids:
+            return 0
+
+        orphan_ids = [
+            analysis_id
+            for analysis_id in stale_ids
+            if not await self._queue.is_live(analysis_id)
+        ]
+        if not orphan_ids:
+            return 0
+
+        count = await transitions.fail_stale(
+            analysis_ids=orphan_ids,
+            older_than_seconds=threshold,
+            error_code=ErrorCode.SERVICE_UNAVAILABLE.value,
+        )
+        if count:
+            logger.warning("Se marcaron %d análisis huérfanos como failed", count)
+        return count
+
+    async def _finish(
+        self,
+        analysis_id: str,
+        result: Completion | ErrorCode,
+        notify_email: str | None,
+    ) -> RunOutcome:
+        """Escribe el cierre de la Run si el análisis sigue ``pending`` y avisa al usuario."""
+        if isinstance(result, Completion):
+            try:
+                won = await transitions.complete(
+                    analysis_id=analysis_id,
+                    label=result.label,
+                    confidence=result.confidence,
+                    explanation=result.explanation,
+                    claims=result.claims,
+                    sources=result.sources,
+                    evidence_coverage=result.evidence_coverage,
+                    pipeline=result.pipeline,
+                )
+            except DatabaseError:
+                logger.exception("No se pudo guardar el veredicto de %s", analysis_id)
+                result = ErrorCode.INTERNAL
+            else:
+                return await self._settle(analysis_id, won, None, notify_email)
+
+        # Un fallo de BD aquí sube a arq: la fila sigue pending y la recoge el reaper.
+        won = await transitions.fail(analysis_id=analysis_id, error_code=result.value)
+        return await self._settle(analysis_id, won, result, notify_email)
+
+    async def _settle(
+        self,
+        analysis_id: str,
+        won: bool,
+        error_code: ErrorCode | None,
+        notify_email: str | None,
+    ) -> RunOutcome:
+        """Avisa solo si el cierre ganó; un cierre tardío sobre otro estado se descarta."""
+        if not won:
+            logger.warning(
+                "El análisis %s ya no estaba pendiente; se descarta su cierre",
+                analysis_id,
+            )
+            return "discarded"
+
+        if notify_email:
+            try:
+                await self._notifier.finished(
+                    to=notify_email, analysis_id=analysis_id, error_code=error_code
+                )
+            except Exception:
+                logger.exception("No se pudo avisar del análisis %s", analysis_id)
+        return "done" if error_code is None else "failed"
+
+
+def _content_from_row(row: dict[str, Any]) -> AnalysisContent | None:
+    """Construye la entrada de la Run desde la fila; None si falta el archivo subido."""
+    if row["source_type"] == SourceType.URL.value:
+        return UrlContent(url=str(row["input_url"]))
+    if row["source_type"] == SourceType.FILE.value:
+        if row["file_data"] is None:
+            return None
+        return FileContent(
+            data=bytes(row["file_data"]), filename=row["file_filename"] or ""
+        )
+    return TextContent(text=row["input_text"] or "")

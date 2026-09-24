@@ -6,6 +6,7 @@ from html import escape
 import httpx
 
 from app.core.config import get_settings
+from app.schemas.errors import ErrorCode
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,21 @@ async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> Non
         html=html,
         text=text,
     )
+
+
+class ResendNotifier:
+    """Avisa por email del final de un análisis con la plantilla que toca a su resultado."""
+
+    async def finished(
+        self, *, to: str, analysis_id: str, error_code: ErrorCode | None
+    ) -> None:
+        """Envía el aviso de listo, de sin afirmaciones o de fallo."""
+        if error_code is None:
+            await send_analysis_ready_email(to=to, analysis_id=analysis_id)
+        elif error_code == ErrorCode.NO_MEDICAL_CLAIMS:
+            await send_analysis_no_claims_email(to=to, analysis_id=analysis_id)
+        else:
+            await send_analysis_failed_email(to=to, analysis_id=analysis_id)
 
 
 def _render_contact_html(

@@ -13,11 +13,13 @@ import app.agents.translator as translator_module
 import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.agents.main import create_graph
+from app.core.analysis_lifecycle import AnalysisFailure, TextContent
 from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
+from app.schemas.errors import ErrorCode
 from app.utils.evidence import EvidenceRetrievalError
+from tests.support.lifecycle import FakeRun
 
-ANALYSIS_ID = "44444444-4444-4444-4444-444444444444"
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
@@ -45,21 +47,6 @@ def _initial_state(text: str) -> dict:
         "medical_explanation": "",
         "claims": [],
     }
-
-
-def _serve_pending_text(monkeypatch, text: str) -> None:
-    """Hace que el worker lea ``text`` como entrada de la fila pendiente."""
-
-    async def fake_load(analysis_id):
-        return {
-            "source_type": "text",
-            "input_text": text,
-            "input_url": None,
-            "file_data": None,
-            "file_filename": None,
-        }
-
-    monkeypatch.setattr(worker_module, "load_pending_content", fake_load)
 
 
 def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
@@ -264,27 +251,13 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
         cima=_no_search,
     )
 
-    completed, failed = [], []
-
-    async def fake_complete(**kwargs):
-        completed.append(kwargs)
-
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    async def fake_set_stage(**kwargs):
-        pass
-
-    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
-    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
-    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
-
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    _serve_pending_text(monkeypatch, "Hoy hace un día soleado en Madrid")
-    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
+    with pytest.raises(AnalysisFailure) as failure:
+        await worker_module.analyse(
+            ctx, FakeRun(TextContent("Hoy hace un día soleado en Madrid"))
+        )
 
-    assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "NO_MEDICAL_CLAIMS"}]
+    assert failure.value.code == ErrorCode.NO_MEDICAL_CLAIMS
 
 
 async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, prompts):
@@ -314,29 +287,13 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
     _stub_sources(monkeypatch, europepmc=fake_europepmc)
     _stub_judge(monkeypatch, stance="contradicts")
 
-    completed, failed = [], []
-
-    async def fake_complete(**kwargs):
-        completed.append(kwargs)
-
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    async def fake_set_stage(**kwargs):
-        pass
-
-    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
-    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
-    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
-
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    _serve_pending_text(monkeypatch, "La vitamina C previene el resfriado")
-    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
+    completion = await worker_module.analyse(
+        ctx, FakeRun(TextContent("La vitamina C previene el resfriado"))
+    )
 
-    assert failed == []
-    assert len(completed) == 1
-    assert completed[0]["label"] == "falsa"
-    assert completed[0]["explanation"] is None
+    assert completion.label == "falsa"
+    assert completion.explanation is None
 
 
 def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prompts):
@@ -523,24 +480,8 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     _stub_judge(monkeypatch)
     _stub_sources(monkeypatch)
 
-    completed, failed = [], []
-
-    async def fake_complete(**kwargs):
-        completed.append(kwargs)
-
-    async def fake_fail(**kwargs):
-        failed.append(kwargs)
-
-    async def fake_set_stage(**kwargs):
-        pass
-
-    monkeypatch.setattr(worker_module, "complete_analysis", fake_complete)
-    monkeypatch.setattr(worker_module, "fail_analysis", fake_fail)
-    monkeypatch.setattr(worker_module, "set_analysis_stage", fake_set_stage)
-
     ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    _serve_pending_text(monkeypatch, "Texto")
-    await worker_module.run_analysis(ctx, analysis_id=ANALYSIS_ID)
+    with pytest.raises(AnalysisFailure) as failure:
+        await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
-    assert completed == []
-    assert failed == [{"analysis_id": ANALYSIS_ID, "error_code": "CONNECTION"}]
+    assert failure.value.code == ErrorCode.CONNECTION

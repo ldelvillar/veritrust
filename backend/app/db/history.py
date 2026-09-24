@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS, classify_verdict
+from app.db.analysis_transitions import _coerce_optional_fraction, _normalize_confidence
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisRequest, AnalysisStatusResponse, SourceType
 from app.schemas.history import (
@@ -107,34 +108,6 @@ _HISTORY_EXPORT_COLUMNS = (
     "file_filename",
 )
 _HISTORY_EXPORT_SELECT = ", ".join(_HISTORY_EXPORT_COLUMNS)
-
-
-def _normalize_confidence(confidence: Any) -> float:
-    """Convierte confidence a float y valida el rango [0, 1]."""
-    try:
-        value = float(confidence)
-    except (TypeError, ValueError) as exc:
-        raise DatabaseError(f"Confidence no es numerico: {confidence!r}.") from exc
-
-    if not 0.0 <= value <= 1.0:
-        raise DatabaseError(f"Confidence fuera de rango [0, 1]: {value}.")
-
-    return value
-
-
-def _coerce_optional_fraction(value: Any) -> float | None:
-    """Convierte una fracción opcional a float validando [0, 1]; ``None`` pasa tal cual."""
-    if value is None:
-        return None
-    try:
-        fraction = float(value)
-    except (TypeError, ValueError) as exc:
-        raise DatabaseError(f"Fraccion no es numerica: {value!r}.") from exc
-
-    if not 0.0 <= fraction <= 1.0:
-        raise DatabaseError(f"Fraccion fuera de rango [0, 1]: {fraction}.")
-
-    return fraction
 
 
 def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:

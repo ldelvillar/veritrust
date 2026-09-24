@@ -63,3 +63,32 @@ class StubIntake:
     async def reanalyze(self, submitter, analysis_id):
         self.calls.append(("reanalyze", submitter, analysis_id))
         return self._answer(analysis_id)
+
+
+class RecordingNotifier:
+    """Aviso de fin de análisis que registra cada envío y puede fallar a propósito."""
+
+    def __init__(self, *, broken=False):
+        self.sent: list[tuple[str, str, ErrorCode | None]] = []
+        self._broken = broken
+
+    async def finished(self, *, to, analysis_id, error_code):
+        if self._broken:
+            raise RuntimeError("proveedor de email caído")
+        self.sent.append((to, analysis_id, error_code))
+
+
+class FakeRun:
+    """Run de mentira para probar el trabajo del worker sin base de datos."""
+
+    def __init__(self, content, analysis_id=ANALYSIS_ID):
+        self.analysis_id = analysis_id
+        self.content = content
+        self.finished_stages: list[str] = []
+        self.kept_text: list[str] = []
+
+    async def stage_finished(self, stage):
+        self.finished_stages.append(stage)
+
+    async def keep_input_text(self, text):
+        self.kept_text.append(text)
