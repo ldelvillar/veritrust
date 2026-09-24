@@ -77,3 +77,25 @@ _Avoid_: coverage ratio, recall
 **Evidence outage**:
 A Run in which no literature source could be reached, so Evidence coverage is unknown rather than zero.
 _Avoid_: sentinel, blackout
+
+## History
+
+**History**:
+A user's Analyses, newest first, which they search, filter, sort and export.
+_Avoid_: log, archive
+
+**Content type**:
+What was submitted for an Analysis: pasted text, a URL or a file.
+_Avoid_: source type (a source is literature), input kind
+
+**History query**:
+The search text, the filters (Content type, Verdict, status, date range) and the sort order that pick and order Analyses from the History.
+_Avoid_: filter state, params
+
+**Facet**:
+For one filter, how many Analyses each of its values would find, keeping every other filter of the History query.
+_Avoid_: stats, totals
+
+**Export**:
+The done Analyses a History query finds, with their Verdicts, as a file to download.
+_Avoid_: dump, download
