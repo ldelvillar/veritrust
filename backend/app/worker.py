@@ -78,11 +78,7 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
         "extracted_statements": [],
         "translated_statements": [],
         "sources": [],
-        "evidence_coverage": 0.0,
-        "label": "",
-        "confidence": 0.0,
         "medical_explanation": "",
-        "claims": [],
     }
 
     await run.stage_finished("preparing")
@@ -94,27 +90,18 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
         logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
-    label = result.get("label") or None
-    if not label:
+    verdict = result.get("verdict")
+    if verdict is None:
         raise AnalysisFailure(ErrorCode.NO_MEDICAL_CLAIMS)
-
-    sources = result.get("sources") or []
-    # Cobertura 1.0 sin fuentes significa caída total.
-    evidence_coverage = result.get("evidence_coverage")
-    if evidence_coverage == 1.0 and not sources:
-        evidence_coverage = None
 
     explanation = result.get("medical_explanation") or None
     if not explanation:
         logger.warning("[Worker] Análisis %s sin informe del experto", run.analysis_id)
 
     return Completion(
-        label=str(label),
-        confidence=result.get("confidence") or None,
+        verdict=verdict,
         explanation=explanation,
-        claims=result.get("claims") or [],
-        sources=sources,
-        evidence_coverage=evidence_coverage,
+        sources=result.get("sources") or [],
         pipeline=ctx["pipeline"],
     )
 

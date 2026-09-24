@@ -6,12 +6,12 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
-from app.core.credibility import (
+from app.core.verdict import (
     ConfidenceLevel,
-    Verdict,
-    classify_confidence,
-    classify_verdict,
-    compute_credibility,
+    VerdictKind,
+    confidence_level_of,
+    credibility_of,
+    kind_of,
 )
 from app.schemas.analysis import (
     AnalysisOrigin,
@@ -34,9 +34,9 @@ class ClaimItem(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def verdict(self) -> Verdict:
+    def verdict(self) -> VerdictKind:
         """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
-        return classify_verdict(self.label)
+        return kind_of(self.label)
 
 
 class StatementStance(BaseModel):
@@ -80,21 +80,21 @@ class HistoryListItem(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def verdict(self) -> Verdict:
+    def verdict(self) -> VerdictKind:
         """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
-        return classify_verdict(self.label)
+        return kind_of(self.label)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def credibility(self) -> Optional[int]:
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
-        return compute_credibility(self.label, self.confidence)
+        return credibility_of(self.verdict, self.confidence)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def confidence_level(self) -> Optional[ConfidenceLevel]:
         """Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta."""
-        return classify_confidence(self.confidence)
+        return confidence_level_of(self.confidence)
 
 
 class HistoryExportItem(HistoryListItem):
@@ -136,21 +136,21 @@ class PublicAnalysisReport(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def verdict(self) -> Verdict:
+    def verdict(self) -> VerdictKind:
         """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
-        return classify_verdict(self.label)
+        return kind_of(self.label)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def credibility(self) -> Optional[int]:
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
-        return compute_credibility(self.label, self.confidence)
+        return credibility_of(self.verdict, self.confidence)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def confidence_level(self) -> Optional[ConfidenceLevel]:
         """Tramo de la confianza del veredicto (`high`/`medium`/`low`) para su etiqueta."""
-        return classify_confidence(self.confidence)
+        return confidence_level_of(self.confidence)
 
 
 class PendingAnalysesSummary(BaseModel):

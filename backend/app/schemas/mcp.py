@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.core.credibility import Verdict
+from app.core.verdict import VerdictKind
 from app.schemas.history import ClaimItem, SourceItem, Stance
 
 # Tope del resumen devuelto: la ficha técnica de CIMA puede ocupar decenas de miles de caracteres.
@@ -28,7 +28,7 @@ class VerificationResult(BaseModel):
         default=None,
         description="Overall label in Spanish: falsa, incierta or verdadera.",
     )
-    verdict: Optional[Verdict] = None
+    verdict: Optional[VerdictKind] = None
     confidence: Optional[float] = Field(
         default=None, description="Confidence in the label, in [0, 1]."
     )

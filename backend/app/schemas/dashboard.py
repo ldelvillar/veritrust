@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
-from app.core.credibility import compute_credibility
+from app.core.verdict import credibility_of, kind_of
 from app.schemas.analysis import SourceType
 
 
@@ -64,7 +64,7 @@ class DashboardAlertItem(BaseModel):
     @property
     def credibility(self) -> Optional[int]:
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
-        return compute_credibility(self.label, self.confidence)
+        return credibility_of(kind_of(self.label), self.confidence)
 
 
 class DashboardVerdictDistribution(BaseModel):

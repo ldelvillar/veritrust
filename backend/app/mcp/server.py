@@ -25,7 +25,6 @@ from app.api.dependencies.check_rate_limit import (
 )
 from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused, Submitter
 from app.core.config import get_settings
-from app.core.credibility import classify_verdict, compute_credibility
 from app.core.errors import make_error_detail
 from app.db.history import get_user_analysis_by_id
 from app.db.pool import DatabaseError
@@ -147,11 +146,9 @@ def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:
         report_url=_report_url(record.analysis_id),
         stage=record.stage if status == "pending" else None,
         label=record.label if done else None,
-        verdict=classify_verdict(record.label) if done else None,
+        verdict=record.verdict if done else None,
         confidence=record.confidence if done else None,
-        credibility=compute_credibility(record.label, record.confidence)
-        if done
-        else None,
+        credibility=record.credibility if done else None,
         evidence_coverage=record.evidence_coverage if done else None,
         explanation=record.explanation if done else None,
         claims=record.claims or [],

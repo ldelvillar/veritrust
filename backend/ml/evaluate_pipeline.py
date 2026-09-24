@@ -20,7 +20,7 @@ import pandas as pd
 from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
 from app.agents.main import create_graph, describe_pipeline
-from app.core.credibility import EVIDENCE_MAX_PENALTY, classify_verdict
+from app.core.verdict import Verdict, kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 from app.utils.llm import ensure_llm_available
@@ -61,7 +61,7 @@ class EvalRow(TypedDict):
     translated: list[str]
     sources_kept: int
     stances: dict[str, int]
-    evidence_coverage: float
+    evidence_coverage: float | None
     judge_failures: int
     evidence: list[EvidenceCall]
     evidence_live: int
@@ -173,21 +173,8 @@ def _build_initial_state(text: str) -> dict[str, object]:
         "input_text": text,
         "extracted_statements": [],
         "translated_statements": [],
-        "label": "",
-        "confidence": 0.0,
         "medical_explanation": "",
     }
-
-
-def _reconstruct_fake_avg(
-    label: str | None, confidence: float, coverage: float
-) -> float | None:
-    """Invierte la atenuación por cobertura para recuperar la fake_avg que vio la banda."""
-    if not label:
-        return None
-    cov = max(0.0, min(1.0, coverage))
-    raw = min(1.0, confidence / (1 - EVIDENCE_MAX_PENALTY * (1 - cov)))
-    return round(raw if label == "falsa" else 1.0 - raw, 6)
 
 
 def load_checkpoint(path: Path) -> dict[str, EvalRow]:
@@ -322,20 +309,15 @@ async def evaluate_pipeline(
                 continue
             duration = time() - started
 
-            # Sin etiqueta: el texto no contenía afirmaciones médicas verificables.
-            predicted = result.get("label") or None
-            confidence = float(result.get("confidence") or 0.0)
+            # Sin veredicto: el texto no contenía afirmaciones médicas verificables.
+            verdict: Verdict | None = result.get("verdict")
             row: EvalRow = {
                 "text": sample["text"],
                 "expected": sample["expected"],
-                "predicted": predicted,
-                "confidence": confidence,
+                "predicted": verdict.label if verdict else None,
+                "confidence": verdict.confidence if verdict else 0.0,
                 # fake_avg cruda para poder barrer la banda global sin re-ejecutar.
-                "fake_avg": _reconstruct_fake_avg(
-                    predicted,
-                    confidence,
-                    float(result.get("evidence_coverage") or 0.0),
-                ),
+                "fake_avg": verdict.falsehood if verdict else None,
                 # Coste por muestra: fija el n asumible en evaluaciones posteriores.
                 "duration_seconds": round(duration, 3),
                 # Permite detectar inversiones de polaridad extractor/traductor.
@@ -346,7 +328,7 @@ async def evaluate_pipeline(
                 # Diagnóstico: separa "no se recuperó nada" de "el juez no se moja".
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
-                "evidence_coverage": float(result.get("evidence_coverage") or 0.0),
+                "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
                 # Juez caido: la fila no mide el pipeline, mide una incidencia.
                 "judge_failures": int(result.get("judge_failures") or 0),
                 # Hits brutos por búsqueda: otra corrida los reproduce con --replay-evidence.
@@ -363,7 +345,7 @@ async def evaluate_pipeline(
                 i,
                 total,
                 sample["expected"],
-                predicted or "sin_afirmaciones",
+                row["predicted"] or "sin_afirmaciones",
                 duration,
             )
     finally:
@@ -376,7 +358,7 @@ async def evaluate_pipeline(
 
 def _is_abstention(predicted: str | None) -> bool:
     """Sin afirmaciones (None) o veredicto no firme ('incierta') no puntúan."""
-    return predicted is None or classify_verdict(predicted) == "uncertain"
+    return predicted is None or kind_of(predicted) == "uncertain"
 
 
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
@@ -393,7 +375,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     tp = fp = tn = fn = 0
     for row in scored:
         expected_fake = row["expected"] == "falsa"
-        predicted_fake = classify_verdict(row["predicted"]) == "fake"
+        predicted_fake = kind_of(row["predicted"]) == "fake"
         if expected_fake:
             tp += predicted_fake
             fn += not predicted_fake
@@ -479,7 +461,7 @@ def format_report(
         for r in rows
         if not r.get("judge_failures")
         if not _is_abstention(r["predicted"])
-        and (classify_verdict(r["predicted"]) == "fake") != (r["expected"] == "falsa")
+        and (kind_of(r["predicted"]) == "fake") != (r["expected"] == "falsa")
     ]
     if errors:
         lines.append("")

@@ -1,5 +1,6 @@
 """Siembra de filas para las pruebas de lectura con el SQL de transiciones, sin pasar por el ciclo de vida."""
 
+from app.core.verdict import ClaimVerdict, Verdict, kind_of
 from app.db import analysis_transitions as transitions
 from app.schemas.analysis import AnalysisRequest, SourceType
 
@@ -37,14 +38,26 @@ async def seed_done(
     pipeline: dict | None = None,
 ) -> None:
     """Cierra un análisis ``pending`` como ``done`` con el veredicto indicado."""
+    verdict = Verdict(
+        kind=kind_of(label),
+        confidence=confidence,
+        # La falsedad no se guarda, así que su valor no importa al sembrar.
+        falsehood=0.5,
+        evidence_coverage=evidence_coverage,
+        claims=tuple(
+            ClaimVerdict(
+                text=claim["text"],
+                kind=kind_of(claim["label"]),
+                confidence=claim["confidence"],
+            )
+            for claim in claims or []
+        ),
+    )
     await transitions.complete(
         analysis_id=analysis_id,
-        label=label,
-        confidence=confidence,
+        verdict=verdict,
         explanation=explanation,
-        claims=claims or [],
         sources=sources or [],
-        evidence_coverage=evidence_coverage,
         pipeline=pipeline or {},
     )
 

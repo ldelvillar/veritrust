@@ -8,7 +8,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from app.core.credibility import classify_verdict
+from app.core.verdict import Verdict
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 
 
@@ -189,17 +189,18 @@ async def set_input_text(*, analysis_id: str, input_text: str) -> None:
 async def complete(
     *,
     analysis_id: str,
-    label: str,
-    confidence: Any,
+    verdict: Verdict,
     explanation: str | None,
-    claims: list[dict],
     sources: list[dict],
-    evidence_coverage: Any,
     pipeline: dict,
 ) -> bool:
     """Pasa a ``done`` con su veredicto un análisis que sigue ``pending``; True si cambió."""
-    confidence_value = _normalize_confidence(confidence)
-    coverage_value = _coerce_optional_fraction(evidence_coverage)
+    confidence_value = _normalize_confidence(verdict.confidence)
+    coverage_value = _coerce_optional_fraction(verdict.evidence_coverage)
+    claims = [
+        {"text": claim.text, "label": claim.label, "confidence": claim.confidence}
+        for claim in verdict.claims
+    ]
     query = """
         UPDATE public.analysis_history
         SET label = %s,
@@ -218,8 +219,8 @@ async def complete(
     return await _update(
         query,
         (
-            label,
-            classify_verdict(label),
+            verdict.label,
+            verdict.kind,
             confidence_value,
             coverage_value,
             explanation,

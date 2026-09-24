@@ -9,7 +9,7 @@ from typing import Any, Optional
 import psycopg
 from psycopg.rows import dict_row
 
-from app.core.credibility import CREDIBILITY_SQL_EXPR, VERDICTS
+from app.core.verdict import CREDIBILITY_SQL, VERDICT_KINDS
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisStatusResponse, SourceType
 from app.schemas.history import (
@@ -24,15 +24,15 @@ from app.schemas.history import (
 
 # Vocabulario único: derivado del enum SourceType para no divergir del contrato.
 _VALID_SOURCE_TYPES = {source_type.value for source_type in SourceType}
-_VALID_VERDICTS = set(VERDICTS)
+_VALID_VERDICTS = set(VERDICT_KINDS)
 _VALID_STATUSES = {"done", "pending", "failed"}
 
 # Cláusulas ORDER BY saneadas por clave; nunca se interpola entrada cruda del usuario.
 _SORT_ORDER_BY = {
     "recent": "created_at DESC",
     "oldest": "created_at ASC",
-    "credibility_high": f"{CREDIBILITY_SQL_EXPR} DESC NULLS LAST, created_at DESC",
-    "credibility_low": f"{CREDIBILITY_SQL_EXPR} ASC NULLS LAST, created_at DESC",
+    "credibility_high": f"{CREDIBILITY_SQL} DESC NULLS LAST, created_at DESC",
+    "credibility_low": f"{CREDIBILITY_SQL} ASC NULLS LAST, created_at DESC",
 }
 
 _DEFAULT_SORT = "recent"

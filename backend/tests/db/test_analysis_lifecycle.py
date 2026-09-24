@@ -17,6 +17,7 @@ from app.core.analysis_lifecycle import (
     TextContent,
     UrlContent,
 )
+from app.core.verdict import ClaimVerdict, Verdict
 from app.db.history import get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, SourceType
@@ -428,18 +429,22 @@ async def test_reopen_fails_the_row_again_when_enqueueing_fails(db_pool, intake,
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
-def _completion(**overrides) -> Completion:
-    base: dict = {
-        "label": "falsa",
-        "confidence": 0.9,
-        "explanation": "Sin evidencia.",
-        "claims": [{"text": "La lejía cura", "label": "falsa", "confidence": 0.9}],
-        "sources": [{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
-        "evidence_coverage": 0.5,
-        "pipeline": PIPELINE,
-    }
-    base.update(overrides)
-    return Completion(**base)
+def _completion(
+    *, confidence=0.9, evidence_coverage=0.5, explanation="Sin evidencia."
+) -> Completion:
+    verdict = Verdict(
+        kind="fake",
+        confidence=confidence,
+        falsehood=0.9,
+        evidence_coverage=evidence_coverage,
+        claims=(ClaimVerdict(text="La lejía cura", kind="fake", confidence=0.9),),
+    )
+    return Completion(
+        verdict=verdict,
+        explanation=explanation,
+        sources=[{"title": "Estudio", "url": "https://doi.org/10.1/x"}],
+        pipeline=PIPELINE,
+    )
 
 
 def _returning(result, seen=None):
@@ -783,13 +788,11 @@ async def test_a_stage_that_cannot_be_shown_never_breaks_the_run(
     ("marker", "completion"),
     [
         ("SET label", _completion()),
-        (None, _completion(confidence=None)),
         (None, _completion(confidence=1.2)),
         (None, _completion(evidence_coverage=1.5)),
     ],
     ids=[
         "write-fails",
-        "missing-confidence",
         "confidence-out-of-range",
         "coverage-out-of-range",
     ],

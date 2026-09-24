@@ -7,8 +7,20 @@ import pandas as pd
 import pytest
 
 from app.agents import investigator as investigator_module
+from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
 from ml import evaluate_pipeline as ep
+
+
+def _verdict(kind, confidence: float, falsehood: float = 0.5) -> Verdict:
+    """Veredicto mínimo tal y como lo deja el experto en el estado del grafo."""
+    return Verdict(
+        kind=kind,
+        confidence=confidence,
+        falsehood=falsehood,
+        evidence_coverage=1.0,
+        claims=(),
+    )
 
 
 def _row(expected: str, predicted: str | None, confidence: float = 0.9) -> ep.EvalRow:
@@ -74,19 +86,19 @@ def test_compute_metrics_treats_incierta_as_abstention() -> None:
     assert metrics["coverage"] == pytest.approx(1 / 3)
 
 
-def test_reconstruct_fake_avg_inverts_coverage_attenuation() -> None:
-    # fake_avg 0.62 reportada como falsa con cobertura 0.5: 0.62 * 0.875 = 0.5425.
-    assert ep._reconstruct_fake_avg("falsa", 0.62 * 0.875, 0.5) == pytest.approx(0.62)
+def test_evaluate_pipeline_records_the_raw_falsehood_the_band_saw() -> None:
+    samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
 
+    class FakeGraph:
+        async def astream(self, state: dict, stream_mode: object = None):
+            yield ("values", {"verdict": _verdict("fake", 0.5425, falsehood=0.62)})
 
-def test_reconstruct_fake_avg_mirrors_non_fake_labels() -> None:
-    # verdadera/incierta reportan 1 - fake_avg; cobertura completa no atenúa.
-    assert ep._reconstruct_fake_avg("verdadera", 0.8, 1.0) == pytest.approx(0.2)
-    assert ep._reconstruct_fake_avg("incierta", 0.55, 1.0) == pytest.approx(0.45)
+    [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
 
-
-def test_reconstruct_fake_avg_is_none_without_label() -> None:
-    assert ep._reconstruct_fake_avg("", 0.0, 0.0) is None
+    # La falsedad llega sin atenuar: ya no hace falta invertir la cobertura.
+    assert (row["predicted"], row["confidence"]) == ("falsa", 0.5425)
+    assert row["fake_avg"] == 0.62
+    assert row["evidence_coverage"] == 1.0
 
 
 def test_format_report_excludes_abstentions_from_errors() -> None:
@@ -148,16 +160,12 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
     class FakeGraph:
         async def astream(self, state: dict, stream_mode: object = None):
             if "sin" in state["input_text"]:
-                yield (
-                    "values",
-                    {"label": "", "confidence": 0.0, "medical_explanation": ""},
-                )
+                yield ("values", {"verdict": None, "medical_explanation": ""})
             else:
                 yield (
                     "values",
                     {
-                        "label": "falsa",
-                        "confidence": 0.8,
+                        "verdict": _verdict("fake", 0.8),
                         "medical_explanation": "informe",
                     },
                 )
@@ -184,7 +192,7 @@ def test_build_initial_state_has_pipeline_keys() -> None:
 
     assert state["input_text"] == "hola"
     assert state["extracted_statements"] == []
-    assert state["label"] == ""
+    assert state["medical_explanation"] == ""
 
 
 def test_load_checkpoint_reads_rows_and_ignores_corrupt(tmp_path) -> None:
@@ -225,7 +233,7 @@ def test_evaluate_pipeline_resumes_and_appends(tmp_path) -> None:
             self.seen.append(state["input_text"])
             yield (
                 "values",
-                {"label": "verdadera", "confidence": 0.7, "medical_explanation": "ok"},
+                {"verdict": _verdict("real", 0.7), "medical_explanation": "ok"},
             )
 
     graph = FakeGraph()
@@ -254,7 +262,7 @@ def test_evaluate_pipeline_skips_failed_samples_for_retry(tmp_path) -> None:
                 raise RuntimeError("boom")
             yield (
                 "values",
-                {"label": "falsa", "confidence": 0.8, "medical_explanation": "ok"},
+                {"verdict": _verdict("fake", 0.8), "medical_explanation": "ok"},
             )
 
     rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph(), path))
@@ -474,7 +482,7 @@ def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(
 
         async def astream(self, state: dict, stream_mode: object = None):
             self.hits = investigator_module.search_pubmed("q", max_results=3)
-            yield ("values", {"label": "falsa", "confidence": 0.8})
+            yield ("values", {"verdict": _verdict("fake", 0.8)})
 
     monkeypatch.setattr(
         investigator_module,

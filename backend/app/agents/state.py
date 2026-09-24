@@ -1,6 +1,8 @@
 """Estados tipados de los grafos de LangGraph que leen y actualizan los agentes."""
 
-from typing import List, TypedDict
+from typing import List, Optional, TypedDict
+
+from app.core.verdict import EvidenceSearch, Verdict
 
 
 class ClaimsState(TypedDict, total=False):
@@ -17,12 +19,10 @@ class AgentState(ClaimsState, total=False):
     """Estado del grafo completo; cada nodo devuelve solo las claves que actualiza."""
 
     sources: List[dict]
-    evidence_coverage: float
+    evidence_search: EvidenceSearch
     judge_failures: int
-    label: str
-    confidence: float
+    verdict: Optional[Verdict]
     medical_explanation: str
-    claims: List[dict]
 
 
 class EvidenceState(ClaimsState, total=False):

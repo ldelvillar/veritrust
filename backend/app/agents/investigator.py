@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.relevance import judge_evidence
 from app.agents.state import AgentState, ClaimsState
+from app.core.verdict import EvidenceSearch
 from app.prompts.agents import Prompts
 from app.utils.cima import search_evidence as search_cima
 from app.utils.europepmc import search_evidence as search_europepmc
@@ -241,14 +242,20 @@ def gather_evidence(
 
 
 def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentState:
-    """Recupera literatura biomédica relevante y calcula la cobertura de evidencia."""
+    """Recupera literatura biomédica relevante y cuenta a cuántas afirmaciones llega."""
     logger.info(
         "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
     )
 
     total, claims = gather_evidence(state, prompts)
     if not total:
-        return {"sources": [], "evidence_coverage": 0.0, "judge_failures": 0}
+        return {
+            "sources": [],
+            "evidence_search": EvidenceSearch(
+                total=0, searched=0, covered=0, outage=False
+            ),
+            "judge_failures": 0,
+        }
 
     collected: list[tuple[dict, int, str]] = []
     covered = 0
@@ -272,15 +279,22 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
     sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
 
     errored = sum(1 for entry in claims if entry["hits"] is None)
-    if errored == len(claims):
-        # Caída total: lo buscado no penaliza (infra nuestra); lo recortado por la cota sí.
-        coverage = len(claims) / total
-    else:
-        coverage = covered / total
+    search = EvidenceSearch(
+        total=total,
+        searched=len(claims),
+        covered=covered,
+        outage=errored == len(claims),
+    )
 
-    logger.info("[Investigador] %d fuentes (cobertura %.2f)", len(sources), coverage)
+    logger.info(
+        "[Investigador] %d fuentes para %d/%d afirmaciones%s",
+        len(sources),
+        covered,
+        total,
+        " (fuentes caídas)" if search.outage else "",
+    )
     return {
         "sources": sources,
-        "evidence_coverage": coverage,
+        "evidence_search": search,
         "judge_failures": judge_failures,
     }

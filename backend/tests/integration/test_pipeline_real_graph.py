@@ -41,11 +41,7 @@ def _initial_state(text: str) -> dict:
         "extracted_statements": [],
         "translated_statements": [],
         "sources": [],
-        "evidence_coverage": 0.0,
-        "label": "",
-        "confidence": 0.0,
         "medical_explanation": "",
-        "claims": [],
     }
 
 
@@ -209,15 +205,16 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         "Ibuprofen cures the flu",
         "Vitamin C prevents the common cold",
     ]
+    verdict = result["verdict"]
     # Los veredictos por afirmación conservan el texto original en español.
-    assert [c["text"] for c in result["claims"]] == [
+    assert [c.text for c in verdict.claims] == [
         "El ibuprofeno cura la gripe",
         "La vitamina C previene el resfriado",
     ]
-    assert result["label"] == "verdadera"
-    # Evidencia a favor (2 y 1 fuentes): fake_avg = (1/4 + 1/3) / 2 = 7/24.
-    assert result["confidence"] == pytest.approx(17 / 24)
-    assert result["evidence_coverage"] == 1.0
+    assert verdict.label == "verdadera"
+    # Evidencia a favor (2 y 1 fuentes): falsedad media = (1/4 + 1/3) / 2 = 7/24.
+    assert verdict.confidence == pytest.approx(17 / 24)
+    assert verdict.evidence_coverage == 1.0
     assert result["medical_explanation"] == "Informe médico integrado"
 
     # Las fuentes fusionadas enlazan cada afirmación original que respaldan.
@@ -292,7 +289,7 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
         ctx, FakeRun(TextContent("La vitamina C previene el resfriado"))
     )
 
-    assert completion.label == "falsa"
+    assert completion.verdict.label == "falsa"
     assert completion.explanation is None
 
 
@@ -328,7 +325,7 @@ def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prom
     # La afirmación sin consulta enfocada se investiga con su traducción al inglés.
     # Las búsquedas corren en un pool de hilos, así que el orden no está garantizado.
     assert set(europepmc_queries) == {'"query one"', "Claim two EN"}
-    assert result["evidence_coverage"] == 1.0
+    assert result["verdict"].evidence_coverage == 1.0
 
 
 def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
@@ -358,12 +355,12 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     assert result["translated_statements"] == ["", ""]
     # Sin traducción, el juez de relevancia recibe la consulta como respaldo.
     assert judged_claims == ['"query one"', '"query two"']
-    assert result["label"] == "verdadera"
-    assert result["claims"] != []
+    assert result["verdict"].label == "verdadera"
+    assert len(result["verdict"].claims) == 2
 
 
 def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts):
-    """Con todas las fuentes caídas la cobertura es 1.0: fallo nuestro, no del contenido."""
+    """Con todas las fuentes caídas la cobertura es desconocida: fallo nuestro, no del contenido."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno"],
@@ -384,12 +381,41 @@ def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts
     result = graph.invoke(_initial_state("Texto"))
 
     assert result["sources"] == []
-    assert result["evidence_coverage"] == 1.0
-    # Sin fuentes no hay postura: incierta, y la cobertura vacía no atenúa.
-    assert result["label"] == "incierta"
-    assert result["confidence"] == pytest.approx(0.5)
+    assert result["verdict"].evidence_coverage is None
+    # Sin fuentes no hay postura: incierta, y el corte no atenúa.
+    assert result["verdict"].label == "incierta"
+    assert result["verdict"].confidence == pytest.approx(0.5)
     # El experto recibe la instrucción de no inventar referencias.
     assert "No se hallaron fuentes" in captured["human"]
+
+
+async def test_total_outage_beyond_the_cap_reports_unknown_coverage(
+    monkeypatch, prompts
+):
+    """Con todas las fuentes caídas y más afirmaciones que la cota, la cobertura es desconocida."""
+    _stub_extractor(
+        monkeypatch,
+        statements=[f"Afirmación {i}" for i in range(10)],
+        queries=[f'"query {i}"' for i in range(10)],
+        drug_terms=[],
+    )
+    _stub_translator(monkeypatch, [f"Claim {i} EN" for i in range(10)])
+    _stub_health(monkeypatch)
+    _stub_judge(monkeypatch)
+    _stub_sources(
+        monkeypatch,
+        europepmc=_failing_search,
+        pubmed=_failing_search,
+        openfda=_failing_search,
+    )
+
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    completion = await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
+
+    # No se buscó nada con éxito: el informe no puede mostrar un 80 % de cobertura.
+    assert completion.verdict.evidence_coverage is None
+    # Solo penalizan las 2 afirmaciones que la cota dejó sin buscar: 0.5 × (1 − 0.25 × 0.2).
+    assert completion.verdict.confidence == pytest.approx(0.475)
 
 
 def test_partial_evidence_coverage_attenuates_confidence(monkeypatch, prompts):
@@ -414,10 +440,10 @@ def test_partial_evidence_coverage_attenuates_confidence(monkeypatch, prompts):
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("Texto"))
 
-    assert result["evidence_coverage"] == 0.5
+    assert result["verdict"].evidence_coverage == 0.5
     # Valor esperado independiente: 0.5 × (1 − 0.25 × (1 − 0.5)) = 0.4375.
-    assert result["confidence"] == pytest.approx(0.4375)
-    assert result["confidence"] < 0.5
+    assert result["verdict"].confidence == pytest.approx(0.4375)
+    assert result["verdict"].confidence < 0.5
 
 
 def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
@@ -439,8 +465,8 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
 
     # El filtrado real del juez vacía las fuentes y penaliza al máximo la confianza.
     assert result["sources"] == []
-    assert result["evidence_coverage"] == 0.0
-    assert result["confidence"] == pytest.approx(0.5 * 0.75)
+    assert result["verdict"].evidence_coverage == 0.0
+    assert result["verdict"].confidence == pytest.approx(0.5 * 0.75)
 
 
 async def test_midgraph_transport_failure_surfaces_with_partial_stages(
