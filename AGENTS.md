@@ -62,3 +62,17 @@ Auth is Clerk OAuth: clients discover Clerk from `/.well-known/oauth-protected-r
 
 - Never hardcode credentials, keys, or URLs — read them from environment via the config layer.
 - Test fixtures must use dummy/mock values, never real keys.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues on `ldelvillar/veritrust`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default triage labels, each named after its role (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
