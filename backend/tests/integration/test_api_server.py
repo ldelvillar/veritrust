@@ -199,7 +199,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    record = types.SimpleNamespace(
+    record = AnalysisHistoryItem(
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
@@ -263,7 +263,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    record = types.SimpleNamespace(
+    record = AnalysisHistoryItem(
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",
@@ -307,7 +307,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    record = types.SimpleNamespace(
+    record = AnalysisHistoryItem(
         analysis_id="11111111-1111-1111-1111-111111111111",
         user_id="test-user",
         source_type="text",

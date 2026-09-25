@@ -268,28 +268,7 @@ async def get_analysis_detail(
                 detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
             ) from e
 
-    return AnalysisHistoryItem(
-        analysis_id=record.analysis_id,
-        user_id=record.user_id,
-        source_type=record.source_type,
-        origin=record.origin,
-        input_text=record.input_text,
-        input_url=record.input_url,
-        label=record.label,
-        confidence=record.confidence,
-        evidence_coverage=record.evidence_coverage,
-        explanation=record.explanation,
-        status=record.status,
-        error_code=record.error_code,
-        created_at=record.created_at,
-        completed_at=record.completed_at,
-        claims=record.claims,
-        sources=record.sources,
-        file_filename=record.file_filename,
-        share_token=record.share_token,
-        stage=record.stage,
-        feedback=feedback,
-    )
+    return record.model_copy(update={"feedback": feedback})
 
 
 @router.get(
@@ -330,9 +309,7 @@ _FILE_MEDIA_TYPES = {
 
 def _content_disposition_inline(filename: str) -> str:
     """Construye un Content-Disposition inline seguro (RFC 6266) para nombres no ASCII."""
-    # Cabeceras HTTP se codifican en latin-1: un nombre con em dash, emoji o CJK
-    # reventaría la respuesta con UnicodeEncodeError, así que separamos el
-    # fallback ASCII (sin comillas ni control) del nombre real percent-encoded.
+    # Las cabeceras HTTP se codifican en latin-1
     ascii_fallback = (
         "".join(c for c in filename if 32 <= ord(c) < 127 and c not in '"\\')
         or "documento"
@@ -447,7 +424,7 @@ async def submit_analysis_feedback(
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
-    # Solo se valora un veredicto existente; pending/failed no tienen resultado.
+    # Solo se valora un veredicto existente.
     if record.status != "done":
         raise HTTPException(
             status_code=409,
@@ -469,7 +446,6 @@ async def submit_analysis_feedback(
         ) from e
 
     if feedback is None:
-        # El guard del INSERT filtró la fila: ya había valoración activa (o carrera).
         raise HTTPException(
             status_code=409,
             detail=make_error_detail(ErrorCode.FEEDBACK_ALREADY_SUBMITTED),
