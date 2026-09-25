@@ -9,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+from app.agents.sanitize import neutralize_delimiters
 from app.core.config import get_settings
 from app.utils.llm import build_chat_model
 
@@ -57,7 +58,11 @@ def get_relevance_chain(
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", prompt_text),
-            ("user", "Afirmación:\n{claim}\n\nFuentes candidatas:\n{sources}"),
+            (
+                "user",
+                "Afirmación:\n<<USER_INPUT>>\n{claim}\n<<END>>\n\n"
+                "Fuentes candidatas:\n<<USER_INPUT>>\n{sources}\n<<END>>",
+            ),
         ]
     )
     return prompt | structured_llm
@@ -67,8 +72,8 @@ def _format_candidates(hits: list[dict]) -> str:
     """Numera el título y el resumen de cada candidata para el prompt."""
     lines = []
     for index, hit in enumerate(hits, start=1):
-        title = str(hit.get("title", "")).strip()
-        abstract = str(hit.get("abstract") or "").strip()
+        title = neutralize_delimiters(str(hit.get("title", ""))).strip()
+        abstract = neutralize_delimiters(str(hit.get("abstract") or "")).strip()
         body = f"{title}. {abstract}" if abstract else title
         lines.append(f"{index}. {body}")
     return "\n".join(lines)
@@ -86,7 +91,12 @@ def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]
 
     chain = get_relevance_chain(prompt_text, _next_judge_model())
     try:
-        verdict = chain.invoke({"claim": claim, "sources": _format_candidates(hits)})
+        verdict = chain.invoke(
+            {
+                "claim": neutralize_delimiters(claim),
+                "sources": _format_candidates(hits),
+            }
+        )
     except Exception:
         logger.warning(
             "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",

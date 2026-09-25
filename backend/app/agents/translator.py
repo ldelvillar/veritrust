@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+from app.agents.sanitize import neutralize_delimiters
 from app.agents.state import ClaimsState
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
@@ -43,7 +44,11 @@ def get_translator_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
     system_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", prompt_text),
-            ("user", "Afirmaciones a traducir (numeradas):\n{statements}"),
+            (
+                "user",
+                "Afirmaciones a traducir (numeradas):\n"
+                "<<USER_INPUT>>\n{statements}\n<<END>>",
+            ),
         ]
     )
     return system_prompt | structured_llm
@@ -61,7 +66,10 @@ def translator(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     if not original_statements:
         return {"translated_statements": []}
 
-    numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(original_statements))
+    numbered = "\n".join(
+        f"{i + 1}. {neutralize_delimiters(str(s))}"
+        for i, s in enumerate(original_statements)
+    )
 
     translator_chain = get_translator_chain(prompts.translator.text)
     result = translator_chain.invoke({"statements": numbered})

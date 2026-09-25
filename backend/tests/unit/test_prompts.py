@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import app.prompts.agents as prompts_module
+from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 
 
 def test_load_prompts_reads_packaged_yaml_with_all_agents():
@@ -32,6 +33,15 @@ def test_load_prompts_reads_packaged_yaml_with_all_agents():
         expert.evidence_missing,
     ):
         assert template.strip()
+
+
+def test_agents_reading_user_derived_text_are_told_it_is_delimited_data():
+    """El texto que viene del usuario llega entre marcadores y el prompt debe nombrarlos."""
+    prompts = prompts_module.load_prompts()
+
+    for item in (prompts.extractor, prompts.translator, prompts.judge):
+        assert USER_INPUT_START in item.text
+        assert USER_INPUT_END in item.text
 
 
 def test_load_prompts_raises_value_error_on_invalid_yaml(tmp_path, monkeypatch):

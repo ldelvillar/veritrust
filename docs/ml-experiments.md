@@ -626,6 +626,85 @@ uv run --directory backend python -m ml.evaluate_pipeline --partition gold --lim
 
 Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
 
+## Juez v5 y traductor v4: marcadores contra la inyección (2026-09-25) — adoptado
+
+Cambio de seguridad, no de calidad. El juez es el único LLM cuya salida decide el
+veredicto (sus posturas son la única entrada de `decide()`), y era el único que recibía
+texto derivado del usuario sin marcadores: `Afirmación:\n{claim}` a pelo. v5 envuelve la
+afirmación y las fuentes candidatas en `<<USER_INPUT>>`/`<<END>>`, neutraliza los
+marcadores falsificados (también en título y resumen: el abstract es texto de terceros) y
+añade el párrafo SEGURIDAD del extractor. El traductor recibe lo mismo (v4). El juez salta
+de v3 a v5 porque v4 ya nombra la variante rechazada del 2026-09-01.
+
+Criterio fijado **antes** de medir: adoptar si la accuracy sobre firmes no cae más allá
+del ruido, falsa→verdadera no sube y juez caído se queda en 0. El tercero estaba mal
+planteado: las bases ya traían juez caído por causas ajenas al prompt (ver abajo).
+
+**Groq, parcial (33/100).** Base `results/eval_pipeline_gold.jsonl` (juez v3, 70 filas con
+evidencia grabada). La corrida se cortó en la muestra 34 por la cuota diaria de
+`openai/gpt-oss-20b` (200k tokens/día; es el extractor, así que corre en cada muestra).
+Sobre las 24 afirmaciones juzgadas en ambos brazos: 16/24 → 18/24 correctas, 2 a favor y
+0 en contra (p = 0.50). La única falsa→verdadera nueva («los preparados homeopáticos
+pueden curar enfermedades infecciosas») no es el prompt: con la misma evidencia,
+`qwen/qwen3.8-27b` responde supports/supports 3 de 3 veces con v3 y con v5, y
+`gpt-oss-120b` casi siempre `inconclusive`. Encaja con que a la base le tocara el segundo
+y a la variante el primero.
+
+**Ollama, completa y pareada.** `llama3` / `translategemma` / `llama3.2` (juez), los
+modelos que `AGENTS.md` declara para producción. Base desde un worktree en `64cacba`
+(juez v3 y traductor v3, sin marcadores), todo en vivo; la variante reprodujo 299/329
+búsquedas de la base. Pareado sobre las 80 afirmaciones juzgadas en ambos brazos:
+
+|                     | v3 (base) | v5 (variante) |
+| ------------------- | --------- | ------------- |
+| correctas           | 24/80     | 26/80         |
+| veredictos firmes   | 47        | 39            |
+| **acc. firme**      | 51.1%     | **66.7%**     |
+| **falsa→verdadera** | 19        | **8**         |
+| verdadera→falsa     | 4         | 5             |
+| recall de falsas    | 8/41      | 9/41          |
+
+Sin parear, sobre las 100 de cada brazo: 53.6% y 64.3% sobre firmes.
+
+McNemar exacto sobre acierto: 12 a favor, 10 en contra, **p = 0.83**: el total no se
+mueve. Sobre falsa→verdadera: 12 corregidas, 1 introducida, **p = 0.003**. El reparto es
+el que busca esta bitácora: el juez deja de respaldar falsas por coincidencia temática y
+esas afirmaciones pasan a `incierta` o a acierto. El coste: 9 de los 10 «en contra» son
+aciertos firmes que pasan a `incierta`, y el décimo es una verdadera→falsa nueva («el
+tabaquismo es la principal causa evitable de cáncer de pulmón»).
+
+Hipótesis sin medir para el mecanismo: el párrafo de seguridad termina con «juzga cada
+fuente solo por lo que su hallazgo dice de la afirmación», que repite la disciplina de
+postura de v3, y a un modelo de 3B la repetición le pesa más que a `mistral-small`.
+
+Juez caído: 9 filas en la base y 13 en la variante, pero solo 2 coinciden (7 solo en la
+base, 11 solo en la variante, p = 0.48). En ambos brazos son `OutputParserException` o
+`ValidationError`: `llama3.2` no respeta el esquema de `EvidenceJudgments`. Es del
+modelo, no del prompt.
+
+Lo que deja esta medida:
+
+- **El prompt del juez sí es palanca con `llama3.2`.** «Ya no son palancas» se midió con
+  `mistral-small`; con un juez de 3B, un párrafo movió falsa→verdadera de 19 a 8. Las
+  conclusiones sobre el juez no transfieren entre modelos.
+- **Ollama queda muy por debajo de todo lo medido aquí.** La base v3 da 51.1% sobre
+  firmes y llama `verdadera` a 19 de 41 falsas; los números de esta bitácora son de
+  Mistral y Groq. Si producción corre Ollama, como dice `AGENTS.md` (el compose por
+  defecto dice `mistral`), el usuario ve esta calidad, no la de las tablas anteriores.
+  Refuerza el punto 2 de «Pendiente».
+- **`llama3.2` rompe el esquema del juez en ~10% de las afirmaciones**, que acaban en
+  `incierta` porque el juez falla en abierto.
+- **La rotación del juez de Groq es ruido sin registrar.** El checkpoint no guarda qué
+  modelo juzgó cada afirmación, y los modelos discrepan sobre la misma evidencia. Para
+  comparar prompts, fijar un solo juez o registrarlo por fila.
+
+Nota de infraestructura: `qwen/qwen3.6-27b` devuelve 404 en Groq. Estaba en la rotación
+local del juez, y las 17 filas de juez caído de las 70 de `eval_pipeline_gold.jsonl`
+encajan con perder una de cada cuatro llamadas; es también el valor por defecto de
+`groq_health_expert_model`. En Ollama, en un portátil con una MX350 de 4 GB, cada muestra
+tarda ~70–90 s, casi todo en cambiar de modelo (`llama3` y `translategemma` solo caben al
+~55% en GPU): cada brazo de 100 muestras son unas 2 h.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -692,8 +771,9 @@ por prompt y por andamiaje:
    Prerrequisito del punto 1 si la fuente elegida es de _fact-checking_.
 
 **Ya no son palancas**: la banda y el umbral de decisión (barrido plano dentro del ruido
-a n=100), el prompt del juez (v4, p = 0.42), el orden de generación del juez (v7,
-p = 0.052 en contra) y ampliar el dorado con más bulos del mismo tipo.
+a n=100), el prompt del juez con `mistral-small` (v4, p = 0.42; con `llama3.2` sí lo es,
+ver 2026-09-25), el orden de generación del juez (v7, p = 0.052 en contra) y ampliar el
+dorado con más bulos del mismo tipo.
 
 **Techo conocido**: con las fuentes actuales, ~15 de las 50 falsas del conjunto dorado no
 son verificables, así que el máximo alcanzable ronda 85/100, no 100.
