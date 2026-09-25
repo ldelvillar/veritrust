@@ -15,6 +15,7 @@ from app.core.analysis_lifecycle import Submitter
 from app.core.config import Settings
 from app.core.errors import make_error_detail
 from app.db.pool import DatabaseError
+from app.schemas.analysis import AnalysisStatusResponse
 from app.schemas.errors import ErrorCode
 from app.schemas.history import AnalysisHistoryItem
 from tests.support.lifecycle import StubIntake
@@ -129,15 +130,29 @@ def env(monkeypatch):
     return settings
 
 
-def _patch_db(monkeypatch, records):
-    """Sustituye la lectura del sondeo por las filas indicadas, en orden."""
-    pending = list(records)
+def _patch_db(monkeypatch, records) -> list[str]:
+    """Sustituye las lecturas del sondeo: el estado avanza por las filas y el informe lee la actual."""
+    rows = list(records)
+    cursor = -1
+    report_reads: list[str] = []
+
+    async def fake_status(*, user_id, analysis_id):
+        nonlocal cursor
+        assert user_id == USER_ID
+        cursor = min(cursor + 1, len(rows) - 1)
+        row = rows[cursor]
+        if row is None:
+            return None
+        return AnalysisStatusResponse(status=row.status, stage=row.stage)
 
     async def fake_get(*, user_id, analysis_id):
         assert user_id == USER_ID
-        return pending.pop(0) if len(pending) > 1 else pending[0]
+        report_reads.append(analysis_id)
+        return rows[max(cursor, 0)]
 
+    monkeypatch.setattr(server_module, "get_user_analysis_status", fake_status)
     monkeypatch.setattr(server_module, "get_user_analysis_by_id", fake_get)
+    return report_reads
 
 
 def _server(pool=None, redis=None, intake=None):
@@ -295,6 +310,27 @@ async def test_get_verification_returns_the_failed_state(env, monkeypatch):
     assert body["label"] is None
 
 
+async def test_get_verification_polls_the_status_and_reads_the_report_once(
+    env, monkeypatch
+):
+    report_reads = _patch_db(
+        monkeypatch,
+        [
+            _record("pending", stage="extractor"),
+            _record("pending", stage="investigator"),
+            _record("done"),
+        ],
+    )
+
+    async with Client(_server()) as client:
+        result = await client.call_tool(
+            "get_verification", {"analysis_id": ANALYSIS_ID}
+        )
+
+    assert result.structured_content["status"] == "done"
+    assert report_reads == [ANALYSIS_ID]
+
+
 async def test_get_verification_rejects_unknown_and_invalid_ids(env, monkeypatch):
     _patch_db(monkeypatch, [None])
 
@@ -308,11 +344,16 @@ async def test_get_verification_rejects_unknown_and_invalid_ids(env, monkeypatch
     assert "INVALID_ANALYSIS_ID" in invalid.content[0].text
 
 
-async def test_get_verification_reports_database_errors(env, monkeypatch):
-    async def broken_get(**kwargs):
+@pytest.mark.parametrize(
+    "read", ["get_user_analysis_status", "get_user_analysis_by_id"]
+)
+async def test_get_verification_reports_database_errors(env, monkeypatch, read):
+    _patch_db(monkeypatch, [_record("done")])
+
+    async def broken_read(**kwargs):
         raise DatabaseError("down")
 
-    monkeypatch.setattr(server_module, "get_user_analysis_by_id", broken_get)
+    monkeypatch.setattr(server_module, read, broken_read)
 
     async with Client(_server()) as client:
         result = await client.call_tool(

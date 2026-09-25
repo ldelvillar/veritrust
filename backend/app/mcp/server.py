@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from typing import Annotated, Any, Literal
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any, Literal, TypeVar
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -26,7 +27,7 @@ from app.api.dependencies.check_rate_limit import (
 from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
-from app.db.history import get_user_analysis_by_id
+from app.db.history import get_user_analysis_by_id, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.mcp.auth import ClerkOAuthTokenVerifier
 from app.schemas.analysis import (
@@ -157,42 +158,59 @@ def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:
     )
 
 
+RowT = TypeVar("RowT")
+
+
+async def _read_analysis(
+    read: Callable[..., Awaitable[RowT | None]], *, user_id: str, analysis_id: str
+) -> RowT:
+    """Lee el análisis del usuario, traduciendo un fallo de BD o su ausencia al contrato."""
+    try:
+        row = await read(user_id=user_id, analysis_id=analysis_id)
+    except DatabaseError as exc:
+        raise _tool_error(ErrorCode.ANALYSIS_FETCH_FAILED) from exc
+    if row is None:
+        raise _tool_error(ErrorCode.ANALYSIS_NOT_FOUND)
+    return row
+
+
 async def _await_analysis(
     ctx: Context, *, user_id: str, analysis_id: str
 ) -> VerificationResult:
-    """Sondea el análisis hasta que termina o se agota la espera, informando del progreso."""
+    """Sondea solo el estado hasta que el análisis termina o se agota la espera, y lee el informe una vez."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + get_settings().mcp_tool_wait_seconds
     last_progress = -1
 
     while True:
-        try:
-            record = await get_user_analysis_by_id(
-                user_id=user_id, analysis_id=analysis_id
+        state = await _read_analysis(
+            get_user_analysis_status, user_id=user_id, analysis_id=analysis_id
+        )
+        if state.status != "pending":
+            record = await _read_analysis(
+                get_user_analysis_by_id, user_id=user_id, analysis_id=analysis_id
             )
-        except DatabaseError as exc:
-            raise _tool_error(ErrorCode.ANALYSIS_FETCH_FAILED) from exc
-        if record is None:
-            raise _tool_error(ErrorCode.ANALYSIS_NOT_FOUND)
+            return _to_verification(record)
 
-        result = _to_verification(record)
-        if result.status != "pending":
-            return result
-
-        if record.stage in _ANALYSIS_STAGES:
-            progress = _ANALYSIS_STAGES.index(record.stage)
+        if state.stage in _ANALYSIS_STAGES:
+            progress = _ANALYSIS_STAGES.index(state.stage)
             if progress > last_progress:
                 last_progress = progress
                 await ctx.report_progress(
-                    progress, len(_ANALYSIS_STAGES), f"Running: {record.stage}"
+                    progress, len(_ANALYSIS_STAGES), f"Running: {state.stage}"
                 )
 
         if loop.time() >= deadline:
-            result.message = (
-                "The analysis is still running. Call get_verification with this "
-                "analysis_id to keep waiting for the result."
+            return VerificationResult(
+                status="pending",
+                analysis_id=analysis_id,
+                report_url=_report_url(analysis_id),
+                stage=state.stage,
+                message=(
+                    "The analysis is still running. Call get_verification with "
+                    "this analysis_id to keep waiting for the result."
+                ),
             )
-            return result
         await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
 
