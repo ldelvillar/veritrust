@@ -261,6 +261,37 @@ def test_get_current_user_returns_503_when_the_jwks_is_unreachable(monkeypatch):
     assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
 
 
+def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    downloads = _use_jwks(monkeypatch, lambda: jwks)
+
+    for kid in ("forged-1", "forged-2", "forged-3"):
+        with pytest.raises(HTTPException) as exc:
+            get_user_module.get_current_user(f"Bearer {_token(kid)}")
+        assert exc.value.status_code == 401
+
+    # Una descarga para llenar la caché y un único refresco forzado dentro del cooldown.
+    assert len(downloads) == 2
+
+
+def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(get_user_module, "monotonic", lambda: clock[0])
+    jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
+    _use_jwks(monkeypatch, lambda: jwks)
+    client = get_user_module._get_jwks_client(_JWKS_URL)
+
+    with pytest.raises(jwt.PyJWKClientError):
+        client.get_signing_key("new-key")
+    # Clerk publica la clave nueva, pero el refresco forzado ya se gastó en este intervalo.
+    jwks["keys"].append(_jwk(_rsa_key(), "new-key"))
+    with pytest.raises(jwt.PyJWKClientError):
+        client.get_signing_key("new-key")
+
+    clock[0] += get_user_module._JWKS_REFRESH_COOLDOWN_SECONDS
+    assert client.get_signing_key("new-key").key_id == "new-key"
+
+
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
     _use_settings(
         monkeypatch,
