@@ -1,10 +1,20 @@
 """Tests unitarios para la autenticacion JWT (app.api.dependencies.get_current_user)."""
 
+import io
+import json
+import urllib.request
+from urllib.error import URLError
+
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
+from jwt.algorithms import RSAAlgorithm
 
 from app.api.dependencies import get_current_user as get_user_module
 from app.core.config import Settings
+
+_JWKS_URL = "https://tenant.clerk.accounts.dev/.well-known/jwks.json"
 
 
 def _make_settings(**overrides) -> Settings:
@@ -191,6 +201,64 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
 
     assert exc.value.status_code == 401
     assert exc.value.detail["code"] == "INVALID_TOKEN"
+
+
+def _use_jwks(monkeypatch, serve) -> list[str]:
+    """Sirve el JWKS de Clerk con ``serve`` al cliente real de producción y cuenta las descargas."""
+    _use_settings(
+        monkeypatch,
+        clerk_jwks_url=_JWKS_URL,
+        clerk_issuer="https://tenant.clerk.accounts.dev",
+    )
+    downloads: list[str] = []
+
+    def _urlopen(request, timeout=None, context=None):
+        downloads.append(request.full_url)
+        return io.BytesIO(json.dumps(serve()).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", _urlopen)
+    client = get_user_module._get_jwks_client.__wrapped__(_JWKS_URL)
+    monkeypatch.setattr(get_user_module, "_get_jwks_client", lambda url: client)
+    return downloads
+
+
+def _rsa_key():
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def _jwk(key, kid: str) -> dict:
+    """Clave pública en formato JWK con su kid, como la publica Clerk."""
+    return {**RSAAlgorithm.to_jwk(key.public_key(), as_dict=True), "kid": kid}
+
+
+def _token(kid: str) -> str:
+    return jwt.encode(
+        {"sub": "user_1"}, _rsa_key(), algorithm="RS256", headers={"kid": kid}
+    )
+
+
+def test_get_current_user_returns_401_when_the_signing_key_is_unknown(monkeypatch):
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    _use_jwks(monkeypatch, lambda: jwks)
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_token('forged')}")
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail["code"] == "INVALID_TOKEN"
+
+
+def test_get_current_user_returns_503_when_the_jwks_is_unreachable(monkeypatch):
+    def _unreachable():
+        raise URLError("connection refused")
+
+    _use_jwks(monkeypatch, _unreachable)
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_token('clerk-key')}")
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
 
 
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):

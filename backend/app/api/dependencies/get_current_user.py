@@ -98,6 +98,18 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
             status_code=401,
             detail=make_error_detail(ErrorCode.EXPIRED_TOKEN),
         ) from e
+    except jwt.PyJWKClientConnectionError as e:
+        logger.warning("No se pudo descargar el JWKS de Clerk: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
+    except jwt.PyJWKClientError as e:
+        # Un kid desconocido o ausente es un token inválido, no un fallo del servidor.
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
+        ) from e
     except (TypeError, ValueError) as e:
         logger.exception("Autenticación mal configurada: clave de firma inválida")
         raise HTTPException(

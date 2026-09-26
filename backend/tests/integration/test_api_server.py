@@ -990,6 +990,30 @@ def test_openapi_documents_every_422_as_the_structured_error(monkeypatch):
     assert "HTTPValidationError" not in spec["components"]["schemas"]
 
 
+_PUBLIC_OPERATIONS = {
+    "GET /shared/{token}",
+    "POST /contact",
+    "GET /config",
+    "GET /healthz",
+}
+
+
+def test_openapi_documents_auth_failures_on_every_authenticated_route(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    spec = server_module.app.openapi()
+
+    # Toda ruta autenticada puede responder 401 (token) o 503 (JWKS de Clerk caído).
+    missing = {
+        f"{method.upper()} {path}": sorted({"401", "503"} - set(operation["responses"]))
+        for path, operations in spec["paths"].items()
+        for method, operation in operations.items()
+        if f"{method.upper()} {path}" not in _PUBLIC_OPERATIONS
+    }
+
+    assert "GET /dashboard/summary" in missing
+    assert {route: codes for route, codes in missing.items() if codes} == {}
+
+
 def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
