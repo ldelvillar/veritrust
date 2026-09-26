@@ -2,21 +2,8 @@
 
 Next.js (App Router). Run every command from the **repo root** — never `cd` into this directory.
 
-## Commands
-
-```bash
-pnpm --dir frontend install                  # Install deps
-pnpm --dir frontend dev                      # Dev server (http://localhost:3000)
-pnpm --dir frontend build                    # Production build (also type-checks)
-pnpm --dir frontend lint                     # ESLint
-pnpm --dir frontend typecheck                # tsc over app and tests (build only checks what the app imports)
-pnpm --dir frontend format:check             # Prettier (CI gates on this; `prettier --write .` to fix)
-pnpm --dir frontend generate:api-types       # Regenerate src/types/api.d.ts from OpenAPI (backend must be running)
-```
-
 ## Conventions
 
-- **`src/types/api.d.ts`** — Generated from the backend's OpenAPI spec; never edit by hand.
 - **History query** — `src/lib/historyQuery.ts` is the client's only copy of the History filter vocabulary: the types come from `api.d.ts`, each value list `satisfies Record<…, true>` so a contract change fails the typecheck, and every History URL (list, export, the server preload) comes from its builders. Never hand-write a History filter union or query string.
 - **SVG icons** — icon components live in `frontend/src/assets/` as default exports (`SVGProps<SVGSVGElement>` spread, `stroke="currentColor"`); import and size them via `className`. Don't define inline icon functions in feature files; add or reuse an asset instead.
 - **Color tokens & headers** — neutrals come from the semantic `@theme` tokens in `src/styles/globals.css` (`text-ink`/`body`/`muted`/`faint`, `border-line`/`line-strong`, `bg-surface`/`surface-subtle`) plus the brand `accent`/`primary`; never reintroduce `slate-*`/`gray-*`, raw palette hues (`amber-*`, `emerald-*`, …) or hardcoded hex greys, nor inline `style={{ color }}`. Page titles use the shared `<PageHeader>` (`src/components/PageHeader.tsx`). System/UI failure states (fetch errors, form validation, destructive actions) use the `--color-danger`/`-soft`/`-ink`/`-g1`/`-g2` tokens (`bg-danger`, `text-danger-ink`, …) — deliberately a different hue from `--color-verdict-fake`, which is reserved for an actual "false" verdict. Likewise, UI success confirmations (e.g. a submitted form) use `--color-success`/`-soft`/`-ink`, distinct from `--color-verdict-real`, and UI warnings and notices (the report disclaimer, a slow-analysis notice) use `--color-warning`/`-soft`/`-ink`, distinct from `--color-verdict-uncertain`. The brand teal lives in `--color-primary`/`-strong`/`-soft`/`-soft-strong` and `--color-accent`, dark brand sections in `--color-ink-deep`; use those tokens rather than arbitrary `[#…]` values. The only literal hex left are the verdict band gradients in `analysis-result/format.ts` and the fallback in `r/[token]/opengraph-image.tsx`, which render through `next/og` and cannot resolve CSS custom properties.
