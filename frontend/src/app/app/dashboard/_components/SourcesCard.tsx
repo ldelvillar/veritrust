@@ -15,7 +15,7 @@ export default function SourcesCard({
   averageCredibility,
 }: {
   items: DashboardPayload['source_breakdown'];
-  averageCredibility: DashboardPayload['kpis']['average_confidence'];
+  averageCredibility: DashboardPayload['kpis']['average_credibility'];
 }) {
   const total = items.reduce((a, s) => a + s.total, 0) || 1;
 

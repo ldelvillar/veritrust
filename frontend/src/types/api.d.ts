@@ -589,8 +589,8 @@ export interface components {
             domain: string;
             /** Total */
             total: number;
-            /** Average Confidence */
-            average_confidence: number | null;
+            /** Average Credibility */
+            average_credibility: number | null;
         };
         /**
          * DashboardKpis
@@ -601,8 +601,8 @@ export interface components {
             total_analyses: number;
             /** Reliable Rate */
             reliable_rate: number;
-            /** Average Confidence */
-            average_confidence: number | null;
+            /** Average Credibility */
+            average_credibility: number | null;
             /** Week Over Week Delta */
             week_over_week_delta: number;
             /** Active Alerts */
@@ -618,8 +618,8 @@ export interface components {
             source_type: components["schemas"]["SourceType"];
             /** Total */
             total: number;
-            /** Average Confidence */
-            average_confidence: number | null;
+            /** Average Credibility */
+            average_credibility: number | null;
         };
         /**
          * DashboardSummaryResponse
@@ -648,8 +648,8 @@ export interface components {
             date: string;
             /** Total */
             total: number;
-            /** Average Confidence */
-            average_confidence: number | null;
+            /** Average Credibility */
+            average_credibility: number | null;
         };
         /**
          * DashboardVerdictDistribution

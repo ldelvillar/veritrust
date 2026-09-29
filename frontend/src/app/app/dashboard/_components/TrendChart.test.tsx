@@ -7,10 +7,10 @@ describe('TrendChart', () => {
     const { container } = render(
       <TrendChart
         data={[
-          { date: '2026-09-01', total: 1, average_confidence: 50 },
-          { date: '2026-09-02', total: 2, average_confidence: 60 },
-          { date: '2026-09-03', total: 0, average_confidence: null },
-          { date: '2026-09-04', total: 1, average_confidence: 70 },
+          { date: '2026-09-01', total: 1, average_credibility: 50 },
+          { date: '2026-09-02', total: 2, average_credibility: 60 },
+          { date: '2026-09-03', total: 0, average_credibility: null },
+          { date: '2026-09-04', total: 1, average_credibility: 70 },
         ]}
       />
     );

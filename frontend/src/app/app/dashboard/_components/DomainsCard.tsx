@@ -25,7 +25,7 @@ export default function DomainsCard({
       ) : (
         <div className="flex flex-col">
           {items.map(item => {
-            const credibility = item.average_confidence;
+            const credibility = item.average_credibility;
             const init = item.domain[0]?.toUpperCase() ?? '?';
             return (
               <div

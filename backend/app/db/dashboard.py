@@ -36,7 +36,7 @@ def _extract_kpis_values(
 ) -> tuple[int, float | None, int, int, int, int, float]:
     """Extrae valores de KPI con defaults cuando no hay resultados."""
     total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
-    average_confidence = (
+    average_credibility = (
         float(kpi_row[1]) if kpi_row and kpi_row[1] is not None else None
     )
     reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
@@ -46,7 +46,7 @@ def _extract_kpis_values(
     average_evidence_coverage = float(kpi_row[6] or 0.0) if kpi_row else 0.0
     return (
         total_analyses,
-        average_confidence,
+        average_credibility,
         reliable_total,
         current_week_total,
         previous_week_total,
@@ -113,12 +113,12 @@ def _build_trend_points(
     trend_points: list[DashboardTrendPoint] = []
     for day_offset in range(trend_days):
         point_day = trend_start_date + timedelta(days=day_offset)
-        point_total, point_avg_confidence = trend_map.get(point_day, (0, None))
+        point_total, point_avg_credibility = trend_map.get(point_day, (0, None))
         trend_points.append(
             DashboardTrendPoint(
                 date=point_day.isoformat(),
                 total=point_total,
-                average_confidence=point_avg_confidence,
+                average_credibility=point_avg_credibility,
             )
         )
 
@@ -133,7 +133,7 @@ def _build_source_breakdown(
         DashboardSourceBreakdownItem(
             source_type=row[0],
             total=int(row[1] or 0),
-            average_confidence=_credibility_percentage(row[2]),
+            average_credibility=_credibility_percentage(row[2]),
         )
         for row in source_rows
     ]
@@ -168,7 +168,7 @@ def _build_domain_breakdown(
         DashboardDomainBreakdownItem(
             domain=domain,
             total=int(values["total"]),
-            average_confidence=_credibility_percentage(
+            average_credibility=_credibility_percentage(
                 values["sum_cred"] / values["n_cred"] if values["n_cred"] else None
             ),
         )
@@ -206,7 +206,7 @@ async def get_user_dashboard_summary(
     kpis_query = f"""
         SELECT
             COUNT(*) AS total_analyses,
-            AVG({CREDIBILITY_SQL}) AS average_confidence,
+            AVG({CREDIBILITY_SQL}) AS average_credibility,
             SUM(CASE WHEN verdict = 'real' THEN 1 ELSE 0 END) AS reliable_total,
             SUM(
                 CASE
@@ -233,7 +233,7 @@ async def get_user_dashboard_summary(
         SELECT
             DATE(created_at) AS day,
             COUNT(*) AS total,
-            AVG({CREDIBILITY_SQL}) AS average_confidence
+            AVG({CREDIBILITY_SQL}) AS average_credibility
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
@@ -246,7 +246,7 @@ async def get_user_dashboard_summary(
         SELECT
             source_type,
             COUNT(*) AS total,
-            AVG({CREDIBILITY_SQL}) AS average_confidence
+            AVG({CREDIBILITY_SQL}) AS average_credibility
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
         GROUP BY source_type
@@ -313,7 +313,7 @@ async def get_user_dashboard_summary(
 
     (
         total_analyses,
-        average_confidence,
+        average_credibility,
         reliable_total,
         current_week_total,
         previous_week_total,
@@ -352,7 +352,7 @@ async def get_user_dashboard_summary(
         kpis=DashboardKpis(
             total_analyses=total_analyses,
             reliable_rate=reliable_rate,
-            average_confidence=_credibility_percentage(average_confidence),
+            average_credibility=_credibility_percentage(average_credibility),
             week_over_week_delta=week_over_week_delta,
             active_alerts=active_alerts,
             average_evidence_coverage=_round_percentage(average_evidence_coverage),

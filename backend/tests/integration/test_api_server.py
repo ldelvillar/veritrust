@@ -1251,7 +1251,7 @@ def test_dashboard_summary_returns_summary(monkeypatch):
         kpis=types.SimpleNamespace(
             total_analyses=23,
             reliable_rate=61.5,
-            average_confidence=74.2,
+            average_credibility=74.2,
             week_over_week_delta=15.0,
             active_alerts=7,
             average_evidence_coverage=61.0,
@@ -1265,21 +1265,21 @@ def test_dashboard_summary_returns_summary(monkeypatch):
             types.SimpleNamespace(
                 date="2026-04-10",
                 total=3,
-                average_confidence=71.0,
+                average_credibility=71.0,
             )
         ],
         source_breakdown=[
             types.SimpleNamespace(
                 source_type="url",
                 total=8,
-                average_confidence=68.3,
+                average_credibility=68.3,
             )
         ],
         domain_breakdown=[
             types.SimpleNamespace(
                 domain="ejemplo.com",
                 total=4,
-                average_confidence=66.2,
+                average_credibility=66.2,
             )
         ],
         alerts=[
@@ -1530,7 +1530,7 @@ def test_dashboard_summary_forwards_trend_days(monkeypatch):
             kpis=types.SimpleNamespace(
                 total_analyses=0,
                 reliable_rate=0.0,
-                average_confidence=0.0,
+                average_credibility=0.0,
                 week_over_week_delta=0.0,
                 active_alerts=0,
                 average_evidence_coverage=0.0,

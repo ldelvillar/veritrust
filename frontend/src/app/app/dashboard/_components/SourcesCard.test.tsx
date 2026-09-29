@@ -7,8 +7,8 @@ describe('SourcesCard', () => {
     render(
       <SourcesCard
         items={[
-          { source_type: 'text', total: 1, average_confidence: 90 },
-          { source_type: 'url', total: 1, average_confidence: null },
+          { source_type: 'text', total: 1, average_credibility: 90 },
+          { source_type: 'url', total: 1, average_credibility: null },
         ]}
         averageCredibility={90}
       />
@@ -20,7 +20,7 @@ describe('SourcesCard', () => {
   it('shows no average credibility when every analysis is uncertain', () => {
     render(
       <SourcesCard
-        items={[{ source_type: 'text', total: 2, average_confidence: null }]}
+        items={[{ source_type: 'text', total: 2, average_credibility: null }]}
         averageCredibility={null}
       />
     );

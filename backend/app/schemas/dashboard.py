@@ -13,7 +13,7 @@ class DashboardKpis(BaseModel):
 
     total_analyses: int
     reliable_rate: float
-    average_confidence: Optional[float]
+    average_credibility: Optional[float]
     week_over_week_delta: float
     active_alerts: int
     average_evidence_coverage: float
@@ -24,7 +24,7 @@ class DashboardTrendPoint(BaseModel):
 
     date: str
     total: int
-    average_confidence: Optional[float]
+    average_credibility: Optional[float]
 
 
 class DashboardSourceBreakdownItem(BaseModel):
@@ -35,7 +35,7 @@ class DashboardSourceBreakdownItem(BaseModel):
 
     source_type: SourceType
     total: int
-    average_confidence: Optional[float]
+    average_credibility: Optional[float]
 
 
 class DashboardDomainBreakdownItem(BaseModel):
@@ -43,7 +43,7 @@ class DashboardDomainBreakdownItem(BaseModel):
 
     domain: str
     total: int
-    average_confidence: Optional[float]
+    average_credibility: Optional[float]
 
 
 class DashboardAlertItem(BaseModel):

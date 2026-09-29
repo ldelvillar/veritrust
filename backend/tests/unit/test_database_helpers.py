@@ -360,11 +360,11 @@ def test_build_trend_points_creates_contiguous_daily_series() -> None:
     assert isinstance(points[0], DashboardTrendPoint)
     assert points[0].date == "2026-04-01"
     assert points[0].total == 2
-    assert points[0].average_confidence == 50.0
+    assert points[0].average_credibility == 50.0
     assert points[1].date == "2026-04-02"
     assert points[1].total == 0
-    assert points[1].average_confidence is None
-    assert points[2].average_confidence == 75.0
+    assert points[1].average_credibility is None
+    assert points[2].average_credibility == 75.0
 
 
 def test_build_trend_points_has_no_credibility_on_an_all_uncertain_day() -> None:
@@ -375,7 +375,7 @@ def test_build_trend_points_has_no_credibility_on_an_all_uncertain_day() -> None
     )
 
     assert points[0].total == 3
-    assert points[0].average_confidence is None
+    assert points[0].average_credibility is None
 
 
 def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
@@ -387,8 +387,8 @@ def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
     assert isinstance(result[0], DashboardSourceBreakdownItem)
     assert result[0].source_type == "url"
     assert result[0].total == 3
-    assert result[0].average_confidence == 91.0
-    assert result[1].average_confidence is None
+    assert result[0].average_credibility == 91.0
+    assert result[1].average_credibility is None
 
 
 def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
@@ -406,7 +406,7 @@ def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
     assert isinstance(result[0], DashboardDomainBreakdownItem)
     assert result[0].domain == "a.com"
     assert result[0].total == 2
-    assert result[0].average_confidence == 80.0
+    assert result[0].average_credibility == 80.0
 
 
 def test_build_domain_breakdown_excludes_uncertain_from_credibility() -> None:
@@ -420,7 +420,7 @@ def test_build_domain_breakdown_excludes_uncertain_from_credibility() -> None:
 
     assert len(result) == 1
     assert result[0].total == 2
-    assert result[0].average_confidence == 80.0
+    assert result[0].average_credibility == 80.0
 
 
 def test_build_domain_breakdown_has_no_credibility_when_every_analysis_is_uncertain() -> (
@@ -434,7 +434,7 @@ def test_build_domain_breakdown_has_no_credibility_when_every_analysis_is_uncert
     result = dashboard_module._build_domain_breakdown(domain_rows=domain_rows, limit=5)
 
     assert result[0].total == 2
-    assert result[0].average_confidence is None
+    assert result[0].average_credibility is None
 
 
 def test_build_alerts_maps_rows_to_alert_items() -> None:

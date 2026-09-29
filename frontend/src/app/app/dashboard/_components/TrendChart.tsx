@@ -1,7 +1,7 @@
 interface TrendPoint {
   date: string;
   total: number;
-  average_confidence: number | null;
+  average_credibility: number | null;
 }
 
 export default function TrendChart({ data }: { data: TrendPoint[] }) {
@@ -24,13 +24,13 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
 
   // Un día sin credibilidad corta la línea en vez de hundirla a 0.
   const linePts = data.flatMap((t, i) =>
-    t.average_confidence === null
+    t.average_credibility === null
       ? []
       : [
           {
             x: padL + i * slot + slot / 2,
-            y: padT + (1 - t.average_confidence / 100) * plotH,
-            move: i === 0 || data[i - 1].average_confidence === null,
+            y: padT + (1 - t.average_credibility / 100) * plotH,
+            move: i === 0 || data[i - 1].average_credibility === null,
           },
         ]
   );

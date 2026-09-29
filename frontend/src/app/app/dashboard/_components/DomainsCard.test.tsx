@@ -6,7 +6,7 @@ describe('DomainsCard', () => {
   it('shows a domain’s average credibility as a number', () => {
     render(
       <DomainsCard
-        items={[{ domain: 'a.com', total: 2, average_confidence: 82.4 }]}
+        items={[{ domain: 'a.com', total: 2, average_credibility: 82.4 }]}
       />
     );
 
@@ -16,7 +16,7 @@ describe('DomainsCard', () => {
   it('shows no credibility for a domain whose analyses are all uncertain', () => {
     render(
       <DomainsCard
-        items={[{ domain: 'a.com', total: 2, average_confidence: null }]}
+        items={[{ domain: 'a.com', total: 2, average_credibility: null }]}
       />
     );
 
