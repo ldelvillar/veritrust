@@ -37,8 +37,8 @@ def test_judge_evidence_returns_empty_without_calling_judge(monkeypatch):
     assert judge_evidence("p", "claim", []) == []
 
 
-def test_judge_evidence_pads_missing_stances_as_inconclusive(monkeypatch):
-    # Una sola postura para dos fuentes: la no juzgada se conserva sin concluir.
+def test_judge_evidence_fails_open_when_stances_are_missing(monkeypatch):
+    # Una sola postura para dos fuentes: no se sabe de cuál es, así que ninguna se juzga.
     monkeypatch.setattr(
         relevance,
         "get_relevance_chain",
@@ -46,12 +46,18 @@ def test_judge_evidence_pads_missing_stances_as_inconclusive(monkeypatch):
     )
     hits = [{"title": "a"}, {"title": "b"}]
 
-    kept = judge_evidence("p", "claim", hits)
+    assert judge_evidence("p", "claim", hits) == hits
 
-    assert kept == [
-        {"title": "a", "stance": "supports"},
-        {"title": "b", "stance": "inconclusive"},
-    ]
+
+def test_judge_evidence_fails_open_when_stances_are_extra(monkeypatch):
+    monkeypatch.setattr(
+        relevance,
+        "get_relevance_chain",
+        lambda prompt, model=None: _FakeChain(["supports", "unrelated", "contradicts"]),
+    )
+    hits = [{"title": "a"}, {"title": "b"}]
+
+    assert judge_evidence("p", "claim", hits) == hits
 
 
 def test_judge_evidence_fails_open_on_error(monkeypatch):

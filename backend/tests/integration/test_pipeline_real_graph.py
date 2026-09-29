@@ -131,7 +131,7 @@ def _failing_search(query, max_results=3):
 
 
 def _stub_judge(monkeypatch, stance="inconclusive", record=None):
-    """Simula solo el LLM del juez; el filtrado y el padding reales siguen activos."""
+    """Simula solo el LLM del juez; el filtrado real sigue activo."""
 
     class _Chain:
         def invoke(self, payload):

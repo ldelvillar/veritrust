@@ -105,9 +105,14 @@ def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]
         return hits
 
     stances = list(verdict.stances)
-    # Ante desajuste de cardinalidad, conserva las fuentes no juzgadas.
-    if len(stances) < len(hits):
-        stances.extend(["inconclusive"] * (len(hits) - len(stances)))
+    # Sin una postura por fuente no se sabe a cuál corresponde cada una: falla en abierto.
+    if len(stances) != len(hits):
+        logger.warning(
+            "[Juez] %d posturas para %d fuentes; se conservan las fuentes",
+            len(stances),
+            len(hits),
+        )
+        return hits
     return [
         {**hit, "stance": stance}
         for hit, stance in zip(hits, stances)
