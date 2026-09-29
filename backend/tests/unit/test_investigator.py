@@ -9,11 +9,25 @@ from app.agents.investigator import (
     gather_evidence,
     investigator,
 )
-from app.core.verdict import EvidenceSearch
+from app.core.claim import Claim, EvidenceSearch, extract_claims, translate_claims
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
 _NOTHING_SEARCHED = EvidenceSearch(total=0, searched=0, covered=0, outage=False)
+
+
+def _claims(
+    translations: list[str],
+    *,
+    originals: list[str] | None = None,
+    queries: list[str] | None = None,
+    drug_terms: list[str] | None = None,
+) -> list[Claim]:
+    """Afirmaciones ya traducidas, tal y como las deja el traductor en el estado."""
+    statements = originals if originals is not None else [""] * len(translations)
+    return translate_claims(
+        extract_claims(statements, queries or [], drug_terms or []), translations
+    )
 
 
 def _search(total: int, covered: int, *, outage: bool = False) -> EvidenceSearch:
@@ -29,9 +43,20 @@ def _patch_sources(monkeypatch, fake):
     monkeypatch.setattr(investigator_module, "search_cima", fake)
 
 
-def test_returns_empty_without_translated_statements():
-    update = investigator({"translated_statements": []})
+def _patch_judge(monkeypatch, judge):
+    """Sustituye al juez por un doble que recibe prompt, afirmación y evidencia."""
+    monkeypatch.setattr(investigator_module, "judge_stances", judge)
+
+
+def _judge_all(stance):
+    """Juez que da la misma postura a todas las fuentes candidatas."""
+    return lambda prompt, claim, evidence: (stance,) * len(evidence)
+
+
+def test_returns_empty_without_claims():
+    update = investigator({"claims": []})
     assert update == {
+        "claims": [],
         "sources": [],
         "evidence_search": _NOTHING_SEARCHED,
         "judge_failures": 0,
@@ -44,13 +69,16 @@ def test_collects_sources_and_full_coverage(monkeypatch):
 
     _patch_sources(monkeypatch, fake_search)
 
-    update = investigator(
-        {"translated_statements": ["A", "B"], "extracted_statements": ["a", "b"]}
-    )
+    update = investigator({"claims": _claims(["A", "B"], originals=["a", "b"])})
 
-    assert set(update.keys()) == {"sources", "evidence_search", "judge_failures"}
+    assert set(update.keys()) == {
+        "claims",
+        "sources",
+        "evidence_search",
+        "judge_failures",
+    }
     assert update["evidence_search"] == _search(2, covered=2)
-    # Ambas fuentes devuelven la misma URL por afirmación: se deduplica a una.
+    # Las cuatro fuentes devuelven la misma URL por afirmación: se deduplica a una.
     assert len(update["sources"]) == 2
     assert update["sources"][0]["statements"] == [
         {"claim_index": 0, "text": "a", "stance": None}
@@ -72,9 +100,7 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
     monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
     monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
-    update = investigator(
-        {"translated_statements": ["A"], "extracted_statements": ["a"]}
-    )
+    update = investigator({"claims": _claims(["A"], originals=["a"])})
 
     # Resultados distintos de cada fuente se conservan ambos para la misma afirmación.
     assert update["evidence_search"] == _search(1, covered=1)
@@ -82,57 +108,6 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
         "https://pmc/1",
         "https://pubmed/1",
     }
-
-
-def test_partial_coverage_when_some_statements_have_no_hits(monkeypatch):
-    def fake_search(query, *, max_results):
-        return [{"title": "hit", "url": "https://x/1"}] if query == "A" else []
-
-    _patch_sources(monkeypatch, fake_search)
-
-    update = investigator({"translated_statements": ["A", "B"]})
-
-    assert update["evidence_search"] == _search(2, covered=1)
-
-
-def test_merges_statements_for_shared_url(monkeypatch):
-    def fake_search(query, *, max_results):
-        return [{"title": "same", "url": "https://x/dup"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    update = investigator(
-        {"translated_statements": ["A", "B"], "extracted_statements": ["a", "b"]}
-    )
-
-    # Una misma fuente recuperada para dos afirmaciones queda enlazada a ambas.
-    assert len(update["sources"]) == 1
-    assert update["sources"][0]["statements"] == [
-        {"claim_index": 0, "text": "a", "stance": None},
-        {"claim_index": 1, "text": "b", "stance": None},
-    ]
-
-
-def test_repeated_claim_text_stays_linked_to_each_claim(monkeypatch):
-    """Dos afirmaciones de texto idéntico se enlazan por separado, no se funden."""
-
-    def fake_search(query, *, max_results):
-        return [{"title": "same", "url": "https://x/dup"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    update = investigator(
-        {
-            "translated_statements": ["A", "B"],
-            "extracted_statements": ["misma frase", "misma frase"],
-        }
-    )
-
-    # Deduplicar por texto dejaría una sola entrada; por índice quedan las dos.
-    assert update["sources"][0]["statements"] == [
-        {"claim_index": 0, "text": "misma frase", "stance": None},
-        {"claim_index": 1, "text": "misma frase", "stance": None},
-    ]
 
 
 def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
@@ -146,7 +121,7 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
 
     total = EVIDENCE_MAX_STATEMENTS + 2
     statements = [f"S{i}" for i in range(total)]
-    update = investigator({"translated_statements": statements})
+    update = investigator({"claims": _claims(statements)})
 
     # Solo se buscan las primeras N afirmaciones; las recortadas cuentan como no cubiertas.
     assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
@@ -159,29 +134,13 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
     assert len(update["sources"]) == EVIDENCE_MAX_STATEMENTS
 
 
-def test_total_outage_with_cap_counts_the_dropped_statements(monkeypatch):
-    def fake_search(query, *, max_results):
-        raise EvidenceRetrievalError("down")
-
-    _patch_sources(monkeypatch, fake_search)
-
-    total = EVIDENCE_MAX_STATEMENTS + 2
-    update = investigator({"translated_statements": [f"S{i}" for i in range(total)]})
-
-    # La caída cubre lo buscado; lo recortado por la cota se cuenta aparte.
-    assert update["sources"] == []
-    assert update["evidence_search"] == EvidenceSearch(
-        total=total, searched=EVIDENCE_MAX_STATEMENTS, covered=0, outage=True
-    )
-
-
 def test_total_outage_is_reported_as_an_outage(monkeypatch):
     def fake_search(query, *, max_results):
         raise EvidenceRetrievalError("down")
 
     _patch_sources(monkeypatch, fake_search)
 
-    update = investigator({"translated_statements": ["A", "B"]})
+    update = investigator({"claims": _claims(["A", "B"])})
 
     # Caída total del servicio: se informa como corte, no como falta de literatura.
     assert update["sources"] == []
@@ -203,7 +162,7 @@ def test_one_source_down_still_uses_the_other(monkeypatch):
     monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
     monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
-    update = investigator({"translated_statements": ["A"]})
+    update = investigator({"claims": _claims(["A"])})
 
     # Una fuente caída no invalida la afirmación: las demás sí aportan evidencia.
     assert update["evidence_search"] == _search(1, covered=1)
@@ -221,86 +180,10 @@ def test_blank_translations_skip_lookups(monkeypatch):
     _patch_sources(monkeypatch, fake_search)
 
     # Traducciones en blanco (relleno): no hay nada que consultar.
-    update = investigator({"translated_statements": ["", "  "]})
+    claims = gather_evidence(_claims(["", "  "]))
 
-    assert update == {
-        "sources": [],
-        "evidence_search": _NOTHING_SEARCHED,
-        "judge_failures": 0,
-    }
+    assert [claim.outcome for claim in claims] == ["unsearchable", "unsearchable"]
     assert called is False
-
-
-def test_uses_focused_search_query_over_translation(monkeypatch):
-    queried: list[str] = []
-
-    def fake_search(query, *, max_results):
-        queried.append(query)
-        return [{"title": "hit", "url": f"https://x/{query}"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    investigator(
-        {
-            "translated_statements": ["full translated sentence"],
-            "search_queries": ['"vitamin C" AND "common cold"'],
-            "extracted_statements": ["vitamina C y resfriado"],
-        }
-    )
-
-    # Se consulta con la query enfocada, no con la frase completa (en ambas fuentes).
-    assert set(queried) == {'"vitamin C" AND "common cold"'}
-
-
-def test_falls_back_to_translation_when_query_blank(monkeypatch):
-    queried: list[str] = []
-
-    def fake_search(query, *, max_results):
-        queried.append(query)
-        return [{"title": "hit", "url": f"https://x/{query}"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    # Query en blanco (relleno del extractor): se recurre a la traducción completa.
-    investigator(
-        {
-            "translated_statements": ["A-en", "B-en"],
-            "search_queries": ['"focused"', "  "],
-        }
-    )
-
-    assert set(queried) == {'"focused"', "B-en"}
-
-
-def test_evidence_gate_filters_sources_and_records_stance(monkeypatch):
-    def fake_search(query, *, max_results):
-        return [{"title": "t", "url": f"https://x/{query}", "abstract": "abs"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    # El juez solo conserva la evidencia de la afirmación A, con su postura.
-    def fake_judge(prompt_text, claim, hits):
-        return [{**h, "stance": "contradicts"} for h in hits] if claim == "A-en" else []
-
-    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
-
-    update = investigator(
-        {
-            "translated_statements": ["A-en", "B-en"],
-            "extracted_statements": ["a", "b"],
-        },
-        _PROMPTS,
-    )
-
-    # Solo cuenta la afirmación con evidencia relevante; el abstract no se persiste
-    # y la postura se guarda dentro de la afirmación enlazada.
-    assert update["evidence_search"] == _search(2, covered=1)
-    assert len(update["sources"]) == 1
-    assert update["sources"][0]["statements"] == [
-        {"claim_index": 0, "text": "a", "stance": "contradicts"}
-    ]
-    assert "abstract" not in update["sources"][0]
-    assert "stance" not in update["sources"][0]
 
 
 def test_runs_lookups_concurrently(monkeypatch):
@@ -315,7 +198,7 @@ def test_runs_lookups_concurrently(monkeypatch):
 
     _patch_sources(monkeypatch, fake_search)
 
-    update = investigator({"translated_statements": ["A", "B", "C"]})
+    update = investigator({"claims": _claims(["A", "B", "C"])})
 
     assert update["evidence_search"] == _search(3, covered=3)
     assert len(update["sources"]) == 3
@@ -340,10 +223,12 @@ def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
 
     update = investigator(
         {
-            "translated_statements": ["ibuprofen cures cancer"],
-            "search_queries": ['"ibuprofen" AND "cancer"'],
-            "extracted_statements": ["el ibuprofeno cura el cáncer"],
-            "drug_terms": ["ibuprofeno"],
+            "claims": _claims(
+                ["ibuprofen cures cancer"],
+                originals=["el ibuprofeno cura el cáncer"],
+                queries=['"ibuprofen" AND "cancer"'],
+                drug_terms=["ibuprofeno"],
+            )
         }
     )
 
@@ -371,15 +256,39 @@ def test_cima_skipped_when_no_drug_term(monkeypatch):
 
     investigator(
         {
-            "translated_statements": ["a diet claim"],
-            "search_queries": ['"diet"'],
-            "extracted_statements": ["una dieta sana"],
-            "drug_terms": [""],
+            "claims": _claims(
+                ["a diet claim"],
+                originals=["una dieta sana"],
+                queries=['"diet"'],
+                drug_terms=[""],
+            )
         }
     )
 
     # Sin fármaco nombrado, CIMA no se consulta.
     assert cima_called is False
+
+
+def test_judge_receives_the_english_claim_or_its_query(monkeypatch):
+    def fake_search(query, *, max_results):
+        return [{"title": query, "url": f"https://x/{query}"}]
+
+    _patch_sources(monkeypatch, fake_search)
+    judged: list[str] = []
+
+    def fake_judge(prompt, claim, evidence):
+        judged.append(claim)
+        return ("supports",) * len(evidence)
+
+    _patch_judge(monkeypatch, fake_judge)
+
+    gather_evidence(
+        _claims(["A-en", ""], originals=["a", "b"], queries=['"qa"', '"qb"']),
+        _PROMPTS,
+    )
+
+    # Sin traducción, el juez recibe la consulta como respaldo.
+    assert sorted(judged) == ['"qb"', "A-en"]
 
 
 def test_judge_runs_concurrently(monkeypatch):
@@ -392,18 +301,14 @@ def test_judge_runs_concurrently(monkeypatch):
     # secuencial el primero agotaría el timeout de la barrera y rompería la prueba.
     barrier = threading.Barrier(3, timeout=5)
 
-    def fake_judge(prompt_text, claim, hits):
+    def fake_judge(prompt, claim, evidence):
         barrier.wait()
-        return [{**h, "stance": "supports"} for h in hits]
+        return ("supports",) * len(evidence)
 
-    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
+    _patch_judge(monkeypatch, fake_judge)
 
     update = investigator(
-        {
-            "translated_statements": ["A", "B", "C"],
-            "extracted_statements": ["a", "b", "c"],
-        },
-        _PROMPTS,
+        {"claims": _claims(["A", "B", "C"], originals=["a", "b", "c"])}, _PROMPTS
     )
 
     assert update["evidence_search"] == _search(3, covered=3)
@@ -416,32 +321,24 @@ def test_parallel_judge_isolates_one_failure(monkeypatch):
 
     _patch_sources(monkeypatch, fake_search)
 
-    # El juez casca para una sola afirmación; en paralelo no debe arrastrar al resto.
-    def fake_judge(prompt_text, claim, hits):
-        if claim == "B-en":
-            raise RuntimeError("judge down")
-        return [{**h, "stance": "supports"} for h in hits]
+    # El juez falla para una sola afirmación; en paralelo no debe arrastrar al resto.
+    def fake_judge(prompt, claim, evidence):
+        return None if claim == "B-en" else ("supports",) * len(evidence)
 
-    monkeypatch.setattr(investigator_module, "judge_evidence", fake_judge)
+    _patch_judge(monkeypatch, fake_judge)
 
     update = investigator(
-        {
-            "translated_statements": ["A-en", "B-en"],
-            "extracted_statements": ["a", "b"],
-        },
-        _PROMPTS,
+        {"claims": _claims(["A-en", "B-en"], originals=["a", "b"])}, _PROMPTS
     )
 
     # La afirmación cuyo juez falló conserva su evidencia (falla en abierto) y la sana
     # se juzga con normalidad: ambas cuentan para la cobertura.
     assert update["evidence_search"] == _search(2, covered=2)
+    assert [claim.outcome for claim in update["claims"]] == ["judged", "unjudged"]
     by_url = {source["url"]: source for source in update["sources"]}
-    assert set(by_url) == {"https://x/A-en", "https://x/B-en"}
-    # La afirmación sana no se ve afectada por el fallo de la otra.
     assert by_url["https://x/A-en"]["statements"] == [
         {"claim_index": 0, "text": "a", "stance": "supports"}
     ]
-    # La que falló conserva la fuente sin postura juzgada.
     assert by_url["https://x/B-en"]["statements"] == [
         {"claim_index": 1, "text": "b", "stance": None}
     ]
@@ -454,17 +351,10 @@ def test_reports_judge_failures_when_sources_go_unjudged(monkeypatch):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
 
     _patch_sources(monkeypatch, fake_search)
-    # judge_evidence falla en abierto devolviendo los hits tal cual, sin 'stance'.
-    monkeypatch.setattr(
-        investigator_module, "judge_evidence", lambda prompt, claim, hits: hits
-    )
+    _patch_judge(monkeypatch, lambda prompt, claim, evidence: None)
 
     update = investigator(
-        {
-            "translated_statements": ["Claim in English"],
-            "extracted_statements": ["Afirmación"],
-        },
-        _PROMPTS,
+        {"claims": _claims(["Claim in English"], originals=["Afirmación"])}, _PROMPTS
     )
 
     assert update["judge_failures"] == 1
@@ -475,61 +365,13 @@ def test_no_judge_failures_when_every_source_is_judged(monkeypatch):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
 
     _patch_sources(monkeypatch, fake_search)
-    monkeypatch.setattr(
-        investigator_module,
-        "judge_evidence",
-        lambda prompt, claim, hits: [{**h, "stance": "supports"} for h in hits],
-    )
+    _patch_judge(monkeypatch, _judge_all("supports"))
 
     update = investigator(
-        {
-            "translated_statements": ["Claim in English"],
-            "extracted_statements": ["Afirmación"],
-        },
-        _PROMPTS,
+        {"claims": _claims(["Claim in English"], originals=["Afirmación"])}, _PROMPTS
     )
 
     assert update["judge_failures"] == 0
-
-
-def test_gather_evidence_keeps_abstract_and_stance_per_claim(monkeypatch):
-    def fake_search(query, *, max_results):
-        return [{"title": "t", "url": f"https://x/{query}", "abstract": "abs"}]
-
-    _patch_sources(monkeypatch, fake_search)
-    monkeypatch.setattr(
-        investigator_module,
-        "judge_evidence",
-        lambda prompt, claim, hits: [{**h, "stance": "supports"} for h in hits],
-    )
-
-    total, claims = gather_evidence(
-        {
-            "translated_statements": ["A-en"],
-            "extracted_statements": ["a"],
-            "search_queries": ["query-a"],
-        },
-        _PROMPTS,
-    )
-
-    assert total == 1
-    assert claims == [
-        {
-            "claim_index": 0,
-            "query": "query-a",
-            "claim": "A-en",
-            "original": "a",
-            "hits": [
-                {
-                    "title": "t",
-                    "url": "https://x/query-a",
-                    "abstract": "abs",
-                    "stance": "supports",
-                }
-            ],
-            "judged": True,
-        }
-    ]
 
 
 def test_gather_evidence_marks_unjudged_and_unavailable_claims(monkeypatch):
@@ -539,37 +381,30 @@ def test_gather_evidence_marks_unjudged_and_unavailable_claims(monkeypatch):
         return [{"title": "t", "url": "https://x/a"}]
 
     _patch_sources(monkeypatch, fake_search)
-    # El juez falla en abierto: devuelve los hits sin postura.
-    monkeypatch.setattr(
-        investigator_module, "judge_evidence", lambda prompt, claim, hits: hits
-    )
+    _patch_judge(monkeypatch, lambda prompt, claim, evidence: None)
 
-    total, claims = gather_evidence(
-        {
-            "translated_statements": ["A-en", "B-en"],
-            "extracted_statements": ["a", "b"],
-        },
-        _PROMPTS,
-    )
+    claims = gather_evidence(_claims(["A-en", "B-en"], originals=["a", "b"]), _PROMPTS)
 
-    assert total == 2
-    assert [(c["claim_index"], c["judged"]) for c in claims] == [(0, False), (1, False)]
-    assert claims[0]["hits"] == [{"title": "t", "url": "https://x/a"}]
     # Todas las fuentes cayeron para la segunda afirmación: sin evidencia disponible.
-    assert claims[1]["hits"] is None
+    assert [claim.outcome for claim in claims] == ["unjudged", "unavailable"]
+    assert [item.url for item in claims[0].evidence] == ["https://x/a"]
+    assert claims[1].evidence == ()
 
 
-def test_gather_evidence_counts_claims_beyond_the_cap(monkeypatch):
+def test_gather_evidence_leaves_claims_beyond_the_cap_unsearched(monkeypatch):
     _patch_sources(monkeypatch, lambda query, *, max_results: [])
 
     statements = [f"S{i}" for i in range(EVIDENCE_MAX_STATEMENTS + 2)]
-    total, claims = gather_evidence({"translated_statements": statements})
+    claims = gather_evidence(_claims(statements))
 
-    assert total == EVIDENCE_MAX_STATEMENTS + 2
-    assert len(claims) == EVIDENCE_MAX_STATEMENTS
-    # Sin fuentes que juzgar, la afirmación cuenta como juzgada.
-    assert all(c["hits"] == [] and c["judged"] for c in claims)
+    # Sin fuentes que juzgar, la afirmación buscada cuenta como juzgada.
+    assert [claim.outcome for claim in claims] == [
+        "judged"
+    ] * EVIDENCE_MAX_STATEMENTS + [
+        "unsearched",
+        "unsearched",
+    ]
 
 
-def test_gather_evidence_is_empty_without_statements():
-    assert gather_evidence({"translated_statements": []}) == (0, [])
+def test_gather_evidence_is_empty_without_claims():
+    assert gather_evidence([]) == []

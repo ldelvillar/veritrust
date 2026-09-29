@@ -2,9 +2,9 @@
 
 import pytest
 
+from app.core.claim import Claim, Evidence, EvidenceSearch
 from app.core.verdict import (
     ClaimVerdict,
-    EvidenceSearch,
     confidence_level_of,
     credibility_of,
     decide,
@@ -17,17 +17,30 @@ def _full(claims: int) -> EvidenceSearch:
     return EvidenceSearch(total=claims, searched=claims, covered=claims, outage=False)
 
 
-def _stances(supports: int = 0, contradicts: int = 0, claim_index: int = 0) -> list:
-    """Fuentes con la postura ya juzgada sobre una afirmación, como las deja el investigador."""
-    stances = ["supports"] * supports + ["contradicts"] * contradicts
-    return [
-        {
-            "title": f"Fuente {i}",
-            "url": f"https://doi.org/10.1/{claim_index}-{i}",
-            "statements": [{"claim_index": claim_index, "text": "x", "stance": stance}],
-        }
-        for i, stance in enumerate(stances)
-    ]
+def _claim(
+    supports: int = 0,
+    contradicts: int = 0,
+    *,
+    index: int = 0,
+    text: str = "S1",
+    others: tuple = (),
+) -> Claim:
+    """Afirmación juzgada con tantas fuentes a favor y en contra como se pidan, como la deja el investigador."""
+    stances = ["supports"] * supports + ["contradicts"] * contradicts + list(others)
+    return Claim(
+        index=index,
+        text=text,
+        query='"q"',
+        outcome="judged",
+        evidence=tuple(
+            Evidence(
+                title=f"Fuente {i}",
+                url=f"https://doi.org/10.1/{index}-{i}",
+                stance=stance,
+            )
+            for i, stance in enumerate(stances)
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -55,7 +68,7 @@ def _stances(supports: int = 0, contradicts: int = 0, claim_index: int = 0) -> l
 def test_one_claim_is_banded_by_its_smoothed_falsehood(
     supports, contradicts, kind, confidence
 ) -> None:
-    verdict = decide(["S1"], _stances(supports, contradicts), _full(1))
+    verdict = decide([_claim(supports, contradicts)], _full(1))
 
     assert verdict.kind == kind
     assert verdict.confidence == pytest.approx(confidence)
@@ -64,22 +77,21 @@ def test_one_claim_is_banded_by_its_smoothed_falsehood(
     )
 
 
-def test_inconclusive_stances_do_not_count_as_evidence() -> None:
-    sources = [{"statements": [{"claim_index": 0, "stance": "inconclusive"}]}]
-
-    verdict = decide(["S1"], sources, _full(1))
+def test_inconclusive_or_unjudged_evidence_does_not_count() -> None:
+    verdict = decide([_claim(others=("inconclusive", None))], _full(1))
 
     assert (verdict.kind, verdict.confidence) == ("uncertain", 0.5)
 
 
-def test_evidence_is_attributed_by_claim_index_not_by_text() -> None:
-    sources = _stances(contradicts=3, claim_index=0) + _stances(
-        supports=2, claim_index=1
-    )
+def test_each_claim_is_decided_from_its_own_evidence() -> None:
+    claims = [
+        _claim(contradicts=3, index=0, text="Misma frase"),
+        _claim(supports=2, index=1, text="Misma frase"),
+    ]
 
-    verdict = decide(["Misma frase", "Misma frase"], sources, _full(2))
+    verdict = decide(claims, _full(2))
 
-    # Casando por texto ambas compartirían las 5 fuentes; por índice, 4/5 y 1/4.
+    # Casando por texto ambas compartirían las 5 fuentes; cada una con la suya, 4/5 y 1/4.
     assert [(c.kind, c.confidence) for c in verdict.claims] == [
         ("fake", pytest.approx(0.8)),
         ("real", pytest.approx(0.75)),
@@ -87,13 +99,13 @@ def test_evidence_is_attributed_by_claim_index_not_by_text() -> None:
 
 
 def test_minority_contradiction_only_lowers_the_confidence() -> None:
-    sources = (
-        _stances(supports=2, contradicts=1, claim_index=0)
-        + _stances(supports=2, claim_index=1)
-        + _stances(supports=2, claim_index=2)
-    )
+    claims = [
+        _claim(supports=2, contradicts=1, index=0),
+        _claim(supports=2, index=1),
+        _claim(supports=2, index=2),
+    ]
 
-    verdict = decide(["S1", "S2", "S3"], sources, _full(3))
+    verdict = decide(claims, _full(3))
 
     # Falsedad media = (0.4 + 0.25 + 0.25) / 3 = 0.3: verdadera, por debajo de 0.75.
     assert verdict.kind == "real"
@@ -104,7 +116,7 @@ def test_minority_contradiction_only_lowers_the_confidence() -> None:
 def test_claims_the_literature_ignores_do_not_dilute_the_verdict() -> None:
     search = EvidenceSearch(total=2, searched=2, covered=2, outage=False)
 
-    verdict = decide(["S1", "S2"], _stances(contradicts=3, claim_index=0), search)
+    verdict = decide([_claim(contradicts=3), _claim(index=1, text="S2")], search)
 
     # Solo promedia S1 (falsedad 0.8); S2, sin postura, queda incierta por su cuenta.
     assert (verdict.kind, verdict.falsehood) == ("fake", pytest.approx(0.8))
@@ -127,7 +139,7 @@ def test_claims_the_literature_ignores_do_not_dilute_the_verdict() -> None:
 def test_confidence_is_attenuated_by_evidence_coverage(
     search, coverage, confidence
 ) -> None:
-    verdict = decide(["S1"], _stances(supports=2), search)
+    verdict = decide([_claim(supports=2)], search)
 
     assert verdict.evidence_coverage == pytest.approx(coverage)
     assert verdict.confidence == pytest.approx(confidence)
@@ -147,7 +159,7 @@ def test_confidence_is_attenuated_by_evidence_coverage(
     ],
 )
 def test_an_evidence_outage_leaves_coverage_unknown(search, confidence) -> None:
-    verdict = decide(["S1"], [], search)
+    verdict = decide([_claim()], search)
 
     assert verdict.evidence_coverage is None
     assert verdict.kind == "uncertain"
@@ -159,7 +171,7 @@ def test_an_evidence_outage_leaves_coverage_unknown(search, confidence) -> None:
     [(3, 0, "falsa"), (0, 3, "verdadera"), (1, 1, "incierta")],
 )
 def test_the_spanish_label_follows_the_verdict(contradicts, supports, label) -> None:
-    verdict = decide(["S1"], _stances(supports, contradicts), _full(1))
+    verdict = decide([_claim(supports, contradicts)], _full(1))
 
     assert verdict.label == verdict.claims[0].label == label
     # Leer la etiqueta guardada devuelve el mismo veredicto.

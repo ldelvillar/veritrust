@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, Optional, get_args
 
+from app.core.claim import Claim, EvidenceSearch
+
 VerdictKind = Literal["real", "fake", "uncertain"]
 
 # Vocabulario único de veredicto, reutilizado en validación y persistencia.
@@ -32,20 +34,6 @@ EVIDENCE_MAX_PENALTY = 0.25
 # Cortes del tramo de confianza que ve el usuario, junto a las bandas del veredicto.
 HIGH_CONFIDENCE_THRESHOLD = 0.85
 MEDIUM_CONFIDENCE_THRESHOLD = 0.6
-
-
-@dataclass(frozen=True)
-class EvidenceSearch:
-    """Recuento de la búsqueda de literatura con el que se mide la cobertura de evidencia."""
-
-    # Afirmaciones con una consulta utilizable: el denominador de la cobertura.
-    total: int
-    # Las que se llegaron a buscar; la cota deja fuera el resto.
-    searched: int
-    # Las que la literatura llegó a tratar.
-    covered: int
-    # Todas las buscadas toparon con fuentes inalcanzables.
-    outage: bool
 
 
 @dataclass(frozen=True)
@@ -81,21 +69,21 @@ class Verdict:
         return _LABELS[self.kind]
 
 
-def decide(
-    claims: Sequence[str], sources: Sequence[dict], search: EvidenceSearch
-) -> Verdict:
-    """Decide el veredicto de cada afirmación y del análisis con la postura de las fuentes."""
-    stances = _stance_counts(sources)
+def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
+    """Decide el veredicto de cada afirmación y del análisis con la postura de su evidencia."""
     claim_verdicts: list[ClaimVerdict] = []
     evidenced: list[float] = []
-    for claim_index, text in enumerate(claims):
-        counts = stances.get(claim_index, {"supports": 0, "contradicts": 0})
-        falsehood = _falsehood(counts["supports"], counts["contradicts"])
-        has_evidence = counts["supports"] + counts["contradicts"] > 0
+    for claim in claims:
+        supports = sum(item.stance == "supports" for item in claim.evidence)
+        contradicts = sum(item.stance == "contradicts" for item in claim.evidence)
+        falsehood = _falsehood(supports, contradicts)
+        has_evidence = supports + contradicts > 0
         if has_evidence:
             evidenced.append(falsehood)
         kind, confidence = _band(falsehood, has_evidence)
-        claim_verdicts.append(ClaimVerdict(text=text, kind=kind, confidence=confidence))
+        claim_verdicts.append(
+            ClaimVerdict(text=claim.text, kind=kind, confidence=confidence)
+        )
 
     # Solo promedia las afirmaciones sobre las que la literatura se pronuncia.
     falsehood = sum(evidenced) / len(evidenced) if evidenced else 0.5
@@ -142,23 +130,6 @@ CREDIBILITY_SQL = (
     "ELSE confidence "
     "END"
 )
-
-
-def _stance_counts(sources: Sequence[dict]) -> dict[int, dict[str, int]]:
-    """Cuenta, por índice de afirmación, cuántas fuentes la respaldan o la contradicen."""
-    counts: dict[int, dict[str, int]] = {}
-    for source in sources:
-        for statement in source.get("statements") or []:
-            claim_index = statement.get("claim_index")
-            stance = statement.get("stance")
-            if not isinstance(claim_index, int) or stance not in (
-                "supports",
-                "contradicts",
-            ):
-                continue
-            tally = counts.setdefault(claim_index, {"supports": 0, "contradicts": 0})
-            tally[stance] += 1
-    return counts
 
 
 def _falsehood(supports: int, contradicts: int) -> float:

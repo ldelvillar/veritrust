@@ -26,6 +26,7 @@ from app.core.analysis_lifecycle import (
     FileContent,
     UrlContent,
 )
+from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.pool import close_pool, get_pool
@@ -75,8 +76,7 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
     text = neutralize_delimiters(await _input_text(run))
     initial_state: dict[str, object] = {
         "input_text": text,
-        "extracted_statements": [],
-        "translated_statements": [],
+        "claims": [],
         "sources": [],
         "medical_explanation": "",
     }
@@ -135,10 +135,7 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
     logger.info("[Worker] Procesando búsqueda de evidencia")
     initial_state: dict[str, object] = {
         "input_text": neutralize_delimiters(claim),
-        "extracted_statements": [],
-        "translated_statements": [],
-        "claim_evidence": [],
-        "valid_claims": 0,
+        "claims": [],
     }
 
     try:
@@ -156,18 +153,15 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
         logger.exception("[Worker] Error inesperado en la búsqueda de evidencia")
         return {"error_code": ErrorCode.INTERNAL.value}
 
-    claims = result.get("claim_evidence") or []
-    if not claims:
+    report = evidence_report(result.get("claims") or [])
+    if not report["claims"]:
         return {"error_code": ErrorCode.NO_MEDICAL_CLAIMS.value}
 
-    for entry in claims:
-        for hit in entry.get("hits") or []:
-            hit["abstract"] = _truncate_abstract(hit.get("abstract"))
+    for entry in report["claims"]:
+        for hit in entry["hits"] or []:
+            hit["abstract"] = _truncate_abstract(hit["abstract"])
 
-    return {
-        "claims": claims,
-        "unsearched_claims": max(0, int(result.get("valid_claims") or 0) - len(claims)),
-    }
+    return report
 
 
 async def reap_orphaned_analyses(ctx: dict) -> None:

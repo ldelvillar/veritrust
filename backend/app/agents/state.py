@@ -2,17 +2,15 @@
 
 from typing import List, Optional, TypedDict
 
-from app.core.verdict import EvidenceSearch, Verdict
+from app.core.claim import Claim, EvidenceSearch
+from app.core.verdict import Verdict
 
 
 class ClaimsState(TypedDict, total=False):
-    """Claves de extracción y traducción que comparten ambos grafos."""
+    """Estado que comparten ambos grafos, el texto y sus afirmaciones; el de solo evidencia no lleva más."""
 
     input_text: str
-    extracted_statements: List[str]
-    search_queries: List[str]
-    drug_terms: List[str]
-    translated_statements: List[str]
+    claims: List[Claim]
 
 
 class AgentState(ClaimsState, total=False):
@@ -23,10 +21,3 @@ class AgentState(ClaimsState, total=False):
     judge_failures: int
     verdict: Optional[Verdict]
     medical_explanation: str
-
-
-class EvidenceState(ClaimsState, total=False):
-    """Estado del grafo de solo evidencia: extracción, traducción y búsqueda juzgada."""
-
-    valid_claims: int
-    claim_evidence: List[dict]

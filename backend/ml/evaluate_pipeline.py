@@ -20,6 +20,7 @@ import pandas as pd
 from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
 from app.agents.main import create_graph, describe_pipeline
+from app.core.claim import Claim
 from app.core.verdict import Verdict, kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
@@ -171,8 +172,7 @@ def _build_initial_state(text: str) -> dict[str, object]:
     """Construye el estado inicial del grafo para un texto de entrada."""
     return {
         "input_text": text,
-        "extracted_statements": [],
-        "translated_statements": [],
+        "claims": [],
         "medical_explanation": "",
     }
 
@@ -311,6 +311,7 @@ async def evaluate_pipeline(
 
             # Sin veredicto: el texto no contenía afirmaciones médicas verificables.
             verdict: Verdict | None = result.get("verdict")
+            claims: list[Claim] = result.get("claims") or []
             row: EvalRow = {
                 "text": sample["text"],
                 "expected": sample["expected"],
@@ -321,10 +322,8 @@ async def evaluate_pipeline(
                 # Coste por muestra: fija el n asumible en evaluaciones posteriores.
                 "duration_seconds": round(duration, 3),
                 # Permite detectar inversiones de polaridad extractor/traductor.
-                "extracted": [str(x) for x in result.get("extracted_statements") or []],
-                "translated": [
-                    str(x) for x in result.get("translated_statements") or []
-                ],
+                "extracted": [claim.text for claim in claims],
+                "translated": [claim.text_en for claim in claims],
                 # Diagnóstico: separa "no se recuperó nada" de "el juez no se moja".
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
