@@ -853,6 +853,47 @@ def test_feedback_returns_500_when_save_fails(monkeypatch):
     assert response.json()["detail"]["code"] == "FEEDBACK_SAVE_FAILED"
 
 
+def _stub_saved_feedback(monkeypatch) -> None:
+    """Hace que cualquier valoración sobre un análisis ``done`` propio se guarde."""
+
+    async def fake_get(*, user_id, analysis_id):
+        return _done_record()
+
+    async def fake_create(**kwargs):
+        return _feedback(is_correct=True)
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr("app.api.routes.analysis.create_analysis_feedback", fake_create)
+
+
+def test_feedback_is_not_blocked_by_the_submission_rate_limit(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _stub_saved_feedback(monkeypatch)
+    client = TestClient(server_module.app)
+
+    for _ in range(get_settings().rate_limit_max_requests):
+        ok = client.post("/analysis", json={"text": "Bleach cures COVID"})
+        assert ok.status_code == 200
+
+    response = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+
+    assert response.status_code == 200
+
+
+def test_feedback_does_not_spend_the_submission_rate_limit(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _stub_saved_feedback(monkeypatch)
+    client = TestClient(server_module.app)
+
+    for _ in range(get_settings().rate_limit_max_requests):
+        ok = client.post(f"/analysis/{_RETRY_ID}/feedback", json={"is_correct": True})
+        assert ok.status_code == 200
+
+    response = client.post("/analysis", json={"text": "Bleach cures COVID"})
+
+    assert response.status_code == 200
+
+
 def test_analisis_detail_includes_active_feedback_when_done(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)

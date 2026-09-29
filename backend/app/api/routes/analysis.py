@@ -13,7 +13,6 @@ from fastapi import (
 )
 
 from app.api.dependencies.analysis_intake import analysis_intake, web_submitter
-from app.api.dependencies.check_rate_limit import check_rate_limit
 from app.api.dependencies.get_current_user import get_current_user
 from app.api.dependencies.valid_analysis_id import valid_analysis_id
 from app.core.analysis_lifecycle import AnalysisIntake, Submitter
@@ -97,7 +96,6 @@ _FEEDBACK_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
-    429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
 
@@ -404,7 +402,7 @@ async def retry_analysis(
 )
 async def submit_analysis_feedback(
     body: FeedbackRequest,
-    user: dict = Depends(check_rate_limit),
+    user: dict = Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
 ):
     """Guarda la valoración del veredicto de un análisis ``done`` propio."""
