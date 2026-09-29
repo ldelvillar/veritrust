@@ -53,9 +53,9 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     """
     logger.info("[Experto] Evaluando afirmaciones y redactando informe médico")
 
-    claim_records = state.get("claims", [])
+    claims = state.get("claims", [])
 
-    if not claim_records:
+    if not claims:
         return {"verdict": None, "medical_explanation": ""}
 
     # Instanciar el LLM
@@ -65,11 +65,12 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     prompt = prompts.health_expert
     system_prompt = SystemMessage(content=prompt.text)
 
-    claims = [_neutralize_delimiters(claim.text) for claim in claim_records]
-    all_statements = "".join(f"- Afirmacion: '{claim}'\n" for claim in claims)
+    all_statements = "".join(
+        f"- Afirmacion: '{_neutralize_delimiters(claim.text)}'\n" for claim in claims
+    )
 
     # La postura de la literatura es la unica fuente del veredicto.
-    verdict = decide(claims, state.get("sources") or [], state["evidence_search"])
+    verdict = decide(claims, state["evidence_search"])
 
     evidence_block = _build_evidence_block(prompt, state.get("sources") or [])
 

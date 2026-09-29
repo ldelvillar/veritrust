@@ -10,6 +10,7 @@ from app.agents.state import AgentState
 from app.core.claim import (
     Claim,
     evidence_search,
+    keep_shown_sources,
     source_records,
     with_hits,
     with_stances,
@@ -166,7 +167,9 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
             judge_failures,
         )
 
-    sources = source_records(claims)[:EVIDENCE_MAX_SOURCES]
+    # El informe muestra un número acotado de fuentes y el veredicto solo cuenta esas.
+    shown = keep_shown_sources(claims, EVIDENCE_MAX_SOURCES)
+    sources = source_records(shown)
 
     logger.info(
         "[Investigador] %d fuentes para %d/%d afirmaciones%s",
@@ -176,7 +179,7 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
         " (fuentes caídas)" if search.outage else "",
     )
     return {
-        "claims": claims,
+        "claims": shown,
         "sources": sources,
         "evidence_search": search,
         "judge_failures": judge_failures,

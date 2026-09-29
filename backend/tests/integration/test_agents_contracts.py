@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents import sanitize
-from app.core.claim import Claim
-from app.core.verdict import EvidenceSearch, decide
+from app.core.claim import Claim, Evidence, EvidenceSearch, source_records
+from app.core.verdict import decide
 from app.prompts.agents import PromptItem, Prompts, load_prompts
 
 
@@ -196,27 +196,29 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
     assert update == {"claims": []}
 
 
-# Única afirmación de los estados del experto.
-_S1 = Claim(index=0, text="S1", text_en="T1")
 # Búsqueda en la que la literatura trató la única afirmación.
 _ONE_COVERED = EvidenceSearch(total=1, searched=1, covered=1, outage=False)
 
 
-def _stance_sources(
-    statement: str, supports: int = 0, contradicts: int = 0, claim_index: int = 0
-) -> list[dict]:
-    """Fuentes con la postura ya juzgada, tal y como las deja el investigador."""
+def _evidenced(supports: int = 0, contradicts: int = 0) -> dict:
+    """Afirmación S1 ya juzgada y sus fuentes guardadas, tal y como las deja el investigador."""
     stances = ["supports"] * supports + ["contradicts"] * contradicts
-    return [
-        {
-            "title": f"Fuente {i} sobre {statement}",
-            "url": f"https://doi.org/10.1/{statement}-{i}",
-            "statements": [
-                {"claim_index": claim_index, "text": statement, "stance": stance}
-            ],
-        }
-        for i, stance in enumerate(stances)
-    ]
+    claim = Claim(
+        index=0,
+        text="S1",
+        text_en="T1",
+        query='"q"',
+        outcome="judged",
+        evidence=tuple(
+            Evidence(
+                title=f"Fuente {i} sobre S1",
+                url=f"https://doi.org/10.1/S1-{i}",
+                stance=stance,
+            )
+            for i, stance in enumerate(stances)
+        ),
+    )
+    return {"claims": [claim], "sources": source_records([claim])}
 
 
 def _stub_health_llm(monkeypatch, health_module, captured=None):
@@ -238,16 +240,15 @@ def test_health_expert_returns_only_expected_fields_and_preserves_state(
 
     state = {
         "input_text": "Texto base",
-        "claims": [_S1],
         "evidence_search": _ONE_COVERED,
-        "sources": _stance_sources("S1", supports=2),
+        **_evidenced(supports=2),
         "other_key": "keep-me",
     }
     update = health_module.health_expert(state, dummy_prompts)
 
     assert set(update.keys()) == {"verdict", "medical_explanation"}
     # El veredicto es el que decide el módulo del veredicto, no el LLM.
-    assert update["verdict"] == decide(["S1"], state["sources"], _ONE_COVERED)
+    assert update["verdict"] == decide(state["claims"], _ONE_COVERED)
     merged = {**state, **update}
     assert merged["input_text"] == "Texto base"
     assert merged["other_key"] == "keep-me"
@@ -260,8 +261,7 @@ def test_health_expert_grounds_its_report_on_the_sources_and_the_verdict(
     _stub_health_llm(monkeypatch, health_module, captured)
 
     state = {
-        "claims": [_S1],
-        "sources": _stance_sources("S1", contradicts=3),
+        **_evidenced(contradicts=3),
         "evidence_search": _ONE_COVERED,
     }
     health_module.health_expert(state, dummy_prompts)
@@ -280,8 +280,7 @@ def test_health_expert_fails_loudly_without_the_evidence_search(
     with pytest.raises(KeyError, match="evidence_search"):
         health_module.health_expert(
             {
-                "claims": [_S1],
-                "sources": _stance_sources("S1", supports=2),
+                **_evidenced(supports=2),
             },
             dummy_prompts,
         )
@@ -322,9 +321,8 @@ def test_health_expert_handles_empty_llm_output_without_exception(
 
     update = health_module.health_expert(
         {
-            "claims": [_S1],
             "evidence_search": _ONE_COVERED,
-            "sources": _stance_sources("S1", contradicts=1),
+            **_evidenced(contradicts=1),
         },
         dummy_prompts,
     )
@@ -342,9 +340,8 @@ def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
 
     update = health_module.health_expert(
         {
-            "claims": [_S1],
             "evidence_search": _ONE_COVERED,
-            "sources": _stance_sources("S1", supports=1, contradicts=1),
+            **_evidenced(supports=1, contradicts=1),
         },
         dummy_prompts,
     )
@@ -425,9 +422,8 @@ def test_health_expert_skips_explanation_when_disabled(
     get_settings.cache_clear()
 
     state = {
-        "claims": [_S1],
         "evidence_search": _ONE_COVERED,
-        "sources": _stance_sources("S1", supports=2),
+        **_evidenced(supports=2),
     }
     update = health_module.health_expert(state, dummy_prompts)
 
@@ -448,9 +444,8 @@ def test_health_expert_generates_explanation_by_default(
     get_settings.cache_clear()
 
     state = {
-        "claims": [_S1],
         "evidence_search": _ONE_COVERED,
-        "sources": _stance_sources("S1", supports=2),
+        **_evidenced(supports=2),
     }
     update = health_module.health_expert(state, dummy_prompts)
 

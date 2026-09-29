@@ -139,6 +139,21 @@ def evidence_search(claims: Sequence[Claim]) -> EvidenceSearch:
     )
 
 
+def keep_shown_sources(claims: Sequence[Claim], limit: int) -> list[Claim]:
+    """Recorta la evidencia de cada afirmación a las ``limit`` primeras fuentes distintas, las que muestra el informe."""
+    shown: set[str] = set()
+    for item in (item for claim in claims for item in claim.evidence):
+        if len(shown) == limit:
+            break
+        shown.add(item.url)
+    return [
+        replace(
+            claim, evidence=tuple(item for item in claim.evidence if item.url in shown)
+        )
+        for claim in claims
+    ]
+
+
 def source_records(claims: Sequence[Claim]) -> list[dict]:
     """Fuentes tal y como se guardan: una por URL, enlazada a cada afirmación que la cita con su postura."""
     by_url: dict[str, dict] = {}
@@ -208,8 +223,7 @@ def _unique_evidence(hits: Sequence[dict]) -> tuple[Evidence, ...]:
         url = hit["url"]
         if url in seen:
             continue
-        if url:
-            seen.add(url)
+        seen.add(url)
         unique.append(
             Evidence(
                 title=hit["title"],

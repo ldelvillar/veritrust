@@ -9,6 +9,7 @@ from app.core.claim import (
     evidence_report,
     evidence_search,
     extract_claims,
+    keep_shown_sources,
     source_records,
     translate_claims,
     with_hits,
@@ -137,14 +138,6 @@ def test_with_hits_keeps_the_first_result_of_each_url():
     )
 
 
-def test_with_hits_does_not_merge_results_without_url():
-    claim = with_hits(
-        Claim(index=0, text="A", query='"a"'), [_hit("A", url=""), _hit("B", url="")]
-    )
-
-    assert [item.title for item in claim.evidence] == ["Estudio A", "Estudio B"]
-
-
 def test_a_claim_with_no_results_has_nothing_left_to_judge():
     assert _found(0).outcome == "judged"
 
@@ -205,6 +198,31 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
 )
 def test_evidence_search_counts_the_claims_by_outcome(claims, expected):
     assert evidence_search(claims) == expected
+
+
+def test_keep_shown_sources_keeps_the_first_distinct_sources_in_claim_order():
+    claims = [
+        _judged(0, ("A", "supports"), ("S", "supports")),
+        _judged(1, ("S", "contradicts"), ("B", "supports"), ("C", "supports")),
+        _judged(2, ("D", "supports")),
+    ]
+
+    shown = keep_shown_sources(claims, 3)
+
+    # A, S y B llenan el cupo; S cuenta una vez aunque la citen dos afirmaciones.
+    assert [[item.url[-1] for item in claim.evidence] for claim in shown] == [
+        ["A", "S"],
+        ["S", "B"],
+        [],
+    ]
+    # Recortar la evidencia no cambia hasta dónde llegó la búsqueda.
+    assert [claim.outcome for claim in shown] == ["judged"] * 3
+
+
+def test_keep_shown_sources_changes_nothing_under_the_limit():
+    claims = [_judged(0, ("A", "supports")), _found(1, "B")]
+
+    assert keep_shown_sources(claims, 12) == claims
 
 
 def test_source_records_merge_a_shared_url_and_link_each_claim_by_index():
