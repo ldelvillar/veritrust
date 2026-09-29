@@ -79,19 +79,13 @@ services:
     logging: *default-logging
     labels:
       autoheal: "true"
+    env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       CORS_ALLOWED_ORIGINS: http://localhost:3000
-      CORS_ALLOW_CREDENTIALS: "true"
-      CLERK_JWKS_URL: ${CLERK_JWKS_URL}
-      CLERK_ISSUER: ${CLERK_ISSUER}
-      CLERK_AUDIENCE: ${CLERK_AUDIENCE}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
-      CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL}
-      APP_BASE_URL: ${APP_BASE_URL}
       MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://localhost:8000/mcp}
+      CLERK_SECRET_KEY: ""
     ports:
       - "8000:8000"
     healthcheck:
@@ -121,22 +115,14 @@ services:
     labels:
       autoheal: "true"
     command: ["python", "-m", "app.worker"]
+    env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
       LLM_PROVIDER: ${LLM_PROVIDER:-mistral}
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_EXTRACTOR_MODEL: llama3.2
+      OLLAMA_EXTRACTOR_MODEL: ${OLLAMA_EXTRACTOR_MODEL:-llama3.2}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      CLERK_JWKS_URL: ${CLERK_JWKS_URL}
-      CLERK_ISSUER: ${CLERK_ISSUER}
-      CLERK_AUDIENCE: ${CLERK_AUDIENCE}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
-      APP_BASE_URL: ${APP_BASE_URL}
+      CLERK_SECRET_KEY: ""
     healthcheck:
       test: ["CMD", "python", "-m", "app.worker_healthcheck"]
       interval: 30s
