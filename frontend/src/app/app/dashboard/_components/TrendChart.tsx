@@ -1,7 +1,7 @@
 interface TrendPoint {
   date: string;
   total: number;
-  average_confidence: number;
+  average_confidence: number | null;
 }
 
 export default function TrendChart({ data }: { data: TrendPoint[] }) {
@@ -22,12 +22,20 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
   // En rangos largos (30/90 d) hay demasiadas barras diarias para etiquetar cada una.
   const labelStep = Math.max(1, Math.ceil(data.length / 12));
 
-  const linePts = data.map((t, i) => ({
-    x: padL + i * slot + slot / 2,
-    y: padT + (1 - t.average_confidence / 100) * plotH,
-  }));
+  // Un día sin credibilidad corta la línea en vez de hundirla a 0.
+  const linePts = data.flatMap((t, i) =>
+    t.average_confidence === null
+      ? []
+      : [
+          {
+            x: padL + i * slot + slot / 2,
+            y: padT + (1 - t.average_confidence / 100) * plotH,
+            move: i === 0 || data[i - 1].average_confidence === null,
+          },
+        ]
+  );
   const lineD = linePts
-    .map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`)
+    .map(q => `${q.move ? 'M' : 'L'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`)
     .join(' ');
 
   return (

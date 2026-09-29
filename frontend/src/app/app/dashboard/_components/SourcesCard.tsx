@@ -12,13 +12,12 @@ const SOURCE_META: Record<
 
 export default function SourcesCard({
   items,
+  averageCredibility,
 }: {
   items: DashboardPayload['source_breakdown'];
+  averageCredibility: DashboardPayload['kpis']['average_confidence'];
 }) {
   const total = items.reduce((a, s) => a + s.total, 0) || 1;
-  const wavg = Math.round(
-    items.reduce((a, s) => a + s.average_confidence * s.total, 0) / total
-  );
 
   return (
     <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
@@ -87,9 +86,13 @@ export default function SourcesCard({
       {items.length > 0 && (
         <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
           <span className="text-xs font-semibold text-muted">
-            Credibilidad media del periodo
+            Credibilidad media
           </span>
-          <span className="text-sm font-bold text-ink">{wavg}%</span>
+          <span className="text-sm font-bold text-ink">
+            {averageCredibility === null
+              ? '—'
+              : `${Math.round(averageCredibility)}%`}
+          </span>
         </div>
       )}
     </section>

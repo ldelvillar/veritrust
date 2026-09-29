@@ -1,29 +1,5 @@
 import type { DashboardPayload } from './types';
 
-function domainCredibility(avgConf: number): {
-  label: string;
-  cls: 'ok' | 'warn' | 'bad';
-} {
-  if (avgConf >= 75) return { label: 'Alta', cls: 'ok' };
-  if (avgConf >= 50) return { label: 'Media', cls: 'warn' };
-  return { label: 'Baja', cls: 'bad' };
-}
-
-const CRED_STYLES = {
-  ok: {
-    color: 'var(--color-verdict-real-ink)',
-    background: 'var(--color-verdict-real-soft)',
-  },
-  warn: {
-    color: 'var(--color-verdict-uncertain-ink)',
-    background: 'var(--color-verdict-uncertain-soft)',
-  },
-  bad: {
-    color: 'var(--color-verdict-fake-ink)',
-    background: 'var(--color-verdict-fake-soft)',
-  },
-};
-
 export default function DomainsCard({
   items,
 }: {
@@ -49,7 +25,7 @@ export default function DomainsCard({
       ) : (
         <div className="flex flex-col">
           {items.map(item => {
-            const cred = domainCredibility(item.average_confidence);
+            const credibility = item.average_confidence;
             const init = item.domain[0]?.toUpperCase() ?? '?';
             return (
               <div
@@ -82,14 +58,14 @@ export default function DomainsCard({
                   </div>
                 </div>
                 <span
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.75 py-1.25 text-xs font-bold"
-                  style={CRED_STYLES[cred.cls]}
+                  className="shrink-0 rounded-full bg-surface px-2.75 py-1.25 text-xs font-bold text-ink"
+                  title={
+                    credibility === null
+                      ? 'Sin credibilidad: todos sus análisis son dudosos'
+                      : 'Credibilidad media'
+                  }
                 >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ background: 'currentColor' }}
-                  />
-                  {cred.label}
+                  {credibility === null ? '—' : `${Math.round(credibility)}%`}
                 </span>
               </div>
             );

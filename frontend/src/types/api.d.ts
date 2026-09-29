@@ -590,7 +590,7 @@ export interface components {
             /** Total */
             total: number;
             /** Average Confidence */
-            average_confidence: number;
+            average_confidence: number | null;
         };
         /**
          * DashboardKpis
@@ -602,7 +602,7 @@ export interface components {
             /** Reliable Rate */
             reliable_rate: number;
             /** Average Confidence */
-            average_confidence: number;
+            average_confidence: number | null;
             /** Week Over Week Delta */
             week_over_week_delta: number;
             /** Active Alerts */
@@ -619,7 +619,7 @@ export interface components {
             /** Total */
             total: number;
             /** Average Confidence */
-            average_confidence: number;
+            average_confidence: number | null;
         };
         /**
          * DashboardSummaryResponse
@@ -649,7 +649,7 @@ export interface components {
             /** Total */
             total: number;
             /** Average Confidence */
-            average_confidence: number;
+            average_confidence: number | null;
         };
         /**
          * DashboardVerdictDistribution

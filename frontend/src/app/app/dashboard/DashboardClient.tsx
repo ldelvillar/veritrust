@@ -139,7 +139,11 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             />
             <CompactKpiCard
               label="Credibilidad media"
-              value={`${dashboard.kpis.average_confidence}%`}
+              value={
+                dashboard.kpis.average_confidence === null
+                  ? '—'
+                  : `${dashboard.kpis.average_confidence}%`
+              }
               sub="excluye los dudosos"
               icon={<SparkleIcon className="size-4.75" />}
               tint="var(--color-primary-soft)"
@@ -201,7 +205,10 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           )}
         </section>
 
-        <SourcesCard items={dashboard.source_breakdown} />
+        <SourcesCard
+          items={dashboard.source_breakdown}
+          averageCredibility={dashboard.kpis.average_confidence}
+        />
       </div>
 
       {/* Domains + Alerts row */}

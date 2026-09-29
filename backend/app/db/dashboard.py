@@ -33,10 +33,12 @@ def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[in
 
 def _extract_kpis_values(
     kpi_row: Sequence[Any] | None,
-) -> tuple[int, float, int, int, int, int, float]:
+) -> tuple[int, float | None, int, int, int, int, float]:
     """Extrae valores de KPI con defaults cuando no hay resultados."""
     total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
-    average_confidence = float(kpi_row[1] or 0.0) if kpi_row else 0.0
+    average_confidence = (
+        float(kpi_row[1]) if kpi_row and kpi_row[1] is not None else None
+    )
     reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
     current_week_total = int(kpi_row[3] or 0) if kpi_row else 0
     previous_week_total = int(kpi_row[4] or 0) if kpi_row else 0
@@ -80,6 +82,11 @@ def _round_percentage(value: float | None) -> float:
     return round(max(0.0, min(100.0, value * 100)), 1)
 
 
+def _credibility_percentage(value: Any) -> float | None:
+    """Convierte una credibilidad media [0, 1] en porcentaje, o None si ningún análisis la tiene."""
+    return None if value is None else _round_percentage(float(value))
+
+
 def _extract_domain(url: str | None) -> str | None:
     """Devuelve el host en minúsculas de una URL, o None si no es válida."""
     if not url:
@@ -97,22 +104,21 @@ def _build_trend_points(
     *, trend_rows: Sequence[Sequence[Any]], trend_start_date: date, trend_days: int
 ) -> list[DashboardTrendPoint]:
     """Construye una serie diaria continua para tendencia de dashboard."""
-    trend_map: dict[date, tuple[int, float]] = {}
+    trend_map: dict[date, tuple[int, float | None]] = {}
     for row in trend_rows:
         row_day: date = row[0]
         row_total = int(row[1] or 0)
-        row_avg_confidence = float(row[2] or 0.0)
-        trend_map[row_day] = (row_total, row_avg_confidence)
+        trend_map[row_day] = (row_total, _credibility_percentage(row[2]))
 
     trend_points: list[DashboardTrendPoint] = []
     for day_offset in range(trend_days):
         point_day = trend_start_date + timedelta(days=day_offset)
-        point_total, point_avg_confidence = trend_map.get(point_day, (0, 0.0))
+        point_total, point_avg_confidence = trend_map.get(point_day, (0, None))
         trend_points.append(
             DashboardTrendPoint(
                 date=point_day.isoformat(),
                 total=point_total,
-                average_confidence=round(point_avg_confidence * 100, 1),
+                average_confidence=point_avg_confidence,
             )
         )
 
@@ -127,7 +133,7 @@ def _build_source_breakdown(
         DashboardSourceBreakdownItem(
             source_type=row[0],
             total=int(row[1] or 0),
-            average_confidence=_round_percentage(float(row[2] or 0.0)),
+            average_confidence=_credibility_percentage(row[2]),
         )
         for row in source_rows
     ]
@@ -162,8 +168,8 @@ def _build_domain_breakdown(
         DashboardDomainBreakdownItem(
             domain=domain,
             total=int(values["total"]),
-            average_confidence=_round_percentage(
-                values["sum_cred"] / values["n_cred"] if values["n_cred"] else 0.0
+            average_confidence=_credibility_percentage(
+                values["sum_cred"] / values["n_cred"] if values["n_cred"] else None
             ),
         )
         for domain, values in sorted_domains
@@ -346,7 +352,7 @@ async def get_user_dashboard_summary(
         kpis=DashboardKpis(
             total_analyses=total_analyses,
             reliable_rate=reliable_rate,
-            average_confidence=_round_percentage(average_confidence),
+            average_confidence=_credibility_percentage(average_confidence),
             week_over_week_delta=week_over_week_delta,
             active_alerts=active_alerts,
             average_evidence_coverage=_round_percentage(average_evidence_coverage),

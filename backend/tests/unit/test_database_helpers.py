@@ -266,7 +266,7 @@ def test_sanitize_dashboard_params_clamps_values() -> None:
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:
-    assert dashboard_module._extract_kpis_values(None) == (0, 0.0, 0, 0, 0, 0, 0.0)
+    assert dashboard_module._extract_kpis_values(None) == (0, None, 0, 0, 0, 0, 0.0)
     assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3, 0.62)) == (
         10,
         0.83,
@@ -276,6 +276,18 @@ def test_extract_kpis_values_handles_none_and_row_values() -> None:
         3,
         0.62,
     )
+
+
+def test_extract_kpis_values_has_no_credibility_when_every_analysis_is_uncertain() -> (
+    None
+):
+    assert dashboard_module._extract_kpis_values((4, None, 0, 1, 0, 0, 0.5))[1] is None
+
+
+def test_credibility_percentage_keeps_a_missing_credibility_missing() -> None:
+    assert dashboard_module._credibility_percentage(None) is None
+    assert dashboard_module._credibility_percentage(0.1234) == 12.3
+    assert dashboard_module._credibility_percentage(0.0) == 0.0
 
 
 def test_calculate_reliable_rate_handles_zero_and_rounding() -> None:
@@ -351,8 +363,19 @@ def test_build_trend_points_creates_contiguous_daily_series() -> None:
     assert points[0].average_confidence == 50.0
     assert points[1].date == "2026-04-02"
     assert points[1].total == 0
-    assert points[1].average_confidence == 0.0
+    assert points[1].average_confidence is None
     assert points[2].average_confidence == 75.0
+
+
+def test_build_trend_points_has_no_credibility_on_an_all_uncertain_day() -> None:
+    points = dashboard_module._build_trend_points(
+        trend_rows=[(date(2026, 4, 1), 3, None)],
+        trend_start_date=date(2026, 4, 1),
+        trend_days=1,
+    )
+
+    assert points[0].total == 3
+    assert points[0].average_confidence is None
 
 
 def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
@@ -365,7 +388,7 @@ def test_build_source_breakdown_maps_rows_to_dataclasses() -> None:
     assert result[0].source_type == "url"
     assert result[0].total == 3
     assert result[0].average_confidence == 91.0
-    assert result[1].average_confidence == 0.0
+    assert result[1].average_confidence is None
 
 
 def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
@@ -398,6 +421,20 @@ def test_build_domain_breakdown_excludes_uncertain_from_credibility() -> None:
     assert len(result) == 1
     assert result[0].total == 2
     assert result[0].average_confidence == 80.0
+
+
+def test_build_domain_breakdown_has_no_credibility_when_every_analysis_is_uncertain() -> (
+    None
+):
+    domain_rows = [
+        ("https://a.com/one", None),
+        ("https://a.com/two", None),
+    ]
+
+    result = dashboard_module._build_domain_breakdown(domain_rows=domain_rows, limit=5)
+
+    assert result[0].total == 2
+    assert result[0].average_confidence is None
 
 
 def test_build_alerts_maps_rows_to_alert_items() -> None:
