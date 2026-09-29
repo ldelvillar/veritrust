@@ -47,8 +47,7 @@ const STEPS = [
   },
 ] as const;
 
-// Pasado el límite duro del pipeline (10 min), un análisis aún pendiente está
-// claramente atascado: dejamos de dar falsas garantías y ofrecemos una salida.
+// Superada con margen la estimación de 8 min, avisamos y ofrecemos una salida.
 const SLOW_AFTER_SECONDS = 600;
 
 // El worker reporta la etapa real; aquí la traducimos al paso visible.
