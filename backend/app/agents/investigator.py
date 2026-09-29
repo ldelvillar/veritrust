@@ -60,11 +60,6 @@ def _dedupe_hits(hits: list[dict]) -> list[dict]:
     return unique
 
 
-def _usable_query(query: object) -> bool:
-    """Una consulta sin caracteres alfanuméricos no recupera nada."""
-    return any(char.isalnum() for char in str(query or ""))
-
-
 def _search_source(
     index: int, query: str, search: Callable[..., list[dict]]
 ) -> tuple[int, list[dict] | None]:
@@ -95,36 +90,11 @@ def gather_evidence(
     state: ClaimsState, prompts: Prompts | None = None
 ) -> tuple[int, list[dict]]:
     """Busca y juzga la evidencia de cada afirmación; devuelve el total válido y el detalle por afirmación."""
-    translated = state.get("translated_statements", [])
-    queries = state.get("search_queries", [])
-    originals = state.get("extracted_statements", [])
-    drug_terms = state.get("drug_terms", [])
-
-    if not translated:
-        return 0, []
-
-    # El índice de la afirmación viaja con su entrada: es la clave con la que el
-    # informe enlaza fuente y afirmación, en vez de volver a casar el texto.
-    entries = [
-        (
-            i,
-            (
-                queries[i]
-                if i < len(queries) and _usable_query(queries[i])
-                else translated[i]
-            ),
-            translated[i] or "",
-            originals[i] if i < len(originals) else None,
-            str(drug_terms[i]).strip() if i < len(drug_terms) and drug_terms[i] else "",
-        )
-        for i in range(len(translated))
-    ]
+    claims = state.get("claims", [])
 
     # Una consulta inservible degradaría la búsqueda en silencio: se avisa.
     degenerate = sum(
-        1
-        for i in range(len(translated))
-        if i < len(queries) and queries[i] and not _usable_query(queries[i])
+        1 for claim in claims if claim.query and claim.search_query != claim.query
     )
     if degenerate:
         logger.warning(
@@ -132,11 +102,11 @@ def gather_evidence(
             degenerate,
         )
 
-    # Descarta consultas vacías (relleno) antes de llamar a las fuentes.
+    # Descarta las afirmaciones sin consulta antes de llamar a las fuentes.
     valid = [
-        (claim_index, str(query), claim, original, drug_term)
-        for claim_index, query, claim, original, drug_term in entries
-        if query and str(query).strip()
+        (claim.index, claim.search_query, claim.text_en, claim.text, claim.drug_term)
+        for claim in claims
+        if claim.search_query
     ]
 
     # Denominador de la cobertura: toda afirmación válida, aunque la cota la deje sin buscar.
@@ -223,10 +193,10 @@ def gather_evidence(
         relevant_by_position[position] = relevant
 
     # Se reensambla en el orden original de las afirmaciones
-    claims = []
+    entries = []
     for position, (claim_index, query, claim, original, _) in enumerate(searched):
         relevant_hits = relevant_by_position.get(position)
-        claims.append(
+        entries.append(
             {
                 "claim_index": claim_index,
                 "query": query,
@@ -238,7 +208,7 @@ def gather_evidence(
                 and all("stance" in hit for hit in relevant_hits),
             }
         )
-    return total, claims
+    return total, entries
 
 
 def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentState:

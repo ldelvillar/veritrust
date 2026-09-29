@@ -12,6 +12,7 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from app.agents.state import ClaimsState
+from app.core.claim import extract_claims
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
@@ -75,26 +76,9 @@ def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
-    statements = result.statements
-    # Alinea las consultas con las afirmaciones; rellena o recorta si el modelo desvía.
-    queries = list(result.search_queries)
-    if len(queries) < len(statements):
-        queries.extend([""] * (len(statements) - len(queries)))
-    else:
-        queries = queries[: len(statements)]
+    claims = extract_claims(result.statements, result.search_queries, result.drug_terms)
 
-    # Alinea los términos de fármaco igual que las consultas.
-    drug_terms = list(result.drug_terms)
-    if len(drug_terms) < len(statements):
-        drug_terms.extend([""] * (len(statements) - len(drug_terms)))
-    else:
-        drug_terms = drug_terms[: len(statements)]
-
-    logger.info("[Extractor] Se extrajeron %d afirmaciones", len(statements))
+    logger.info("[Extractor] Se extrajeron %d afirmaciones", len(claims))
 
     # Devolver la parte del estado que este agente es responsable de actualizar
-    return {
-        "extracted_statements": statements,
-        "search_queries": queries,
-        "drug_terms": drug_terms,
-    }
+    return {"claims": claims}

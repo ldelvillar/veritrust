@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.sanitize import neutralize_delimiters
 from app.agents.state import ClaimsState
+from app.core.claim import translate_claims
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
@@ -61,28 +62,22 @@ def translator(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     """
     logger.info("[Traductor] Traduciendo afirmaciones al inglés")
 
-    original_statements = state.get("extracted_statements", [])
+    claims = state.get("claims", [])
 
-    if not original_statements:
-        return {"translated_statements": []}
+    if not claims:
+        return {"claims": []}
 
     numbered = "\n".join(
-        f"{i + 1}. {neutralize_delimiters(str(s))}"
-        for i, s in enumerate(original_statements)
+        f"{i + 1}. {neutralize_delimiters(claim.text)}"
+        for i, claim in enumerate(claims)
     )
 
     translator_chain = get_translator_chain(prompts.translator.text)
     result = translator_chain.invoke({"statements": numbered})
 
-    # Si el modelo devuelve menos elementos de los esperados, rellenamos con cadenas vacías
     translations = [_LEADING_NUMBER.sub("", t).strip() for t in result.translations]
-    if len(translations) < len(original_statements):
-        translations.extend([""] * (len(original_statements) - len(translations)))
-    elif len(translations) > len(original_statements):
-        translations = translations[: len(original_statements)]
+    translated = translate_claims(claims, translations)
 
-    logger.info(
-        "[Traductor] Traducción completada (%d afirmaciones)", len(translations)
-    )
+    logger.info("[Traductor] Traducción completada (%d afirmaciones)", len(translated))
 
-    return {"translated_statements": translations}
+    return {"claims": translated}

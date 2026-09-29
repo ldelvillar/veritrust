@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from app.agents import investigator as investigator_module
+from app.core.claim import Claim
 from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
 from ml import evaluate_pipeline as ep
@@ -191,7 +192,7 @@ def test_build_initial_state_has_pipeline_keys() -> None:
     state = ep._build_initial_state("hola")
 
     assert state["input_text"] == "hola"
-    assert state["extracted_statements"] == []
+    assert state["claims"] == []
     assert state["medical_explanation"] == ""
 
 
@@ -441,9 +442,15 @@ def test_evidence_tape_intercepts_every_search_of_the_investigator(
         )
     live = {name: getattr(investigator_module, f"search_{name}") for name in sources}
     state = {
-        "translated_statements": ["Ibuprofen damages the kidneys"],
-        "search_queries": ["ibuprofen kidney damage"],
-        "drug_terms": ["ibuprofeno"],
+        "claims": [
+            Claim(
+                index=0,
+                text="El ibuprofeno daña los riñones",
+                text_en="Ibuprofen damages the kidneys",
+                query="ibuprofen kidney damage",
+                drug_term="ibuprofeno",
+            )
+        ]
     }
 
     tape = ep.EvidenceTape()

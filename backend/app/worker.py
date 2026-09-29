@@ -75,8 +75,7 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
     text = neutralize_delimiters(await _input_text(run))
     initial_state: dict[str, object] = {
         "input_text": text,
-        "extracted_statements": [],
-        "translated_statements": [],
+        "claims": [],
         "sources": [],
         "medical_explanation": "",
     }
@@ -135,8 +134,7 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
     logger.info("[Worker] Procesando búsqueda de evidencia")
     initial_state: dict[str, object] = {
         "input_text": neutralize_delimiters(claim),
-        "extracted_statements": [],
-        "translated_statements": [],
+        "claims": [],
         "claim_evidence": [],
         "valid_claims": 0,
     }

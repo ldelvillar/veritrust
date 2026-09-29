@@ -2,6 +2,7 @@
 
 from typing import List, Optional, TypedDict
 
+from app.core.claim import Claim
 from app.core.verdict import EvidenceSearch, Verdict
 
 
@@ -9,10 +10,7 @@ class ClaimsState(TypedDict, total=False):
     """Claves de extracción y traducción que comparten ambos grafos."""
 
     input_text: str
-    extracted_statements: List[str]
-    search_queries: List[str]
-    drug_terms: List[str]
-    translated_statements: List[str]
+    claims: List[Claim]
 
 
 class AgentState(ClaimsState, total=False):

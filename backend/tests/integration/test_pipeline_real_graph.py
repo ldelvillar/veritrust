@@ -38,8 +38,7 @@ def _initial_state(text: str) -> dict:
     """Replica el estado inicial exacto que el worker envía al grafo."""
     return {
         "input_text": text,
-        "extracted_statements": [],
-        "translated_statements": [],
+        "claims": [],
         "sources": [],
         "medical_explanation": "",
     }
@@ -352,7 +351,7 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     result = graph.invoke(_initial_state("Texto"))
 
     # El traductor real rellena con cadenas vacías y el pipeline sigue en pie.
-    assert result["translated_statements"] == ["", ""]
+    assert [claim.text_en for claim in result["claims"]] == ["", ""]
     # Sin traducción, el juez de relevancia recibe la consulta como respaldo.
     assert judged_claims == ['"query one"', '"query two"']
     assert result["verdict"].label == "verdadera"
