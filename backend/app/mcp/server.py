@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 from arq.jobs import Job, JobStatus
-from fastapi import HTTPException
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import Context, MCPServer
@@ -20,13 +19,14 @@ from redis.exceptions import RedisError
 from starlette.applications import Starlette
 
 from app.agents.main import PIPELINE_STAGES
-from app.api.dependencies.check_rate_limit import (
-    enforce_sliding_window,
-    user_rate_limit_key,
-)
 from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
+from app.core.rate_limit import (
+    RateLimitRefused,
+    enforce_sliding_window,
+    user_rate_limit_key,
+)
 from app.db.history import get_user_analysis_by_id, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.mcp.auth import ClerkOAuthTokenVerifier
@@ -122,9 +122,8 @@ async def _consume_rate_limit(redis: Any, user_id: str) -> None:
             max_requests=settings.rate_limit_max_requests,
             window=settings.rate_limit_window_seconds,
         )
-    except HTTPException as exc:
-        detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
-        raise ToolError(f"{detail.get('code')}: {detail.get('message')}") from exc
+    except RateLimitRefused as exc:
+        raise _tool_error(exc.code) from exc
 
 
 def _report_url(analysis_id: str) -> str | None:

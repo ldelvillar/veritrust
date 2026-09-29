@@ -5,9 +5,9 @@ import time
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import HTTPException
 
 from app.core.config import Settings
+from app.core.jwks import AuthMisconfigured
 from app.mcp import auth as auth_module
 
 _ISSUER = "https://tenant.clerk.accounts.dev"
@@ -43,7 +43,7 @@ def _configure(monkeypatch):
     )
     monkeypatch.setattr(auth_module, "get_settings", lambda: settings)
     monkeypatch.setattr(
-        auth_module, "_get_signing_key", lambda token: _PRIVATE_KEY.public_key()
+        auth_module, "get_signing_key", lambda token: _PRIVATE_KEY.public_key()
     )
 
 
@@ -97,9 +97,9 @@ async def test_rejects_garbage():
 
 async def test_returns_none_when_the_signing_key_is_misconfigured(monkeypatch):
     def fail(token):
-        raise HTTPException(status_code=500, detail={})
+        raise AuthMisconfigured("Falta CLERK_JWKS_URL")
 
-    monkeypatch.setattr(auth_module, "_get_signing_key", fail)
+    monkeypatch.setattr(auth_module, "get_signing_key", fail)
 
     assert (
         await auth_module.ClerkOAuthTokenVerifier().verify_token(_sign(_claims()))

@@ -1,4 +1,4 @@
-"""Tests unitarios para la autenticacion JWT (app.api.dependencies.get_current_user)."""
+"""Tests unitarios para la autenticacion JWT (get_current_user y el cliente JWKS de app.core.jwks)."""
 
 import io
 import json
@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from jwt.algorithms import RSAAlgorithm
 
 from app.api.dependencies import get_current_user as get_user_module
+from app.core import jwks as jwks_module
 from app.core.config import Settings
 
 _JWKS_URL = "https://tenant.clerk.accounts.dev/.well-known/jwks.json"
@@ -32,9 +33,10 @@ def _make_settings(**overrides) -> Settings:
 
 
 def _use_settings(monkeypatch, **overrides) -> Settings:
-    """Hace que get_current_user use una configuración controlada."""
+    """Hace que get_current_user y el cliente JWKS usen una configuración controlada."""
     settings = _make_settings(**overrides)
     monkeypatch.setattr(get_user_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(jwks_module, "get_settings", lambda: settings)
     return settings
 
 
@@ -52,18 +54,16 @@ def test_get_signing_key_uses_jwks_client_when_available(monkeypatch):
             assert token == "token-123"
             return _FakeSigningKey()
 
-    monkeypatch.setattr(
-        get_user_module, "_get_jwks_client", lambda url: _FakeJwksClient()
-    )
+    monkeypatch.setattr(jwks_module, "_get_jwks_client", lambda url: _FakeJwksClient())
 
-    assert get_user_module._get_signing_key("token-123") == "jwks-key"
+    assert jwks_module.get_signing_key("token-123") == "jwks-key"
 
 
-def test_get_signing_key_raises_500_if_no_provider_is_configured(monkeypatch):
+def test_get_current_user_returns_500_if_no_jwks_url_is_configured(monkeypatch):
     _use_settings(monkeypatch, clerk_jwks_url=None)
 
     with pytest.raises(HTTPException) as exc:
-        get_user_module._get_signing_key("irrelevant-token")
+        get_user_module.get_current_user("Bearer irrelevant-token")
 
     assert exc.value.status_code == 500
     assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
@@ -138,7 +138,7 @@ def test_get_current_user_returns_payload_when_token_is_valid(monkeypatch):
         assert options == {"verify_aud": True, "verify_iss": True}
         return {"sub": "user_1", "sid": "session_1"}
 
-    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module, "get_signing_key", lambda _: "signing-key")
     monkeypatch.setattr(get_user_module.jwt, "decode", _fake_decode)
 
     payload = get_user_module.get_current_user("Bearer valid-token")
@@ -169,7 +169,7 @@ def test_get_current_user_returns_401_when_token_is_expired(monkeypatch):
         clerk_issuer="https://my-tenant.clerk.accounts.dev",
         clerk_audience="my-api",
     )
-    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module, "get_signing_key", lambda _: "signing-key")
 
     def _raise_expired(*args, **kwargs):
         raise get_user_module.jwt.ExpiredSignatureError("expired")
@@ -189,7 +189,7 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
         clerk_issuer="https://my-tenant.clerk.accounts.dev",
         clerk_audience="my-api",
     )
-    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "signing-key")
+    monkeypatch.setattr(get_user_module, "get_signing_key", lambda _: "signing-key")
 
     def _raise_invalid(*args, **kwargs):
         raise get_user_module.jwt.InvalidTokenError("invalid")
@@ -217,8 +217,8 @@ def _use_jwks(monkeypatch, serve) -> list[str]:
         return io.BytesIO(json.dumps(serve()).encode())
 
     monkeypatch.setattr(urllib.request, "urlopen", _urlopen)
-    client = get_user_module._get_jwks_client.__wrapped__(_JWKS_URL)
-    monkeypatch.setattr(get_user_module, "_get_jwks_client", lambda url: client)
+    client = jwks_module._get_jwks_client.__wrapped__(_JWKS_URL)
+    monkeypatch.setattr(jwks_module, "_get_jwks_client", lambda url: client)
     return downloads
 
 
@@ -276,10 +276,10 @@ def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
 
 def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch):
     clock = [0.0]
-    monkeypatch.setattr(get_user_module, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(jwks_module, "monotonic", lambda: clock[0])
     jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
     _use_jwks(monkeypatch, lambda: jwks)
-    client = get_user_module._get_jwks_client(_JWKS_URL)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
@@ -288,7 +288,7 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
 
-    clock[0] += get_user_module._JWKS_REFRESH_COOLDOWN_SECONDS
+    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
     assert client.get_signing_key("new-key").key_id == "new-key"
 
 
@@ -298,7 +298,7 @@ def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
         clerk_issuer="https://my-tenant.clerk.accounts.dev",
         clerk_audience="my-api",
     )
-    monkeypatch.setattr(get_user_module, "_get_signing_key", lambda _: "bad-key")
+    monkeypatch.setattr(get_user_module, "get_signing_key", lambda _: "bad-key")
 
     def _raise_type_error(*args, **kwargs):
         raise TypeError("Expecting a PEM-formatted key.")

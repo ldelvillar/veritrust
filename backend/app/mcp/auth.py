@@ -4,11 +4,10 @@ import asyncio
 import logging
 
 import jwt
-from fastapi import HTTPException
 from mcp.server.auth.provider import AccessToken
 
-from app.api.dependencies.get_current_user import _get_signing_key
 from app.core.config import get_settings
+from app.core.jwks import AuthMisconfigured, get_signing_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def _decode_oauth_token(token: str) -> AccessToken | None:
     try:
         claims = jwt.decode(
             token,
-            _get_signing_key(token),
+            get_signing_key(token),
             algorithms=["RS256"],
             issuer=issuer,
             leeway=10,
@@ -37,13 +36,12 @@ def _decode_oauth_token(token: str) -> AccessToken | None:
         )
     except jwt.PyJWTError:
         return None
-    except HTTPException:
+    except AuthMisconfigured:
         logger.error(
             "MCP mal configurado: no se pudo obtener la clave de firma de Clerk"
         )
         return None
 
-    # RFC 9068: un access token OAuth lleva client_id; un token de sesión del navegador no.
     client_id = claims.get("client_id")
     if not isinstance(client_id, str) or not client_id:
         return None
