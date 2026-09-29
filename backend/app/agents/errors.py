@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Optional
 
 import aiohttp
+import groq
 import httpx
 
 
@@ -30,12 +31,12 @@ async def ainvoke_graph(
                 final_state = chunk
             elif mode == "updates" and on_stage is not None:
                 await on_stage(next(iter(chunk)))
-    # aiohttp.ClientError cubre el transporte de ChatNVIDIA.
     except (
         ConnectionError,
         httpx.ConnectError,
         httpx.TimeoutException,
         aiohttp.ClientError,
+        groq.APIConnectionError,
     ) as e:
         raise OllamaConnectionError(str(e)) from e
     return final_state

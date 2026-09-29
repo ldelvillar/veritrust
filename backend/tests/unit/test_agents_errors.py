@@ -1,9 +1,12 @@
 """Tests del envoltorio de invocación del grafo y la traducción de errores de transporte."""
 
+import groq
 import httpx
 import pytest
 
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
+
+_GROQ_REQUEST = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
 
 
 class _FakeGraph:
@@ -59,3 +62,17 @@ async def test_ainvoke_graph_translates_httpx_connect_error() -> None:
 async def test_ainvoke_graph_translates_httpx_timeout_error() -> None:
     with pytest.raises(OllamaConnectionError):
         await ainvoke_graph(_FakeGraph(error=httpx.ReadTimeout("slow")), {})
+
+
+async def test_ainvoke_graph_translates_groq_connection_error() -> None:
+    error = groq.APIConnectionError(request=_GROQ_REQUEST)
+
+    with pytest.raises(OllamaConnectionError):
+        await ainvoke_graph(_FakeGraph(error=error), {})
+
+
+async def test_ainvoke_graph_translates_groq_timeout_error() -> None:
+    error = groq.APITimeoutError(request=_GROQ_REQUEST)
+
+    with pytest.raises(OllamaConnectionError):
+        await ainvoke_graph(_FakeGraph(error=error), {})
