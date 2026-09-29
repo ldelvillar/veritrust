@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
+import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
 import type { paths } from '@/types/api';
 
 type DeleteAnalysisResponse =
@@ -23,7 +24,10 @@ export function useAnalysisDeletion() {
           { method: 'DELETE' }
         )
       );
-      return data !== null;
+      if (data === null) return false;
+      // Borrar un análisis pendiente cambia el recuento del indicador global.
+      void refreshPendingAnalyses();
+      return true;
     },
     [getToken, mutate]
   );

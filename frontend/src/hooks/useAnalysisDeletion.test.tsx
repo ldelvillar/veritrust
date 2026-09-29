@@ -1,10 +1,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
 import { useAnalysisDeletion } from './useAnalysisDeletion';
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => ({ getToken: vi.fn(async () => 'jwt-123') }),
+}));
+
+vi.mock('@/hooks/usePendingAnalyses', () => ({
+  refreshPendingAnalyses: vi.fn(),
 }));
 
 vi.mock('@/lib/apiClient', async importOriginal => {
@@ -13,10 +18,39 @@ vi.mock('@/lib/apiClient', async importOriginal => {
 });
 
 const mockedFetch = vi.mocked(fetchJsonWithAuth);
+const mockedRefresh = vi.mocked(refreshPendingAnalyses);
 
 describe('useAnalysisDeletion', () => {
   beforeEach(() => {
     mockedFetch.mockReset();
+    mockedRefresh.mockReset();
+  });
+
+  it('refreshes the pending indicator after deleting an analysis', async () => {
+    mockedFetch.mockResolvedValueOnce({
+      status: 'deleted',
+      analysis_id: 'abc',
+    });
+
+    const { result } = renderHook(() => useAnalysisDeletion());
+
+    await act(async () => {
+      await result.current.remove('abc');
+    });
+
+    expect(mockedRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the pending indicator alone when the delete fails', async () => {
+    mockedFetch.mockRejectedValueOnce(new Error('network down'));
+
+    const { result } = renderHook(() => useAnalysisDeletion());
+
+    await act(async () => {
+      await result.current.remove('abc');
+    });
+
+    expect(mockedRefresh).not.toHaveBeenCalled();
   });
 
   it('returns true and issues a DELETE on success', async () => {
