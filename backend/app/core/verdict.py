@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, Optional, get_args
 
+from app.core.claim import EvidenceSearch
+
 VerdictKind = Literal["real", "fake", "uncertain"]
 
 # Vocabulario único de veredicto, reutilizado en validación y persistencia.
@@ -32,20 +34,6 @@ EVIDENCE_MAX_PENALTY = 0.25
 # Cortes del tramo de confianza que ve el usuario, junto a las bandas del veredicto.
 HIGH_CONFIDENCE_THRESHOLD = 0.85
 MEDIUM_CONFIDENCE_THRESHOLD = 0.6
-
-
-@dataclass(frozen=True)
-class EvidenceSearch:
-    """Recuento de la búsqueda de literatura con el que se mide la cobertura de evidencia."""
-
-    # Afirmaciones con una consulta utilizable: el denominador de la cobertura.
-    total: int
-    # Las que se llegaron a buscar; la cota deja fuera el resto.
-    searched: int
-    # Las que la literatura llegó a tratar.
-    covered: int
-    # Todas las buscadas toparon con fuentes inalcanzables.
-    outage: bool
 
 
 @dataclass(frozen=True)

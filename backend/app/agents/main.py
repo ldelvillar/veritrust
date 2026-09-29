@@ -15,7 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agents.extractor import extractor
 from app.agents.health_expert import health_expert
 from app.agents.investigator import gather_evidence, investigator
-from app.agents.state import AgentState, ClaimsState, EvidenceState
+from app.agents.state import AgentState, ClaimsState
 from app.agents.translator import translator
 from app.core.config import get_settings
 from app.prompts.agents import Prompts
@@ -93,15 +93,14 @@ def create_graph(prompts: Prompts) -> CompiledStateGraph:
     return app
 
 
-def _evidence_node(state: EvidenceState, prompts: Prompts) -> EvidenceState:
+def _evidence_node(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     """Nodo del grafo de evidencia: busca y juzga las fuentes de cada afirmación."""
-    total, claims = gather_evidence(state, prompts)
-    return {"valid_claims": total, "claim_evidence": claims}
+    return {"claims": gather_evidence(state.get("claims", []), prompts)}
 
 
 def create_evidence_graph(prompts: Prompts) -> CompiledStateGraph:
     """Instancia el flujo de solo evidencia, sin veredicto ni explicación."""
-    workflow = StateGraph(EvidenceState)
+    workflow = StateGraph(ClaimsState)
 
     workflow.add_node("extractor", _timed_node("extractor", extractor, prompts))
     workflow.add_node("translator", _timed_node("translator", translator, prompts))

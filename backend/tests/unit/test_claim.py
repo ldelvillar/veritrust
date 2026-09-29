@@ -1,8 +1,19 @@
-"""Tests del registro de afirmación: alineación, traducción y consulta de búsqueda."""
+"""Tests del registro de afirmación: construcción, búsqueda, juicio y lo que se guarda de ella."""
 
 import pytest
 
-from app.core.claim import Claim, extract_claims, translate_claims
+from app.core.claim import (
+    Claim,
+    Evidence,
+    EvidenceSearch,
+    evidence_report,
+    evidence_search,
+    extract_claims,
+    source_records,
+    translate_claims,
+    with_hits,
+    with_stances,
+)
 
 
 @pytest.mark.parametrize(
@@ -71,3 +82,205 @@ def test_search_query_prefers_the_extractor_query_over_the_translation(
     claim = Claim(index=0, text="La vitamina C cura", text_en=text_en, query=query)
 
     assert claim.search_query == expected
+
+
+def _hit(key: str, url: str | None = None) -> dict:
+    return {
+        "title": f"Estudio {key}",
+        "url": f"https://e.org/{key}" if url is None else url,
+        "source": "BMJ",
+        "year": "2021",
+        "abstract": f"Resumen {key}.",
+    }
+
+
+def _found(index: int, *keys: str, text: str | None = None) -> Claim:
+    """Afirmación buscada cuyas fuentes devolvieron los resultados indicados, aún sin juzgar."""
+    claim = Claim(index=index, text=text or f"Afirmación {index}", query=f'"q{index}"')
+    return with_hits(claim, [_hit(key) for key in keys])
+
+
+def _judged(index: int, *pairs: tuple[str, str], text: str | None = None) -> Claim:
+    """Afirmación buscada y juzgada con una postura por fuente."""
+    claim = _found(index, *(key for key, _ in pairs), text=text)
+    return with_stances(claim, [stance for _, stance in pairs])
+
+
+def test_a_claim_without_a_search_query_is_unsearchable_until_translated():
+    claim = extract_claims(["A"], [""], [])[0]
+
+    assert claim.outcome == "unsearchable"
+    # La traducción le da consulta: pasa a estar pendiente de buscar.
+    assert translate_claims([claim], ["A-en"])[0].outcome == "unsearched"
+
+
+def test_with_hits_marks_a_claim_whose_sources_all_failed_as_unavailable():
+    claim = with_hits(Claim(index=0, text="A", query='"a"'), None)
+
+    assert (claim.outcome, claim.evidence) == ("unavailable", ())
+
+
+def test_with_hits_keeps_the_first_result_of_each_url():
+    claim = _found(0, "A", "B", "A")
+
+    assert claim.outcome == "unjudged"
+    assert [item.url for item in claim.evidence] == [
+        "https://e.org/A",
+        "https://e.org/B",
+    ]
+    assert claim.evidence[0] == Evidence(
+        title="Estudio A",
+        url="https://e.org/A",
+        source="BMJ",
+        year="2021",
+        abstract="Resumen A.",
+    )
+
+
+def test_with_hits_does_not_merge_results_without_url():
+    claim = with_hits(
+        Claim(index=0, text="A", query='"a"'), [_hit("A", url=""), _hit("B", url="")]
+    )
+
+    assert [item.title for item in claim.evidence] == ["Estudio A", "Estudio B"]
+
+
+def test_a_claim_with_no_results_has_nothing_left_to_judge():
+    assert _found(0).outcome == "judged"
+
+
+def test_with_stances_drops_unrelated_sources_and_records_the_stance():
+    claim = _judged(0, ("A", "supports"), ("B", "unrelated"), ("C", "inconclusive"))
+
+    assert claim.outcome == "judged"
+    assert [(item.url, item.stance) for item in claim.evidence] == [
+        ("https://e.org/A", "supports"),
+        ("https://e.org/C", "inconclusive"),
+    ]
+
+
+def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
+    claim = _found(0, "A")
+
+    assert with_stances(claim, None) == claim
+
+
+@pytest.mark.parametrize(
+    ("claims", "expected"),
+    [
+        # Sin afirmaciones no hay nada que medir ni corte que declarar.
+        ([], EvidenceSearch(total=0, searched=0, covered=0, outage=False)),
+        # La que no tiene consulta no cuenta; la que la cota dejó fuera sí.
+        (
+            [
+                Claim(index=0, text="A"),
+                Claim(index=1, text="B", query='"b"'),
+                _found(2, "X"),
+            ],
+            EvidenceSearch(total=2, searched=1, covered=1, outage=False),
+        ),
+        # Cubre quien tiene evidencia, juzgada o no; no quien no halló nada.
+        (
+            [_found(0, "X"), _judged(1, ("Y", "supports")), _found(2)],
+            EvidenceSearch(total=3, searched=3, covered=2, outage=False),
+        ),
+        # El juez descartó todas sus fuentes: buscada pero sin cubrir.
+        (
+            [_judged(0, ("Y", "unrelated"))],
+            EvidenceSearch(total=1, searched=1, covered=0, outage=False),
+        ),
+        # Corte solo si todas las buscadas toparon con fuentes caídas.
+        (
+            [
+                with_hits(Claim(index=0, text="A", query='"a"'), None),
+                Claim(index=1, text="B", query='"b"'),
+            ],
+            EvidenceSearch(total=2, searched=1, covered=0, outage=True),
+        ),
+        (
+            [with_hits(Claim(index=0, text="A", query='"a"'), None), _found(1, "X")],
+            EvidenceSearch(total=2, searched=2, covered=1, outage=False),
+        ),
+    ],
+)
+def test_evidence_search_counts_the_claims_by_outcome(claims, expected):
+    assert evidence_search(claims) == expected
+
+
+def test_source_records_merge_a_shared_url_and_link_each_claim_by_index():
+    claims = [
+        _judged(0, ("A", "supports"), ("S", "supports"), text="Misma frase"),
+        _judged(1, ("S", "contradicts"), text="Misma frase"),
+        _found(2, "U"),
+    ]
+
+    # Casar por texto fundiría las dos primeras; por índice quedan ambas, cada una con su postura.
+    assert source_records(claims) == [
+        {
+            "title": "Estudio A",
+            "url": "https://e.org/A",
+            "source": "BMJ",
+            "year": "2021",
+            "statements": [
+                {"claim_index": 0, "text": "Misma frase", "stance": "supports"}
+            ],
+        },
+        {
+            "title": "Estudio S",
+            "url": "https://e.org/S",
+            "source": "BMJ",
+            "year": "2021",
+            "statements": [
+                {"claim_index": 0, "text": "Misma frase", "stance": "supports"},
+                {"claim_index": 1, "text": "Misma frase", "stance": "contradicts"},
+            ],
+        },
+        {
+            "title": "Estudio U",
+            "url": "https://e.org/U",
+            "source": "BMJ",
+            "year": "2021",
+            "statements": [{"claim_index": 2, "text": "Afirmación 2", "stance": None}],
+        },
+    ]
+
+
+def test_evidence_report_lists_each_searched_claim_with_its_sources():
+    claims = [
+        Claim(index=0, text="A"),
+        _judged(1, ("J", "supports")),
+        _found(2, "U"),
+        with_hits(Claim(index=3, text="Afirmación 3", query='"q3"'), None),
+        Claim(index=4, text="E", query='"q4"'),
+    ]
+
+    # La fuente sin juzgar no lleva postura; la afirmación sin fuentes alcanzables no lleva lista.
+    assert evidence_report(claims) == {
+        "claims": [
+            {
+                "claim_index": 1,
+                "query": '"q1"',
+                "claim": "",
+                "original": "Afirmación 1",
+                "hits": [{**_hit("J"), "stance": "supports"}],
+                "judged": True,
+            },
+            {
+                "claim_index": 2,
+                "query": '"q2"',
+                "claim": "",
+                "original": "Afirmación 2",
+                "hits": [_hit("U")],
+                "judged": False,
+            },
+            {
+                "claim_index": 3,
+                "query": '"q3"',
+                "claim": "",
+                "original": "Afirmación 3",
+                "hits": None,
+                "judged": False,
+            },
+        ],
+        "unsearched_claims": 1,
+    }

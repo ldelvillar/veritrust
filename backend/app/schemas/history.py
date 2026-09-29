@@ -6,6 +6,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from app.core.claim import Stance
 from app.core.verdict import (
     ConfidenceLevel,
     VerdictKind,
@@ -21,8 +22,6 @@ from app.schemas.analysis import (
 )
 from app.schemas.errors import ErrorCode
 from app.schemas.feedback import AnalysisFeedback
-
-Stance = Literal["supports", "contradicts", "inconclusive"]
 
 
 class ClaimItem(BaseModel):

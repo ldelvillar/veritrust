@@ -1,22 +1,21 @@
 """Juzga la relevancia y la postura de las fuentes recuperadas para cada afirmación."""
 
 import logging
+from collections.abc import Sequence
 from functools import lru_cache
 from itertools import count
-from typing import Any, List, Literal
+from typing import Any, List
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from app.agents.sanitize import neutralize_delimiters
+from app.core.claim import Evidence, JudgeStance
 from app.core.config import get_settings
 from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
-
-# "unrelated" descarta la fuente; las demás se conservan con su postura.
-JudgeStance = Literal["supports", "contradicts", "inconclusive", "unrelated"]
 
 
 class EvidenceJudgments(BaseModel):
@@ -68,33 +67,30 @@ def get_relevance_chain(
     return prompt | structured_llm
 
 
-def _format_candidates(hits: list[dict]) -> str:
+def _format_candidates(evidence: Sequence[Evidence]) -> str:
     """Numera el título y el resumen de cada candidata para el prompt."""
     lines = []
-    for index, hit in enumerate(hits, start=1):
-        title = neutralize_delimiters(str(hit.get("title", ""))).strip()
-        abstract = neutralize_delimiters(str(hit.get("abstract") or "")).strip()
+    for index, item in enumerate(evidence, start=1):
+        title = neutralize_delimiters(item.title).strip()
+        abstract = neutralize_delimiters(item.abstract or "").strip()
         body = f"{title}. {abstract}" if abstract else title
         lines.append(f"{index}. {body}")
     return "\n".join(lines)
 
 
-def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]:
-    """Devuelve las fuentes relevantes, cada una anotada con su ``stance``.
+def judge_stances(
+    prompt_text: str, claim: str, evidence: Sequence[Evidence]
+) -> tuple[JudgeStance, ...] | None:
+    """Pide al juez una postura por fuente candidata; ``None`` si falla o no da exactamente una por fuente."""
+    if not evidence:
+        return ()
 
-    Descarta las marcadas como ``unrelated``. Falla en abierto: ante cualquier
-    error del juez conserva todas las fuentes (sin postura), para no descartar
-    evidencia por un fallo de infraestructura.
-    """
-    if not hits:
-        return hits
-
-    chain = get_relevance_chain(prompt_text, _next_judge_model())
     try:
+        chain = get_relevance_chain(prompt_text, _next_judge_model())
         verdict = chain.invoke(
             {
                 "claim": neutralize_delimiters(claim),
-                "sources": _format_candidates(hits),
+                "sources": _format_candidates(evidence),
             }
         )
     except Exception:
@@ -102,19 +98,15 @@ def judge_evidence(prompt_text: str, claim: str, hits: list[dict]) -> list[dict]
             "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",
             exc_info=True,
         )
-        return hits
+        return None
 
-    stances = list(verdict.stances)
-    # Sin una postura por fuente no se sabe a cuál corresponde cada una: falla en abierto.
-    if len(stances) != len(hits):
+    stances = tuple(verdict.stances)
+    # Sin una postura por fuente no se sabe a cuál corresponde cada una.
+    if len(stances) != len(evidence):
         logger.warning(
             "[Juez] %d posturas para %d fuentes; se conservan las fuentes",
             len(stances),
-            len(hits),
+            len(evidence),
         )
-        return hits
-    return [
-        {**hit, "stance": stance}
-        for hit, stance in zip(hits, stances)
-        if stance != "unrelated"
-    ]
+        return None
+    return stances

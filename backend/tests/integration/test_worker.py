@@ -14,6 +14,7 @@ from app.core.analysis_lifecycle import (
     TextContent,
     UrlContent,
 )
+from app.core.claim import Claim, with_hits
 from app.core.verdict import ClaimVerdict, Verdict
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_file import FileExtractionError
@@ -369,9 +370,13 @@ async def test_run_evidence_search_returns_claims(monkeypatch):
     async def fake_ainvoke(graph, state, on_stage=None):
         seen["graph"] = graph
         seen["input"] = state["input_text"]
+        # Una buscada sin resultados y dos que la cota dejó sin buscar.
         return {
-            "valid_claims": 3,
-            "claim_evidence": [{"claim_index": 0, "hits": [], "judged": True}],
+            "claims": [
+                with_hits(Claim(index=0, text="La vitamina C cura", query='"c"'), []),
+                Claim(index=1, text="B", query='"b"'),
+                Claim(index=2, text="C", query='"c"'),
+            ]
         }
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
@@ -381,7 +386,16 @@ async def test_run_evidence_search_returns_claims(monkeypatch):
 
     assert seen == {"graph": "graph", "input": "La vitamina C cura el resfriado"}
     assert result == {
-        "claims": [{"claim_index": 0, "hits": [], "judged": True}],
+        "claims": [
+            {
+                "claim_index": 0,
+                "query": '"c"',
+                "claim": "",
+                "original": "La vitamina C cura",
+                "hits": [],
+                "judged": True,
+            }
+        ],
         "unsearched_claims": 2,
     }
 
@@ -391,7 +405,7 @@ async def test_run_evidence_search_neutralizes_delimiters(monkeypatch):
 
     async def fake_ainvoke(graph, state, on_stage=None):
         seen["input"] = state["input_text"]
-        return {"valid_claims": 1, "claim_evidence": [{"claim_index": 0}]}
+        return {"claims": []}
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
@@ -404,7 +418,7 @@ async def test_run_evidence_search_without_claims_reports_no_medical_claims(
     monkeypatch,
 ):
     async def fake_ainvoke(graph, state, on_stage=None):
-        return {"valid_claims": 0, "claim_evidence": []}
+        return {"claims": [Claim(index=0, text="Hola")]}
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
@@ -438,19 +452,12 @@ async def test_run_evidence_search_truncates_long_abstracts(monkeypatch):
     long_abstract = "x" * (worker.MAX_ABSTRACT_CHARS + 50)
 
     async def fake_ainvoke(graph, state, on_stage=None):
-        return {
-            "valid_claims": 1,
-            "claim_evidence": [
-                {
-                    "claim_index": 0,
-                    "hits": [
-                        {"title": "Ficha", "url": "u1", "abstract": long_abstract},
-                        {"title": "Corto", "url": "u2", "abstract": "breve"},
-                        {"title": "Sin resumen", "url": "u3"},
-                    ],
-                }
-            ],
-        }
+        hits = [
+            {"title": "Ficha", "url": "u1", "abstract": long_abstract},
+            {"title": "Corto", "url": "u2", "abstract": "breve"},
+            {"title": "Sin resumen", "url": "u3"},
+        ]
+        return {"claims": [with_hits(Claim(index=0, text="A", query='"a"'), hits)]}
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 

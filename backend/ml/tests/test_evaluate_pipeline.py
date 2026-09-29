@@ -455,7 +455,7 @@ def test_evidence_tape_intercepts_every_search_of_the_investigator(
 
     tape = ep.EvidenceTape()
     with tape.install():
-        _, claims = investigator_module.gather_evidence(state)
+        claims = investigator_module.gather_evidence(state["claims"])
 
     assert sorted((call["source"], call["query"]) for call in tape.calls) == [
         ("cima", "ibuprofeno"),
@@ -472,7 +472,7 @@ def test_evidence_tape_intercepts_every_search_of_the_investigator(
         monkeypatch.setattr(investigator_module, f"search_{name}", _unreachable)
     replay = ep.EvidenceTape(tape.calls)
     with replay.install():
-        _, replayed = investigator_module.gather_evidence(state)
+        replayed = investigator_module.gather_evidence(state["claims"])
 
     assert replayed == claims
     assert replay.live == 0

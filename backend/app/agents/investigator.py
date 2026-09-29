@@ -2,12 +2,18 @@
 
 import logging
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
-from app.agents.relevance import judge_evidence
-from app.agents.state import AgentState, ClaimsState
-from app.core.verdict import EvidenceSearch
+from app.agents.relevance import judge_stances
+from app.agents.state import AgentState
+from app.core.claim import (
+    Claim,
+    evidence_search,
+    source_records,
+    with_hits,
+    with_stances,
+)
 from app.prompts.agents import Prompts
 from app.utils.cima import search_evidence as search_cima
 from app.utils.europepmc import search_evidence as search_europepmc
@@ -23,43 +29,6 @@ EVIDENCE_RESULTS_PER_STATEMENT = 3
 EVIDENCE_MAX_SOURCES = 12
 
 
-def _merge_sources(hits: list[tuple[dict, int, str]]) -> list[dict]:
-    """Funde fuentes repetidas por URL, acumulando las afirmaciones que respaldan."""
-    by_url: dict[str, dict] = {}
-    for hit, claim_index, statement in hits:
-        url = hit["url"]
-        source = by_url.get(url)
-        if source is None:
-            # Excluye abstract/stance: el abstract solo sirve para juzgar y la
-            # postura se guarda por afirmación dentro de "statements".
-            source = {k: v for k, v in hit.items() if k not in ("abstract", "stance")}
-            source["statements"] = []
-            by_url[url] = source
-        if all(s["claim_index"] != claim_index for s in source["statements"]):
-            source["statements"].append(
-                {
-                    "claim_index": claim_index,
-                    "text": statement,
-                    "stance": hit.get("stance"),
-                }
-            )
-    return list(by_url.values())
-
-
-def _dedupe_hits(hits: list[dict]) -> list[dict]:
-    """Funde duplicados entre fuentes por URL, conservando el primero visto."""
-    seen: set[str] = set()
-    unique: list[dict] = []
-    for hit in hits:
-        url = hit.get("url")
-        if url in seen:
-            continue
-        if url:
-            seen.add(url)
-        unique.append(hit)
-    return unique
-
-
 def _search_source(
     index: int, query: str, search: Callable[..., list[dict]]
 ) -> tuple[int, list[dict] | None]:
@@ -71,27 +40,74 @@ def _search_source(
         return index, None
 
 
-def _judge_claim(
-    judge_prompt: str | None, query: str, claim: str, hits: list[dict]
-) -> list[dict]:
-    """Juzga las fuentes de una afirmación; falla en abierto conservándolas todas."""
-    if not judge_prompt:
-        return hits
-    try:
-        return judge_evidence(judge_prompt, claim or query, hits)
-    except Exception:
-        logger.warning(
-            "[Investigador] Fallo juzgando la evidencia; se conservan las fuentes"
+def _search_all(claims: Sequence[Claim]) -> list[Claim]:
+    """Busca cada afirmación en todas sus fuentes a la vez y anota lo que devolvieron."""
+    # Fuentes de literatura: se consultan con la query enfocada en inglés.
+    topic_sources = (search_europepmc, search_pubmed, search_openfda)
+
+    # Cada par afirmación×fuente es I/O de red independiente: se lanzan todos en paralelo.
+    tasks: list[tuple[int, str, Callable[..., list[dict]]]] = []
+    per_claim_attempts = [0] * len(claims)
+    for position, claim in enumerate(claims):
+        for search in topic_sources:
+            tasks.append((position, claim.search_query, search))
+            per_claim_attempts[position] += 1
+        if claim.drug_term:
+            # CIMA (medicamentos) solo se consulta cuando la afirmación nombra un fármaco.
+            tasks.append((position, claim.drug_term, search_cima))
+            per_claim_attempts[position] += 1
+
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
+
+    # Reagrupa por afirmación: una falla solo si TODAS sus fuentes consultadas caen.
+    per_claim_hits: list[list[dict]] = [[] for _ in claims]
+    per_claim_failures = [0] * len(claims)
+    for position, hits in outcomes:
+        if hits is None:
+            per_claim_failures[position] += 1
+        else:
+            per_claim_hits[position].extend(hits)
+
+    return [
+        with_hits(
+            claim,
+            (
+                None
+                if per_claim_failures[position] == per_claim_attempts[position]
+                else per_claim_hits[position]
+            ),
         )
-        return hits
+        for position, claim in enumerate(claims)
+    ]
+
+
+def _judge_all(claims: Sequence[Claim], judge_prompt: str) -> list[Claim]:
+    """Juzga a la vez la evidencia de cada afirmación; el fallo de una no bloquea a las demás."""
+    judged = list(claims)
+    pending = [p for p, claim in enumerate(claims) if claim.outcome == "unjudged"]
+    if not pending:
+        return judged
+    with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+        answers = list(
+            pool.map(
+                lambda p: judge_stances(
+                    judge_prompt,
+                    claims[p].text_en or claims[p].search_query,
+                    claims[p].evidence,
+                ),
+                pending,
+            )
+        )
+    for position, answer in zip(pending, answers):
+        judged[position] = with_stances(judged[position], answer)
+    return judged
 
 
 def gather_evidence(
-    state: ClaimsState, prompts: Prompts | None = None
-) -> tuple[int, list[dict]]:
-    """Busca y juzga la evidencia de cada afirmación; devuelve el total válido y el detalle por afirmación."""
-    claims = state.get("claims", [])
-
+    claims: Sequence[Claim], prompts: Prompts | None = None
+) -> list[Claim]:
+    """Busca y juzga la evidencia de las afirmaciones; las devuelve todas con el desenlace de su búsqueda."""
     # Una consulta inservible degradaría la búsqueda en silencio: se avisa.
     degenerate = sum(
         1 for claim in claims if claim.query and claim.search_query != claim.query
@@ -102,113 +118,36 @@ def gather_evidence(
             degenerate,
         )
 
-    # Descarta las afirmaciones sin consulta antes de llamar a las fuentes.
-    valid = [
-        (claim.index, claim.search_query, claim.text_en, claim.text, claim.drug_term)
-        for claim in claims
-        if claim.search_query
-    ]
-
-    # Denominador de la cobertura: toda afirmación válida, aunque la cota la deje sin buscar.
-    total = len(valid)
-    if not valid:
-        return 0, []
-    searched = valid[:EVIDENCE_MAX_STATEMENTS]
-    if len(searched) < total:
+    searchable = [p for p, claim in enumerate(claims) if claim.outcome == "unsearched"]
+    positions = searchable[:EVIDENCE_MAX_STATEMENTS]
+    if len(positions) < len(searchable):
         logger.warning(
             "[Investigador] %d afirmaciones sin buscar por la cota de %d",
-            total - len(searched),
+            len(searchable) - len(positions),
             EVIDENCE_MAX_STATEMENTS,
         )
+    if not positions:
+        return list(claims)
 
-    # Fuentes de literatura: se consultan con la query enfocada en inglés.
-    topic_sources = (search_europepmc, search_pubmed, search_openfda)
+    found = _search_all([claims[p] for p in positions])
+    investigated = _judge_all(found, prompts.judge.text) if prompts else found
 
-    # Cada par afirmación×fuente es I/O de red independiente: se lanzan todos en paralelo.
-    tasks: list[tuple[int, str, Callable[..., list[dict]]]] = []
-    per_claim_attempts = [0] * len(searched)
-    for position, (_, query, _, _, drug_term) in enumerate(searched):
-        for search in topic_sources:
-            tasks.append((position, query, search))
-            per_claim_attempts[position] += 1
-        if drug_term:
-            # CIMA (medicamentos) solo se consulta cuando la afirmación nombra un fármaco.
-            tasks.append((position, drug_term, search_cima))
-            per_claim_attempts[position] += 1
-
-    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
-        outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
-
-    # Reagrupa por afirmación: una falla solo si TODAS sus fuentes consultadas caen.
-    per_claim_hits: list[list[dict]] = [[] for _ in searched]
-    per_claim_failures = [0] * len(searched)
-    for position, hits in outcomes:
-        if hits is None:
-            per_claim_failures[position] += 1
-        else:
-            per_claim_hits[position].extend(hits)
-
-    results: list[list[dict] | None] = [
-        (
-            None
-            if per_claim_failures[position] == per_claim_attempts[position]
-            else _dedupe_hits(per_claim_hits[position])
-        )
-        for position in range(len(searched))
-    ]
-
-    judge_prompt = prompts.judge.text if prompts else None
-
-    # Afirmaciones con evidencia recuperada; una caída total (hits None) es un error.
-    judgeable = [
-        (position, query, claim, original, hits)
-        for position, ((_, query, claim, original, _), hits) in enumerate(
-            zip(searched, results)
-        )
-        if hits is not None
-    ]
-
-    # Se lanzan a la vez y el fallo de una no bloquea a las demás.
-    if judge_prompt and judgeable:
-        with ThreadPoolExecutor(max_workers=len(judgeable)) as pool:
-            judged = list(
-                pool.map(
-                    lambda item: _judge_claim(judge_prompt, item[1], item[2], item[4]),
-                    judgeable,
-                )
-            )
-    else:
-        judged = [hits for *_, hits in judgeable]
-
-    relevant_by_position: dict[int, list[dict]] = {}
-    for (position, query, _, original, hits), relevant in zip(judgeable, judged):
+    for before, after in zip(found, investigated):
         # Bruto -> relevante por afirmación: separa fallo de búsqueda de filtrado del juez.
-        logger.info(
-            "[Investigador] '%s': %d brutas -> %d relevantes (%s)",
-            str(original or query)[:60],
-            len(hits),
-            len(relevant),
-            Counter(str(hit.get("stance")) for hit in relevant).most_common(),
-        )
-        relevant_by_position[position] = relevant
+        if after.outcome != "unavailable":
+            logger.info(
+                "[Investigador] '%s': %d brutas -> %d relevantes (%s)",
+                (after.text or after.search_query)[:60],
+                len(before.evidence),
+                len(after.evidence),
+                Counter(str(item.stance) for item in after.evidence).most_common(),
+            )
 
-    # Se reensambla en el orden original de las afirmaciones
-    entries = []
-    for position, (claim_index, query, claim, original, _) in enumerate(searched):
-        relevant_hits = relevant_by_position.get(position)
-        entries.append(
-            {
-                "claim_index": claim_index,
-                "query": query,
-                "claim": claim,
-                "original": original,
-                "hits": relevant_hits,
-                # El juez falla en abierto: sin 'stance' la fuente pasó sin juzgar.
-                "judged": relevant_hits is not None
-                and all("stance" in hit for hit in relevant_hits),
-            }
-        )
-    return total, entries
+    # Se reensambla en el orden original de las afirmaciones.
+    result = list(claims)
+    for position, claim in zip(positions, investigated):
+        result[position] = claim
+    return result
 
 
 def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentState:
@@ -217,53 +156,27 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
         "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
     )
 
-    total, claims = gather_evidence(state, prompts)
-    if not total:
-        return {
-            "sources": [],
-            "evidence_search": EvidenceSearch(
-                total=0, searched=0, covered=0, outage=False
-            ),
-            "judge_failures": 0,
-        }
+    claims = gather_evidence(state.get("claims", []), prompts)
+    search = evidence_search(claims)
 
-    collected: list[tuple[dict, int, str]] = []
-    covered = 0
-    for entry in claims:
-        if entry["hits"]:
-            covered += 1
-            collected.extend(
-                (hit, entry["claim_index"], str(entry["original"] or ""))
-                for hit in entry["hits"]
-            )
-
-    judge_failures = sum(
-        1 for entry in claims if entry["hits"] is not None and not entry["judged"]
-    )
+    judge_failures = sum(1 for claim in claims if claim.outcome == "unjudged")
     if judge_failures:
         logger.warning(
             "[Investigador] %d afirmaciones con evidencia sin juzgar",
             judge_failures,
         )
 
-    sources = _merge_sources(collected)[:EVIDENCE_MAX_SOURCES]
-
-    errored = sum(1 for entry in claims if entry["hits"] is None)
-    search = EvidenceSearch(
-        total=total,
-        searched=len(claims),
-        covered=covered,
-        outage=errored == len(claims),
-    )
+    sources = source_records(claims)[:EVIDENCE_MAX_SOURCES]
 
     logger.info(
         "[Investigador] %d fuentes para %d/%d afirmaciones%s",
         len(sources),
-        covered,
-        total,
+        search.covered,
+        search.total,
         " (fuentes caídas)" if search.outage else "",
     )
     return {
+        "claims": claims,
         "sources": sources,
         "evidence_search": search,
         "judge_failures": judge_failures,
