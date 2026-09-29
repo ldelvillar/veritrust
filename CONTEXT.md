@@ -54,12 +54,20 @@ _Avoid_: channel, source (a source is a piece of literature)
 One medical assertion taken from an Analysis's content; the unit the literature is searched and judged for.
 _Avoid_: statement, assertion
 
+**Source**:
+A piece of biomedical literature retrieved for an Analysis.
+_Avoid_: hit, article, reference
+
+**Evidence**:
+The Sources found for a Claim, each with its Stance.
+_Avoid_: hits, results
+
 **Stance**:
-Whether a source supports a Claim, contradicts it, or does not settle it.
+Whether a Source supports a Claim, contradicts it, or does not settle it.
 _Avoid_: position, polarity
 
 **Verdict**:
-The conclusion on a Claim or on a whole Analysis: true, false or uncertain, decided only from the Stances and never by the language model.
+The conclusion on a Claim or on a whole Analysis: true, false or uncertain, decided only from the Stances of the Sources its report shows, and never by the language model.
 _Avoid_: label, bucket, prediction
 
 **Confidence**:
