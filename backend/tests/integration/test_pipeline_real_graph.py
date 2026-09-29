@@ -12,7 +12,7 @@ import app.agents.relevance as relevance_module
 import app.agents.translator as translator_module
 import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
-from app.agents.main import create_graph
+from app.agents.main import create_evidence_graph, create_graph
 from app.core.analysis_lifecycle import AnalysisFailure, TextContent
 from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
@@ -511,3 +511,247 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
         await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
     assert failure.value.code == ErrorCode.CONNECTION
+
+
+# Un escenario que recorre todos los desenlaces de una afirmación a la vez.
+_CLAIM_QUERIES = [
+    '"q0"',
+    "",
+    '"q2"',
+    '"q3"',
+    '"q4"',
+    '"q5"',
+    "()",
+    '"q7"',
+    '"q8"',
+    '"q9"',
+    '"q10"',
+]
+_CLAIM_TRANSLATIONS = [f"Claim {i} EN" if i != 1 else "" for i in range(11)]
+_HITS_BY_SOURCE = {
+    "europepmc": {
+        '"q0"': ["A0", "A1"],
+        '"q3"': ["B3a", "B3b"],
+        '"q4"': ["D4"],
+        '"q5"': ["E5", "A1"],
+        "Claim 6 EN": ["G0", "G1", "G2"],
+        '"q8"': ["H0", "H1"],
+        '"q9"': ["I9"],
+        '"q10"': ["J10"],
+    },
+    "pubmed": {"Claim 6 EN": ["G2", "G3", "G4"]},
+    "openfda": {"Claim 6 EN": ["G5", "G6", "G7"]},
+    "cima": {"ibuprofeno": ["C5"]},
+}
+_STANCES_BY_CLAIM = {
+    "Claim 0 EN": "supports",
+    "Claim 4 EN": "unrelated",
+    "Claim 5 EN": "contradicts",
+    "Claim 6 EN": [
+        "supports",
+        "supports",
+        "inconclusive",
+        "unrelated",
+        "contradicts",
+        "supports",
+        "supports",
+        "supports",
+    ],
+    "Claim 8 EN": "supports",
+}
+
+
+def _hit(key: str) -> dict:
+    return {
+        "title": f"Estudio {key}",
+        "url": f"https://e.org/{key}",
+        "source": "BMJ",
+        "year": "2021",
+        "abstract": f"Resumen {key}.",
+    }
+
+
+def _search_by_query(name: str):
+    """Fuente simulada que responde por consulta; la consulta de la afirmación 2 la tumba."""
+
+    def search(query, max_results=3):
+        if query == '"q2"':
+            raise EvidenceRetrievalError("fuente caída")
+        return [_hit(key) for key in _HITS_BY_SOURCE[name].get(query, [])]
+
+    return search
+
+
+def _stub_outcome_scenario(monkeypatch):
+    """Simula LLMs y fuentes para las 11 afirmaciones del escenario de desenlaces."""
+    _stub_extractor(
+        monkeypatch,
+        statements=[f"Afirmación {i}" for i in range(11)],
+        queries=_CLAIM_QUERIES,
+        drug_terms=["", "", "", "", "", "ibuprofeno"],
+    )
+    _stub_translator(monkeypatch, _CLAIM_TRANSLATIONS)
+    _stub_health(monkeypatch)
+    _stub_sources(
+        monkeypatch,
+        europepmc=_search_by_query("europepmc"),
+        pubmed=_search_by_query("pubmed"),
+        openfda=_search_by_query("openfda"),
+        cima=_search_by_query("cima"),
+    )
+
+    class _Chain:
+        def invoke(self, payload):
+            if payload["claim"] == "Claim 3 EN":
+                raise RuntimeError("juez caído")
+            stances = _STANCES_BY_CLAIM[payload["claim"]]
+            if isinstance(stances, str):
+                stances = [stances] * len(payload["sources"].splitlines())
+            return SimpleNamespace(stances=stances)
+
+    monkeypatch.setattr(
+        relevance_module,
+        "get_relevance_chain",
+        lambda prompt_text, model=None: _Chain(),
+    )
+
+
+def _stored_source(key: str, *links: tuple[int, str | None]) -> dict:
+    hit = _hit(key)
+    return {
+        "title": hit["title"],
+        "url": hit["url"],
+        "source": hit["source"],
+        "year": hit["year"],
+        "statements": [
+            {"claim_index": index, "text": f"Afirmación {index}", "stance": stance}
+            for index, stance in links
+        ],
+    }
+
+
+def _judged_hit(key: str, stance: str) -> dict:
+    return {**_hit(key), "stance": stance}
+
+
+async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, prompts):
+    """Fija fuentes, cobertura y veredicto de un análisis que recorre cada desenlace de afirmación."""
+    _stub_outcome_scenario(monkeypatch)
+
+    result = await ainvoke_graph(
+        create_graph(prompts), {"input_text": "Texto con once afirmaciones"}
+    )
+
+    # Solo se guardan 12 fuentes: G7 y las dos de la afirmación 8 quedan fuera.
+    assert result["sources"] == [
+        _stored_source("A0", (0, "supports")),
+        _stored_source("A1", (0, "supports"), (5, "contradicts")),
+        _stored_source("B3a", (3, None)),
+        _stored_source("B3b", (3, None)),
+        _stored_source("E5", (5, "contradicts")),
+        _stored_source("C5", (5, "contradicts")),
+        _stored_source("G0", (6, "supports")),
+        _stored_source("G1", (6, "supports")),
+        _stored_source("G2", (6, "inconclusive")),
+        _stored_source("G4", (6, "contradicts")),
+        _stored_source("G5", (6, "supports")),
+        _stored_source("G6", (6, "supports")),
+    ]
+    # 10 buscables y 8 buscadas; cubren 0, 3, 5, 6 y 8, esta aunque la cota esconda sus fuentes.
+    evidence_search = result["evidence_search"]
+    assert (
+        evidence_search.total,
+        evidence_search.searched,
+        evidence_search.covered,
+        evidence_search.outage,
+    ) == (10, 8, 5, False)
+    assert result["judge_failures"] == 1
+
+    verdict = result["verdict"]
+    assert [(c.text, c.label, c.confidence) for c in verdict.claims] == [
+        ("Afirmación 0", "verdadera", pytest.approx(0.75)),
+        ("Afirmación 1", "incierta", pytest.approx(0.5)),
+        ("Afirmación 2", "incierta", pytest.approx(0.5)),
+        ("Afirmación 3", "incierta", pytest.approx(0.5)),
+        ("Afirmación 4", "incierta", pytest.approx(0.5)),
+        ("Afirmación 5", "falsa", pytest.approx(0.8)),
+        ("Afirmación 6", "verdadera", pytest.approx(5 / 7)),
+        ("Afirmación 7", "incierta", pytest.approx(0.5)),
+        ("Afirmación 8", "incierta", pytest.approx(0.5)),
+        ("Afirmación 9", "incierta", pytest.approx(0.5)),
+        ("Afirmación 10", "incierta", pytest.approx(0.5)),
+    ]
+    falsehood = (1 / 4 + 4 / 5 + 2 / 7) / 3
+    assert verdict.label == "verdadera"
+    assert verdict.falsehood == pytest.approx(falsehood)
+    assert verdict.evidence_coverage == 0.5
+    assert verdict.confidence == pytest.approx((1 - falsehood) * (1 - 0.25 * 0.5))
+
+
+async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
+    monkeypatch, prompts
+):
+    """Fija el resultado del job de evidencia para cada desenlace de afirmación."""
+    _stub_outcome_scenario(monkeypatch)
+
+    result = await worker_module.run_evidence_search(
+        {"evidence_system": create_evidence_graph(prompts)},
+        "Texto con once afirmaciones",
+    )
+
+    def entry(index, query, hits, judged):
+        return {
+            "claim_index": index,
+            "query": query,
+            "claim": f"Claim {index} EN",
+            "original": f"Afirmación {index}",
+            "hits": hits,
+            "judged": judged,
+        }
+
+    # La 1 no tiene consulta y la cota de 8 deja fuera la 9 y la 10.
+    assert result == {
+        "claims": [
+            entry(
+                0,
+                '"q0"',
+                [_judged_hit("A0", "supports"), _judged_hit("A1", "supports")],
+                True,
+            ),
+            entry(2, '"q2"', None, False),
+            entry(3, '"q3"', [_hit("B3a"), _hit("B3b")], False),
+            entry(4, '"q4"', [], True),
+            entry(
+                5,
+                '"q5"',
+                [
+                    _judged_hit("E5", "contradicts"),
+                    _judged_hit("A1", "contradicts"),
+                    _judged_hit("C5", "contradicts"),
+                ],
+                True,
+            ),
+            entry(
+                6,
+                "Claim 6 EN",
+                [
+                    _judged_hit("G0", "supports"),
+                    _judged_hit("G1", "supports"),
+                    _judged_hit("G2", "inconclusive"),
+                    _judged_hit("G4", "contradicts"),
+                    _judged_hit("G5", "supports"),
+                    _judged_hit("G6", "supports"),
+                    _judged_hit("G7", "supports"),
+                ],
+                True,
+            ),
+            entry(7, '"q7"', [], True),
+            entry(
+                8,
+                '"q8"',
+                [_judged_hit("H0", "supports"), _judged_hit("H1", "supports")],
+                True,
+            ),
+        ],
+        "unsearched_claims": 2,
+    }
