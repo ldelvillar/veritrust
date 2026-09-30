@@ -179,7 +179,8 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
         " (fuentes caídas)" if search.outage else "",
     )
     return {
-        "claims": shown,
+        "claims": claims,
+        "shown_claims": shown,
         "sources": sources,
         "evidence_search": search,
         "judge_failures": judge_failures,

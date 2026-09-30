@@ -665,6 +665,12 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         evidence_search.outage,
     ) == (10, 8, 5, False)
     assert result["judge_failures"] == 1
+    # Cada afirmación conserva toda su evidencia; el veredicto solo ve la que muestra el informe.
+    found, shown = result["claims"], result["shown_claims"]
+    assert [item.url[-2:] for item in found[8].evidence] == ["H0", "H1"]
+    assert shown[8].evidence == ()
+    assert [item.url[-2:] for item in found[6].evidence][-1] == "G7"
+    assert [item.url[-2:] for item in shown[6].evidence][-1] == "G6"
 
     verdict = result["verdict"]
     assert [(c.text, c.label, c.confidence) for c in verdict.claims] == [

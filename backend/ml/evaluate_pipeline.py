@@ -49,6 +49,20 @@ class EvidenceCall(TypedDict):
     hits: list[dict] | None
 
 
+class RecordedEvidence(TypedDict):
+    """Una fuente hallada para una afirmación y la postura que le dio el juez."""
+
+    url: str
+    stance: str | None
+
+
+class RecordedClaim(TypedDict):
+    """Desenlace de la búsqueda de una afirmación y toda su evidencia, antes del recorte del informe."""
+
+    outcome: str
+    evidence: list[RecordedEvidence]
+
+
 class EvalRow(TypedDict):
     """Resultado del pipeline para una muestra, frente a su etiqueta esperada."""
 
@@ -64,6 +78,7 @@ class EvalRow(TypedDict):
     stances: dict[str, int]
     evidence_coverage: float | None
     judge_failures: int
+    claim_evidence: list[RecordedClaim]
     evidence: list[EvidenceCall]
     evidence_live: int
 
@@ -132,6 +147,16 @@ class EvidenceTape:
         finally:
             for attr, search in live.items():
                 setattr(investigator_module, attr, search)
+
+
+def _recorded(claim: Claim) -> RecordedClaim:
+    """Resume una afirmación en lo que hace falta para volver a decidir su veredicto."""
+    return {
+        "outcome": claim.outcome,
+        "evidence": [
+            {"url": item.url, "stance": item.stance} for item in claim.evidence
+        ],
+    }
 
 
 def _stance_histogram(sources: list[dict]) -> dict[str, int]:
@@ -330,6 +355,8 @@ async def evaluate_pipeline(
                 "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
                 # Juez caido: la fila no mide el pipeline, mide una incidencia.
                 "judge_failures": int(result.get("judge_failures") or 0),
+                # Evidencia completa por afirmación: otra política de recorte se prueba sin re-ejecutar.
+                "claim_evidence": [_recorded(claim) for claim in claims],
                 # Hits brutos por búsqueda: otra corrida los reproduce con --replay-evidence.
                 "evidence": tape.calls,
                 # Búsquedas que la grabación no cubría; con --replay-evidence miden el desparejamiento.

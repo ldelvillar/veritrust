@@ -53,7 +53,7 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     """
     logger.info("[Experto] Evaluando afirmaciones y redactando informe médico")
 
-    claims = state.get("claims", [])
+    claims = state.get("shown_claims", [])
 
     if not claims:
         return {"verdict": None, "medical_explanation": ""}

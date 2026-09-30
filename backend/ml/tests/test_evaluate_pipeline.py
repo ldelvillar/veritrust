@@ -2,12 +2,13 @@
 
 import asyncio
 import json
+from dataclasses import replace
 
 import pandas as pd
 import pytest
 
 from app.agents import investigator as investigator_module
-from app.core.claim import Claim
+from app.core.claim import Claim, Evidence
 from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
 from ml import evaluate_pipeline as ep
@@ -100,6 +101,53 @@ def test_evaluate_pipeline_records_the_raw_falsehood_the_band_saw() -> None:
     assert (row["predicted"], row["confidence"]) == ("falsa", 0.5425)
     assert row["fake_avg"] == 0.62
     assert row["evidence_coverage"] == 1.0
+
+
+def test_evaluate_pipeline_records_every_claim_evidence_before_the_report_cap() -> None:
+    samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
+    found = [
+        Claim(
+            index=0,
+            text="A",
+            query='"a"',
+            outcome="judged",
+            evidence=(
+                Evidence(title="T1", url="u1", stance="contradicts"),
+                Evidence(title="T2", url="u2", stance="supports"),
+            ),
+        ),
+        Claim(index=1, text="B", query='"b"', outcome="unavailable"),
+        Claim(index=2, text="C"),
+    ]
+
+    class FakeGraph:
+        async def astream(self, state: dict, stream_mode: object = None):
+            # El informe solo mostró la primera fuente; la fila guarda las dos.
+            shown = [replace(found[0], evidence=found[0].evidence[:1]), *found[1:]]
+            yield (
+                "values",
+                {
+                    "verdict": _verdict("fake", 0.6),
+                    "claims": found,
+                    "shown_claims": shown,
+                },
+            )
+
+    [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+
+    assert row["claim_evidence"] == [
+        {
+            "outcome": "judged",
+            "evidence": [
+                {"url": "u1", "stance": "contradicts"},
+                {"url": "u2", "stance": "supports"},
+            ],
+        },
+        {"outcome": "unavailable", "evidence": []},
+        {"outcome": "unsearchable", "evidence": []},
+    ]
+    # El texto de las afirmaciones sigue viniendo del mismo registro.
+    assert row["extracted"] == ["A", "B", "C"]
 
 
 def test_format_report_excludes_abstentions_from_errors() -> None:

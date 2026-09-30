@@ -57,6 +57,7 @@ def test_returns_empty_without_claims():
     update = investigator({"claims": []})
     assert update == {
         "claims": [],
+        "shown_claims": [],
         "sources": [],
         "evidence_search": _NOTHING_SEARCHED,
         "judge_failures": 0,
@@ -73,6 +74,7 @@ def test_collects_sources_and_full_coverage(monkeypatch):
 
     assert set(update.keys()) == {
         "claims",
+        "shown_claims",
         "sources",
         "evidence_search",
         "judge_failures",

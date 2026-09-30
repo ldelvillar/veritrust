@@ -16,6 +16,8 @@ class ClaimsState(TypedDict, total=False):
 class AgentState(ClaimsState, total=False):
     """Estado del grafo completo; cada nodo devuelve solo las claves que actualiza."""
 
+    # Las afirmaciones recortadas a las fuentes que muestra el informe: las únicas que cuenta el veredicto.
+    shown_claims: List[Claim]
     sources: List[dict]
     evidence_search: EvidenceSearch
     judge_failures: int
