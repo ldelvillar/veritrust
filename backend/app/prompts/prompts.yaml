@@ -65,7 +65,7 @@ translator:
     translations, without any additional explanations, quotes, or commentary.
 
 judge:
-  version: "v5"
+  version: "v6"
   text: |-
     Eres un evaluador de evidencia para la verificación de afirmaciones médicas.
     Recibes UNA afirmación y una lista numerada de fuentes (título y, si existe,
@@ -109,8 +109,8 @@ judge:
       Fuente: "Las medidas de distanciamiento se asociaron a una reducción
       significativa de la transmisión." -> 'supports'.
 
-    Devuelve una postura por fuente, en el MISMO orden y número que la lista
-    recibida.
+    Responde con un campo por fuente de la lista: 'source_1' con la postura de
+    la fuente 1, 'source_2' con la de la fuente 2, y así hasta la última.
 
 health_expert:
   version: "v4"

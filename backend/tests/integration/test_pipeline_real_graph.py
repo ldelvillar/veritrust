@@ -133,17 +133,26 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
     """Simula solo el LLM del juez; el filtrado real sigue activo."""
 
     class _Chain:
+        def __init__(self, sources):
+            self._sources = sources
+
         def invoke(self, payload):
             if record is not None:
                 record.append(payload["claim"])
-            # Una postura por fuente candidata (una línea numerada por fuente).
-            candidates = len(payload["sources"].splitlines())
-            return SimpleNamespace(stances=[stance] * candidates)
+            return _judgments([stance] * self._sources, self._sources)
 
     monkeypatch.setattr(
         relevance_module,
         "get_relevance_chain",
-        lambda prompt_text, model=None: _Chain(),
+        lambda prompt_text, sources, model=None: _Chain(sources),
+    )
+
+
+def _judgments(stances: list[str], sources: int):
+    """Respuesta del juez validada, como en producción, contra el esquema de ``sources`` fuentes."""
+    schema = relevance_module.EVIDENCE_JUDGMENTS.schema(sources)
+    return schema.model_validate(
+        {f"source_{n}": stance for n, stance in enumerate(stances, start=1)}
     )
 
 
@@ -600,18 +609,21 @@ def _stub_outcome_scenario(monkeypatch):
     )
 
     class _Chain:
+        def __init__(self, sources):
+            self._sources = sources
+
         def invoke(self, payload):
             if payload["claim"] == "Claim 3 EN":
                 raise RuntimeError("juez caído")
             stances = _STANCES_BY_CLAIM[payload["claim"]]
             if isinstance(stances, str):
-                stances = [stances] * len(payload["sources"].splitlines())
-            return SimpleNamespace(stances=stances)
+                stances = [stances] * self._sources
+            return _judgments(stances, self._sources)
 
     monkeypatch.setattr(
         relevance_module,
         "get_relevance_chain",
-        lambda prompt_text, model=None: _Chain(),
+        lambda prompt_text, sources, model=None: _Chain(sources),
     )
 
 
