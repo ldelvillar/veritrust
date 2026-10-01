@@ -54,12 +54,12 @@ flowchart TB
 
 | Agent | Model | What it does |
 | --- | --- | --- |
-| **Extractor** | `llama3`¹ | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
+| **Extractor** | `llama3` | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
 | **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the literature sources work in English. |
-| **Investigator** | `ministral-3:14b`¹ (judge) | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
+| **Investigator** | `ministral-3:14b`¹ | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
 | **Health Expert** | `llama3.2` | Derives each claim's fake probability from the stance of the retrieved literature (Laplace-smoothed, so thin evidence never reaches certainty), and averages them into a three-way verdict — a band around the decision threshold maps to *uncertain*, and a claim no source speaks to is *uncertain* by construction, never *false*. Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
 
-¹ In the Docker stack the Extractor runs on `llama3.2` (set in `docker-compose.yml`). The `ministral-3:14b` judge needs ~11 GB loaded, ideally on a 16 GB GPU.
+¹ The `ministral-3:14b` judge needs ~11 GB loaded, ideally on a 16 GB GPU.
 
 Two guardrails temper the raw verdict (`app/core/verdict.py`):
 
