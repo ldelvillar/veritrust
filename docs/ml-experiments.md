@@ -626,6 +626,17 @@ uv run --directory backend python -m ml.evaluate_pipeline --partition gold --lim
 
 Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
 
+Para comparar **solo el juez**, `ml.evaluate_judge` vuelve a juzgar las afirmaciones y
+fuentes candidatas de un checkpoint del pipeline, sin extractor ni traductor: solo carga
+el modelo del juez. Toma las muestras de una afirmación (con varias, la fila no dice qué
+búsquedas son de cuál) y elige proveedor y modelo por entorno, como el pipeline:
+
+```bash
+OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend python -m ml.evaluate_judge --cases results/base.jsonl --checkpoint results/judge_gemma4.jsonl
+```
+
+`--minutes N` deja de empezar casos pasado ese tiempo y la corrida se reanuda después.
+
 ## Juez v5 y traductor v4: marcadores contra la inyección (2026-09-25) — adoptado
 
 Cambio de seguridad, no de calidad. El juez es el único LLM cuya salida decide el
@@ -776,6 +787,38 @@ Lo que deja esta medida:
   tapaba el juez caído convirtiéndolo en `incierta`. Es la medida de la capacidad del
   juez local, punto 2 de «Pendiente».
 
+## Cribado de jueces solo-juez (2026-10-01) — Ministral 14B, candidato local
+
+`ml.evaluate_judge` con el juez v6 sobre los mismos 95 casos de una afirmación de
+`eval_gold_extractor_v5.jsonl`. Mistral por su API; `llama3.2` es la prueba de formatos
+del 2026-09-30 (Ollama, un campo por fuente), sobre los mismos casos:
+
+|                   | `llama3.2` | `ministral-14b-2512` | `ministral-3:14b` (Ollama) | `mistral-small-2603` |
+| ----------------- | ---------- | -------------------- | -------------------------- | -------------------- |
+| juzgados          | 95         | 93                   | 95                         | 95                   |
+| firmes            | 71         | 71                   | 77                         | 68                   |
+| aciertos          | 46 (65%)   | 65 (91.5%)           | **72 (93.5%)**             | 66 (97.1%)           |
+| falsa→verdadera   | 22         | 4                    | **1**                      | 1                    |
+| verdadera→falsa   | 3          | 2                    | 4                          | 1                    |
+| s:c sobre verdad. | 3.8        | 22.2                 | 15.1                       | 27.8                 |
+| s:c sobre falsas  | 1.8        | 0.18                 | **0.05**                   | 0.09                 |
+
+- **`mistral-small-latest` ya no es un candidato desplegable.** Hoy es
+  `mistral-small-2603` (Small 4), que en Ollama pesa 119B y no cabe en una VM de 16 GB;
+  probablemente es también el `mistral-small` del 0.58 del 2026-08-31. La API ya no
+  sirve Mistral Small 3.x (24B), así que esa familia no se puede cribar por API.
+- **`ministral-14b-2512` son los pesos de `ministral-3:14b` en Ollama** (~9 GB en Q4),
+  el único candidato desplegable que la API permite cribar, y separa casi como Small 4:
+  con los mismos 71 firmes que `llama3.2`, 4 falsa→verdadera en vez de 22.
+- Sus 2 casos sin juzgar son `ValidationError`: la API no restringe la salida al esquema
+  y la respuesta no valida. Con Ollama el esquema se impone al generar.
+- **Confirmado en Ollama**: `ministral-3:14b` con su cuantización por defecto juzga los
+  95 (el esquema se impone al generar) y llama `verdadera` a 1 falsa de 77 firmes. Ocupa
+  ~11 GB cargado con `num_ctx` 8192; en un portátil sin GPU útil, ~70 s por caso.
+- El conjunto dorado está dentro de muestra: lo que vale es la comparación entre
+  jueces, no el 93.5%.
+- Coste: ~0.07 € por corrida de 95 casos con la API de Mistral.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -840,9 +883,10 @@ por prompt y por andamiaje:
 
 2. **Capacidad del modelo juez** — la hipótesis viva, ahora con medida en Ollama: sobre
    falsas, `llama3.2` da 1.3–1.7 `supports` por `contradicts` y `llama3` (8B) 6.0, frente
-   a 0.58 de `mistral-small` (2026-09-30). Un modelo mayor de la misma familia no basta;
-   quedan otra familia local o un juez alojado para producción, que ya se elige por rol
-   (`ollama_judge_model`, `mistral_judge_model`…).
+   a 0.58 de `mistral-small` (2026-09-30). Un modelo mayor de la misma familia no basta.
+   El cribado del 2026-10-01 da con `ministral-14b-2512` 0.18 y 4 falsa→verdadera de 71
+   firmes: falta confirmar `ministral-3:14b` en Ollama antes de hacerlo el juez por
+   defecto.
 3. **Conjunto retenido de ~50 filas** — no por precisión, sino para medir cuánto del 71
    transfiere fuera de muestra. Se escribe una vez, se guarda y se mira una sola vez.
    Prerrequisito del punto 1 si la fuente elegida es de _fact-checking_.
