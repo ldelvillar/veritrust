@@ -79,13 +79,12 @@ services:
     logging: *default-logging
     labels:
       autoheal: "true"
-    env_file: .env
+    env_file: ./backend/.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://localhost:8000/mcp}
-      CLERK_SECRET_KEY: ""
     ports:
       - "8000:8000"
     healthcheck:
@@ -115,14 +114,12 @@ services:
     labels:
       autoheal: "true"
     command: ["python", "-m", "app.worker"]
-    env_file: .env
+    env_file: ./backend/.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
-      LLM_PROVIDER: ${LLM_PROVIDER:-mistral}
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_EXTRACTOR_MODEL: ${OLLAMA_EXTRACTOR_MODEL:-llama3.2}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      CLERK_SECRET_KEY: ""
     healthcheck:
       test: ["CMD", "python", "-m", "app.worker_healthcheck"]
       interval: 30s
