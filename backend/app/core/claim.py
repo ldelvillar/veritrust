@@ -78,29 +78,6 @@ class Claim:
         return self.text_en if self.text_en.strip() else ""
 
 
-def extract_claims(
-    statements: Sequence[str], queries: Sequence[str], drug_terms: Sequence[str]
-) -> list[Claim]:
-    """Construye las afirmaciones del extractor, alineando con cada una su consulta y su fármaco."""
-    size = len(statements)
-    return [
-        Claim(index=index, text=text, query=query, drug_term=drug_term.strip())
-        for index, (text, query, drug_term) in enumerate(
-            zip(statements, _aligned(queries, size), _aligned(drug_terms, size))
-        )
-    ]
-
-
-def translate_claims(
-    claims: Sequence[Claim], translations: Sequence[str]
-) -> list[Claim]:
-    """Asigna a cada afirmación su traducción; las que el modelo omita quedan vacías."""
-    return [
-        replace(claim, text_en=text_en)
-        for claim, text_en in zip(claims, _aligned(translations, len(claims)))
-    ]
-
-
 def with_hits(claim: Claim, hits: Sequence[dict] | None) -> Claim:
     """Anota lo que devolvieron las fuentes buscadas: ``None`` si cayeron todas, o sus resultados."""
     if hits is None:
@@ -234,11 +211,6 @@ def _unique_evidence(hits: Sequence[dict]) -> tuple[Evidence, ...]:
             )
         )
     return tuple(unique)
-
-
-def _aligned(values: Sequence[str], size: int) -> list[str]:
-    """Recorta o rellena con cadenas vacías una lista del modelo hasta ``size`` elementos."""
-    return list(values[:size]) + [""] * (size - len(values))
 
 
 def _usable(query: str) -> bool:

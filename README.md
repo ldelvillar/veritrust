@@ -54,12 +54,12 @@ flowchart TB
 
 | Agent | Model | What it does |
 | --- | --- | --- |
-| **Extractor** | `llama3`¹ | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
+| **Extractor** | `llama3` | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
 | **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the literature sources work in English. |
-| **Investigator** | `llama3.2` (judge) | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
+| **Investigator** | `ministral-3:14b`¹ | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
 | **Health Expert** | `llama3.2` | Derives each claim's fake probability from the stance of the retrieved literature (Laplace-smoothed, so thin evidence never reaches certainty), and averages them into a three-way verdict — a band around the decision threshold maps to *uncertain*, and a claim no source speaks to is *uncertain* by construction, never *false*. Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
 
-¹ In the Docker stack the Extractor runs on `llama3.2` (set in `docker-compose.yml`) so the whole pipeline fits one small model plus the translator.
+¹ The `ministral-3:14b` judge needs ~11 GB loaded, ideally on a 16 GB GPU.
 
 Two guardrails temper the raw verdict (`app/core/verdict.py`):
 
@@ -108,13 +108,15 @@ docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 ### Quick start — Docker
 
 ```bash
-cp .env.example .env    # set POSTGRES_PASSWORD, REDIS_PASSWORD, the LLM provider's API key, and the Clerk values
+cp .env.example .env                    # set POSTGRES_PASSWORD, REDIS_PASSWORD and the Clerk publishable key
+cp backend/.env.example backend/.env    # set the LLM provider's API key, the Clerk JWKS values, and DATABASE_URL
+cp frontend/.env.example frontend/.env  # set the Clerk keys and API URLs
 docker compose up -d --build
 ```
 
 Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
-The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you set `LLM_PROVIDER=ollama` and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma`).
+The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `backend/.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you set `LLM_PROVIDER=ollama` and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma && docker compose exec ollama ollama pull ministral-3:14b`).
 
 ### Local development (processes on your machine)
 
@@ -122,7 +124,7 @@ The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral 
 cp backend/.env.example backend/.env      # fill in DATABASE_URL, REDIS_URL, Clerk values
 cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_API_URL + Clerk keys
 
-ollama pull llama3 && ollama pull llama3.2 && ollama pull translategemma
+ollama pull llama3 && ollama pull llama3.2 && ollama pull translategemma && ollama pull ministral-3:14b
 
 uv sync --directory backend --frozen
 uv run --directory backend python -m app.main      # API → http://localhost:8000

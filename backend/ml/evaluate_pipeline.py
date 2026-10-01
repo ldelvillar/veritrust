@@ -239,7 +239,7 @@ class CheckpointMismatchError(ValueError):
     """El checkpoint se generó con otra configuración o no la registra."""
 
 
-def _git_describe() -> str | None:
+def git_describe() -> str | None:
     """Commit del código evaluado, con -dirty si hay cambios sin commitear; None sin git."""
     try:
         result = subprocess.run(
@@ -267,7 +267,7 @@ def describe_run(
         **describe_pipeline(prompts),
         "partition": partition,
         "seed": seed,
-        "git": _git_describe(),
+        "git": git_describe(),
         "replay_evidence": replay_evidence,
     }
 

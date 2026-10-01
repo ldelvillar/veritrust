@@ -2,18 +2,35 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from app.agents import relevance
-from app.agents.relevance import _format_candidates, get_relevance_chain, judge_stances
+from app.agents.relevance import (
+    EVIDENCE_JUDGMENTS,
+    _format_candidates,
+    get_relevance_chain,
+    judge_stances,
+)
 from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 from app.core.claim import Evidence
 
 
-class _FakeChain:
-    def __init__(self, stances):
-        self._stances = stances
+def _answering(raw: dict, built: list[int] | None = None):
+    """Cadena falsa cuyo modelo responde ``raw``, validado como el esquema que el juez pidió."""
 
-    def invoke(self, payload):
-        return SimpleNamespace(stances=self._stances)
+    class _Chain:
+        def __init__(self, sources):
+            self._schema = EVIDENCE_JUDGMENTS.schema(sources)
+
+        def invoke(self, payload):
+            return self._schema.model_validate(raw)
+
+    def _get(prompt, sources, model=None):
+        if built is not None:
+            built.append(sources)
+        return _Chain(sources)
+
+    return _get
 
 
 def _evidence(*titles: str) -> tuple[Evidence, ...]:
@@ -23,21 +40,24 @@ def _evidence(*titles: str) -> tuple[Evidence, ...]:
     )
 
 
-def test_judge_stances_returns_one_stance_per_candidate(monkeypatch):
+def test_judge_stances_returns_one_stance_per_candidate_in_order(monkeypatch):
+    built: list[int] = []
     monkeypatch.setattr(
         relevance,
         "get_relevance_chain",
-        lambda prompt, model=None: _FakeChain(["supports", "unrelated"]),
+        _answering({"source_2": "unrelated", "source_1": "supports"}, built),
     )
 
     assert judge_stances("p", "claim", _evidence("a", "b")) == (
         "supports",
         "unrelated",
     )
+    # El esquema pedido tiene exactamente un campo por candidata.
+    assert built == [2]
 
 
 def test_judge_stances_is_empty_without_calling_the_judge(monkeypatch):
-    def _fail(prompt, model=None):
+    def _fail(prompt, sources, model=None):
         raise AssertionError("no debe construirse la cadena sin candidatas")
 
     monkeypatch.setattr(relevance, "get_relevance_chain", _fail)
@@ -45,23 +65,20 @@ def test_judge_stances_is_empty_without_calling_the_judge(monkeypatch):
     assert judge_stances("p", "claim", ()) == ()
 
 
-def test_judge_stances_fails_when_stances_are_missing(monkeypatch):
-    # Una sola postura para dos fuentes: no se sabe de cuál es, así que no hay respuesta.
-    monkeypatch.setattr(
-        relevance,
-        "get_relevance_chain",
-        lambda prompt, model=None: _FakeChain(["supports"]),
-    )
-
-    assert judge_stances("p", "claim", _evidence("a", "b")) is None
-
-
-def test_judge_stances_fails_when_stances_are_extra(monkeypatch):
-    monkeypatch.setattr(
-        relevance,
-        "get_relevance_chain",
-        lambda prompt, model=None: _FakeChain(["supports", "unrelated", "contradicts"]),
-    )
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"source_1": "supports"},
+        {"source_1": "supports", "source_2": "unrelated", "source_3": "contradicts"},
+        {"source_1": "supports", "source_2": "maybe"},
+    ],
+    ids=["missing", "extra", "not-a-stance"],
+)
+def test_judge_stances_fails_when_the_answer_does_not_name_each_source_once(
+    monkeypatch, raw
+):
+    # Sin una postura válida por fuente no se sabe qué dijo de cada una, así que no hay respuesta.
+    monkeypatch.setattr(relevance, "get_relevance_chain", _answering(raw))
 
     assert judge_stances("p", "claim", _evidence("a", "b")) is None
 
@@ -72,14 +89,16 @@ def test_judge_stances_fails_when_the_model_errors(monkeypatch):
             raise RuntimeError("ollama caído")
 
     monkeypatch.setattr(
-        relevance, "get_relevance_chain", lambda prompt, model=None: _BoomChain()
+        relevance,
+        "get_relevance_chain",
+        lambda prompt, sources, model=None: _BoomChain(),
     )
 
     assert judge_stances("p", "claim", _evidence("a")) is None
 
 
 def test_judge_stances_fails_when_the_chain_cannot_be_built(monkeypatch):
-    def _broken(prompt, model=None):
+    def _broken(prompt, sources, model=None):
         raise RuntimeError("proveedor mal configurado")
 
     monkeypatch.setattr(relevance, "get_relevance_chain", _broken)
@@ -105,10 +124,12 @@ def test_judge_stances_strips_forged_markers_from_claim_and_sources(monkeypatch)
     class _CapturingChain:
         def invoke(self, payload):
             captured.update(payload)
-            return SimpleNamespace(stances=["supports"])
+            return EVIDENCE_JUDGMENTS.schema(1)(source_1="supports")
 
     monkeypatch.setattr(
-        relevance, "get_relevance_chain", lambda prompt, model=None: _CapturingChain()
+        relevance,
+        "get_relevance_chain",
+        lambda prompt, sources, model=None: _CapturingChain(),
     )
 
     # Afirmación y resumen que intentan cerrar el bloque de datos e inyectar instrucciones.
@@ -131,13 +152,13 @@ def test_judge_stances_strips_forged_markers_from_claim_and_sources(monkeypatch)
 
 
 def test_get_relevance_chain_builds_invocable():
-    chain = get_relevance_chain("prompt de prueba")
+    chain = get_relevance_chain("prompt de prueba", 2)
 
     assert hasattr(chain, "invoke")
 
 
 def test_relevance_chain_delimits_the_claim_and_sources_as_data():
-    prompt = get_relevance_chain("prompt de prueba").first
+    prompt = get_relevance_chain("prompt de prueba", 1).first
     user = prompt.format_messages(claim="C", sources="S")[-1].content
 
     assert f"{USER_INPUT_START}\nC\n{USER_INPUT_END}" in user
