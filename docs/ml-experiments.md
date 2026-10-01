@@ -626,6 +626,17 @@ uv run --directory backend python -m ml.evaluate_pipeline --partition gold --lim
 
 Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
 
+Para comparar **solo el juez**, `ml.evaluate_judge` vuelve a juzgar las afirmaciones y
+fuentes candidatas de un checkpoint del pipeline, sin extractor ni traductor: solo carga
+el modelo del juez. Toma las muestras de una afirmación (con varias, la fila no dice qué
+búsquedas son de cuál) y elige proveedor y modelo por entorno, como el pipeline:
+
+```bash
+OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend python -m ml.evaluate_judge --cases results/base.jsonl --checkpoint results/judge_gemma4.jsonl
+```
+
+`--minutes N` deja de empezar casos pasado ese tiempo y la corrida se reanuda después.
+
 ## Juez v5 y traductor v4: marcadores contra la inyección (2026-09-25) — adoptado
 
 Cambio de seguridad, no de calidad. El juez es el único LLM cuya salida decide el
