@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from app.agents import sanitize
 from app.core.claim import Claim, Evidence, EvidenceSearch, source_records
@@ -42,6 +43,23 @@ def health_module():
     return module
 
 
+def _translator_answering(module, translations, captured=None):
+    """Cadena falsa del traductor: su modelo responde estas traducciones, validadas contra el esquema pedido."""
+
+    class _Chain:
+        def __init__(self, statements):
+            self._schema = module.TRANSLATIONS.schema(statements)
+
+        def invoke(self, payload):
+            if captured is not None:
+                captured.update(payload)
+            return self._schema.model_validate(
+                {f"translation_{n}": t for n, t in enumerate(translations, start=1)}
+            )
+
+    return lambda prompt_text, statements: _Chain(statements)
+
+
 def test_extractor_returns_only_expected_field_and_preserves_state(
     monkeypatch, extractor_module, dummy_prompts
 ):
@@ -49,10 +67,14 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
     class _FakeChain:
         def invoke(self, payload):
             assert "texto" in payload
-            return SimpleNamespace(
-                statements=["Afirmacion 1"],
-                search_queries=['"claim 1"'],
-                drug_terms=["ibuprofeno"],
+            return extractor_module.MedicalStatements(
+                claims=[
+                    extractor_module.ExtractedClaim(
+                        statement="Afirmacion 1",
+                        search_query='"claim 1"',
+                        drug_term="ibuprofeno",
+                    )
+                ]
             )
 
     monkeypatch.setattr(
@@ -71,13 +93,60 @@ def test_extractor_returns_only_expected_field_and_preserves_state(
     assert merged["other_key"] == "keep-me"
 
 
+def test_extractor_builds_each_claim_from_its_own_object(
+    monkeypatch, extractor_module, dummy_prompts
+):
+
+    class _FakeChain:
+        def invoke(self, payload):
+            return extractor_module.MedicalStatements.model_validate(
+                {
+                    "claims": [
+                        {
+                            "statement": "El ibuprofeno cura la gripe",
+                            "search_query": "(ibuprofen) AND (flu)",
+                            "drug_term": "  ibuprofeno ",
+                        },
+                        {
+                            "statement": "El ajo previene el cáncer",
+                            "search_query": "",
+                            "drug_term": "",
+                        },
+                    ]
+                }
+            )
+
+    monkeypatch.setattr(
+        extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
+    )
+
+    update = extractor_module.extractor({"input_text": "Texto"}, dummy_prompts)
+
+    assert update["claims"] == [
+        Claim(
+            index=0,
+            text="El ibuprofeno cura la gripe",
+            query="(ibuprofen) AND (flu)",
+            drug_term="ibuprofeno",
+        ),
+        Claim(index=1, text="El ajo previene el cáncer"),
+    ]
+
+
+def test_extractor_schema_requires_every_field_of_each_claim(extractor_module):
+    # Es lo que recibe Ollama para restringir su salida.
+    schema = extractor_module.ExtractedClaim.model_json_schema()
+
+    assert set(schema["required"]) == {"statement", "search_query", "drug_term"}
+
+
 def test_extractor_handles_empty_llm_output_without_exception(
     monkeypatch, extractor_module, dummy_prompts
 ):
 
     class _FakeChain:
         def invoke(self, payload):
-            return SimpleNamespace(statements=[], search_queries=[], drug_terms=[])
+            return extractor_module.MedicalStatements(claims=[])
 
     monkeypatch.setattr(
         extractor_module, "get_extractor_chain", lambda prompt_text: _FakeChain()
@@ -93,14 +162,10 @@ def test_extractor_handles_empty_llm_output_without_exception(
 def test_translator_returns_only_expected_field_and_preserves_state(
     monkeypatch, translator_module, dummy_prompts
 ):
-
-    class _FakeChain:
-        def invoke(self, payload):
-            assert "statements" in payload
-            return SimpleNamespace(translations=["Translated"])
-
     monkeypatch.setattr(
-        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+        translator_module,
+        "get_translator_chain",
+        _translator_answering(translator_module, ["Translated"]),
     )
 
     state = {
@@ -117,18 +182,36 @@ def test_translator_returns_only_expected_field_and_preserves_state(
     assert merged["other_key"] == 123
 
 
+@pytest.mark.parametrize(
+    "translations",
+    [["A-en"], ["A-en", "B-en", "C-en"]],
+    ids=["missing", "extra"],
+)
+def test_translator_fails_when_its_answer_does_not_translate_each_claim_once(
+    monkeypatch, translator_module, dummy_prompts, translations
+):
+    # Sin una traducción por afirmación no se sabe cuál es de cuál: el análisis falla.
+    monkeypatch.setattr(
+        translator_module,
+        "get_translator_chain",
+        _translator_answering(translator_module, translations),
+    )
+
+    with pytest.raises(ValidationError):
+        translator_module.translator(
+            {"claims": [Claim(index=0, text="A"), Claim(index=1, text="B")]},
+            dummy_prompts,
+        )
+
+
 def test_translator_strips_forged_markers_from_the_statements(
     monkeypatch, translator_module, dummy_prompts
 ):
     captured: dict = {}
-
-    class _FakeChain:
-        def invoke(self, payload):
-            captured.update(payload)
-            return SimpleNamespace(translations=["T"])
-
     monkeypatch.setattr(
-        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+        translator_module,
+        "get_translator_chain",
+        _translator_answering(translator_module, ["T"], captured),
     )
 
     # Afirmación que intenta cerrar el bloque de datos e inyectar instrucciones.
@@ -142,7 +225,7 @@ def test_translator_strips_forged_markers_from_the_statements(
 
 
 def test_translator_chain_delimits_the_statements_as_data(translator_module):
-    prompt = translator_module.get_translator_chain("prompt de prueba").first
+    prompt = translator_module.get_translator_chain("prompt de prueba", 1).first
     user = prompt.format_messages(statements="1. S")[-1].content
 
     assert f"{sanitize.USER_INPUT_START}\n1. S\n{sanitize.USER_INPUT_END}" in user
@@ -152,19 +235,17 @@ def test_translator_strips_leaked_list_numbering(
     monkeypatch, translator_module, dummy_prompts
 ):
     """La entrada va numerada y el modelo devuelve a veces el número pegado."""
-
-    class _FakeChain:
-        def invoke(self, payload):
-            return SimpleNamespace(
-                translations=[
-                    "1. The flu and the common cold are caused by the same virus.",
-                    "2) Measles can be complicated by pneumonia.",
-                    "1918 flu pandemic killed millions.",
-                ]
-            )
-
     monkeypatch.setattr(
-        translator_module, "get_translator_chain", lambda prompt_text: _FakeChain()
+        translator_module,
+        "get_translator_chain",
+        _translator_answering(
+            translator_module,
+            [
+                "1. The flu and the common cold are caused by the same virus.",
+                "2) Measles can be complicated by pneumonia.",
+                "1918 flu pandemic killed millions.",
+            ],
+        ),
     )
 
     update = translator_module.translator(
@@ -184,7 +265,7 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
     monkeypatch, translator_module, dummy_prompts
 ):
 
-    def _should_not_be_called(prompt_text):
+    def _should_not_be_called(prompt_text, statements):
         raise AssertionError("get_translator_chain no debe llamarse sin afirmaciones")
 
     monkeypatch.setattr(
@@ -380,10 +461,13 @@ def test_extractor_chain_is_built_offline_and_cached(extractor_module):
 
 
 def test_translator_chain_is_built_offline_and_cached(translator_module):
-    chain_a = translator_module.get_translator_chain("prompt-cache-translator")
-    chain_b = translator_module.get_translator_chain("prompt-cache-translator")
+    chain_a = translator_module.get_translator_chain("prompt-cache-translator", 2)
+    chain_b = translator_module.get_translator_chain("prompt-cache-translator", 2)
+    chain_c = translator_module.get_translator_chain("prompt-cache-translator", 3)
 
     assert chain_a is chain_b
+    # El esquema depende del número de afirmaciones: otro número es otra cadena.
+    assert chain_c is not chain_a
     assert callable(getattr(chain_a, "invoke", None))
 
 

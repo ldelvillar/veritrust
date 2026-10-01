@@ -5,16 +5,16 @@ español y devuelve sus traducciones al inglés clínico en una única llamada a
 
 import logging
 import re
+from dataclasses import replace
 from functools import lru_cache
-from typing import Any, List
+from typing import Any
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from pydantic import BaseModel, Field
 
+from app.agents.numbered_answers import NumberedAnswers
 from app.agents.sanitize import neutralize_delimiters
 from app.agents.state import ClaimsState
-from app.core.claim import translate_claims
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
@@ -24,23 +24,22 @@ logger = logging.getLogger(__name__)
 _LEADING_NUMBER = re.compile(r"^\s*\d+\s*[.)-]\s+")
 
 
-class TranslatedStatements(BaseModel):
-    """Estructura de datos que devuelve el LLM con las traducciones."""
-
-    translations: List[str] = Field(
-        description=(
-            "Lista de traducciones al inglés clínico, en el MISMO orden y con "
-            "el MISMO número de elementos que la lista de afirmaciones recibida. "
-            "No fusiones, omitas ni reordenes elementos."
-        )
-    )
+# Un campo por afirmación: el traductor no puede fusionar, omitir ni añadir traducciones.
+TRANSLATIONS = NumberedAnswers(
+    name="TranslatedStatements",
+    field="translation",
+    answer=str,
+    description="Traducción al inglés clínico de la afirmación {n}.",
+)
 
 
-@lru_cache(maxsize=1)
-def get_translator_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
-    """Devuelve la cadena de traducción configurada y cacheada."""
+@lru_cache(maxsize=16)
+def get_translator_chain(
+    prompt_text: str, statements: int
+) -> Runnable[dict[str, Any], Any]:
+    """Devuelve la cadena de traducción para ``statements`` afirmaciones, cacheada por número."""
     llm = build_chat_model("translator")
-    structured_llm = llm.with_structured_output(TranslatedStatements)
+    structured_llm = llm.with_structured_output(TRANSLATIONS.schema(statements))
 
     system_prompt = ChatPromptTemplate.from_messages(
         [
@@ -72,11 +71,15 @@ def translator(state: ClaimsState, prompts: Prompts) -> ClaimsState:
         for i, claim in enumerate(claims)
     )
 
-    translator_chain = get_translator_chain(prompts.translator.text)
+    translator_chain = get_translator_chain(prompts.translator.text, len(claims))
     result = translator_chain.invoke({"statements": numbered})
 
-    translations = [_LEADING_NUMBER.sub("", t).strip() for t in result.translations]
-    translated = translate_claims(claims, translations)
+    translated = [
+        replace(claim, text_en=_LEADING_NUMBER.sub("", text_en).strip())
+        for claim, text_en in zip(
+            claims, TRANSLATIONS.in_order(result, len(claims)), strict=True
+        )
+    ]
 
     logger.info("[Traductor] Traducción completada (%d afirmaciones)", len(translated))
 

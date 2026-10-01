@@ -81,12 +81,13 @@ gh workflow run Deploy
 
 ## 3. Notes
 
-- The secret holds the whole `.env` consumed by `docker-compose.yml` (see
-  `.env.example` at the repo root for the expected variables).
+- The secret holds the root `.env` consumed by `docker-compose.yml` (see
+  `.env.example` at the repo root). App settings now live in `backend/.env` and
+  `frontend/.env`, which the secret does not cover yet.
 - After migration there are exactly two configs: the repo-root `.env` (local
   development, Clerk test keys) and the `veritrust-env` secret (production).
   They are _supposed_ to differ — never sync one from the other.
-- `backend/.env` and `frontend/.env` remain local-development files; they are not
-  used in production and must never be uploaded.
+- `backend/.env` and `frontend/.env` are loaded by the compose services too, so a
+  production deploy needs production versions of them on the VM.
 - Old secret versions stay readable by default; disable them after rotating a
   compromised value: `gcloud secrets versions disable N --secret=veritrust-env`.

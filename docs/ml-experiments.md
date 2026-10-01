@@ -626,6 +626,17 @@ uv run --directory backend python -m ml.evaluate_pipeline --partition gold --lim
 
 Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
 
+Para comparar **solo el juez**, `ml.evaluate_judge` vuelve a juzgar las afirmaciones y
+fuentes candidatas de un checkpoint del pipeline, sin extractor ni traductor: solo carga
+el modelo del juez. Toma las muestras de una afirmación (con varias, la fila no dice qué
+búsquedas son de cuál) y elige proveedor y modelo por entorno, como el pipeline:
+
+```bash
+OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend python -m ml.evaluate_judge --cases results/base.jsonl --checkpoint results/judge_gemma4.jsonl
+```
+
+`--minutes N` deja de empezar casos pasado ese tiempo y la corrida se reanuda después.
+
 ## Juez v5 y traductor v4: marcadores contra la inyección (2026-09-25) — adoptado
 
 Cambio de seguridad, no de calidad. El juez es el único LLM cuya salida decide el
@@ -705,6 +716,109 @@ encajan con perder una de cada cuatro llamadas; es también el valor por defecto
 tarda ~70–90 s, casi todo en cambiar de modelo (`llama3` y `translategemma` solo caben al
 ~55% en GPU): cada brazo de 100 muestras son unas 2 h.
 
+## Juez v6 con un campo por fuente; extractor y traductor v5 (2026-09-30) — adoptado
+
+Corrección, no mejora de calidad. Desde que el registro de afirmación dejó de rellenar
+las posturas que faltaban, el juez caído de Ollama pasó a verse entero: **72/100** en el
+conjunto dorado. El «~10%» del 2026-09-25 contaba solo las excepciones; un recuento
+erróneo se rellenaba con `inconclusive` o se truncaba y contaba como juzgado, con las
+posturas desalineadas de sus fuentes. En el log de la base: 59 recuentos erróneos (37 de
+más, 22 de menos; cinco desbocados de +77 a +161) y 10 bucles de `inconclusive` cortados
+por `num_predict` 512. La causa es el esquema: `langchain-ollama` 1.1.0 pasa el esquema a
+Ollama como `format` y la decodificación queda restringida a él, pero una lista sin cota
+admite cualquier longitud.
+
+v6 pide un campo obligatorio por fuente (`source_1` … `source_N`, `NumberedAnswers`), y
+Ollama no puede generar ni más ni menos. El traductor (v5) responde igual, un campo por
+afirmación, y el extractor (v5) devuelve un objeto por afirmación con `statement`,
+`search_query` y `drug_term`, así que ninguna respuesta se alinea ya por posición.
+
+Criterio fijado **antes** de medir: juez caído a ~0 y la accuracy sobre firmes sin caer
+más allá del ruido. Ollama, `llama3` / `translategemma` / `llama3.2` (juez), 100 muestras:
+
+|                   | base (juez v5) | juez v6    | + extractor y traductor v5 |
+| ----------------- | -------------- | ---------- | -------------------------- |
+| juez caído        | 72             | **0**      | **0**                      |
+| veredictos firmes | 15             | 76         | 73                         |
+| aciertos firmes   | 10 (66.7%)     | 47 (61.8%) | 50 (68.5%)                 |
+| falsa→verdadera   | 4              | 25         | 21                         |
+| verdadera→falsa   | 1              | 4          | 2                          |
+| incierta          | 13             | 24         | 27                         |
+| evidencia grabada | —              | 293/329    | 64/318                     |
+
+Con 15 firmes en la base, el error estándar ronda los 12 puntos: la accuracy no se mueve.
+Lo que cambia es cuántos veredictos se dan. Por veredicto mostrado, `verdadera` acierta
+5/9 en la base y 43/64 con v5; `falsa`, 5/6 y 7/9. El extractor v5 no empeora nada: 97
+muestras con una afirmación y 3 con dos (antes 94 y 6), CIMA consultado en 9 frente a
+11, y ningún fallo del traductor. Sus consultas cambian, así que su corrida no está
+pareada en evidencia y su accuracy no se compara.
+
+**El cuello de botella es la postura, no el formato.** Reparto de posturas sobre falsas,
+`supports`:`contradicts`: 1.3 con v6 y 1.7 con el extractor v5, frente a 0.58 de
+`mistral-small` el 2026-08-31. Dos pruebas lo confirman:
+
+- **`llama3` (8B) como juez**, mismo código y evidencia grabada (234/319): 80 firmes, 50
+  aciertos (62.5%), **30 falsa→verdadera y 3 falsas acertadas**; s:c 16.3 sobre
+  verdaderas y 6.0 sobre falsas. Más decidido, en la misma dirección equivocada. En
+  «las vacunas infantiles causan autismo» marca `supports` la cohorte nacional sobre la
+  triple vírica (que no halla relación) y la seguridad de los adyuvantes de aluminio, y
+  `contradicts` el artículo de Wakefield: juzga si la fuente coincide con la ciencia, no
+  con la afirmación.
+- **Solo el juez, tres formatos**, `llama3.2` sobre las mismas 95 muestras de una
+  afirmación y sus fuentes candidatas grabadas. Pareado sobre las 30 que la lista v5
+  llegó a juzgar (las otras 65, recuento erróneo):
+
+  |                  | lista v5 | un campo por fuente (v6) | una fuente por llamada |
+  | ---------------- | -------- | ------------------------ | ---------------------- |
+  | firmes           | 15       | 20                       | 27                     |
+  | aciertos         | 9 (60%)  | 14 (70%)                 | 15 (56%)               |
+  | falsa→verdadera  | 5        | 6                        | 11                     |
+  | s:c sobre falsas | 3.0      | **1.5**                  | 2.8                    |
+
+  El formato no crea el sesgo: los tres dan más `supports` que `contradicts` sobre
+  falsas, y v6 es el que menos. La lista v5 parecía más prudente porque fallaba en dos
+  de cada tres muestras y esas pasaban a `incierta`.
+
+Lo que deja esta medida:
+
+- **v6 se adopta por corrección**: elimina el juez caído y las posturas desalineadas sin
+  empeorar la fiabilidad de cada veredicto.
+- **En Ollama, una falsa con veredicto firme sale casi siempre `verdadera`.** Antes lo
+  tapaba el juez caído convirtiéndolo en `incierta`. Es la medida de la capacidad del
+  juez local, punto 2 de «Pendiente».
+
+## Cribado de jueces solo-juez (2026-10-01) — Ministral 14B, candidato local
+
+`ml.evaluate_judge` con el juez v6 sobre los mismos 95 casos de una afirmación de
+`eval_gold_extractor_v5.jsonl`. Mistral por su API; `llama3.2` es la prueba de formatos
+del 2026-09-30 (Ollama, un campo por fuente), sobre los mismos casos:
+
+|                   | `llama3.2` | `ministral-14b-2512` | `ministral-3:14b` (Ollama) | `mistral-small-2603` |
+| ----------------- | ---------- | -------------------- | -------------------------- | -------------------- |
+| juzgados          | 95         | 93                   | 95                         | 95                   |
+| firmes            | 71         | 71                   | 77                         | 68                   |
+| aciertos          | 46 (65%)   | 65 (91.5%)           | **72 (93.5%)**             | 66 (97.1%)           |
+| falsa→verdadera   | 22         | 4                    | **1**                      | 1                    |
+| verdadera→falsa   | 3          | 2                    | 4                          | 1                    |
+| s:c sobre verdad. | 3.8        | 22.2                 | 15.1                       | 27.8                 |
+| s:c sobre falsas  | 1.8        | 0.18                 | **0.05**                   | 0.09                 |
+
+- **`mistral-small-latest` ya no es un candidato desplegable.** Hoy es
+  `mistral-small-2603` (Small 4), que en Ollama pesa 119B y no cabe en una VM de 16 GB;
+  probablemente es también el `mistral-small` del 0.58 del 2026-08-31. La API ya no
+  sirve Mistral Small 3.x (24B), así que esa familia no se puede cribar por API.
+- **`ministral-14b-2512` son los pesos de `ministral-3:14b` en Ollama** (~9 GB en Q4),
+  el único candidato desplegable que la API permite cribar, y separa casi como Small 4:
+  con los mismos 71 firmes que `llama3.2`, 4 falsa→verdadera en vez de 22.
+- Sus 2 casos sin juzgar son `ValidationError`: la API no restringe la salida al esquema
+  y la respuesta no valida. Con Ollama el esquema se impone al generar.
+- **Confirmado en Ollama**: `ministral-3:14b` con su cuantización por defecto juzga los
+  95 (el esquema se impone al generar) y llama `verdadera` a 1 falsa de 77 firmes. Ocupa
+  ~11 GB cargado con `num_ctx` 8192; en un portátil sin GPU útil, ~70 s por caso.
+- El conjunto dorado está dentro de muestra: lo que vale es la comparación entre
+  jueces, no el 93.5%.
+- Coste: ~0.07 € por corrida de 95 casos con la API de Mistral.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en
@@ -733,6 +847,11 @@ tarda ~70–90 s, casi todo en cambiar de modelo (`llama3` y `translategemma` so
 - **Empujar al juez a `contradicts` por prompt**: v4 lo consiguió y el reparto fue 4
   aciertos y 4 fallos (p = 0.42). Sobre una afirmación cuya literatura no la aborda, más
   decisión es más azar, no más señal. Ver la sección del 2026-09-01.
+- **Juzgar una fuente por llamada**: con `llama3.2` es más decidido, pero llama
+  `verdadera` a más falsas (25 frente a 22 de 95 sobre la misma evidencia) y cuesta una
+  llamada por fuente. Ver la sección del 2026-09-30.
+- **`llama3` (8B) como juez**: más decidido en la misma dirección equivocada, 30 de 33
+  falsas firmes salen `verdadera`. Un modelo mayor de la misma familia no es la salida.
 - **Campos de razonamiento antes de `stances`**: `claim_analysis` hunde `contradicts`
   sobre falsas de 85 a 51 y rompe verdadera→falsa = 0. Enunciar la tesis en positivo ceba
   la coincidencia temática. Con `mistral-small`, el juez etiqueta mejor sin preámbulo.
@@ -762,10 +881,12 @@ por prompt y por andamiaje:
    misma forma de error que la separabilidad por estilo de PubHealth. Si se toma esa vía,
    el conjunto retenido tiene que existir antes de medirla.
 
-2. **Capacidad del modelo juez** — sin probar y ahora la hipótesis viva, porque las dos
-   vías baratas han fallado. `mistral-small` es el único modelo del tramo gratuito de
-   Mistral, así que hace falta otro proveedor: `ollama_judge_model` ya existe por rol y un
-   modelo local mayor sale gratis a cambio de latencia.
+2. **Capacidad del modelo juez** — la hipótesis viva, ahora con medida en Ollama: sobre
+   falsas, `llama3.2` da 1.3–1.7 `supports` por `contradicts` y `llama3` (8B) 6.0, frente
+   a 0.58 de `mistral-small` (2026-09-30). Un modelo mayor de la misma familia no basta.
+   El cribado del 2026-10-01 da con `ministral-14b-2512` 0.18 y 4 falsa→verdadera de 71
+   firmes: falta confirmar `ministral-3:14b` en Ollama antes de hacerlo el juez por
+   defecto.
 3. **Conjunto retenido de ~50 filas** — no por precisión, sino para medir cuánto del 71
    transfiere fuera de muestra. Se escribe una vez, se guarda y se mira una sola vez.
    Prerrequisito del punto 1 si la fuente elegida es de _fact-checking_.
