@@ -12,40 +12,46 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from app.agents.state import ClaimsState
-from app.core.claim import extract_claims
+from app.core.claim import Claim
 from app.prompts.agents import Prompts
 from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
 
+class ExtractedClaim(BaseModel):
+    """Una afirmación extraída con todo lo que el modelo aporta para buscar su evidencia."""
+
+    statement: str = Field(
+        description=(
+            "Afirmación médica, dietética o de salud del texto que requiere "
+            "verificación científica, como oración corta y clara."
+        )
+    )
+    search_query: str = Field(
+        description=(
+            "Consulta de búsqueda en inglés para esta afirmación, con los términos "
+            "clínicos clave unidos por operadores booleanos, sin comillas de ningún "
+            "tipo. Ej.: (vitamin C OR ascorbic acid) AND (common cold)."
+        )
+    )
+    drug_term: str = Field(
+        description=(
+            "Nombre del medicamento o principio activo que menciona esta afirmación "
+            "(en español), o cadena vacía si no trata de un fármaco concreto. "
+            "Ej.: 'ibuprofeno', ''."
+        )
+    )
+
+
 class MedicalStatements(BaseModel):
     """Estructura de datos que devuelve el LLM."""
 
-    statements: List[str] = Field(
+    claims: List[ExtractedClaim] = Field(
         description=(
-            "Lista exacta de afirmaciones médicas, dietéticas o de "
-            "salud extraídas del texto que requieren verificación "
-            "científica. Deben ser oraciones cortas y claras."
+            "Afirmaciones médicas, dietéticas o de salud extraídas del texto que "
+            "requieren verificación científica."
         )
-    )
-    search_queries: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Para CADA afirmación, en el MISMO orden y número, una consulta de "
-            "búsqueda en inglés con los términos clínicos clave unidos por "
-            "operadores booleanos, sin comillas de ningún tipo. Ej.: "
-            "(vitamin C OR ascorbic acid) AND (common cold)."
-        ),
-    )
-    drug_terms: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Para CADA afirmación, en el MISMO orden y número, el nombre del "
-            "medicamento o principio activo mencionado (en español), o cadena "
-            "vacía si la afirmación no trata de un fármaco concreto. "
-            "Ej.: 'ibuprofeno', ''."
-        ),
     )
 
 
@@ -76,7 +82,15 @@ def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
-    claims = extract_claims(result.statements, result.search_queries, result.drug_terms)
+    claims = [
+        Claim(
+            index=index,
+            text=item.statement,
+            query=item.search_query,
+            drug_term=item.drug_term.strip(),
+        )
+        for index, item in enumerate(result.claims)
+    ]
 
     logger.info("[Extractor] Se extrajeron %d afirmaciones", len(claims))
 

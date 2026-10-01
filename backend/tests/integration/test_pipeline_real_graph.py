@@ -49,10 +49,18 @@ def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
 
     class _Chain:
         def invoke(self, payload):
-            return SimpleNamespace(
-                statements=statements,
-                search_queries=queries,
-                drug_terms=drug_terms or [],
+            return extractor_module.MedicalStatements(
+                claims=[
+                    extractor_module.ExtractedClaim(
+                        statement=statement, search_query=query, drug_term=drug
+                    )
+                    for statement, query, drug in zip(
+                        statements,
+                        queries,
+                        drug_terms or [""] * len(statements),
+                        strict=True,
+                    )
+                ]
             )
 
     monkeypatch.setattr(
@@ -63,23 +71,28 @@ def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
 
 
 def _stub_translator(monkeypatch, translations):
-    """Simula solo la llamada al LLM del traductor; el padding real sigue activo."""
+    """Simula solo la llamada al LLM del traductor, validada contra el esquema que pide."""
 
     class _Chain:
+        def __init__(self, statements):
+            self._schema = translator_module.TRANSLATIONS.schema(statements)
+
         def invoke(self, payload):
-            return SimpleNamespace(translations=translations)
+            return self._schema.model_validate(
+                {f"translation_{n}": t for n, t in enumerate(translations, start=1)}
+            )
 
     monkeypatch.setattr(
         translator_module,
         "get_translator_chain",
-        lambda prompt_text, model=None: _Chain(),
+        lambda prompt_text, statements: _Chain(statements),
     )
 
 
 def _guard_translator(monkeypatch):
     """Falla el test si el traductor llega a invocar su LLM."""
 
-    def _should_not_be_called(prompt_text):
+    def _should_not_be_called(prompt_text, statements):
         raise AssertionError("El traductor no debe invocar su LLM sin afirmaciones")
 
     monkeypatch.setattr(
@@ -133,17 +146,26 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
     """Simula solo el LLM del juez; el filtrado real sigue activo."""
 
     class _Chain:
+        def __init__(self, sources):
+            self._sources = sources
+
         def invoke(self, payload):
             if record is not None:
                 record.append(payload["claim"])
-            # Una postura por fuente candidata (una línea numerada por fuente).
-            candidates = len(payload["sources"].splitlines())
-            return SimpleNamespace(stances=[stance] * candidates)
+            return _judgments([stance] * self._sources, self._sources)
 
     monkeypatch.setattr(
         relevance_module,
         "get_relevance_chain",
-        lambda prompt_text, model=None: _Chain(),
+        lambda prompt_text, sources, model=None: _Chain(sources),
+    )
+
+
+def _judgments(stances: list[str], sources: int):
+    """Respuesta del juez validada, como en producción, contra el esquema de ``sources`` fuentes."""
+    schema = relevance_module.EVIDENCE_JUDGMENTS.schema(sources)
+    return schema.model_validate(
+        {f"source_{n}": stance for n, stance in enumerate(stances, start=1)}
     )
 
 
@@ -293,11 +315,11 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
 
 
 def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prompts):
-    """Si el extractor devuelve menos consultas que afirmaciones, se busca con la traducción."""
+    """Si el extractor deja vacía la consulta de una afirmación, se busca con la traducción."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno", "Afirmación dos"],
-        queries=['"query one"'],
+        queries=['"query one"', ""],
         drug_terms=[],
     )
     _stub_translator(monkeypatch, ["Claim one EN", "Claim two EN"])
@@ -328,14 +350,14 @@ def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prom
 
 
 def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
-    """Un traductor que devuelve una lista vacía no debe romper los agentes siguientes."""
+    """Un traductor que deja vacías las traducciones no debe romper los agentes siguientes."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno", "Afirmación dos"],
         queries=['"query one"', '"query two"'],
         drug_terms=[],
     )
-    _stub_translator(monkeypatch, [])
+    _stub_translator(monkeypatch, ["", ""])
     _stub_health(monkeypatch)
     judged_claims: list[str] = []
     _stub_judge(monkeypatch, stance="supports", record=judged_claims)
@@ -350,7 +372,7 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("Texto"))
 
-    # El traductor real rellena con cadenas vacías y el pipeline sigue en pie.
+    # Las afirmaciones quedan sin traducción y el pipeline sigue en pie.
     assert [claim.text_en for claim in result["claims"]] == ["", ""]
     # Sin traducción, el juez de relevancia recibe la consulta como respaldo.
     assert judged_claims == ['"query one"', '"query two"']
@@ -587,7 +609,7 @@ def _stub_outcome_scenario(monkeypatch):
         monkeypatch,
         statements=[f"Afirmación {i}" for i in range(11)],
         queries=_CLAIM_QUERIES,
-        drug_terms=["", "", "", "", "", "ibuprofeno"],
+        drug_terms=["", "", "", "", "", "ibuprofeno", "", "", "", "", ""],
     )
     _stub_translator(monkeypatch, _CLAIM_TRANSLATIONS)
     _stub_health(monkeypatch)
@@ -600,18 +622,21 @@ def _stub_outcome_scenario(monkeypatch):
     )
 
     class _Chain:
+        def __init__(self, sources):
+            self._sources = sources
+
         def invoke(self, payload):
             if payload["claim"] == "Claim 3 EN":
                 raise RuntimeError("juez caído")
             stances = _STANCES_BY_CLAIM[payload["claim"]]
             if isinstance(stances, str):
-                stances = [stances] * len(payload["sources"].splitlines())
-            return SimpleNamespace(stances=stances)
+                stances = [stances] * self._sources
+            return _judgments(stances, self._sources)
 
     monkeypatch.setattr(
         relevance_module,
         "get_relevance_chain",
-        lambda prompt_text, model=None: _Chain(),
+        lambda prompt_text, sources, model=None: _Chain(sources),
     )
 
 
