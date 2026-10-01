@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ollama_extractor_model: str = "llama3"
     ollama_translator_model: str = "translategemma"
     ollama_health_expert_model: str = "llama3.2"
-    ollama_judge_model: str = "llama3.2"
+    ollama_judge_model: str = "ministral-3:14b"
 
     # Tope por llamada al LLM; una llamada lenta falla en vez de agotar todo el job
     ollama_request_timeout_seconds: int = 240

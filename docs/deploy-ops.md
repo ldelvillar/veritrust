@@ -78,6 +78,13 @@ pipeline uses one model at a time, so peak RAM tracks the largest model (~6 GB
 for `llama3` at 8k ctx) at the cost of a model swap between stages. If you
 change the machine type or the models, revisit both.
 
+The judge the pipeline is measured with, `ministral-3:14b` (the `Settings` default; see
+`docs/ml-experiments.md`, 2026-10-01), needs ~11 GB loaded at 8k ctx, more than
+Ollama's 9g cap, and runs on CPU at about a minute per claim on this machine.
+`docker-compose.yml` therefore pins `OLLAMA_JUDGE_MODEL=llama3.2`. Switching to
+`ministral-3:14b` needs a 16 GB GPU and a higher Ollama cap; `llama3.2` as the
+judge calls most false claims with a firm verdict `verdadera`.
+
 What this means for scaling:
 
 - **Adding worker replicas alone does not raise throughput** — they contend on the same Ollama container (CPU-only in this stack), and three models per run thrash a CPU instance. Scale **Ollama** first (a GPU host, or a separate Ollama per worker), _then_ add workers behind it.
