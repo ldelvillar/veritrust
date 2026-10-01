@@ -793,15 +793,15 @@ Lo que deja esta medida:
 `eval_gold_extractor_v5.jsonl`. Mistral por su API; `llama3.2` es la prueba de formatos
 del 2026-09-30 (Ollama, un campo por fuente), sobre los mismos casos:
 
-|                   | `llama3.2` | `ministral-14b-2512` | `mistral-small-2603` |
-| ----------------- | ---------- | -------------------- | -------------------- |
-| juzgados          | 95         | 93                   | 95                   |
-| firmes            | 71         | 71                   | 68                   |
-| aciertos          | 46 (65%)   | **65 (91.5%)**       | 66 (97.1%)           |
-| falsa→verdadera   | 22         | **4**                | 1                    |
-| verdadera→falsa   | 3          | 2                    | 1                    |
-| s:c sobre verdad. | 3.8        | 22.2                 | 27.8                 |
-| s:c sobre falsas  | 1.8        | **0.18**             | 0.09                 |
+|                   | `llama3.2` | `ministral-14b-2512` | `ministral-3:14b` (Ollama) | `mistral-small-2603` |
+| ----------------- | ---------- | -------------------- | -------------------------- | -------------------- |
+| juzgados          | 95         | 93                   | 95                         | 95                   |
+| firmes            | 71         | 71                   | 77                         | 68                   |
+| aciertos          | 46 (65%)   | 65 (91.5%)           | **72 (93.5%)**             | 66 (97.1%)           |
+| falsa→verdadera   | 22         | 4                    | **1**                      | 1                    |
+| verdadera→falsa   | 3          | 2                    | 4                          | 1                    |
+| s:c sobre verdad. | 3.8        | 22.2                 | 15.1                       | 27.8                 |
+| s:c sobre falsas  | 1.8        | 0.18                 | **0.05**                   | 0.09                 |
 
 - **`mistral-small-latest` ya no es un candidato desplegable.** Hoy es
   `mistral-small-2603` (Small 4), que en Ollama pesa 119B y no cabe en una VM de 16 GB;
@@ -812,9 +812,11 @@ del 2026-09-30 (Ollama, un campo por fuente), sobre los mismos casos:
   con los mismos 71 firmes que `llama3.2`, 4 falsa→verdadera en vez de 22.
 - Sus 2 casos sin juzgar son `ValidationError`: la API no restringe la salida al esquema
   y la respuesta no valida. Con Ollama el esquema se impone al generar.
-- **Antes de cambiar `ollama_judge_model`**, confirmarlo en Ollama: la cuantización por
-  defecto puede puntuar por debajo de la API. Y el conjunto dorado está dentro de
-  muestra: lo que vale es la comparación entre jueces, no el 91.5%.
+- **Confirmado en Ollama**: `ministral-3:14b` con su cuantización por defecto juzga los
+  95 (el esquema se impone al generar) y llama `verdadera` a 1 falsa de 77 firmes. Ocupa
+  ~11 GB cargado con `num_ctx` 8192; en un portátil sin GPU útil, ~70 s por caso.
+- El conjunto dorado está dentro de muestra: lo que vale es la comparación entre
+  jueces, no el 93.5%.
 - Coste: ~0.07 € por corrida de 95 casos con la API de Mistral.
 
 ## No volver a intentar
