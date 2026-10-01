@@ -22,8 +22,9 @@ ssh USER@VM_IP "cat ~/veritrust/.env"
 
 ## Notes
 
-- Only the root `.env` is needed — `backend/.env` and `frontend/.env` are for local
-  development outside Docker and are not used in production.
+- `docker-compose.yml` also loads `backend/.env` (backend, worker) and `frontend/.env`
+  (frontend), so a deploy needs those files on the VM too. The Secret Manager flow
+  below only renders the root `.env`; extend it before the next prod deploy.
 - Never commit `.env` to git.
 - After updating `.env` on the VM, recreate the affected containers:
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
