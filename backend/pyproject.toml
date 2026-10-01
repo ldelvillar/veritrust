@@ -47,7 +47,7 @@ dependencies = [
 # Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra ml
 ml = [
     "pandas>=3.0.6",
-    "pyarrow>=23",
+    "pyarrow>=25.0.1",
 ]
 
 [dependency-groups]
