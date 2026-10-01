@@ -1,5 +1,7 @@
 """Tests del registro de afirmación: construcción, búsqueda, juicio y lo que se guarda de ella."""
 
+from dataclasses import replace
+
 import pytest
 
 from app.core.claim import (
@@ -8,60 +10,11 @@ from app.core.claim import (
     EvidenceSearch,
     evidence_report,
     evidence_search,
-    extract_claims,
     keep_shown_sources,
     source_records,
-    translate_claims,
     with_hits,
     with_stances,
 )
-
-
-@pytest.mark.parametrize(
-    ("queries", "drug_terms", "expected"),
-    [
-        # Listas completas: cada afirmación recibe lo suyo.
-        (['"a"', '"b"'], ["ibuprofeno", ""], [('"a"', "ibuprofeno"), ('"b"', "")]),
-        # Listas cortas: lo que falta queda vacío.
-        (['"a"'], ["ibuprofeno"], [('"a"', "ibuprofeno"), ("", "")]),
-        # Listas largas: lo que sobra se descarta.
-        (['"a"', '"b"', '"c"'], ["x", "y", "z"], [('"a"', "x"), ('"b"', "y")]),
-    ],
-)
-def test_extract_claims_aligns_queries_and_drug_terms_with_the_statements(
-    queries, drug_terms, expected
-):
-    claims = extract_claims(["A", "B"], queries, drug_terms)
-
-    assert [(c.index, c.text) for c in claims] == [(0, "A"), (1, "B")]
-    assert [(c.query, c.drug_term) for c in claims] == expected
-
-
-def test_extract_claims_trims_the_drug_term():
-    (claim,) = extract_claims(["A"], ['"a"'], ["  ibuprofeno "])
-
-    assert claim.drug_term == "ibuprofeno"
-
-
-def test_extract_claims_without_statements_is_empty():
-    assert extract_claims([], ['"a"'], ["x"]) == []
-
-
-@pytest.mark.parametrize(
-    ("translations", "expected"),
-    [
-        (["A-en", "B-en"], ["A-en", "B-en"]),
-        (["A-en"], ["A-en", ""]),
-        (["A-en", "B-en", "extra"], ["A-en", "B-en"]),
-        ([], ["", ""]),
-    ],
-)
-def test_translate_claims_aligns_translations_with_the_claims(translations, expected):
-    claims = translate_claims(extract_claims(["A", "B"], [], []), translations)
-
-    assert [c.text_en for c in claims] == expected
-    # La traducción no altera el resto del registro.
-    assert [(c.index, c.text) for c in claims] == [(0, "A"), (1, "B")]
 
 
 @pytest.mark.parametrize(
@@ -108,11 +61,11 @@ def _judged(index: int, *pairs: tuple[str, str], text: str | None = None) -> Cla
 
 
 def test_a_claim_without_a_search_query_is_unsearchable_until_translated():
-    claim = extract_claims(["A"], [""], [])[0]
+    claim = Claim(index=0, text="A")
 
     assert claim.outcome == "unsearchable"
     # La traducción le da consulta: pasa a estar pendiente de buscar.
-    assert translate_claims([claim], ["A-en"])[0].outcome == "unsearched"
+    assert replace(claim, text_en="A-en").outcome == "unsearched"
 
 
 def test_with_hits_marks_a_claim_whose_sources_all_failed_as_unavailable():

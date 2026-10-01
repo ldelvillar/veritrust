@@ -9,7 +9,7 @@ from app.agents.investigator import (
     gather_evidence,
     investigator,
 )
-from app.core.claim import Claim, EvidenceSearch, extract_claims, translate_claims
+from app.core.claim import Claim, EvidenceSearch
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
@@ -24,10 +24,19 @@ def _claims(
     drug_terms: list[str] | None = None,
 ) -> list[Claim]:
     """Afirmaciones ya traducidas, tal y como las deja el traductor en el estado."""
-    statements = originals if originals is not None else [""] * len(translations)
-    return translate_claims(
-        extract_claims(statements, queries or [], drug_terms or []), translations
-    )
+    empty = [""] * len(translations)
+    return [
+        Claim(index=index, text=text, text_en=text_en, query=query, drug_term=drug)
+        for index, (text, text_en, query, drug) in enumerate(
+            zip(
+                originals if originals is not None else empty,
+                translations,
+                queries or empty,
+                drug_terms or empty,
+                strict=True,
+            )
+        )
+    ]
 
 
 def _search(total: int, covered: int, *, outage: bool = False) -> EvidenceSearch:

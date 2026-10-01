@@ -4,12 +4,12 @@ import logging
 from collections.abc import Sequence
 from functools import lru_cache
 from itertools import count
-from typing import Any, List
+from typing import Any
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from pydantic import BaseModel, Field
 
+from app.agents.numbered_answers import NumberedAnswers
 from app.agents.sanitize import neutralize_delimiters
 from app.core.claim import Evidence, JudgeStance
 from app.core.config import get_settings
@@ -17,18 +17,17 @@ from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
-
-class EvidenceJudgments(BaseModel):
-    """Postura de cada fuente candidata, en el mismo orden que la entrada."""
-
-    stances: List[JudgeStance] = Field(
-        description=(
-            "Una postura por fuente candidata, en el MISMO orden y número: "
-            "'supports' si el resumen respalda la afirmación, 'contradicts' si la "
-            "refuta, 'inconclusive' si la aborda sin concluir, 'unrelated' si trata "
-            "de otro tema."
-        )
-    )
+# Un campo por fuente candidata: el juez no puede dar más posturas ni menos que fuentes.
+EVIDENCE_JUDGMENTS = NumberedAnswers(
+    name="EvidenceJudgments",
+    field="source",
+    answer=JudgeStance,
+    description=(
+        "Postura de la fuente {n}: 'supports' si su resumen respalda la afirmación, "
+        "'contradicts' si la refuta, 'inconclusive' si la aborda sin concluir, "
+        "'unrelated' si trata de otro tema."
+    ),
+)
 
 
 # La cuota diaria de Groq es por modelo: el juez alterna para no agotar uno solo.
@@ -46,13 +45,13 @@ def _next_judge_model() -> str | None:
     return models[next(_rotation) % len(models)]
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=64)
 def get_relevance_chain(
-    prompt_text: str, model: str | None = None
+    prompt_text: str, sources: int, model: str | None = None
 ) -> Runnable[dict[str, Any], Any]:
-    """Devuelve la cadena de juicio de evidencia configurada y cacheada por modelo."""
+    """Devuelve la cadena de juicio para ``sources`` candidatas, cacheada por número y modelo."""
     llm = build_chat_model("judge", model)
-    structured_llm = llm.with_structured_output(EvidenceJudgments)
+    structured_llm = llm.with_structured_output(EVIDENCE_JUDGMENTS.schema(sources))
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -81,13 +80,13 @@ def _format_candidates(evidence: Sequence[Evidence]) -> str:
 def judge_stances(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...] | None:
-    """Pide al juez una postura por fuente candidata; ``None`` si falla o no da exactamente una por fuente."""
+    """Pide al juez una postura por fuente candidata; ``None`` si falla o su respuesta no nombra cada fuente una vez."""
     if not evidence:
         return ()
 
     try:
-        chain = get_relevance_chain(prompt_text, _next_judge_model())
-        verdict = chain.invoke(
+        chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
+        answer = chain.invoke(
             {
                 "claim": neutralize_delimiters(claim),
                 "sources": _format_candidates(evidence),
@@ -99,14 +98,4 @@ def judge_stances(
             exc_info=True,
         )
         return None
-
-    stances = tuple(verdict.stances)
-    # Sin una postura por fuente no se sabe a cuál corresponde cada una.
-    if len(stances) != len(evidence):
-        logger.warning(
-            "[Juez] %d posturas para %d fuentes; se conservan las fuentes",
-            len(stances),
-            len(evidence),
-        )
-        return None
-    return stances
+    return EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
