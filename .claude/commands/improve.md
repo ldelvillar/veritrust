@@ -55,9 +55,9 @@ For each approved item:
 - Backend: if a feature needs a new endpoint or error, follow the conventions —
   extend `ErrorCode` + Spanish message + `responses=`, read config via `Settings`,
   raw psycopg3 under `app/db/`, async end-to-end. After any schema change, run
-  `pnpm generate:api-types` (never hand-edit `api.d.ts`).
-- Verify before claiming done: run the relevant tests, `pnpm build`/`pnpm lint`
-  for frontend, and `uv run ruff check`/`uv run mypy`/`pytest` for backend. Report
+  `pnpm --dir frontend generate:api-types` (never hand-edit `api.d.ts`).
+- Verify before claiming done: run the checks listed under "Always verify before
+  declaring done" in `AGENTS.md`, from the repo root. Report
   actual results — if something fails or you skipped a check, say so.
 - Keep coverage ≥80% where you touch backend code; add tests for new logic.
 

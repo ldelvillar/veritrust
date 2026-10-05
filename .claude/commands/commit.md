@@ -58,7 +58,7 @@ title-only commit.
 - `agents` — LangGraph pipeline and the Extractor / Translator / Investigator / Health Expert nodes
 - `prompts` — agent system prompts in `app/prompts/prompts.yaml`
 - `ml` — Pipeline evaluation harness under `backend/ml/`
-- `db` — raw psycopg3 SQL and the async pool in `app/db/main.py`
+- `db` — raw psycopg3 SQL and the async pool in `app/db/pool.py`
 - `api` — FastAPI routes, dependencies, `app/main.py`, the structured error contract
 - `frontend` — Next.js pages, components, hooks, `apiClient.ts`
 - `config` — `pyproject.toml`, lint/type config, env examples, Docker/compose
@@ -69,6 +69,6 @@ title-only commit.
 - Use the imperative mood: "add rate limiting" not "added rate limiting".
 - Do not mention file names in the title unless the file name _is_ the feature (e.g. `add .env.example`).
 - Do not include the scope if the change is truly cross-cutting.
-- If a backend Pydantic schema changed (under `app/schemas/`), the frontend types in `frontend/src/types/api.d.ts` must be regenerated via `pnpm generate:api-types` — if the diff shows a schema change without a matching `api.d.ts` change, warn the user before committing.
+- If a backend Pydantic schema changed (under `app/schemas/`), the frontend types in `frontend/src/types/api.d.ts` must be regenerated via `pnpm --dir frontend generate:api-types` — if the diff shows a schema change without a matching `api.d.ts` change, warn the user before committing.
 - Never edit `frontend/src/types/api.d.ts` by hand — it is generated.
 - Never commit anything in `.env` files — if staged, warn the user immediately and do not proceed.
