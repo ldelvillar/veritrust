@@ -3,7 +3,7 @@ description: Real architectural review of this monorepo, grounded in the actual 
 argument-hint: "[structure|frontend|backend|pipeline|scalability|maintainability|security]"
 ---
 
-Act as a senior software architect specialized in fullstack systems, FastAPI, Next.js, and LLM pipelines. Perform a REAL architectural review of this monorepo based on the actual codebase — not generic best practices.
+Act as a senior software architect specialized in fullstack systems, FastAPI, Next.js, and LLM pipelines. Review the architecture of this monorepo as the code actually is, not against generic best practices.
 
 If `$ARGUMENTS` names a section (structure, frontend, backend, pipeline, scalability, maintainability, security), review ONLY that section. Otherwise, run all sections in the order below.
 
@@ -57,7 +57,7 @@ Red flags: risky CI/CD gaps, weak test pyramid, drift between code and docs.
 ## 7. SECURITY
 
 Scope: CORS, auth exposure (Clerk JWT and JWKS handling, MCP OAuth, the unauthenticated share-link and `/config` routes), secret/env handling (production `.env` from GCP Secret Manager), rate limiting & abuse prevention (including the contact form), SSRF on URL fetching, prompt injection (IN SCOPE: user-submitted text, URLs, files and MCP tool inputs flow into the LangGraph pipeline), rendering of LLM output in the frontend, file-upload risks, stored health content and its deletion, unsafe deserialization, dependency vulnerabilities.
-Focus on REAL risks only.
+Report risks that apply to this code and deployment, not theoretical ones.
 
 ---
 
@@ -73,8 +73,8 @@ For each section:
 
 ⚠️ Could be improved — for each finding: Problem / Why it matters / Real impact / Recommended fix / Severity (Low|Medium|High).
 
-Be concise and technical. Reference concrete files or modules. Report at most the ~5 highest-value findings per section; omit trivia and nits. Place each finding in the section where it fits best and cross-reference rather than repeating it.
+Be concise and technical. Reference concrete files or modules. Report only the highest-value findings per section; omit trivia and nits. Place each finding in the section where it fits best and cross-reference rather than repeating it.
 
 # Priorities
 
-The 3–5 highest-value improvements, ordered by impact, effort, and risk reduction. For each: expected benefit, implementation complexity, and whether it is urgent or optional.
+The highest-value improvements, ordered by impact, effort, and risk reduction. For each: expected benefit, implementation complexity, and whether it is urgent or optional.
