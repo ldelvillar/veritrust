@@ -17,9 +17,8 @@ audit and plan toward it. Otherwise cover all three.
 ## PHASE 1 — Audit & propose (do this first, no code changes)
 
 1. Explore the real app, don't assume:
-   - Frontend: walk the pages under `frontend/src/app` (`/`, `/analisis`,
-     `/dashboard`, `/historial`, legal pages), the shared components, `apiClient`,
-     `useApiQuery`, and how loading / empty / error / pending-polling states are
+   - Frontend: walk every page under `frontend/src/app`, the shared components,
+     `apiClient`, `useApiQuery`, and how loading / empty / error / pending-polling states are
      actually handled.
    - Backend: the analysis flow (POST `/analysis` → pending row → worker → poll
      detail), the error contract (`ErrorCode` / `make_error_detail`), dashboard
