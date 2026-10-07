@@ -8,31 +8,31 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     # API
-    "fastapi>=0.141.1",
+    "fastapi>=0.142.2",
     "uvicorn[standard]>=0.54.0",
     "python-multipart>=0.0.32",
-    "python-dotenv>=1.2.3",
+    "python-dotenv>=1.2.4",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "httpx>=0.28",
     # Auth
     "PyJWT>=2.12",
-    "cryptography>=50.0.1",
+    "cryptography>=50.0.2",
     # Database
     "psycopg[binary,pool]>=3.3.6",
     # Background job queue + rate limiting
     "arq>=0.26",
     "redis>=5",
     # LLM / Agents
-    "langchain>=1.4.2",
-    "langchain-core>=1.6.5",
+    "langchain>=1.4.3",
+    "langchain-core>=1.6.6",
     "langchain-ollama>=1.1.0",
     "langchain-mistralai>=1.1",
     "langchain-groq>=1.0",
     "langchain-google-genai>=2.1",
     "langchain-nvidia-ai-endpoints>=1.0",
     "langgraph>=1.0",
-    "ollama>=0.6.2",
+    "ollama>=0.6.3",
     # Web scraping
     "beautifulsoup4>=4.15.0",
     "requests>=2.34.2",
@@ -40,7 +40,7 @@ dependencies = [
     "PyYAML>=6.0",
     "orjson>=3.12.0",
     "pypdf>=6.19.0",
-    "mcp>=2.2",
+    "mcp>=2.3.0",
 ]
 
 [project.optional-dependencies]
@@ -56,9 +56,9 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1",
     "coverage>=7.16.2",
-    "ruff>=0.16.9",
-    "mypy>=2.3.1",
-    "fakeredis>=2.38.0",
+    "ruff>=0.16.10",
+    "mypy>=2.4.0",
+    "fakeredis>=2.39.0",
 ]
 
 [tool.pytest.ini_options]
