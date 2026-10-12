@@ -7,7 +7,7 @@ Python (FastAPI + arq worker). Run every command from the **repo root** — neve
 ```bash
 uv sync --directory backend --frozen                                                     # Serving/API deps + app tests (excludes evaluation stack)
 uv sync --directory backend --frozen --extra evaluation                                  # Add evaluation stack for evaluation/ and its tests
-uv run --directory backend python -m app.main                                            # API server (http://localhost:8000)
+uv run --directory backend uvicorn app.main:app                                          # API server (http://localhost:8000)
 uv run --directory backend python -m app.worker                                          # Analysis worker (needs Redis + Ollama)
 uv run --directory backend pytest tests --cov=app --cov-fail-under=80                    # App tests
 uv run --directory backend pytest evaluation/tests --cov=evaluation --cov-fail-under=80  # Evaluation tests

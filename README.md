@@ -128,7 +128,7 @@ cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_API_URL + Clerk 
 ollama pull llama3 && ollama pull llama3.2 && ollama pull translategemma && ollama pull ministral-3:14b
 
 uv sync --directory backend --frozen
-uv run --directory backend python -m app.main      # API → http://localhost:8000
+uv run --directory backend uvicorn app.main:app    # API → http://localhost:8000
 uv run --directory backend python -m app.worker    # worker (separate terminal)
 
 pnpm --dir frontend install
