@@ -103,7 +103,7 @@ export const FAQ = [
   {
     cat: 'Informe',
     q: '¿Cómo se calcula la puntuación de credibilidad?',
-    a: 'Cada afirmación se contrasta con fuentes médicas (OMS, Cochrane, NIH) y se pondera por su nivel de evidencia. La media ponderada da la puntuación de 0 a 100.',
+    a: 'Cada afirmación se contrasta con la literatura biomédica: las fuentes que la respaldan o la contradicen deciden su veredicto. La puntuación de 0 a 100 sale del veredicto del análisis y de su confianza (cerca de 100, verdadero; cerca de 0, falso) y se modera cuando la evidencia es escasa. Los análisis dudosos o parcialmente falsos no tienen puntuación.',
   },
   {
     cat: 'Uso',
