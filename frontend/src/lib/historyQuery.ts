@@ -44,6 +44,7 @@ const VERDICTS = {
   all: true,
   real: true,
   fake: true,
+  mixed: true,
   uncertain: true,
 } satisfies Record<VerdictFilter, true>;
 const STATUSES = {

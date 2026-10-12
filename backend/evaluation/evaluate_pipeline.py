@@ -387,6 +387,11 @@ def _is_abstention(predicted: str | None) -> bool:
     return predicted is None or kind_of(predicted) == "uncertain"
 
 
+def _flags_falsehood(predicted: str | None) -> bool:
+    """Un veredicto falso o parcialmente falso avisa de que el texto contiene algo falso."""
+    return kind_of(predicted) in ("fake", "mixed")
+
+
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     """Calcula la matriz de confusión y métricas tomando 'falsa' como positivo."""
     # Con el juez caido no hay posturas: la fila no mide nada y se excluye.
@@ -401,7 +406,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     tp = fp = tn = fn = 0
     for row in scored:
         expected_fake = row["expected"] == "falsa"
-        predicted_fake = kind_of(row["predicted"]) == "fake"
+        predicted_fake = _flags_falsehood(row["predicted"])
         if expected_fake:
             tp += predicted_fake
             fn += not predicted_fake
@@ -487,7 +492,7 @@ def format_report(
         for r in rows
         if not r.get("judge_failures")
         if not _is_abstention(r["predicted"])
-        and (kind_of(r["predicted"]) == "fake") != (r["expected"] == "falsa")
+        and _flags_falsehood(r["predicted"]) != (r["expected"] == "falsa")
     ]
     if errors:
         lines.append("")

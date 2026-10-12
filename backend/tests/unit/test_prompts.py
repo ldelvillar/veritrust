@@ -29,6 +29,7 @@ def test_load_prompts_reads_packaged_yaml_with_all_agents():
         expert.verdict_uncertain,
         expert.closing_certain,
         expert.closing_uncertain,
+        expert.closing_mixed,
         expert.evidence_sources,
         expert.evidence_missing,
     ):

@@ -61,7 +61,7 @@ export default function DomainsCard({
                   className="shrink-0 rounded-full bg-surface px-2.75 py-1.25 text-xs font-bold text-ink"
                   title={
                     credibility === null
-                      ? 'Sin credibilidad: todos sus análisis son dudosos'
+                      ? 'Sin credibilidad: ninguno de sus análisis es verdadero ni falso'
                       : 'Credibilidad media'
                   }
                 >

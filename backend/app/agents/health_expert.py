@@ -65,12 +65,14 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     prompt = prompts.health_expert
     system_prompt = SystemMessage(content=prompt.text)
 
-    all_statements = "".join(
-        f"- Afirmacion: '{_neutralize_delimiters(claim.text)}'\n" for claim in claims
-    )
-
     # La postura de la literatura es la unica fuente del veredicto.
     verdict = decide(claims, state["evidence_search"])
+
+    # Cada afirmación con su veredicto: el informe debe decir cuáles son falsas.
+    all_statements = "".join(
+        f"- Afirmacion: '{_neutralize_delimiters(claim.text)}' (veredicto: {claim.label})\n"
+        for claim in verdict.claims
+    )
 
     evidence_block = _build_evidence_block(prompt, state.get("sources") or [])
 
@@ -83,7 +85,9 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
         verdict_line = prompt.verdict_certain.format(
             label=verdict.label, confidence=verdict.confidence * 100
         )
-        closing_line = prompt.closing_certain
+        closing_line = (
+            prompt.closing_mixed if verdict.kind == "mixed" else prompt.closing_certain
+        )
 
     # Construir el prompt para el LLM con todo el contexto.
     expert_message = HumanMessage(

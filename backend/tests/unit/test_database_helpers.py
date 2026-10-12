@@ -266,8 +266,8 @@ def test_sanitize_dashboard_params_clamps_values() -> None:
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:
-    assert dashboard_module._extract_kpis_values(None) == (0, None, 0, 0, 0, 0, 0.0)
-    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3, 0.62)) == (
+    assert dashboard_module._extract_kpis_values(None) == (0, None, 0, 0, 0, 0, 0.0, 0)
+    assert dashboard_module._extract_kpis_values((10, 0.83, 7, 4, 2, 3, 0.62, 1)) == (
         10,
         0.83,
         7,
@@ -275,13 +275,16 @@ def test_extract_kpis_values_handles_none_and_row_values() -> None:
         2,
         3,
         0.62,
+        1,
     )
 
 
 def test_extract_kpis_values_has_no_credibility_when_every_analysis_is_uncertain() -> (
     None
 ):
-    assert dashboard_module._extract_kpis_values((4, None, 0, 1, 0, 0, 0.5))[1] is None
+    assert (
+        dashboard_module._extract_kpis_values((4, None, 0, 1, 0, 0, 0.5, 0))[1] is None
+    )
 
 
 def test_credibility_percentage_keeps_a_missing_credibility_missing() -> None:
@@ -458,3 +461,13 @@ def test_build_alerts_maps_rows_to_alert_items() -> None:
     assert alerts[0].source_type == "url"
     assert alerts[0].confidence == 0.21
     assert alerts[0].created_at.startswith("2026-04-10")
+    assert (alerts[0].verdict, alerts[0].credibility) == ("fake", 79)
+
+
+def test_a_partly_false_alert_has_its_verdict_and_no_credibility() -> None:
+    created = datetime(2026, 4, 10, 15, 0, tzinfo=timezone.utc)
+    row = (7, "text", "Texto", None, "parcialmente falsa", 0.8, created)
+
+    (alert,) = dashboard_module._build_alerts([row])
+
+    assert (alert.verdict, alert.credibility) == ("mixed", None)

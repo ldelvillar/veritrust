@@ -190,7 +190,7 @@ export const ARTICLES = [
     category: 'Cómo leer un informe',
     title: 'Entender el veredicto verdadera o falsa',
     summary:
-      'El veredicto marca la dirección principal de la evidencia disponible; revisa la explicación cuando haya matices, excepciones o contexto clínico.',
+      'El veredicto marca la dirección principal de la evidencia disponible; si el texto mezcla afirmaciones falsas con otras respaldadas, es «parcialmente falso». Revisa el desglose por afirmación y la explicación cuando haya matices.',
     tags: ['Veredicto', 'Evidencia', 'Contexto'],
   },
   {

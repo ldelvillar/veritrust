@@ -114,11 +114,11 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             <FeaturedKpiCard
               label="Alertas detectadas"
               value={String(dashboard.kpis.active_alerts)}
-              sub="veredicto «falso»"
+              sub="falsos o parcialmente falsos"
               icon={<WarningIcon className="size-5.75" strokeWidth={2.2} />}
               tint="var(--color-verdict-fake-soft)"
               color="var(--color-verdict-fake-ink)"
-              hint="Número total de tus análisis con veredicto «falso» (contenido no fiable)."
+              hint="Número total de tus análisis con veredicto «falso» o «parcialmente falso» (contienen afirmaciones falsas)."
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   ? '—'
                   : `${dashboard.kpis.average_credibility}%`
               }
-              sub="excluye los dudosos"
+              sub="solo verdaderos y falsos"
               icon={<SparkleIcon className="size-4.75" />}
               tint="var(--color-primary-soft)"
               color="var(--color-primary)"

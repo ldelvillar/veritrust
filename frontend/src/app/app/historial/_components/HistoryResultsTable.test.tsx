@@ -72,4 +72,11 @@ describe('HistoryResultsTable', () => {
     expect(screen.getByText('Dudoso')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Credibilidad:/)).toBeNull();
   });
+
+  it('badges a mixed Verdict as "Parcialmente falso" with no Credibility gauge', () => {
+    renderRow(doneItem({ verdict: 'mixed', label: 'parcialmente falsa' }));
+
+    expect(screen.getByText('Parcialmente falso')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Credibilidad:/)).toBeNull();
+  });
 });

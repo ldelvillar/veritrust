@@ -6,7 +6,7 @@ from typing import Literal, Optional, get_args
 
 from app.core.claim import Claim, EvidenceSearch
 
-VerdictKind = Literal["real", "fake", "uncertain"]
+VerdictKind = Literal["real", "fake", "mixed", "uncertain"]
 
 # Vocabulario único de veredicto, reutilizado en validación y persistencia.
 VERDICT_KINDS: tuple[VerdictKind, ...] = get_args(VerdictKind)
@@ -17,6 +17,7 @@ ConfidenceLevel = Literal["high", "medium", "low"]
 _LABELS: dict[VerdictKind, str] = {
     "real": "verdadera",
     "fake": "falsa",
+    "mixed": "parcialmente falsa",
     "uncertain": "incierta",
 }
 _KINDS_BY_LABEL: dict[str, VerdictKind] = {
@@ -57,7 +58,7 @@ class Verdict:
     kind: VerdictKind
     # Confianza ya atenuada por la cobertura de evidencia.
     confidence: float
-    # Probabilidad media de falsedad que vio la banda, antes de atenuar.
+    # Probabilidad media de falsedad de las afirmaciones con evidencia, antes de atenuar.
     falsehood: float
     # None cuando un corte de las fuentes impidió medirla.
     evidence_coverage: Optional[float]
@@ -87,7 +88,7 @@ def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
 
     # Solo promedia las afirmaciones sobre las que la literatura se pronuncia.
     falsehood = sum(evidenced) / len(evidenced) if evidenced else 0.5
-    kind, confidence = _band(falsehood, bool(evidenced))
+    kind, confidence = _overall(claim_verdicts, falsehood, bool(evidenced))
     penalized_coverage, evidence_coverage = _coverage(search)
     return Verdict(
         kind=kind,
@@ -105,7 +106,7 @@ def kind_of(label: Optional[str]) -> VerdictKind:
 
 def credibility_of(kind: VerdictKind, confidence: Optional[float]) -> Optional[int]:
     """Devuelve la credibilidad como entero [0, 100], o ``None``."""
-    if confidence is None or kind == "uncertain":
+    if confidence is None or kind in ("uncertain", "mixed"):
         return None
     value = 1 - confidence if kind == "fake" else confidence
     return max(0, min(100, round(value * 100)))
@@ -122,10 +123,10 @@ def confidence_level_of(confidence: Optional[float]) -> Optional[ConfidenceLevel
     return "low"
 
 
-# La credibilidad [0, 1] de credibility_of() en SQL, para ordenar y agregar; incierto o sin confianza → NULL.
+# La credibilidad [0, 1] de credibility_of() en SQL, para ordenar y agregar; incierto, mixto o sin confianza → NULL.
 CREDIBILITY_SQL = (
     "CASE "
-    "WHEN confidence IS NULL OR verdict = 'uncertain' THEN NULL "
+    "WHEN confidence IS NULL OR verdict IN ('uncertain', 'mixed') THEN NULL "
     "WHEN verdict = 'fake' THEN 1 - confidence "
     "ELSE confidence "
     "END"
@@ -150,6 +151,22 @@ def _band(falsehood: float, has_evidence: bool) -> tuple[VerdictKind, float]:
     if falsehood < FAKE_THRESHOLD - UNCERTAINTY_MARGIN:
         return "real", 1.0 - falsehood
     return "uncertain", 1.0 - falsehood
+
+
+def _overall(
+    claims: Sequence[ClaimVerdict], falsehood: float, has_evidence: bool
+) -> tuple[VerdictKind, float]:
+    """Decide el veredicto global a partir del de cada afirmación: una verdadera nunca compensa una falsa."""
+    fake = [claim.confidence for claim in claims if claim.kind == "fake"]
+    real = [claim.confidence for claim in claims if claim.kind == "real"]
+    if fake and real:
+        # El aviso es por la afirmación falsa más sólida.
+        return "mixed", max(fake)
+    if fake:
+        return "fake", sum(fake) / len(fake)
+    if real:
+        return "real", sum(real) / len(real)
+    return _band(falsehood, has_evidence)
 
 
 def _coverage(search: EvidenceSearch) -> tuple[float, Optional[float]]:

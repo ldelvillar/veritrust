@@ -3,7 +3,7 @@
 [![CI](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml/badge.svg)](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**AI-powered medical misinformation detection.** Users submit a piece of health-related content — pasted text, a URL, or a document (PDF/TXT/MD) — and VeriTrust returns an evidence-grounded verdict: **Verdadero** (true), **Falso** (false), or **Dudoso** (uncertain), with a confidence score, a per-claim breakdown, the biomedical sources consulted, and a medical report explaining the verdict in plain Spanish.
+**AI-powered medical misinformation detection.** Users submit a piece of health-related content — pasted text, a URL, or a document (PDF/TXT/MD) — and VeriTrust returns an evidence-grounded verdict: **Verdadero** (true), **Falso** (false), **Parcialmente falso** (partly false), or **Dudoso** (uncertain), with a confidence score, a per-claim breakdown, the biomedical sources consulted, and a medical report explaining the verdict in plain Spanish.
 
 Health misinformation spreads faster than experts can debunk it. VeriTrust automates the first pass of that debunking: it extracts the verifiable medical claims from a text, cross-checks each one against real biomedical literature (Europe PMC, PubMed, openFDA, AEMPS CIMA), derives a verdict from the stance of that literature, and writes up the result — with the honesty to say *"Dudoso"* and lower its confidence when the literature is thin, contradictory, or silent.
 
@@ -57,14 +57,15 @@ flowchart TB
 | **Extractor** | `llama3` | Extracts the verifiable medical claims from the input text, plus an English boolean search query and the drug name (if any) for each claim. Structured output. |
 | **Translator** | `translategemma` | Translates all claims to clinical English in a single batched call — the literature sources work in English. |
 | **Investigator** | `ministral-3:14b`¹ | Queries Europe PMC, PubMed, and openFDA for every claim in parallel — plus AEMPS CIMA when the claim names a drug. An LLM judge filters the hits for relevance and tags each source's stance (*supports* / *contradicts*). Computes **evidence coverage**: the share of claims with relevant literature. |
-| **Health Expert** | `llama3.2` | Derives each claim's fake probability from the stance of the retrieved literature (Laplace-smoothed, so thin evidence never reaches certainty), and averages them into a three-way verdict — a band around the decision threshold maps to *uncertain*, and a claim no source speaks to is *uncertain* by construction, never *false*. Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
+| **Health Expert** | `llama3.2` | Derives each claim's fake probability from the stance of the retrieved literature (Laplace-smoothed, so thin evidence never reaches certainty), and bands each claim into true, false or *uncertain* — a band around the decision threshold maps to *uncertain*, and a claim no source speaks to is *uncertain* by construction, never *false*. The overall verdict follows from the claims' verdicts: true and false claims together make it *partly false*. Then it writes the medical report with `llama3.2`, grounded in the retrieved sources. |
 
 ¹ The `ministral-3:14b` judge needs ~11 GB loaded, ideally on a 16 GB GPU.
 
-Two guardrails temper the raw verdict (`app/core/verdict.py`):
+Three guardrails temper the raw verdict (`app/core/verdict.py`):
 
 - **Evidence attenuation** — confidence is scaled down when little of the input is covered by actual literature, so the system never sounds sure about claims nobody has studied.
 - **Silence is not falsehood** — a claim no retrieved source speaks to comes out *Dudoso* by construction, never *Falso*, and Laplace smoothing keeps thin evidence away from certainty.
+- **A truth never offsets a falsehood** — a hoax wrapped in true statements comes out *Parcialmente falso*, not *Verdadero* (ADR-0002).
 
 ### Product surface
 

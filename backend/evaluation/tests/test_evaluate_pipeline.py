@@ -226,6 +226,19 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
     assert rows[1]["confidence"] == 0.0
 
 
+def test_partly_false_counts_as_flagging_the_falsehood() -> None:
+    rows = [
+        _row("falsa", "parcialmente falsa"),  # tp: avisa de algo falso
+        _row(
+            "verdadera", "parcialmente falsa"
+        ),  # fp: una verdadera no contiene nada falso
+    ]
+    metrics = ep.compute_metrics(rows)
+
+    assert (metrics["tp"], metrics["fn"], metrics["fp"], metrics["tn"]) == (1, 0, 1, 0)
+    assert "Errores de clasificación (1)" in ep.format_report(metrics, rows)
+
+
 def test_format_report_lists_misclassifications() -> None:
     rows = [_row("falsa", "verdadera", 0.7), _row("verdadera", "verdadera")]
     metrics = ep.compute_metrics(rows)

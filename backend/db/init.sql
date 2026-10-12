@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS public.analysis_history (
     evidence_coverage DOUBLE PRECISION
                  CHECK (evidence_coverage IS NULL OR (evidence_coverage >= 0.0 AND evidence_coverage <= 1.0)),
     explanation  TEXT,
-    -- Verdict bucket (real/fake/uncertain) derived from label at completion; NULL while pending/failed.
-    verdict      TEXT CHECK (verdict IS NULL OR verdict IN ('real', 'fake', 'uncertain')),
+    -- Verdict bucket (real/fake/mixed/uncertain) derived from label at completion; NULL while pending/failed.
+    verdict      TEXT CHECK (verdict IS NULL OR verdict IN ('real', 'fake', 'mixed', 'uncertain')),
     -- Per-claim verdicts ([{text, label, confidence}, ...]); NULL while pending.
     claims       JSONB,
     -- Retrieved biomedical sources ([{title, url, source, year, statements}, ...]); NULL while pending.
@@ -59,10 +59,10 @@ CREATE TABLE IF NOT EXISTS public.analysis_feedback (
     user_id           TEXT NOT NULL,
     is_correct        BOOLEAN NOT NULL,
     -- Veredicto que el usuario considera correcto; solo cuando is_correct = false.
-    suggested_verdict TEXT CHECK (suggested_verdict IS NULL OR suggested_verdict IN ('real', 'fake', 'uncertain')),
+    suggested_verdict TEXT CHECK (suggested_verdict IS NULL OR suggested_verdict IN ('real', 'fake', 'mixed', 'uncertain')),
     comment           TEXT,
     -- Snapshot de lo valorado; sobrevive a un re-análisis que sobrescribe la fila.
-    verdict_snapshot  TEXT NOT NULL CHECK (verdict_snapshot IN ('real', 'fake', 'uncertain')),
+    verdict_snapshot  TEXT NOT NULL CHECK (verdict_snapshot IN ('real', 'fake', 'mixed', 'uncertain')),
     label_snapshot    TEXT,
     -- Configuración del resultado valorado; sobrevive a un re-análisis con otra configuración.
     pipeline_snapshot JSONB,

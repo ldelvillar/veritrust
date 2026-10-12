@@ -369,7 +369,7 @@ export interface components {
             /** Is Correct */
             is_correct: boolean;
             /** Suggested Verdict */
-            suggested_verdict?: ("real" | "fake" | "uncertain") | null;
+            suggested_verdict?: ("real" | "fake" | "mixed" | "uncertain") | null;
             /** Comment */
             comment?: string | null;
             /** Created At */
@@ -427,10 +427,10 @@ export interface components {
             feedback?: components["schemas"]["AnalysisFeedback"] | null;
             /**
              * Verdict
-             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @description Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta.
              * @enum {string}
              */
-            readonly verdict: "real" | "fake" | "uncertain";
+            readonly verdict: "real" | "fake" | "mixed" | "uncertain";
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -503,10 +503,10 @@ export interface components {
             confidence: number;
             /**
              * Verdict
-             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @description Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta.
              * @enum {string}
              */
-            readonly verdict: "real" | "fake" | "uncertain";
+            readonly verdict: "real" | "fake" | "mixed" | "uncertain";
         };
         /**
          * ClientConfig
@@ -574,6 +574,12 @@ export interface components {
             confidence: number;
             /** Created At */
             created_at: string;
+            /**
+             * Verdict
+             * @description Bucket del veredicto (`fake` o `mixed`) derivado de la etiqueta.
+             * @enum {string}
+             */
+            readonly verdict: "real" | "fake" | "mixed" | "uncertain";
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -653,13 +659,15 @@ export interface components {
         };
         /**
          * DashboardVerdictDistribution
-         * @description Reparto de análisis completados por veredicto (real/uncertain/fake).
+         * @description Reparto de análisis completados por veredicto (real/uncertain/mixed/fake).
          */
         DashboardVerdictDistribution: {
             /** Real */
             real: number;
             /** Uncertain */
             uncertain: number;
+            /** Mixed */
+            mixed: number;
             /** Fake */
             fake: number;
         };
@@ -703,7 +711,7 @@ export interface components {
             /** Is Correct */
             is_correct: boolean;
             /** Suggested Verdict */
-            suggested_verdict?: ("real" | "fake" | "uncertain") | null;
+            suggested_verdict?: ("real" | "fake" | "mixed" | "uncertain") | null;
             /** Comment */
             comment?: string | null;
         };
@@ -757,10 +765,10 @@ export interface components {
             stage?: ("preparing" | "extractor" | "translator" | "investigator" | "health_expert") | null;
             /**
              * Verdict
-             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @description Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta.
              * @enum {string}
              */
-            readonly verdict: "real" | "fake" | "uncertain";
+            readonly verdict: "real" | "fake" | "mixed" | "uncertain";
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -800,6 +808,8 @@ export interface components {
             real: number;
             /** Fake */
             fake: number;
+            /** Mixed */
+            mixed: number;
             /** Uncertain */
             uncertain: number;
         };
@@ -849,10 +859,10 @@ export interface components {
             sources?: components["schemas"]["SourceItem"][] | null;
             /**
              * Verdict
-             * @description Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta.
+             * @description Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta.
              * @enum {string}
              */
-            readonly verdict: "real" | "fake" | "uncertain";
+            readonly verdict: "real" | "fake" | "mixed" | "uncertain";
             /**
              * Credibility
              * @description Credibilidad [0, 100] derivada del veredicto y la confianza.
@@ -1905,7 +1915,7 @@ export interface operations {
                 page_size?: number;
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
-                verdict?: "all" | "real" | "fake" | "uncertain";
+                verdict?: "all" | "real" | "fake" | "mixed" | "uncertain";
                 status?: "all" | "pending" | "done" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";
@@ -2086,7 +2096,7 @@ export interface operations {
             query?: {
                 search?: string | null;
                 source_type?: "all" | "text" | "file" | "url";
-                verdict?: "all" | "real" | "fake" | "uncertain";
+                verdict?: "all" | "real" | "fake" | "mixed" | "uncertain";
                 status?: "all" | "pending" | "done" | "failed";
                 date_range?: "all" | "7d" | "30d" | "90d";
                 sort?: "recent" | "oldest" | "credibility_high" | "credibility_low";

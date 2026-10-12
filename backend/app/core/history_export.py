@@ -14,7 +14,12 @@ _UTF8_BOM = "﻿"
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
 # Vocabulario único del producto: VERDICT_LABEL en analysis-result/format.ts.
-_EXPORT_VERDICT_LABELS = {"real": "Verdadero", "fake": "Falso", "uncertain": "Dudoso"}
+_EXPORT_VERDICT_LABELS = {
+    "real": "Verdadero",
+    "fake": "Falso",
+    "mixed": "Parcialmente falso",
+    "uncertain": "Dudoso",
+}
 _EXPORT_SOURCE_LABELS = {
     "text": "Texto pegado",
     "file": "Carga de archivo",

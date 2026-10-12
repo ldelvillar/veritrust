@@ -29,6 +29,13 @@ export const VERDICT_META: Record<
     ink: 'text-verdict-uncertain-ink',
     pill: 'bg-verdict-uncertain-soft text-verdict-uncertain-ink',
   },
+  mixed: {
+    label: 'Parcialmente falso',
+    solid: 'bg-verdict-mixed',
+    soft: 'bg-verdict-mixed-soft',
+    ink: 'text-verdict-mixed-ink',
+    pill: 'bg-verdict-mixed-soft text-verdict-mixed-ink',
+  },
 };
 
 // Vocabulario único de veredicto para todo el producto
@@ -36,6 +43,7 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   real: VERDICT_META.real.label,
   fake: VERDICT_META.fake.label,
   uncertain: VERDICT_META.uncertain.label,
+  mixed: VERDICT_META.mixed.label,
 };
 
 export function getVerdictInfo(verdict: Verdict): {
@@ -57,6 +65,14 @@ export function getVerdictInfo(verdict: Verdict): {
       description:
         'El contenido contiene afirmaciones que contradicen o no pueden ser verificadas con fuentes médicas reconocidas.',
       band: 'linear-gradient(135deg,#e2607a,#d23c5d 70%,#c33051)',
+    };
+  }
+  if (verdict === 'mixed') {
+    return {
+      text: `Contenido ${VERDICT_LABEL.mixed.toLowerCase()}`,
+      description:
+        'El contenido mezcla afirmaciones respaldadas por fuentes médicas con otras que estas contradicen. Revisa el desglose para ver cuáles son falsas.',
+      band: 'linear-gradient(135deg,#ee8c4f,#db6a28 70%,#c95d1f)',
     };
   }
   return {

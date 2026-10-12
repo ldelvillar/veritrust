@@ -67,15 +67,19 @@ Whether a Source supports a Claim, contradicts it, or does not settle it.
 _Avoid_: position, polarity
 
 **Verdict**:
-The conclusion on a Claim or on a whole Analysis: true, false or uncertain, decided only from the Stances of the Sources its report shows, and never by the language model.
+The conclusion on a Claim (true, false or uncertain) or on a whole Analysis (true, false, partly false or uncertain), decided only from the Stances of the Sources its report shows, and never by the language model. An Analysis's Verdict follows from its Claims' Verdicts.
 _Avoid_: label, bucket, prediction
+
+**Partly false**:
+The Verdict of an Analysis whose Claims include at least one false and at least one true Claim; a true Claim never offsets a false one.
+_Avoid_: misleading, half true, mixed content
 
 **Confidence**:
 How strongly the Stances back the Verdict, from 0 to 1, reduced when Evidence coverage is low.
 _Avoid_: certainty, probability
 
 **Credibility**:
-How likely the content is to be true, from 0 to 100, following from the Verdict and its Confidence; an uncertain Verdict has none.
+How likely the content is to be true, from 0 to 100, following from the Verdict and its Confidence; an uncertain or partly false Verdict has none.
 _Avoid_: truth score, trust score
 
 **Evidence coverage**:

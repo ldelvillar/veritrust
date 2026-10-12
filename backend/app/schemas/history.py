@@ -34,7 +34,7 @@ class ClaimItem(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def verdict(self) -> VerdictKind:
-        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        """Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta."""
         return kind_of(self.label)
 
 
@@ -80,7 +80,7 @@ class HistoryListItem(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def verdict(self) -> VerdictKind:
-        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        """Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta."""
         return kind_of(self.label)
 
     @computed_field  # type: ignore[prop-decorator]
@@ -136,7 +136,7 @@ class PublicAnalysisReport(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def verdict(self) -> VerdictKind:
-        """Bucket del veredicto (`real`/`fake`/`uncertain`) derivado de la etiqueta."""
+        """Bucket del veredicto (`real`/`fake`/`mixed`/`uncertain`) derivado de la etiqueta."""
         return kind_of(self.label)
 
     @computed_field  # type: ignore[prop-decorator]
@@ -184,6 +184,7 @@ class HistoryVerdictCounts(BaseModel):
     total: int
     real: int
     fake: int
+    mixed: int
     uncertain: int
 
 

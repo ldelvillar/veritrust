@@ -12,7 +12,7 @@ import type { ResultType, Verdict } from './types';
 
 type Feedback = NonNullable<ResultType['feedback']>;
 
-const VERDICT_OPTIONS: Verdict[] = ['real', 'fake', 'uncertain'];
+const VERDICT_OPTIONS: Verdict[] = ['real', 'fake', 'mixed', 'uncertain'];
 
 interface FeedbackCardProps {
   analysisId: string;

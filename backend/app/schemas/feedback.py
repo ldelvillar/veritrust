@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-SuggestedVerdict = Literal["real", "fake", "uncertain"]
+SuggestedVerdict = Literal["real", "fake", "mixed", "uncertain"]
 
 
 class FeedbackRequest(BaseModel):

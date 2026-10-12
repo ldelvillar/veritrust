@@ -39,7 +39,7 @@ interface HistoryResultsTableProps {
   onClearFilters: () => void;
 }
 
-type Tone = 'ok' | 'warn' | 'bad';
+type Tone = 'ok' | 'warn' | 'partial' | 'bad';
 
 const TONE_CONFIG = {
   ok: {
@@ -55,6 +55,13 @@ const TONE_CONFIG = {
     textColor: 'var(--color-verdict-uncertain-ink)',
     bgColor: 'var(--color-verdict-uncertain-soft)',
     label: VERDICT_LABEL.uncertain,
+  },
+  partial: {
+    rail: 'linear-gradient(180deg,var(--color-verdict-mixed-g1),var(--color-verdict-mixed-g2))',
+    ring: 'var(--color-verdict-mixed)',
+    textColor: 'var(--color-verdict-mixed-ink)',
+    bgColor: 'var(--color-verdict-mixed-soft)',
+    label: VERDICT_LABEL.mixed,
   },
   bad: {
     rail: 'linear-gradient(180deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
@@ -117,6 +124,7 @@ const STATUS_BADGES = {
 const TONE_BY_VERDICT = {
   real: 'ok',
   uncertain: 'warn',
+  mixed: 'partial',
   fake: 'bad',
 } as const satisfies Record<HistoryItem['verdict'], Tone>;
 

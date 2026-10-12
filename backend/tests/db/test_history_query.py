@@ -54,9 +54,10 @@ async def _search(page: int = 1, page_size: int = 100, **filters) -> HistoryPage
 
 
 async def _seed_mixed_history() -> None:
-    """Dos falsas, una verdadera y una incierta terminadas, más una en curso y una fallida."""
+    """Dos falsas, una parcialmente falsa, una verdadera y una incierta terminadas, más una en curso y una fallida."""
     await _done("Texto uno que resulta falso", "falsa")
     await _done("Texto dos que resulta falso", "falsa")
+    await _done("Texto que mezcla lo falso con lo cierto", "parcialmente falsa")
     await _done("Texto que resulta verdadero", "verdadera")
     await _done("Texto que queda incierto", "incierta")
     await _pending("Texto que sigue en cola")
@@ -74,13 +75,14 @@ async def test_the_verdict_facet_keeps_the_status_filter(db_pool):
         "total": 1,
         "real": 0,
         "fake": 0,
+        "mixed": 0,
         "uncertain": 0,
     }
 
 
 @pytest.mark.parametrize(
     ("verdict", "expected_total"),
-    [("all", 6), ("real", 1), ("fake", 2), ("uncertain", 1)],
+    [("all", 7), ("real", 1), ("fake", 2), ("mixed", 1), ("uncertain", 1)],
 )
 async def test_the_total_is_the_facet_cell_of_the_verdict_filter(
     db_pool, verdict, expected_total
@@ -92,9 +94,10 @@ async def test_the_total_is_the_facet_cell_of_the_verdict_filter(
 
     assert page.total == len(page.items) == expected_total
     assert page.verdict_counts.model_dump() == {
-        "total": 6,
+        "total": 7,
         "real": 1,
         "fake": 2,
+        "mixed": 1,
         "uncertain": 1,
     }
 
@@ -116,7 +119,7 @@ async def test_export_keeps_the_status_filter_and_only_done_rows(db_pool):
         await export_history(user_id=USER, query=HistoryQuery(status="pending")) == []
     )
     done = await export_history(user_id=USER, query=HistoryQuery(status="done"))
-    assert len(done) == 4
+    assert len(done) == 5
     fake = await export_history(user_id=USER, query=HistoryQuery(verdict="fake"))
     assert [record.label for record in fake] == ["falsa", "falsa"]
 

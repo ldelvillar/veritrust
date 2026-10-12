@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
-from app.core.verdict import credibility_of, kind_of
+from app.core.verdict import VerdictKind, credibility_of, kind_of
 from app.schemas.analysis import SourceType
 
 
@@ -62,16 +62,23 @@ class DashboardAlertItem(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def verdict(self) -> VerdictKind:
+        """Bucket del veredicto (`fake` o `mixed`) derivado de la etiqueta."""
+        return kind_of(self.label)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def credibility(self) -> Optional[int]:
         """Credibilidad [0, 100] derivada del veredicto y la confianza."""
-        return credibility_of(kind_of(self.label), self.confidence)
+        return credibility_of(self.verdict, self.confidence)
 
 
 class DashboardVerdictDistribution(BaseModel):
-    """Reparto de análisis completados por veredicto (real/uncertain/fake)."""
+    """Reparto de análisis completados por veredicto (real/uncertain/mixed/fake)."""
 
     real: int
     uncertain: int
+    mixed: int
     fake: int
 
 

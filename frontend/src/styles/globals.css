@@ -43,13 +43,16 @@
   /* Fondo de sección oscura de marca */
   --color-ink-deep: #0a2b2e;
 
-  /* Veredicto: verde (verdadero), ámbar (dudoso), rojo (falso) — sólido, fondo suave y tinta */
+  /* Veredicto: verde (verdadero), ámbar (dudoso), coral (parcialmente falso), rojo (falso) — sólido, fondo suave y tinta */
   --color-verdict-real: #13b877;
   --color-verdict-real-soft: #def4ea;
   --color-verdict-real-ink: #0e8e5b;
   --color-verdict-uncertain: #e0a13b;
   --color-verdict-uncertain-soft: #fbefda;
   --color-verdict-uncertain-ink: #b07a16;
+  --color-verdict-mixed: #ea7d3c;
+  --color-verdict-mixed-soft: #fdeadd;
+  --color-verdict-mixed-ink: #a8501a;
   --color-verdict-fake: #e0556b;
   --color-verdict-fake-soft: #fbe4e8;
   --color-verdict-fake-ink: #c23552;
@@ -76,6 +79,8 @@
   --color-verdict-real-g2: #10a566;
   --color-verdict-uncertain-g1: #e8b057;
   --color-verdict-uncertain-g2: #d98e29;
+  --color-verdict-mixed-g1: #ee8c4f;
+  --color-verdict-mixed-g2: #db6a28;
   --color-verdict-fake-g1: #e2607a;
   --color-verdict-fake-g2: #d23c5d;
 

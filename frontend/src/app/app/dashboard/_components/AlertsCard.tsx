@@ -3,17 +3,33 @@ import ArrowRightIcon from '@/assets/ArrowRight';
 import { VERDICT_LABEL } from '@/components/analysis-result/format';
 import type { DashboardAlertItem } from './types';
 
-// Las alertas ya vienen filtradas por el backend a veredicto 'fake', así que todas se pintan como falsas.
-const ALERT_STYLE = {
-  card: {
-    background: 'var(--color-verdict-fake-soft)',
-    borderColor: 'var(--color-verdict-fake-soft)',
+// Las alertas llegan filtradas por el backend a 'fake' o 'mixed'; cada una se pinta con su veredicto.
+const ALERT_STYLES = {
+  fake: {
+    card: {
+      background: 'var(--color-verdict-fake-soft)',
+      borderColor: 'var(--color-verdict-fake-soft)',
+    },
+    score:
+      'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
+    verdict: {
+      color: 'var(--color-verdict-fake-ink)',
+      background: 'var(--color-verdict-fake-soft)',
+    },
+    label: VERDICT_LABEL.fake,
   },
-  score:
-    'linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))',
-  verdict: {
-    color: 'var(--color-verdict-fake-ink)',
-    background: 'var(--color-verdict-fake-soft)',
+  mixed: {
+    card: {
+      background: 'var(--color-verdict-mixed-soft)',
+      borderColor: 'var(--color-verdict-mixed-soft)',
+    },
+    score:
+      'linear-gradient(150deg,var(--color-verdict-mixed-g1),var(--color-verdict-mixed-g2))',
+    verdict: {
+      color: 'var(--color-verdict-mixed-ink)',
+      background: 'var(--color-verdict-mixed-soft)',
+    },
+    label: VERDICT_LABEL.mixed,
   },
 };
 
@@ -38,7 +54,7 @@ export default function AlertsCard({
             Alertas recientes
           </h2>
           <p className="mt-1 text-sm leading-snug text-muted">
-            Últimos análisis con baja credibilidad detectada.
+            Últimos análisis en los que se detectaron afirmaciones falsas.
           </p>
         </div>
         {total > 0 && (
@@ -56,7 +72,10 @@ export default function AlertsCard({
         <>
           <div className="flex flex-col gap-3">
             {items.map(item => {
-              const score = item.credibility ?? 0;
+              const style =
+                item.verdict === 'mixed'
+                  ? ALERT_STYLES.mixed
+                  : ALERT_STYLES.fake;
               const date = new Date(item.created_at).toLocaleString('es-ES', {
                 day: 'numeric',
                 month: 'short',
@@ -68,18 +87,20 @@ export default function AlertsCard({
                   key={item.id}
                   href={`/app/analisis/${item.id}`}
                   className="group flex items-start gap-3.5 rounded-xl border p-4.25 transition-all duration-150 hover:shadow-sm"
-                  style={ALERT_STYLE.card}
+                  style={style.card}
                 >
                   <div
                     className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl text-white"
-                    style={{ background: ALERT_STYLE.score }}
+                    style={{ background: style.score }}
                   >
                     <span className="text-lg leading-none font-bold">
-                      {score}
+                      {item.credibility ?? '—'}
                     </span>
-                    <span className="mt-0.5 text-2xs font-semibold opacity-85">
-                      /100
-                    </span>
+                    {item.credibility !== null && (
+                      <span className="mt-0.5 text-2xs font-semibold opacity-85">
+                        /100
+                      </span>
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -89,9 +110,9 @@ export default function AlertsCard({
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
                       <span
                         className="rounded-md px-2.25 py-0.75 text-2xs font-bold tracking-[.05em] uppercase"
-                        style={ALERT_STYLE.verdict}
+                        style={style.verdict}
                       >
-                        {VERDICT_LABEL.fake}
+                        {style.label}
                       </span>
                       <span className="text-xs font-semibold text-muted">
                         {date}
@@ -107,12 +128,18 @@ export default function AlertsCard({
             })}
           </div>
 
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2">
             <Link
               href="/app/historial?verdict=fake"
               className="inline-flex items-center gap-2 text-sm font-semibold text-accent"
             >
-              Ver todas las alertas{' '}
+              Ver falsos <ArrowRightIcon className="size-4" strokeWidth={2.1} />
+            </Link>
+            <Link
+              href="/app/historial?verdict=mixed"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-accent"
+            >
+              Ver parcialmente falsos{' '}
               <ArrowRightIcon className="size-4" strokeWidth={2.1} />
             </Link>
           </div>

@@ -1157,7 +1157,9 @@ def test_historial_returns_user_history(monkeypatch):
         return HistoryPage(
             items=[types.SimpleNamespace(**row) for row in history_rows],
             total=12,
-            verdict_counts=HistoryVerdictCounts(total=12, real=3, fake=8, uncertain=1),
+            verdict_counts=HistoryVerdictCounts(
+                total=12, real=3, fake=6, mixed=2, uncertain=1
+            ),
         )
 
     monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
@@ -1189,7 +1191,8 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["verdict_counts"] == {
         "total": 12,
         "real": 3,
-        "fake": 8,
+        "fake": 6,
+        "mixed": 2,
         "uncertain": 1,
     }
 
@@ -1203,7 +1206,9 @@ def test_historial_forwards_status_filter(monkeypatch):
         return HistoryPage(
             items=[],
             total=0,
-            verdict_counts=HistoryVerdictCounts(total=0, real=0, fake=0, uncertain=0),
+            verdict_counts=HistoryVerdictCounts(
+                total=0, real=0, fake=0, mixed=0, uncertain=0
+            ),
         )
 
     monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
@@ -1259,7 +1264,8 @@ def test_dashboard_summary_returns_summary(monkeypatch):
         verdict_distribution=types.SimpleNamespace(
             real=10,
             uncertain=6,
-            fake=7,
+            mixed=2,
+            fake=5,
         ),
         trend=[
             types.SimpleNamespace(
@@ -1313,7 +1319,12 @@ def test_dashboard_summary_returns_summary(monkeypatch):
     assert body["kpis"]["total_analyses"] == 23
     assert body["kpis"]["active_alerts"] == 7
     assert body["kpis"]["average_evidence_coverage"] == 61.0
-    assert body["verdict_distribution"] == {"real": 10, "uncertain": 6, "fake": 7}
+    assert body["verdict_distribution"] == {
+        "real": 10,
+        "uncertain": 6,
+        "mixed": 2,
+        "fake": 5,
+    }
     assert body["trend"][0]["date"] == "2026-04-10"
     assert body["source_breakdown"][0]["source_type"] == "url"
     assert body["domain_breakdown"][0]["domain"] == "ejemplo.com"
@@ -1535,7 +1546,9 @@ def test_dashboard_summary_forwards_trend_days(monkeypatch):
                 active_alerts=0,
                 average_evidence_coverage=0.0,
             ),
-            verdict_distribution=types.SimpleNamespace(real=0, uncertain=0, fake=0),
+            verdict_distribution=types.SimpleNamespace(
+                real=0, uncertain=0, mixed=0, fake=0
+            ),
             trend=[],
             source_breakdown=[],
             domain_breakdown=[],

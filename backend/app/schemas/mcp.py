@@ -26,7 +26,7 @@ class VerificationResult(BaseModel):
     )
     label: Optional[str] = Field(
         default=None,
-        description="Overall label in Spanish: falsa, incierta or verdadera.",
+        description="Overall label in Spanish: falsa, parcialmente falsa, incierta or verdadera.",
     )
     verdict: Optional[VerdictKind] = None
     confidence: Optional[float] = Field(

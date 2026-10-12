@@ -820,6 +820,25 @@ del 2026-09-30 (Ollama, un campo por fuente), sobre los mismos casos:
   jueces, no el 93.5%.
 - Coste: ~0.07 € por corrida de 95 casos con la API de Mistral.
 
+## Veredicto global por afirmaciones: «parcialmente falsa» (2026-10-12) — adoptado
+
+Corrección del veredicto global, no del juez. La media de falsedad de las afirmaciones
+con evidencia deja que una verdadera bien respaldada compense una falsa. Con Mistral
+Small, la cadena «beber lejía diluida elimina el virus» + «la sobredosis de paracetamol
+causa daño hepático» sale **verdadera**: lejía falsa (0.67), paracetamol verdadera
+(0.17, cuatro `supports`), media 0.42. Otra cadena con homeopatía refutada y dos
+verdades, igual. El conjunto dorado de una afirmación no puede verlo: con una sola, la
+media es esa afirmación.
+
+Ahora el veredicto global sale del de cada afirmación (ADR-0002): falsas y verdaderas a
+la vez dan `parcialmente falsa`, con la confianza de la falsa más sólida. Los resultados
+de una afirmación no cambian. En `evaluation.evaluate_pipeline`, `parcialmente falsa`
+cuenta como aviso de falsedad (positivo), como `falsa`. Una fila del dorado que el
+extractor parte en dos afirmaciones puede darla.
+
+Pendiente: un conjunto de varias afirmaciones (15–20 textos con sus afirmaciones clave y
+el veredicto global esperado) para medir esta regla y el recorte del extractor.
+
 ## No volver a intentar
 
 - **Cambiar de modelo base con entrada solo-claim**: cuatro arquitecturas convergen en

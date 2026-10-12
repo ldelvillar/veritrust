@@ -434,6 +434,52 @@ def test_health_expert_uncertain_prompt_does_not_assert_a_verdict(
     assert "INCIERTO" in human
 
 
+def test_health_expert_mixed_report_names_which_claims_are_false(
+    monkeypatch, health_module, dummy_prompts
+):
+    captured = {}
+    _stub_health_llm(monkeypatch, health_module, captured)
+    claims = [
+        Claim(
+            index=index,
+            text=text,
+            text_en=text,
+            query='"q"',
+            outcome="judged",
+            evidence=tuple(
+                Evidence(
+                    title=f"Fuente {i} sobre {text}",
+                    url=f"https://doi.org/10.1/{text}-{i}",
+                    stance=stance,
+                )
+                for i in range(3)
+            ),
+        )
+        for index, (text, stance) in enumerate(
+            [("S1", "contradicts"), ("S2", "supports")]
+        )
+    ]
+
+    update = health_module.health_expert(
+        {
+            "shown_claims": claims,
+            "sources": source_records(claims),
+            "evidence_search": EvidenceSearch(
+                total=2, searched=2, covered=2, outage=False
+            ),
+        },
+        dummy_prompts,
+    )
+
+    human = captured["human"]
+    assert update["verdict"].kind == "mixed"
+    assert "La noticia es parcialmente falsa con una seguridad del 80.00%" in human
+    # El informe sabe qué afirmación es falsa y cuál se sostiene.
+    assert "'S1' (veredicto: falsa)" in human
+    assert "'S2' (veredicto: verdadera)" in human
+    assert dummy_prompts.health_expert.closing_mixed in human
+
+
 def test_health_expert_returns_empty_explanation_when_no_statements(
     monkeypatch, health_module, dummy_prompts
 ):

@@ -70,8 +70,9 @@ _INSTRUCTIONS = (
 _VERIFY_DESCRIPTION = (
     "Run VeriTrust's full fact-checking pipeline on a medical text or web page URL: "
     "extract the medical claims, search the literature for each one, and return an "
-    "overall label (falsa/incierta/verdadera), confidence, per-claim verdicts, cited "
-    "sources, and an expert explanation in Spanish. Pass exactly one of text or url. "
+    "overall label (falsa/parcialmente falsa/incierta/verdadera), confidence, "
+    "per-claim verdicts, cited sources, and an expert explanation in Spanish. "
+    "Pass exactly one of text or url. "
     "The analysis takes minutes and is saved to the user's VeriTrust history; if it "
     "is still running when this call returns, status is 'pending' and you should call "
     "get_verification with the analysis_id."

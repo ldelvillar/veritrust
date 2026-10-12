@@ -25,6 +25,7 @@ class HealthExpertPrompt(PromptItem):
     verdict_uncertain: str
     closing_certain: str
     closing_uncertain: str
+    closing_mixed: str
     evidence_sources: str
     evidence_missing: str
 

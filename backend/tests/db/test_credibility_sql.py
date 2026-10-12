@@ -17,7 +17,7 @@ async def _analysis(text: str) -> str:
 
 async def test_sql_credibility_matches_the_python_rule_row_by_row(db_pool):
     expected: dict[str, int | None] = {}
-    for label in ("verdadera", "falsa", "incierta"):
+    for label in ("verdadera", "falsa", "parcialmente falsa", "incierta"):
         for confidence in (0.0, 0.25, 0.5, 0.555, 0.75, 1.0):
             analysis_id = await _analysis(f"Afirmación {label} {confidence}")
             await seed_done(

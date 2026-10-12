@@ -18,6 +18,11 @@ const STAT_CARDS = [
     verdictValue: 'uncertain' as VerdictFilter,
   },
   {
+    toneKey: 'partial',
+    label: 'Parcialmente falsos',
+    verdictValue: 'mixed' as VerdictFilter,
+  },
+  {
     toneKey: 'bad',
     label: 'Falsos',
     verdictValue: 'fake' as VerdictFilter,
@@ -40,6 +45,11 @@ const STAT_TONE_STYLES = {
     barStyle: 'var(--color-verdict-uncertain)',
     ringColor: 'var(--color-verdict-uncertain)',
   },
+  partial: {
+    numClass: 'text-verdict-mixed-ink',
+    barStyle: 'var(--color-verdict-mixed)',
+    ringColor: 'var(--color-verdict-mixed)',
+  },
   bad: {
     numClass: 'text-verdict-fake-ink',
     barStyle: 'var(--color-verdict-fake)',
@@ -52,6 +62,7 @@ const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
   all: 'total',
   real: 'real',
   uncertain: 'uncertain',
+  mixed: 'mixed',
   fake: 'fake',
 };
 
@@ -68,7 +79,7 @@ export default function HistoryStatCards({
   onSelect,
 }: HistoryStatCardsProps) {
   return (
-    <div className="mb-5.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+    <div className="mb-5.5 grid grid-cols-2 gap-3.5 lg:grid-cols-5">
       {STAT_CARDS.map(card => {
         const isActive = verdictFilter === card.verdictValue;
         const styles =
@@ -85,7 +96,7 @@ export default function HistoryStatCards({
             aria-pressed={isActive}
             className={`relative overflow-hidden rounded-2xl border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
               isActive ? 'border-transparent' : 'border-line'
-            }`}
+            } ${card.verdictValue === 'all' ? 'col-span-2 lg:col-span-1' : ''}`}
             style={
               isActive
                 ? {

@@ -123,6 +123,58 @@ def test_claims_the_literature_ignores_do_not_dilute_the_verdict() -> None:
     assert verdict.claims[1].kind == "uncertain"
 
 
+def test_a_true_claim_never_offsets_a_false_one() -> None:
+    # Un bulo envuelto en una verdad: lejía refutada por una fuente, paracetamol respaldado por cuatro.
+    claims = [_claim(contradicts=1, index=0), _claim(supports=4, index=1)]
+
+    verdict = decide(claims, _full(2))
+
+    # La media (0.67 + 0.17) / 2 = 0.42 lo daría por verdadero; es parcialmente falso.
+    assert verdict.kind == "mixed"
+    assert verdict.falsehood == pytest.approx(5 / 12)
+    assert [c.kind for c in verdict.claims] == ["fake", "real"]
+
+
+def test_partly_false_confidence_is_the_strongest_false_claim() -> None:
+    claims = [
+        _claim(contradicts=1, index=0),
+        _claim(contradicts=3, index=1),
+        _claim(supports=3, index=2),
+    ]
+
+    verdict = decide(claims, _full(3))
+
+    assert (verdict.kind, verdict.confidence) == ("mixed", pytest.approx(0.8))
+
+
+@pytest.mark.parametrize(
+    ("firm", "neutral", "kind", "confidence"),
+    [
+        # Falsa (12/21) junto a una incierta (0.45): la media 0.51 caería en la banda neutra.
+        ((8, 11), (10, 8), "fake", 12 / 21),
+        # Verdadera (falsedad 9/21) junto a una incierta (0.55): la media 0.49 también.
+        ((11, 8), (8, 10), "real", 12 / 21),
+    ],
+)
+def test_uncertain_claims_with_evidence_do_not_move_a_firm_verdict(
+    firm, neutral, kind, confidence
+) -> None:
+    claims = [_claim(*firm), _claim(*neutral, index=1, text="S2")]
+
+    verdict = decide(claims, _full(2))
+
+    assert (verdict.kind, verdict.confidence) == (kind, pytest.approx(confidence))
+
+
+def test_only_uncertain_claims_keep_the_analysis_uncertain() -> None:
+    claims = [_claim(supports=1, contradicts=1), _claim(10, 8, index=1, text="S2")]
+
+    verdict = decide(claims, _full(2))
+
+    # Falsedades 0.5 y 0.45: su media 0.475 sigue en la banda neutra.
+    assert (verdict.kind, verdict.confidence) == ("uncertain", pytest.approx(0.525))
+
+
 @pytest.mark.parametrize(
     ("search", "coverage", "confidence"),
     [
@@ -178,6 +230,13 @@ def test_the_spanish_label_follows_the_verdict(contradicts, supports, label) -> 
     assert kind_of(label) == verdict.kind
 
 
+def test_the_partly_false_label_reads_back_as_mixed() -> None:
+    verdict = decide([_claim(contradicts=3), _claim(supports=3, index=1)], _full(2))
+
+    assert verdict.label == "parcialmente falsa"
+    assert kind_of(verdict.label) == "mixed"
+
+
 @pytest.mark.parametrize("label", ["", None, "Falsa", "true", "fake", "dudosa"])
 def test_an_unknown_stored_label_reads_as_uncertain(label) -> None:
     assert kind_of(label) == "uncertain"
@@ -191,6 +250,8 @@ def test_an_unknown_stored_label_reads_as_uncertain(label) -> None:
         ("fake", 0.85, 15),
         # Un veredicto incierto no tiene credibilidad bien definida aunque haya confianza.
         ("uncertain", 0.6, None),
+        # Un contenido parcialmente falso tampoco: un único número no describe la mezcla.
+        ("mixed", 0.8, None),
         ("real", None, None),
         # Fuera de rango se acota a [0, 100].
         ("fake", -0.2, 100),

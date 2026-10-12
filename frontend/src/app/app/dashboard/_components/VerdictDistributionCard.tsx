@@ -6,6 +6,7 @@ import type { DashboardPayload } from './types';
 const VERDICT_SEGMENTS: { key: Verdict; label: string }[] = [
   { key: 'real', label: 'Verdaderos' },
   { key: 'uncertain', label: 'Dudosos' },
+  { key: 'mixed', label: 'Parcialmente falsos' },
   { key: 'fake', label: 'Falsos' },
 ];
 
@@ -14,7 +15,11 @@ export default function VerdictDistributionCard({
 }: {
   distribution: DashboardPayload['verdict_distribution'];
 }) {
-  const total = distribution.real + distribution.uncertain + distribution.fake;
+  const total =
+    distribution.real +
+    distribution.uncertain +
+    distribution.mixed +
+    distribution.fake;
   const safeTotal = total || 1;
 
   return (
@@ -52,7 +57,7 @@ export default function VerdictDistributionCard({
       </div>
 
       {/* Legend */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {VERDICT_SEGMENTS.map(v => {
           const count = distribution[v.key];
           const pct = Math.round((count / safeTotal) * 100);

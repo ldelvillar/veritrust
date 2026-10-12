@@ -712,10 +712,11 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         ("Afirmación 10", "incierta", pytest.approx(0.5)),
     ]
     falsehood = (1 / 4 + 4 / 5 + 2 / 7) / 3
-    assert verdict.label == "verdadera"
+    # Las verdaderas 0 y 6 no compensan la falsa 5: parcialmente falsa, con su confianza.
+    assert verdict.label == "parcialmente falsa"
     assert verdict.falsehood == pytest.approx(falsehood)
     assert verdict.evidence_coverage == 0.5
-    assert verdict.confidence == pytest.approx((1 - falsehood) * (1 - 0.25 * 0.5))
+    assert verdict.confidence == pytest.approx(0.8 * (1 - 0.25 * 0.5))
 
 
 async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(

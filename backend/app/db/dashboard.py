@@ -33,7 +33,7 @@ def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[in
 
 def _extract_kpis_values(
     kpi_row: Sequence[Any] | None,
-) -> tuple[int, float | None, int, int, int, int, float]:
+) -> tuple[int, float | None, int, int, int, int, float, int]:
     """Extrae valores de KPI con defaults cuando no hay resultados."""
     total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
     average_credibility = (
@@ -42,16 +42,18 @@ def _extract_kpis_values(
     reliable_total = int(kpi_row[2] or 0) if kpi_row else 0
     current_week_total = int(kpi_row[3] or 0) if kpi_row else 0
     previous_week_total = int(kpi_row[4] or 0) if kpi_row else 0
-    active_alerts = int(kpi_row[5] or 0) if kpi_row else 0
+    fake_total = int(kpi_row[5] or 0) if kpi_row else 0
     average_evidence_coverage = float(kpi_row[6] or 0.0) if kpi_row else 0.0
+    mixed_total = int(kpi_row[7] or 0) if kpi_row else 0
     return (
         total_analyses,
         average_credibility,
         reliable_total,
         current_week_total,
         previous_week_total,
-        active_alerts,
+        fake_total,
         average_evidence_coverage,
+        mixed_total,
     )
 
 
@@ -223,8 +225,9 @@ async def get_user_dashboard_summary(
                     ELSE 0
                 END
             ) AS previous_week_total,
-            SUM(CASE WHEN verdict = 'fake' THEN 1 ELSE 0 END) AS active_alerts,
-            AVG(evidence_coverage) AS average_evidence_coverage
+            SUM(CASE WHEN verdict = 'fake' THEN 1 ELSE 0 END) AS fake_total,
+            AVG(evidence_coverage) AS average_evidence_coverage,
+            SUM(CASE WHEN verdict = 'mixed' THEN 1 ELSE 0 END) AS mixed_total
         FROM public.analysis_history
         WHERE user_id = %s AND status = 'done'
     """
@@ -275,7 +278,7 @@ async def get_user_dashboard_summary(
         FROM public.analysis_history
         WHERE user_id = %s
           AND status = 'done'
-          AND verdict = 'fake'
+          AND verdict IN ('fake', 'mixed')
         ORDER BY created_at DESC
         LIMIT %s
     """
@@ -317,8 +320,9 @@ async def get_user_dashboard_summary(
         reliable_total,
         current_week_total,
         previous_week_total,
-        active_alerts,
+        fake_total,
         average_evidence_coverage,
+        mixed_total,
     ) = _extract_kpis_values(kpi_row)
 
     reliable_rate = _calculate_reliable_rate(
@@ -330,12 +334,15 @@ async def get_user_dashboard_summary(
         previous_week_total=previous_week_total,
     )
 
-    # 'incierto' es el resto: ni fiable ni no fiable. Así los tres suman el total
+    # Un contenido parcialmente falso también es una alerta: contiene algo falso.
+    active_alerts = fake_total + mixed_total
+    # 'incierto' es el resto: ni fiable ni con algo falso. Así los cuatro suman el total
     uncertain_total = max(0, total_analyses - reliable_total - active_alerts)
     verdict_distribution = DashboardVerdictDistribution(
         real=reliable_total,
         uncertain=uncertain_total,
-        fake=active_alerts,
+        mixed=mixed_total,
+        fake=fake_total,
     )
 
     trend_points = _build_trend_points(
