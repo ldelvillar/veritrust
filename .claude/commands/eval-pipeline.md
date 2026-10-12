@@ -5,7 +5,7 @@ argument-hint: "[--partition gold|validation|test|train] [--limit N] [--seed N] 
 
 Measure how accurately the VeriTrust multi-agent pipeline labels medical claims,
 end-to-end, against ground-truth data. The harness lives at
-`backend/ml/evaluate_pipeline.py` (`--help` lists every flag); you run it and
+`backend/evaluation/evaluate_pipeline.py` (`--help` lists every flag); you run it and
 interpret the output. `docs/ml-experiments.md` is the lab notebook of earlier
 runs.
 
@@ -22,7 +22,7 @@ STEPS:
 
 1. From the repo root, run the harness in the background (a run outlasts the
    shell timeout), forwarding any `$ARGUMENTS`:
-   `uv run --directory backend --extra ml python -m ml.evaluate_pipeline $ARGUMENTS`
+   `uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipeline $ARGUMENTS`
    When `$ARGUMENTS` names no `--partition`, add `--partition gold`; every other
    flag keeps the harness default. If it fails on a missing
    prerequisite, report exactly which one and stop.

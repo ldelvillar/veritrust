@@ -8,8 +8,9 @@ PubHealth (300 verdadera / 300 falsa / 201 mixture, seed 42) vía
 `ml/evaluation/evaluate_classifier.py`, un script que ya no existe en el árbol (ver
 «Borrado del código de BERT»). A partir de agosto de 2026 el dataset es
 HealthVer, la medida limpia es el conjunto dorado `data/gold_es.jsonl` vía
-`ml/evaluate_pipeline.py --partition gold`, y **el clasificador ya no forma
-parte del pipeline** (ver «Retirada del clasificador BERT»).
+`evaluation/evaluate_pipeline.py --partition gold`, y **el clasificador ya no forma
+parte del pipeline** (ver «Retirada del clasificador BERT»). Desde el 2026-10-12 el
+arnés vive en `evaluation/`; las secciones anteriores citan `ml/`, su ruta de entonces.
 
 ## Historial de mejoras (jul 2026)
 
@@ -612,8 +613,8 @@ fuente cayó. `--replay-evidence <ckpt>` sirve esas búsquedas desde la grabaci�
 las caídas, y solo consulta en vivo las que no encuentra:
 
 ```bash
-uv run --directory backend python -m ml.evaluate_pipeline --partition gold --limit 100 --checkpoint results/base.jsonl
-uv run --directory backend python -m ml.evaluate_pipeline --partition gold --limit 100 --checkpoint results/variante.jsonl --replay-evidence results/base.jsonl
+uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipeline --partition gold --limit 100 --checkpoint results/base.jsonl
+uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipeline --partition gold --limit 100 --checkpoint results/variante.jsonl --replay-evidence results/base.jsonl
 ```
 
 - **Cambios en el juez o en la regla de veredicto**: extractor y traductor corren a
@@ -626,13 +627,13 @@ uv run --directory backend python -m ml.evaluate_pipeline --partition gold --lim
 
 Los checkpoints anteriores a esta fecha no guardan evidencia bruta y no sirven de base.
 
-Para comparar **solo el juez**, `ml.evaluate_judge` vuelve a juzgar las afirmaciones y
+Para comparar **solo el juez**, `evaluation.evaluate_judge` vuelve a juzgar las afirmaciones y
 fuentes candidatas de un checkpoint del pipeline, sin extractor ni traductor: solo carga
 el modelo del juez. Toma las muestras de una afirmación (con varias, la fila no dice qué
 búsquedas son de cuál) y elige proveedor y modelo por entorno, como el pipeline:
 
 ```bash
-OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend python -m ml.evaluate_judge --cases results/base.jsonl --checkpoint results/judge_gemma4.jsonl
+OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend --extra evaluation python -m evaluation.evaluate_judge --cases results/base.jsonl --checkpoint results/judge_gemma4.jsonl
 ```
 
 `--minutes N` deja de empezar casos pasado ese tiempo y la corrida se reanuda después.

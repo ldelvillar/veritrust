@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend_app: ${{ steps.filter.outputs.backend_app }}
-      backend_ml: ${{ steps.filter.outputs.backend_ml }}
+      backend_evaluation: ${{ steps.filter.outputs.backend_evaluation }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout
@@ -45,8 +45,8 @@ jobs:
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
               - '.github/workflows/ci.yml'
-            backend_ml:
-              - 'backend/ml/**'
+            backend_evaluation:
+              - 'backend/evaluation/**'
               - 'backend/data/**'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
@@ -80,10 +80,10 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint (ruff)
-        run: uv run ruff check app ml tests
+        run: uv run ruff check app evaluation tests
 
       - name: Format check (ruff)
-        run: uv run ruff format --check app ml tests
+        run: uv run ruff format --check app evaluation tests
 
       - name: Type check (mypy)
         run: uv run mypy
@@ -110,10 +110,10 @@ jobs:
             backend/test-results/htmlcov
           if-no-files-found: warn
 
-  backend_ml:
-    name: Backend ML Tests (Python)
+  backend_evaluation:
+    name: Backend Evaluation Tests (Python)
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_ml == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_evaluation == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -129,37 +129,37 @@ jobs:
           cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --extra ml
+        run: uv sync --frozen --extra evaluation
 
       - name: Lint (ruff)
-        run: uv run ruff check app ml tests
+        run: uv run ruff check app evaluation tests
 
       - name: Format check (ruff)
-        run: uv run ruff format --check app ml tests
+        run: uv run ruff format --check app evaluation tests
 
       - name: Type check (mypy)
         run: uv run mypy
 
-      - name: Run ml tests with coverage
+      - name: Run evaluation tests with coverage
         run: |
           mkdir -p test-results
-          uv run pytest -q ml/tests \
-            --junitxml=test-results/pytest-ml.xml \
-            --cov=ml \
+          uv run pytest -q evaluation/tests \
+            --junitxml=test-results/pytest-evaluation.xml \
+            --cov=evaluation \
             --cov-fail-under=80 \
             --cov-report=term-missing \
-            --cov-report=xml:test-results/coverage-ml.xml \
-            --cov-report=html:test-results/htmlcov-ml
+            --cov-report=xml:test-results/coverage-evaluation.xml \
+            --cov-report=html:test-results/htmlcov-evaluation
 
-      - name: Upload backend ml test artifacts
+      - name: Upload backend evaluation test artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: backend-ml-test-results
+          name: backend-evaluation-test-results
           path: |
-            backend/test-results/pytest-ml.xml
-            backend/test-results/coverage-ml.xml
-            backend/test-results/htmlcov-ml
+            backend/test-results/pytest-evaluation.xml
+            backend/test-results/coverage-evaluation.xml
+            backend/test-results/htmlcov-evaluation
           if-no-files-found: warn
 
   frontend:
@@ -263,7 +263,7 @@ jobs:
 
   ci_ok:
     name: CI passed
-    needs: [changes, backend_app, backend_ml, frontend, api_contract]
+    needs: [changes, backend_app, backend_evaluation, frontend, api_contract]
     if: always()
     runs-on: ubuntu-latest
     steps:
