@@ -11,7 +11,7 @@ from app.agents import investigator as investigator_module
 from app.core.claim import Claim, Evidence
 from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
-from ml import evaluate_pipeline as ep
+from evaluation import evaluate_pipeline as ep
 
 
 def _verdict(kind, confidence: float, falsehood: float = 0.5) -> Verdict:

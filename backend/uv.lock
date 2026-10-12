@@ -3238,7 +3238,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-ml = [
+evaluation = [
     { name = "pandas" },
     { name = "pyarrow" },
 ]
@@ -3272,9 +3272,9 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.2" },
     { name = "ollama", specifier = ">=0.6.2" },
     { name = "orjson", specifier = ">=3.12.0" },
-    { name = "pandas", marker = "extra == 'ml'", specifier = ">=3.0.6" },
+    { name = "pandas", marker = "extra == 'evaluation'", specifier = ">=3.0.6" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3.6" },
-    { name = "pyarrow", marker = "extra == 'ml'", specifier = ">=25.0.1" },
+    { name = "pyarrow", marker = "extra == 'evaluation'", specifier = ">=25.0.1" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", specifier = ">=2.12" },
@@ -3286,7 +3286,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.34.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
-provides-extras = ["ml"]
+provides-extras = ["evaluation"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -44,8 +44,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra ml
-ml = [
+# Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra evaluation
+evaluation = [
     "pandas>=3.0.6",
     "pyarrow>=25.0.1",
 ]
@@ -69,7 +69,7 @@ markers = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*", "ml*"]
+include = ["app*", "evaluation*"]
 
 [tool.ruff]
 line-length = 88
@@ -85,7 +85,7 @@ python_version = "3.11"
 ignore_missing_imports = true
 warn_unused_ignores = true
 no_implicit_optional = true
-files = ["app", "ml"]
+files = ["app", "evaluation"]
 exclude = "(^|/)(\\.venv|models|results|data|tests)(/|$)"
 
 [[tool.mypy.overrides]]

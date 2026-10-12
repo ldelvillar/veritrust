@@ -5,16 +5,16 @@ Python (FastAPI + arq worker). Run every command from the **repo root** — neve
 ## Commands
 
 ```bash
-uv sync --directory backend --frozen                                         # Serving/API deps + app tests (excludes ml stack)
-uv sync --directory backend --frozen --extra ml                              # Add ml stack for ml/ and its tests
-uv run --directory backend python -m app.main                                # API server (http://localhost:8000)
-uv run --directory backend python -m app.worker                              # Analysis worker (needs Redis + Ollama)
-uv run --directory backend pytest tests --cov=app --cov-fail-under=80        # App tests
-uv run --directory backend pytest ml/tests --cov=ml --cov-fail-under=80      # ML tests
-uv run --directory backend pytest tests/test_foo.py -k "test_name"           # Single test (prefer while iterating)
-uv run --directory backend ruff check app ml tests                           # Lint
-uv run --directory backend ruff format app ml tests                          # Format (CI runs --check)
-uv run --directory backend mypy                                              # Type-check app/ and ml/ (tests excluded)
+uv sync --directory backend --frozen                                                     # Serving/API deps + app tests (excludes evaluation stack)
+uv sync --directory backend --frozen --extra evaluation                                  # Add evaluation stack for evaluation/ and its tests
+uv run --directory backend python -m app.main                                            # API server (http://localhost:8000)
+uv run --directory backend python -m app.worker                                          # Analysis worker (needs Redis + Ollama)
+uv run --directory backend pytest tests --cov=app --cov-fail-under=80                    # App tests
+uv run --directory backend pytest evaluation/tests --cov=evaluation --cov-fail-under=80  # Evaluation tests
+uv run --directory backend pytest tests/test_foo.py -k "test_name"                       # Single test (prefer while iterating)
+uv run --directory backend ruff check app evaluation tests                               # Lint
+uv run --directory backend ruff format app evaluation tests                              # Format (CI runs --check)
+uv run --directory backend mypy                                                          # Type-check app/ and evaluation/ (tests excluded)
 ```
 
 ## Layout notes
@@ -25,7 +25,7 @@ uv run --directory backend mypy                                              # T
 - **Verdict** (`app/core/verdict.py`) — the only place a Verdict is decided or derived. `decide(claims, EvidenceSearch)` turns the Stances on the shown Claims' Evidence and the search counts into a typed `Verdict` (kind, attenuated confidence, raw falsehood, Evidence coverage — `None` on an Evidence outage — and one verdict per claim); the Health Expert calls it and the LLM only explains the result. Stored rows are read back through `kind_of`, `credibility_of`, `confidence_level_of` and `CREDIBILITY_SQL`, which `tests/db/test_credibility_sql.py` keeps in step with `credibility_of`. Never re-derive a verdict, band or credibility anywhere else — the frontend shows the `verdict` it receives. Tables of cases live in `tests/unit/test_verdict.py`.
 - **History query** (`app/db/history_query.py`) — the only place a History query becomes SQL. `HistoryQuery` (`app/schemas/history.py`: search, content type, verdict, status, date range, sort) is validated once, where `/history` and `/history/export` take it via `Depends()`, and trusted downstream — never re-clamp its values. `search_history` returns the page, its total and the verdict Facet (the query without its own filter, so the total is one of its cells); `export_history` returns the same query's done analyses. A new filter is one field on `HistoryQuery` plus one predicate in `_where`. Tests run against real Postgres in `tests/db/test_history_query.py`.
 - **`app/prompts/prompts.yaml`** — All LLM prompt text: system prompts plus the health expert's user-message templates, interpolated with `str.format` (loaded via `app/prompts/agents.py`). Prompts live here, never inline in Python.
-- **`ml/`** — Standalone pipeline evaluation harness; separate test suite. Imports `app/`, never the reverse.
+- **`evaluation/`** — Standalone pipeline evaluation harness; separate test suite. Imports `app/`, never the reverse.
 
 ## Conventions
 

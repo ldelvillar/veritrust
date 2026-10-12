@@ -80,7 +80,7 @@ Two guardrails temper the raw verdict (`app/core/verdict.py`):
 - **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Mistral/Ollama, raw async SQL via psycopg3 (no ORM)
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
-- **ML** — evaluation pipeline in `backend/ml/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
+- **Evaluation** — pipeline evaluation harness in `backend/evaluation/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
 - **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
 
 ## Repository layout
@@ -88,7 +88,7 @@ Two guardrails temper the raw verdict (`app/core/verdict.py`):
 ```text
 backend/
   app/            FastAPI service: routes, agents, db, schemas, prompts
-  ml/             Pipeline evaluation harness (separate test suite)
+  evaluation/     Pipeline evaluation harness (separate test suite)
   data/           HealthVer splits + gold_es.jsonl hand-written gold set (committed)
   db/init.sql     Database schema (applied to a fresh Postgres)
 frontend/
@@ -160,11 +160,11 @@ All commands run from the repo root. CI enforces every gate below.
 
 ```bash
 # Backend
-uv run --directory backend pytest tests --cov=app --cov-fail-under=80    # app tests
-uv run --directory backend pytest ml/tests --cov=ml --cov-fail-under=80  # ML tests (needs --extra ml)
-uv run --directory backend ruff check app ml tests                       # lint
-uv run --directory backend ruff format app ml tests                      # format
-uv run --directory backend mypy                                          # type-check
+uv run --directory backend pytest tests --cov=app --cov-fail-under=80                    # app tests
+uv run --directory backend pytest evaluation/tests --cov=evaluation --cov-fail-under=80  # evaluation tests (needs --extra evaluation)
+uv run --directory backend ruff check app evaluation tests                               # lint
+uv run --directory backend ruff format app evaluation tests                              # format
+uv run --directory backend mypy                                                          # type-check
 
 # Frontend
 pnpm --dir frontend lint
@@ -176,7 +176,7 @@ pnpm --dir frontend build               # production build (also type-checks)
 - **Typed API contract** — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec. After any backend schema change run `pnpm --dir frontend generate:api-types` (backend running); never edit it by hand.
 - **Database schema** — `backend/db/init.sql`, applied once to a fresh database. No migration framework yet: recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
 - **Prompts** — all agent system prompts live in `backend/app/prompts/prompts.yaml`, never inline in Python.
-- **ML evaluation** — `ml/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics.
+- **Pipeline evaluation** — `evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics.
 
 ## License
 

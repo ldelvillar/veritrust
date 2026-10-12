@@ -26,8 +26,8 @@ RULES:
 
 ## 1. STRUCTURE
 
-Scope: package boundaries (`frontend/`, `backend/app`, `backend/ml`) and dependency direction, the generated API contract, env/config management across both packages, Docker Compose (local stack and `docker-compose.prod.yml` overlay).
-Red flags: hidden coupling between frontend/backend/ml, duplicated logic or schema-drift risk, missing boundaries, structure that breaks down with multiple developers.
+Scope: package boundaries (`frontend/`, `backend/app`, `backend/evaluation`) and dependency direction, the generated API contract, env/config management across both packages, Docker Compose (local stack and `docker-compose.prod.yml` overlay).
+Red flags: hidden coupling between frontend/backend/evaluation, duplicated logic or schema-drift risk, missing boundaries, structure that breaks down with multiple developers.
 
 ## 2. FRONTEND — `frontend/`
 
@@ -39,9 +39,9 @@ Red flags: business logic leaking into UI (e.g. re-deriving a Verdict the backen
 Scope: router/dependency design, async correctness, DB access (raw psycopg3 pool) and schema evolution (`backend/db/init.sql`, no migration framework), the Analysis lifecycle across routes, arq worker and orphan reaper, the MCP server (`app/mcp/`) as a second entry point, config (`Settings`), the `ErrorCode` contract, logging/observability, auth (Clerk JWT for the web API, Clerk OAuth for MCP).
 Red flags: fat routers / business logic in endpoints, sync calls blocking async routes, hidden global state, weak typing, circular imports, the MCP path diverging from the web API (auth, rate limits, intake), writes or decisions that bypass the modules `backend/AGENTS.md` names as sole owners.
 
-## 4. AI PIPELINE — `backend/app/agents`, `backend/ml`
+## 4. AI PIPELINE — `backend/app/agents`, `backend/evaluation`
 
-Scope: the LangGraph graph and agent boundaries (Extractor → Translator → Investigator → Health Expert), the LLM provider layer (`app/utils/llm.py`) and per-agent models, structured-output robustness, the evidence clients (Europe PMC, PubMed, openFDA, CIMA under `app/utils/`) and Evidence outage handling, what the deterministic `app/core/verdict.py` decides vs what the LLM writes, prompt management (`prompts.yaml`), and the evaluation harness in `backend/ml` (datasets and splits, gold set, metrics, evidence replay and checkpoints, run metadata; `docs/ml-experiments.md` is its lab notebook).
+Scope: the LangGraph graph and agent boundaries (Extractor → Translator → Investigator → Health Expert), the LLM provider layer (`app/utils/llm.py`) and per-agent models, structured-output robustness, the evidence clients (Europe PMC, PubMed, openFDA, CIMA under `app/utils/`) and Evidence outage handling, what the deterministic `app/core/verdict.py` decides vs what the LLM writes, prompt management (`prompts.yaml`), and the evaluation harness in `backend/evaluation` (datasets and splits, gold set, metrics, evidence replay and checkpoints, run metadata; `docs/ml-experiments.md` is its lab notebook).
 Red flags: LLM output trusted without validation, Verdict logic leaking into prompts or agents, the harness drifting from the production graph or config, thresholds tuned on the test split, eval runs that can't be reproduced (live evidence APIs, unpinned models), behaviour that holds on a development-only hosted provider but not on production Ollama.
 
 ## 5. SCALABILITY

@@ -57,7 +57,7 @@ title-only commit.
 - `auth` — Clerk JWT validation (`get_current_user.py`), rate limiting (`check_rate_limit.py`)
 - `agents` — LangGraph pipeline and the Extractor / Translator / Investigator / Health Expert nodes
 - `prompts` — agent system prompts in `app/prompts/prompts.yaml`
-- `ml` — Pipeline evaluation harness under `backend/ml/`
+- `evaluation` — Pipeline evaluation harness under `backend/evaluation/`
 - `db` — raw psycopg3 SQL and the async pool in `app/db/pool.py`
 - `api` — FastAPI routes, dependencies, `app/main.py`, the structured error contract
 - `frontend` — Next.js pages, components, hooks, `apiClient.ts`
