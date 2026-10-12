@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.claim import Claim, with_hits
-from ml import evaluate_judge as ej
+from evaluation import evaluate_judge as ej
 
 
 def _hit(key: str) -> dict:

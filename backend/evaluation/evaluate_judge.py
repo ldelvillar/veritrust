@@ -22,7 +22,7 @@ from app.core.config import get_settings
 from app.core.verdict import decide, kind_of
 from app.prompts.agents import load_prompts
 from app.utils.llm import configured_models, ensure_llm_available
-from ml.evaluate_pipeline import (
+from evaluation.evaluate_pipeline import (
     CheckpointMismatchError,
     git_describe,
     load_checkpoint,
