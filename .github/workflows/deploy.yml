@@ -27,7 +27,7 @@ jobs:
             set -e
             cd ~/veritrust
             git pull --ff-only
-            # Renderiza .env desde Secret Manager (docs/deploy-secrets.md); si el
+            # Renderiza .env desde Secret Manager (docs/deploy/secrets.md); si el
             # secreto no existe o su contenido no es plausible, conserva el .env actual.
             if gcloud secrets versions access latest --secret=veritrust-env > .env.tmp 2>/dev/null \
               && grep -q '^POSTGRES_PASSWORD=..*' .env.tmp \

@@ -41,7 +41,7 @@ Red flags: fat routers / business logic in endpoints, sync calls blocking async 
 
 ## 4. AI PIPELINE — `backend/app/agents`, `backend/evaluation`
 
-Scope: the LangGraph graph and agent boundaries (Extractor → Translator → Investigator → Health Expert), the LLM provider layer (`app/utils/llm.py`) and per-agent models, structured-output robustness, the evidence clients (Europe PMC, PubMed, openFDA, CIMA under `app/utils/`) and Evidence outage handling, what the deterministic `app/core/verdict.py` decides vs what the LLM writes, prompt management (`prompts.yaml`), and the evaluation harness in `backend/evaluation` (datasets and splits, gold set, metrics, evidence replay and checkpoints, run metadata; `docs/ml-experiments.md` is its lab notebook).
+Scope: the LangGraph graph and agent boundaries (Extractor → Translator → Investigator → Health Expert), the LLM provider layer (`app/utils/llm.py`) and per-agent models, structured-output robustness, the evidence clients (Europe PMC, PubMed, openFDA, CIMA under `app/utils/`) and Evidence outage handling, what the deterministic `app/core/verdict.py` decides vs what the LLM writes, prompt management (`prompts.yaml`), and the evaluation harness in `backend/evaluation` (datasets and splits, gold set, metrics, evidence replay and checkpoints, run metadata; `docs/experiments/` is its lab notebook).
 Red flags: LLM output trusted without validation, Verdict logic leaking into prompts or agents, the harness drifting from the production graph or config, thresholds tuned on the test split, eval runs that can't be reproduced (live evidence APIs, unpinned models), behaviour that holds on a development-only hosted provider but not on production Ollama.
 
 ## 5. SCALABILITY

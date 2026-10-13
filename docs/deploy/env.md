@@ -1,7 +1,7 @@
 # Production .env
 
 The source of truth for the production `.env` is GCP Secret Manager — see
-[deploy-secrets.md](deploy-secrets.md). Every deploy renders the secret onto the VM,
+[secrets.md](secrets.md). Every deploy renders the secret onto the VM,
 so manual edits to `~/veritrust/.env` are overwritten by the next deploy.
 
 ## Fallback: copy .env over SSH

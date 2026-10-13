@@ -6,8 +6,8 @@ argument-hint: "[--partition gold|validation|test|train] [--limit N] [--seed N] 
 Measure how accurately the VeriTrust multi-agent pipeline labels medical claims,
 end-to-end, against ground-truth data. The harness lives at
 `backend/evaluation/evaluate_pipeline.py` (`--help` lists every flag); you run it and
-interpret the output. `docs/ml-experiments.md` is the lab notebook of earlier
-runs.
+interpret the output. `docs/experiments/` is the lab notebook of earlier runs:
+its `README.md` holds the current state and an index of the monthly entries.
 
 PREREQUISITES:
 

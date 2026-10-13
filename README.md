@@ -81,7 +81,7 @@ Three guardrails temper the raw verdict (`app/core/verdict.py`):
 - **Backend** — FastAPI + [arq](https://arq-docs.helpmanual.io/) worker (Python 3.11), LangGraph, LangChain + Mistral/Ollama, raw async SQL via psycopg3 (no ORM)
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
-- **Evaluation** — pipeline evaluation harness in `backend/evaluation/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/ml-experiments.md`
+- **Evaluation** — pipeline evaluation harness in `backend/evaluation/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/experiments/`
 - **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
 
 ## Repository layout
@@ -94,7 +94,10 @@ backend/
   db/init.sql     Database schema (applied to a fresh Postgres)
 frontend/
   src/            Next.js App Router app
-docs/             Production runbooks (secrets, backups, monitoring, ops)
+docs/
+  adr/            Architecture decision records
+  deploy/         Production runbooks (secrets, backups, monitoring, ops)
+  experiments/    Pipeline evaluation lab notebook
 docker-compose.yml           Local/full stack
 docker-compose.prod.yml      Production overlay: Caddy TLS + memory caps
 ```
@@ -147,13 +150,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 Requires DNS `A` records for both subdomains, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://app.<domain>` as an allowed origin in Clerk.
 
-**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VM, renders the production `.env` from GCP Secret Manager, and redeploys the stack. Operational runbooks live in [docs/](docs/):
+**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VM, renders the production `.env` from GCP Secret Manager, and redeploys the stack. Operational runbooks live in [docs/deploy/](docs/deploy/):
 
-- [deploy-secrets.md](docs/deploy-secrets.md) — production `.env` in Secret Manager (source of truth)
-- [deploy-env.md](docs/deploy-env.md) — env bootstrap before the secret exists
-- [deploy-backups.md](docs/deploy-backups.md) — automated `pg_dump` backups
-- [deploy-monitoring.md](docs/deploy-monitoring.md) — uptime checks + alerting
-- [deploy-ops.md](docs/deploy-ops.md) — hardening, log rotation, day-2 operations
+- [secrets.md](docs/deploy/secrets.md) — production `.env` in Secret Manager (source of truth)
+- [env.md](docs/deploy/env.md) — env bootstrap before the secret exists
+- [backups.md](docs/deploy/backups.md) — automated `pg_dump` backups
+- [monitoring.md](docs/deploy/monitoring.md) — uptime checks + alerting
+- [ops.md](docs/deploy/ops.md) — hardening, log rotation, day-2 operations
 
 ## Development
 

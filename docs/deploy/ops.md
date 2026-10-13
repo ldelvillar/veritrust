@@ -42,7 +42,7 @@ sudo dpkg-reconfigure --priority=low unattended-upgrades
 
 ## Backups
 
-See [deploy-backups.md](deploy-backups.md).
+See [backups.md](backups.md).
 
 ## Updating the app
 
@@ -78,7 +78,7 @@ pipeline uses one model at a time, so peak RAM tracks the largest model (~6 GB
 for `llama3` at 8k ctx) at the cost of a model swap between stages. If you
 change the machine type or the models, revisit both.
 
-The judge, `ministral-3:14b` (the `Settings` default; see `docs/ml-experiments.md`,
+The judge, `ministral-3:14b` (the `Settings` default; see `docs/experiments/2026-10.md`,
 2026-10-01), needs ~11 GB loaded at 8k ctx: more than Ollama's 9g cap above, and on
 CPU about a minute per claim. A production VM for it needs a 16 GB GPU and a higher
 Ollama cap; the budget above is the e2-standard-4's and must be redone for it. Setting
