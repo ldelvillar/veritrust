@@ -62,8 +62,8 @@ STEPS:
      provider don't describe what users see; and prompts were tuned on the gold
      set, so gold results are partly in-sample.
 
-4. If the user wants to act on the results, first read the notebook's "No volver
-   a intentar" and "Pendiente con mayor expectativa" sections so you don't
+4. If the user wants to act on the results, first read the notebook's "Do not
+   retry" and "Next steps" sections so you don't
    re-propose a refuted idea. Then propose concrete next steps tied to the
    evidence (e.g. a prompt tweak in `prompts.yaml` for the responsible agent). To
    measure a change, rerun on gold or validation (keep test for a final check)
