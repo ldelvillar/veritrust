@@ -60,6 +60,12 @@ const optMark = (
   <span className="text-2xs font-semibold text-faint">(opcional)</span>
 );
 
+// Los botones «Acceso anticipado» de precios llegan con ?plan=pro o ?plan=equipo.
+const PLAN_INTEREST: Record<string, string> = {
+  pro: 'Plan Pro (acceso anticipado)',
+  equipo: 'Plan Equipo (acceso anticipado)',
+};
+
 const perfiles = [
   {
     value: 'periodismo',
@@ -155,6 +161,9 @@ export default function DemoForm() {
     if (values.cargo.trim()) metadata.Cargo = values.cargo.trim();
     if (values.volumen) metadata.Volumen = values.volumen;
     if (values.equipo) metadata.Equipo = values.equipo;
+    const plan = new URLSearchParams(window.location.search).get('plan');
+    if (plan && Object.hasOwn(PLAN_INTEREST, plan))
+      metadata.Interés = PLAN_INTEREST[plan];
 
     const ok = await submit({
       type: 'demo',
