@@ -1,7 +1,7 @@
 # VeriTrust
 
 [![CI](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml/badge.svg)](https://github.com/ldelvillar/veritrust/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 **AI-powered medical misinformation detection.** Users submit a piece of health-related content — pasted text, a URL, or a document (PDF/TXT/MD) — and VeriTrust returns an evidence-grounded verdict: **Verdadero** (true), **Falso** (false), **Parcialmente falso** (partly false), or **Dudoso** (uncertain), with a confidence score, a per-claim breakdown, the biomedical sources consulted, and a medical report explaining the verdict in plain Spanish.
 
@@ -184,4 +184,6 @@ pnpm --dir frontend build               # production build (also type-checks)
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 — see [LICENSE](LICENSE). Copyright (C) 2026 Lucas del Villar.
+
+Earlier versions were released under the MIT License and remain available under it.
