@@ -1,9 +1,11 @@
 """
 Este módulo define un agente experto en salud que obtiene el veredicto de la postura de la
-literatura biomédica recuperada y lo explica al paciente con terminología médica rigurosa.
+literatura biomédica recuperada y lo explica a quien verifica el contenido con terminología
+médica rigurosa.
 """
 
 import logging
+from collections.abc import Sequence
 from functools import lru_cache
 
 from langchain_core.language_models import BaseChatModel
@@ -11,6 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents import sanitize
 from app.agents.state import AgentState
+from app.core.claim import Claim
 from app.core.config import get_settings
 from app.core.verdict import decide
 from app.prompts.agents import HealthExpertPrompt, Prompts
@@ -21,22 +24,39 @@ logger = logging.getLogger(__name__)
 # Alias interno hacia la neutralización compartida de marcadores.
 _neutralize_delimiters = sanitize.neutralize_delimiters
 
+# Postura del juez tal como la lee el experto.
+_STANCE_LABEL = {
+    "supports": "respalda",
+    "contradicts": "contradice",
+    "inconclusive": "no es concluyente sobre",
+}
 
-def _build_evidence_block(prompt: HealthExpertPrompt, sources: list[dict]) -> str:
-    """Formatea las fuentes recuperadas como DATOS para fundamentar el informe."""
-    if not sources:
-        return prompt.evidence_missing
 
+def _build_evidence_block(prompt: HealthExpertPrompt, claims: Sequence[Claim]) -> str:
+    """Formatea cada fuente mostrada con su postura y su resumen como DATOS para fundamentar el informe."""
     lines = []
-    for source in sources:
-        title = _neutralize_delimiters(str(source.get("title", ""))).strip()
-        if not title:
-            continue
-        journal = _neutralize_delimiters(str(source.get("source") or "")).strip()
-        year = str(source.get("year") or "").strip()
-        meta = ", ".join(part for part in (journal, year) if part)
-        lines.append(f"- {title}" + (f" ({meta})" if meta else ""))
+    for claim in claims:
+        statement = _neutralize_delimiters(claim.text)
+        for item in claim.evidence:
+            title = _neutralize_delimiters(item.title).strip()
+            if not title:
+                continue
+            meta = ", ".join(
+                part.strip()
+                for part in (_neutralize_delimiters(item.source or ""), item.year or "")
+                if part.strip()
+            )
+            stance = _STANCE_LABEL.get(item.stance or "", "no se juzgó frente a")
+            abstract = _neutralize_delimiters(item.abstract or "").strip()
+            lines.append(
+                f"- Fuente: {title}"
+                + (f" ({meta})" if meta else "")
+                + f"\n  Postura: {stance} la afirmación '{statement}'"
+                + f"\n  Resumen: {abstract or 'no disponible'}"
+            )
 
+    if not lines:
+        return prompt.evidence_missing
     return prompt.evidence_sources.format(listing="\n".join(lines))
 
 
@@ -74,7 +94,7 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
         for claim in verdict.claims
     )
 
-    evidence_block = _build_evidence_block(prompt, state.get("sources") or [])
+    evidence_block = _build_evidence_block(prompt, claims)
 
     # Un veredicto incierto no debe presentarse como una conclusión firme: el
     # informe debe explicar la ambigüedad, no afirmar que es verdadero o falso.
