@@ -230,7 +230,7 @@ export const ARTICLES = [
     category: 'Fuentes y metodología',
     title: 'Cómo seleccionamos evidencia',
     summary:
-      'Por cada afirmación se recuperan hasta 3 resultados de cada fuente; un modelo de IA valora si cada uno la respalda, la contradice o no es concluyente, y descarta los que no tratan de ella. Una regla fija decide el veredicto con esas valoraciones, sin ponderar la calidad de cada estudio; si la evidencia no basta, el veredicto es «Dudoso».',
+      'Por cada afirmación se recuperan hasta 3 resultados de cada fuente; un modelo de IA valora si cada uno la respalda, la contradice o no es concluyente, y descarta los que no tratan de ella. Una regla fija decide el veredicto con esas valoraciones, sin ponderar la calidad de cada estudio; si la evidencia no basta, el veredicto es «Dudoso». Un texto solo sale «Verdadero» si todas sus afirmaciones lo son: si alguna no se pudo verificar, el texto sale «Dudoso».',
     tags: ['Metodología', 'Evidencia', 'Veredicto'],
   },
   {

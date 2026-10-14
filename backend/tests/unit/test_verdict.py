@@ -147,23 +147,34 @@ def test_partly_false_confidence_is_the_strongest_false_claim() -> None:
     assert (verdict.kind, verdict.confidence) == ("mixed", pytest.approx(0.8))
 
 
-@pytest.mark.parametrize(
-    ("firm", "neutral", "kind", "confidence"),
-    [
-        # Falsa (12/21) junto a una incierta (0.45): la media 0.51 caería en la banda neutra.
-        ((8, 11), (10, 8), "fake", 12 / 21),
-        # Verdadera (falsedad 9/21) junto a una incierta (0.55): la media 0.49 también.
-        ((11, 8), (8, 10), "real", 12 / 21),
-    ],
-)
-def test_uncertain_claims_with_evidence_do_not_move_a_firm_verdict(
-    firm, neutral, kind, confidence
-) -> None:
-    claims = [_claim(*firm), _claim(*neutral, index=1, text="S2")]
+def test_an_uncertain_claim_does_not_soften_a_false_one() -> None:
+    # Falsa (12/21) junto a una incierta (0.45): la media 0.51 caería en la banda neutra.
+    claims = [_claim(8, 11), _claim(10, 8, index=1, text="S2")]
 
     verdict = decide(claims, _full(2))
 
-    assert (verdict.kind, verdict.confidence) == (kind, pytest.approx(confidence))
+    assert (verdict.kind, verdict.confidence) == ("fake", pytest.approx(12 / 21))
+
+
+@pytest.mark.parametrize(
+    ("neutral", "confidence"),
+    [
+        # Lejía sin ninguna fuente que se pronuncie junto al paracetamol respaldado.
+        ((0, 0), 0.5),
+        # Una incierta con evidencia equilibrada (falsedad 0.55) aporta su confianza.
+        ((8, 10), 0.45),
+    ],
+)
+def test_a_true_claim_never_vouches_for_an_uncertain_one(neutral, confidence) -> None:
+    claims = [_claim(supports=4), _claim(*neutral, index=1, text="S2")]
+
+    verdict = decide(claims, _full(2))
+
+    assert (verdict.kind, verdict.confidence) == (
+        "uncertain",
+        pytest.approx(confidence),
+    )
+    assert [c.kind for c in verdict.claims] == ["real", "uncertain"]
 
 
 def test_only_uncertain_claims_keep_the_analysis_uncertain() -> None:

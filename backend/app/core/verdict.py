@@ -156,14 +156,18 @@ def _band(falsehood: float, has_evidence: bool) -> tuple[VerdictKind, float]:
 def _overall(
     claims: Sequence[ClaimVerdict], falsehood: float, has_evidence: bool
 ) -> tuple[VerdictKind, float]:
-    """Decide el veredicto global a partir del de cada afirmación: una verdadera nunca compensa una falsa."""
+    """Decide el veredicto global a partir del de cada afirmación: una verdadera nunca compensa una falsa ni avala una incierta."""
     fake = [claim.confidence for claim in claims if claim.kind == "fake"]
     real = [claim.confidence for claim in claims if claim.kind == "real"]
+    uncertain = [claim.confidence for claim in claims if claim.kind == "uncertain"]
     if fake and real:
         # El aviso es por la afirmación falsa más sólida.
         return "mixed", max(fake)
     if fake:
         return "fake", sum(fake) / len(fake)
+    if real and uncertain:
+        # Un texto solo es verdadero si se pudo verificar todo lo que afirma (ADR-0003).
+        return "uncertain", sum(uncertain) / len(uncertain)
     if real:
         return "real", sum(real) / len(real)
     return _band(falsehood, has_evidence)
