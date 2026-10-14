@@ -207,21 +207,15 @@ const EXTRACT_TOTAL = 13000;
 const EXTRACT_DELAY = 500;
 const EXTRACT_STEP = 72;
 
-/** Texto de entrada troceado; `claim > 0` marca el segmento que alimenta una ficha. */
+/** Texto del análisis de /ejemplo troceado; `claim > 0` marca el segmento que alimenta una ficha. */
 const extractSegments = [
-  { claim: 0, text: 'Un artículo viral asegura que' },
   {
     claim: 1,
-    text: 'la vitamina C en dosis altas previene el resfriado por completo.',
+    text: 'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común',
   },
-  {
-    claim: 0,
-    text: 'Cita un estudio con 200 participantes en el que se observó',
-  },
-  { claim: 2, text: 'una reducción del 70 % de los casos' },
-  { claim: 0, text: 'y añade que' },
-  { claim: 3, text: 'tomar 3 g al día no supone ningún riesgo' },
-  { claim: 0, text: 'para la salud.' },
+  { claim: 0, text: 'y' },
+  { claim: 2, text: 'refuerza el sistema inmunitario sin ningún riesgo,' },
+  { claim: 0, text: 'según un estudio reciente.' },
 ];
 
 const extractWords = extractSegments
@@ -239,21 +233,13 @@ const extractSentence = extractSegments.map(seg => seg.text).join(' ');
 const extractClaims = [
   {
     id: 'C-01',
-    kind: 'causal',
-    text: 'Dosis altas de vitamina C previenen el resfriado por completo.',
-    meta: 'cifra: null · fuente: no',
+    text: 'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común.',
+    query: 'vitamin C AND (common cold OR cold prevention) AND high dose',
   },
   {
     id: 'C-02',
-    kind: 'estadística',
-    text: 'Reducción del 70 % de los casos.',
-    meta: '70 % · n=200 · fuente: sí',
-  },
-  {
-    id: 'C-03',
-    kind: 'seguridad',
-    text: '3 g/día no supone ningún riesgo.',
-    meta: '3 g/día · fuente: no',
+    text: 'El consumo diario de vitamina C en dosis altas refuerza el sistema inmunitario sin ningún riesgo.',
+    query: 'vitamin C AND immune system AND high dose AND safety',
   },
 ];
 
@@ -340,14 +326,13 @@ function ExtractorArt() {
               key={claim.id}
               className={`rounded-xl border border-console-edge bg-console-panel px-3.25 py-2.75 transition-[opacity,transform] duration-450 ${POP} ${found > i ? '' : 'translate-x-6.5 opacity-0'}`}
             >
-              <div className="flex justify-between font-mono text-2xs font-bold tracking-[0.08em] text-verdict-real">
-                <span>{claim.id}</span>
-                <span>{claim.kind}</span>
+              <div className="font-mono text-2xs font-bold tracking-[0.08em] text-verdict-real">
+                {claim.id}
               </div>
               <div className="mt-1.5 text-xs leading-[1.45] font-medium text-console-bright">
                 {claim.text}
               </div>
-              <div className={`mt-1.75 ${META}`}>{claim.meta}</div>
+              <div className={`mt-1.75 ${META}`}>consulta: {claim.query}</div>
             </div>
           ))}
         </div>
@@ -360,24 +345,19 @@ function ExtractorArt() {
 
 const TRANSLATE_TOTAL = 12500;
 const TRANSLATE_TYPE = 1100;
-const TRANSLATE_STARTS = [500, 2400, 4300];
+const TRANSLATE_STARTS = [500, 2400];
 const TRANSLATE_DONES = TRANSLATE_STARTS.map(ms => ms + TRANSLATE_TYPE);
 
 const translations = [
   {
-    from: '"la vitamina C mejora la inmunidad"',
-    to: '"vitamin C boosts your immune system"',
-    mesh: 'mesh: D001205 · ascorbic acid',
+    id: 'C-01',
+    from: '"El consumo diario de vitamina C en dosis altas previene por completo el resfriado común."',
+    to: '"Daily consumption of high doses of vitamin C completely prevents the common cold."',
   },
   {
-    from: '"previene el resfriado por completo"',
-    to: '"prevents colds completely"',
-    mesh: 'mesh: D003139 · common cold',
-  },
-  {
-    from: '"3 g al día no supone riesgo"',
-    to: '"mega-doses are safe"',
-    mesh: 'mesh: Q000008 · adverse effects',
+    id: 'C-02',
+    from: '"El consumo diario de vitamina C en dosis altas refuerza el sistema inmunitario sin ningún riesgo."',
+    to: '"Daily consumption of high doses of vitamin C strengthens the immune system with no risk at all."',
   },
 ];
 
@@ -385,12 +365,10 @@ function TranslationRow({
   cycle,
   row,
   started,
-  done,
 }: {
   cycle: number | null;
   row: (typeof translations)[number];
   started: boolean;
-  done: boolean;
 }) {
   const len = useTyped(cycle, row.to, started, TRANSLATE_TYPE);
 
@@ -412,11 +390,6 @@ function TranslationRow({
           {row.to.slice(0, len)}
           {len < row.to.length && <span aria-hidden="true" className={CARET} />}
         </div>
-        <span
-          className={`mt-1.25 block font-mono text-2xs tracking-[0.06em] text-console-meta transition-opacity duration-400 ${done ? 'opacity-100' : 'opacity-0'}`}
-        >
-          {row.mesh}
-        </span>
       </div>
     </div>
   );
@@ -432,25 +405,26 @@ function TranslatorArt() {
       panelRef={ref}
       icon={<LanguageIcon className="size-3.75" />}
       agent="Traductor"
-      tag={done === 0 ? 'es → en' : `${done} / 3 normalizadas`}
+      tag={done === 0 ? 'es → en' : `${done} / 2 traducidas`}
       total={TRANSLATE_TOTAL}
       cycle={cycle}
     >
       <div className="p-6">
-        <div className={`${DH} mb-3.5`}>ES → EN · MeSH</div>
+        <div className={`${DH} mb-3.5`}>
+          ES → EN · sin corregir la afirmación
+        </div>
         {translations.map((row, i) => (
           <TranslationRow
-            key={row.from}
+            key={row.id}
             cycle={cycle}
             row={row}
             started={started > i}
-            done={done > i}
           />
         ))}
         <div
           className={`mt-4 font-mono text-2xs tracking-[0.06em] text-console-meta transition-opacity duration-500 ${done === translations.length ? 'opacity-100' : 'opacity-0'}`}
         >
-          lenguaje detectado: es · confianza 99.87%
+          el juez compara cada fuente con la versión en inglés
         </div>
       </div>
     </Console>
@@ -460,88 +434,120 @@ function TranslatorArt() {
 /* ---------------- 03 · Investigador ---------------- */
 
 const INVESTIGATE_TOTAL = 14000;
-const INVESTIGATE_QUERY = 'ascorbic acid AND common cold AND prophylaxis';
-const INVESTIGATE_TYPE = 1600;
-const INVESTIGATE_START = [300];
-const INVESTIGATE_DBS = [2100, 2400, 2700, 3000];
-const INVESTIGATE_LOGS = [3400, 4400];
-const INVESTIGATE_SRCS = [5000, 5800, 6600];
+const INVESTIGATE_TYPE = 1000;
+const INVESTIGATE_STARTS = [300, 1500];
+const INVESTIGATE_DBS = [2900, 3200, 3500];
+const INVESTIGATE_LOGS = [3900, 4900];
+const INVESTIGATE_SRCS = [5500, 6200, 6900, 7600];
 
+// CIMA solo se consulta cuando la afirmación nombra un fármaco, y estas no lo hacen.
 const databases = [
-  { name: 'pubmed', hits: 3 },
-  { name: 'europepmc', hits: 3 },
-  { name: 'openfda', hits: 3 },
-  { name: 'cima', hits: 3 },
+  { name: 'europepmc', hits: 6 },
+  { name: 'pubmed', hits: 6 },
+  { name: 'openfda', hits: 4 },
 ];
 
 const investigateLog = [
   <>
-    3 resultados por base · 4 bases →{' '}
-    <b className="font-medium text-console-text">12</b>
+    2 consultas · 3 bases →{' '}
+    <b className="font-medium text-console-text">16 resultados</b>
   </>,
   <>
-    juez de relevancia →{' '}
-    <b className="font-medium text-console-text">3 fuentes</b>
+    el juez descarta 12 de otro tema →{' '}
+    <b className="font-medium text-console-text">4 fuentes</b>
   </>,
 ];
 
 const investigateSources = [
   {
-    name: 'Revisión sistemática · vitamina C y resfriado común',
-    meta: 'pubmed · cochrane database syst rev · 2013',
+    name: 'The Long History of Vitamin C',
+    meta: 'C-01 · pubmed · frontiers in immunology · 2020',
     stance: 'contradice',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
   },
   {
-    name: 'Vitamina C y función inmunitaria',
-    meta: 'europepmc · nutrients · 2017',
-    stance: 'respalda',
-    tone: 'bg-verdict-real/16 text-verdict-real-on-dark',
-  },
-  {
-    name: 'Ingesta alta de vitamina C y efectos adversos',
-    meta: 'pubmed · revisión',
+    name: 'Vitamin C in the Prevention and Treatment of the Common Cold',
+    meta: 'C-01 · pubmed · american journal of lifestyle medicine · 2016',
     stance: 'no concluyente',
     tone: 'bg-verdict-uncertain/16 text-verdict-uncertain-on-dark',
   },
+  {
+    name: 'Vitamin C-Beyond Deficiency',
+    meta: 'C-02 · europepmc · nutrients · 2026',
+    stance: 'contradice',
+    tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
+  },
+  {
+    name: 'High-Dose Intravenous Vitamin C in Critical Illness',
+    meta: 'C-02 · europepmc · medical sciences · 2026',
+    stance: 'contradice',
+    tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
+  },
 ];
+
+function QueryLine({
+  cycle,
+  id,
+  query,
+  started,
+}: {
+  cycle: number | null;
+  id: string;
+  query: string;
+  started: boolean;
+}) {
+  const len = useTyped(cycle, query, started, INVESTIGATE_TYPE);
+
+  return (
+    <div className="flex items-start gap-2.75">
+      <span className="pt-px font-mono text-2xs font-bold tracking-[0.06em] text-verdict-real">
+        {id}
+      </span>
+      <span className="min-h-4.5 font-mono text-xs text-console-bright">
+        {query.slice(0, len)}
+        {started && len < query.length && (
+          <span aria-hidden="true" className={CARET} />
+        )}
+      </span>
+    </div>
+  );
+}
 
 function InvestigatorArt() {
   const [ref, cycle] = useLoop(INVESTIGATE_TOTAL);
-  const querying = useMarks(cycle, INVESTIGATE_START);
+  const querying = useMarks(cycle, INVESTIGATE_STARTS);
   const hits = useMarks(cycle, INVESTIGATE_DBS);
   const logs = useMarks(cycle, INVESTIGATE_LOGS);
   const found = useMarks(cycle, INVESTIGATE_SRCS);
-  const len = useTyped(
-    cycle,
-    INVESTIGATE_QUERY,
-    querying > 0,
-    INVESTIGATE_TYPE
-  );
 
   return (
     <Console
       panelRef={ref}
       icon={<Magnifier className="size-3.75" />}
       agent="Investigador"
-      tag={found === 0 ? 'query…' : `${found} / 3 fuentes · 12 estudios`}
+      tag={found === 0 ? 'query…' : `${found} / 4 fuentes · 16 resultados`}
       total={INVESTIGATE_TOTAL}
       cycle={cycle}
     >
       <div className="p-6">
-        <div className={`${DH} mb-3.5`}>ES→EN normalizado · 4 bases</div>
+        <div className={`${DH} mb-3.5`}>Consultas del extractor · 3 bases</div>
 
-        <div className="flex items-center gap-2.75 rounded-xl border border-console-edge bg-console-panel px-3.5 py-2.75">
+        <div className="flex items-start gap-2.75 rounded-xl border border-console-edge bg-console-panel px-3.5 py-2.75">
           <span
             aria-hidden="true"
-            className="size-3.5 shrink-0 animate-spin rounded-full border-[1.8px] border-verdict-real border-r-transparent motion-reduce:animate-none"
+            className="mt-0.5 size-3.5 shrink-0 animate-spin rounded-full border-[1.8px] border-verdict-real border-r-transparent motion-reduce:animate-none"
           />
-          <span className="min-h-4.5 font-mono text-xs text-console-bright">
-            {INVESTIGATE_QUERY.slice(0, len)}
-            {len < INVESTIGATE_QUERY.length && (
-              <span aria-hidden="true" className={CARET} />
-            )}
-          </span>
+          <div className="flex flex-col gap-1.5">
+            {extractClaims.map((claim, i) => (
+              <QueryLine
+                key={claim.id}
+                cycle={cycle}
+                id={claim.id}
+                query={claim.query}
+                started={querying > i}
+              />
+            ))}
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.75">
@@ -590,7 +596,7 @@ function InvestigatorArt() {
           className={`mt-4.5 transition-opacity duration-500 ${found === investigateSources.length ? 'opacity-100' : 'opacity-0'}`}
         >
           <small className="font-mono text-2xs tracking-[0.07em] text-console-meta uppercase">
-            cobertura de evidencia · 3/3 afirmaciones con evidencia científica
+            cobertura de evidencia · 2/2 afirmaciones con evidencia científica
           </small>
         </div>
       </div>
@@ -601,43 +607,43 @@ function InvestigatorArt() {
 /* ---------------- 04 · Experto en salud ---------------- */
 
 const EXPERT_TOTAL = 14000;
-const EXPERT_SCORE = 41;
+const EXPERT_SCORE = 29;
 const EXPERT_COUNT = 1300;
-const EXPERT_ROWS = [500, 1400, 2300];
-const EXPERT_CALC = [3200, 4600];
+const EXPERT_ROWS = [500, 1400];
+const EXPERT_CALC = [2300, 3700];
+const EXPERT_WRITE = [4300];
+const EXPERT_TYPE = 2600;
 
+// Probabilidad de falsedad = (contradicen + 1) / (respaldan + contradicen + 2), como en decide().
 const judgements = [
   {
     id: 'C-01',
-    text: 'Previene el resfriado por completo',
-    basis: 'revisión sistemática · pubmed',
-    verdict: 'refutada',
-    weight: '−18',
+    text: 'Previene por completo el resfriado común',
+    basis: '0 respaldan · 1 contradice · 1 no concluyente',
+    verdict: 'falso',
+    weight: '67 %',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
   },
   {
     id: 'C-02',
-    text: 'Reducción del 70 % de los casos',
-    basis: 'dato real, extrapolación indebida',
-    verdict: 'con matices',
-    weight: '+9',
-    tone: 'bg-verdict-uncertain/16 text-verdict-uncertain-on-dark',
-  },
-  {
-    id: 'C-03',
-    text: '3 g/día no supone ningún riesgo',
-    basis: 'revisión · pubmed',
-    verdict: 'refutada',
-    weight: '−14',
+    text: 'Refuerza el sistema inmunitario sin ningún riesgo',
+    basis: '0 respaldan · 2 contradicen',
+    verdict: 'falso',
+    weight: '75 %',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
   },
 ];
+
+const EXPERT_EXCERPT =
+  'No hay evidencia que respalde que la vitamina C en dosis altas prevenga el resfriado común de manera absoluta.';
 
 function HealthExpertArt() {
   const [ref, cycle] = useLoop(EXPERT_TOTAL);
   const judged = useMarks(cycle, EXPERT_ROWS);
   const calc = useMarks(cycle, EXPERT_CALC);
+  const writing = useMarks(cycle, EXPERT_WRITE);
   const score = useCount(cycle, EXPERT_SCORE, calc > 0, EXPERT_COUNT);
+  const len = useTyped(cycle, EXPERT_EXCERPT, writing > 0, EXPERT_TYPE);
 
   return (
     <Console
@@ -649,14 +655,14 @@ function HealthExpertArt() {
           ? `${EXPERT_SCORE} / 100 · falso`
           : judged === 0
             ? 'scoring…'
-            : `${judged} / 3 juzgadas`
+            : `${judged} / 2 decididas`
       }
       total={EXPERT_TOTAL}
       cycle={cycle}
     >
       <div className="p-6">
         <div className={`${DH} mb-3.5`}>
-          pubmed · europe pmc · openfda · cima
+          regla fija · probabilidad de que sea falsa
         </div>
 
         {judgements.map((row, i) => (
@@ -686,10 +692,10 @@ function HealthExpertArt() {
           className={`grid items-center gap-3.5 border-t border-console-line pt-4.5 transition-opacity duration-500 lg:grid-cols-[1fr_auto] lg:gap-4.5 ${calc > 0 ? 'opacity-100' : 'opacity-0'}`}
         >
           <div className="font-mono text-2xs leading-[1.8] text-console-meta">
-            base <b className="font-medium text-console-text">64</b> ·
-            ponderación por gravedad clínica
+            media (67 + 75) / 2 ={' '}
+            <b className="font-medium text-console-text">71 % falsa</b>
             <br />
-            −18 +9 −14 ={' '}
+            credibilidad 100 − 71 ={' '}
             <b className="font-medium text-console-text">{EXPERT_SCORE}</b>
           </div>
           <div className="lg:text-right">
@@ -704,6 +710,18 @@ function HealthExpertArt() {
             </span>
           </div>
         </div>
+
+        <div
+          className={`mt-4.5 border-t border-console-line pt-4.5 transition-opacity duration-500 ${writing > 0 ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <div className={`${DH} mb-2.5`}>Informe · extracto</div>
+          <p className="min-h-10 text-xs leading-[1.6] text-console-bright">
+            {EXPERT_EXCERPT.slice(0, len)}
+            {writing > 0 && len < EXPERT_EXCERPT.length && (
+              <span aria-hidden="true" className={CARET} />
+            )}
+          </p>
+        </div>
       </div>
     </Console>
   );
@@ -715,25 +733,25 @@ const steps = [
   {
     n: '01',
     title: 'Extractor de información',
-    body: 'Lee el contenido y aísla cada afirmación médica, las cifras y las fuentes citadas, sin perder el contexto.',
+    body: 'Lee el contenido, aísla cada afirmación médica como una frase completa y escribe en inglés la consulta con la que se buscará.',
     Art: ExtractorArt,
   },
   {
     n: '02',
     title: 'Traductor',
-    body: 'Normaliza el idioma y estandariza la terminología clínica para que cada afirmación se contraste sobre una base común.',
+    body: 'Traduce cada afirmación al inglés tal como está escrita, sin corregirla, porque casi toda la literatura biomédica está en inglés.',
     Art: TranslatorArt,
   },
   {
     n: '03',
     title: 'Investigador',
-    body: 'Busca evidencia científica en la literatura biomédica y reúne las fuentes que respaldan o contradicen cada afirmación.',
+    body: 'Busca cada afirmación en PubMed, Europe PMC y openFDA (y en CIMA si nombra un fármaco). Un juez descarta los resultados que tratan de otro tema y anota si cada fuente respalda o contradice la afirmación.',
     Art: InvestigatorArt,
   },
   {
     n: '04',
     title: 'Experto en salud',
-    body: 'Contrasta cada afirmación con el consenso médico y las fuentes de referencia, y calcula la puntuación de credibilidad.',
+    body: 'Una regla fija convierte las posturas de las fuentes en el veredicto y la puntuación. El experto en salud explica cada veredicto con lo que dicen los resúmenes de las fuentes.',
     Art: HealthExpertArt,
   },
 ];
@@ -781,8 +799,8 @@ export default function HowItWorks() {
             un veredicto fiable
           </h2>
           <p className="max-w-105 text-base leading-[1.65] text-muted">
-            Cada afirmación pasa por una cadena de especialistas de IA que se
-            complementan, y verás exactamente qué aportó cada uno.
+            Cada afirmación pasa por cuatro pasos. Así se analizó el texto sobre
+            la vitamina C del ejemplo.
           </p>
           <div
             aria-hidden="true"
