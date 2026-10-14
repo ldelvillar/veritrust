@@ -31,7 +31,7 @@ const features: Feature[] = [
   },
   {
     title: 'API e integración',
-    body: 'Conecta VeriTrust a tu CMS o a tu flujo de monitorización para verificar a escala, sin trabajo manual.',
+    body: 'Conecta VeriTrust por API a tu CMS o a tu flujo de monitorización. Incluido en el plan Institución.',
     Icon: CodeIcon,
   },
   {

@@ -16,10 +16,10 @@ const useCases = [
   },
   {
     title: 'Salud pública e instituciones',
-    body: 'Monitoriza y desmiente bulos sanitarios a escala. Integra VeriTrust por API y exporta informes para tus campañas.',
+    body: 'Integra VeriTrust por API en tu CMS o flujo de monitorización y exporta informes para tus campañas.',
     items: [
-      'API para verificar a gran volumen',
-      'Usuarios en equipo y SSO',
+      'API con clave propia (plan Institución)',
+      'Uso desde asistentes de IA (MCP)',
       'Acuerdos de tratamiento de datos',
     ],
     Icon: BuildingIcon,
