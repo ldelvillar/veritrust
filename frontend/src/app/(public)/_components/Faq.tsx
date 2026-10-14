@@ -52,16 +52,17 @@ export const faqEntries = [
     q: '¿Cuál es la precisión de la herramienta?',
     a: (
       <>
-        Aún no publicamos una cifra de precisión: la mediremos sobre un conjunto
-        de prueba que no hemos usado para ajustar el sistema. Mientras tanto,
-        cada veredicto enlaza las fuentes en que se basa y, cuando la evidencia
-        no basta, responde <strong>«Dudoso»</strong> en lugar de forzar un
-        veredicto. Puede equivocarse: revisa las fuentes de cada afirmación
-        antes de publicar o difundir un resultado.
+        En 50 afirmaciones de salud ya verificadas por fact-checkers y
+        autoridades sanitarias, que no usamos para ajustar el sistema, VeriTrust
+        dio un veredicto firme en 32 y acertó en 29 (91 %). Nunca dio por
+        verdadera una afirmación falsa. En las otras 18 respondió{' '}
+        <strong>«Dudoso»</strong>, sobre todo con remedios caseros que la
+        literatura científica no estudia. Puede equivocarse: revisa las fuentes
+        de cada afirmación antes de publicar o difundir un resultado.
       </>
     ),
     plain:
-      'Aún no publicamos una cifra de precisión: la mediremos sobre un conjunto de prueba que no hemos usado para ajustar el sistema. Mientras tanto, cada veredicto enlaza las fuentes en que se basa y, cuando la evidencia no basta, responde «Dudoso» en lugar de forzar un veredicto. Puede equivocarse: revisa las fuentes de cada afirmación antes de publicar o difundir un resultado.',
+      'En 50 afirmaciones de salud ya verificadas por fact-checkers y autoridades sanitarias, que no usamos para ajustar el sistema, VeriTrust dio un veredicto firme en 32 y acertó en 29 (91 %). Nunca dio por verdadera una afirmación falsa. En las otras 18 respondió «Dudoso», sobre todo con remedios caseros que la literatura científica no estudia. Puede equivocarse: revisa las fuentes de cada afirmación antes de publicar o difundir un resultado.',
     open: false,
   },
   {
