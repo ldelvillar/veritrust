@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
+import Arrow from '@/assets/Arrow';
 import CodeIcon from '@/assets/Code';
 import ScanIcon from '@/assets/Scan';
 import ShieldIcon from '@/assets/Shield';
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
   title: 'Solicitar Demo',
   alternates: { canonical: '/demo' },
   description:
-    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
+    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
 };
 
 const container = 'mx-auto w-full max-w-345 px-5 md:px-8';
@@ -35,7 +37,7 @@ const benefits = [
   {
     Icon: ShieldIcon,
     title: 'Privacidad y cumplimiento',
-    desc: 'Acuerdos de tratamiento de datos y opciones de despliegue dedicado.',
+    desc: 'Cómo tratamos tus datos y el acuerdo de tratamiento que firmamos con cada organización.',
   },
 ];
 
@@ -46,7 +48,7 @@ const jsonLd = {
   url: `${SITE_CONFIG.domain}/demo`,
   name: 'Solicitar Demo de VeriTrust',
   description:
-    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas a escala para tu redacción o institución.',
+    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
   isPartOf: {
     '@id': `${SITE_CONFIG.domain}/#website`,
   },
@@ -76,9 +78,8 @@ export default function DemoPage() {
             Solicita una <em className="pr-1 italic">demo</em> de VeriTrust
           </h1>
           <p className="mx-auto max-w-150 text-lg leading-relaxed text-white/90">
-            Te mostramos cómo verificar afirmaciones médicas a escala con el
-            sistema multiagente, adaptado al flujo de tu redacción o
-            institución.
+            Te mostramos cómo verificar afirmaciones médicas con el sistema
+            multiagente, adaptado al flujo de tu redacción o institución.
           </p>
         </div>
       </section>
@@ -117,23 +118,15 @@ export default function DemoPage() {
               </ul>
 
               <div className="mt-8 border-t border-white/[0.14] pt-7">
-                <p className="font-display text-xl leading-[1.4] font-normal text-white italic">
-                  «Pasamos de tardar una mañana en verificar un bulo a tener un
-                  informe con fuentes en minutos.»
+                <p className="text-sm leading-relaxed text-white/70">
+                  ¿Prefieres verlo antes?
                 </p>
-                <div className="mt-4 flex items-center gap-2.75">
-                  <span className="grid size-9.5 place-items-center rounded-xs bg-primary text-sm font-bold text-white">
-                    MR
-                  </span>
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      Marta Ruiz
-                    </div>
-                    <div className="text-xs text-white/60">
-                      Editora de verificación, redacción nacional
-                    </div>
-                  </div>
-                </div>
+                <Link
+                  href="/ejemplo"
+                  className="mt-1.5 inline-flex items-center gap-1.5 text-base font-bold text-white underline-offset-4 hover:underline"
+                >
+                  Mira un análisis real <Arrow className="size-4 rotate-270" />
+                </Link>
               </div>
             </div>
           </aside>

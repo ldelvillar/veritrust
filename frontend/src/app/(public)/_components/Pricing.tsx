@@ -74,9 +74,9 @@ const PLANS: Record<Audience, Plan[]> = {
       intro: 'Todo lo de Pro, y además:',
       items: [
         '300 análisis al mes por persona, compartidos',
-        'Historial y dashboard comunes del equipo',
         'Acuerdo de tratamiento de datos',
         'Administración y cobro centralizado ',
+        'Próximamente: historial y dashboard comunes del equipo',
       ],
       cta: {
         label: 'Acceso anticipado',
@@ -94,12 +94,10 @@ const PLANS: Record<Audience, Plan[]> = {
       intro: 'Todo lo de Equipo, y además:',
       items: [
         'Volumen de análisis adaptado a tu organización',
-        'Límites de gasto por usuario y organización',
-        'Acceso por roles con permisos detallados',
         'Acompañamiento en la puesta en marcha',
         'Acceso prioritario a nuevas funcionalidades',
         'Acceso por API con clave propia',
-        'Próximamente: SSO',
+        'Próximamente: SSO, permisos por roles y límites de gasto',
       ],
       cta: { label: 'Hablemos', href: '/demo', soft: true },
       featured: false,

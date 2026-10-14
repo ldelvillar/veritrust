@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
   alternates: { canonical: '/' },
   description:
-    'Detector de desinformación en salud con IA. Verifica afirmaciones médicas una a una, con 88% de precisión y fuentes científicas citadas.',
+    'Detector de desinformación en salud con IA. Verifica afirmaciones médicas una a una, con fuentes científicas citadas.',
   keywords: [
     'detector de noticias falsas de salud',
     'verificar bulos médicos',
@@ -34,7 +34,7 @@ const jsonLd = {
       url: SITE_CONFIG.domain,
       name: SITE_CONFIG.name,
       description:
-        'Detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos con precisión.',
+        'Detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos con fuentes científicas.',
       inLanguage: 'es-ES',
       publisher: {
         '@id': `${SITE_CONFIG.domain}/#organization`,

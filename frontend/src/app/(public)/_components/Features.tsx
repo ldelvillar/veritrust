@@ -15,8 +15,8 @@ type Feature = {
 
 const features: Feature[] = [
   {
-    title: 'Fuentes revisadas',
-    body: 'Cada afirmación se contrasta contra fuentes científicas revisadas, nunca contra la web abierta ni la memoria de un modelo.',
+    title: 'Fuentes científicas citadas',
+    body: 'Cada afirmación se contrasta con artículos de PubMed y Europe PMC y con fichas oficiales de medicamentos, y el informe enlaza cada fuente.',
     Icon: DocumentIcon,
   },
   {
@@ -26,7 +26,7 @@ const features: Feature[] = [
   },
   {
     title: 'Privacidad por diseño',
-    body: 'El contenido se procesa de forma privada y no se usa para entrenar modelos. Acuerdos de tratamientos de datos para instituciones.',
+    body: 'El contenido se procesa de forma privada y no se usa para entrenar modelos. Acuerdos de tratamiento de datos para instituciones.',
     Icon: LockIcon,
   },
   {

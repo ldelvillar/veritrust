@@ -108,7 +108,7 @@ export const FAQ = [
   {
     cat: 'Uso',
     q: '¿Cuánto tarda un análisis?',
-    a: 'La mayoría de análisis se completan en 30–60 segundos. Textos muy largos o documentos con muchas afirmaciones pueden tardar algo más.',
+    a: 'Un análisis suele tardar menos de un minuto. Los textos largos con muchas afirmaciones, o los que esperan en cola detrás de otros análisis, pueden tardar unos minutos.',
   },
   {
     cat: 'Uso',
