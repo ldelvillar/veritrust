@@ -8,7 +8,7 @@ const useCases = [
     title: 'Periodistas y verificadores',
     body: 'Comprueba afirmaciones de salud antes de publicar y obtén un informe con fuentes citadas que respalda tu fact-check.',
     items: [
-      'Verificación en segundos, no en horas',
+      'Verificación en minutos, no en horas',
       'Informe exportable como evidencia',
       'Historial de todo lo analizado',
     ],
