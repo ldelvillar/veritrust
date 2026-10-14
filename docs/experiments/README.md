@@ -112,6 +112,11 @@ through prompting and through scaffolding:
 3. **Held-out set of ~50 rows** — not for precision, but to measure how much of the 71
    transfers out of sample. Written once, stored, and looked at only once. A
    prerequisite for point 1 if the chosen source is a _fact-checking_ one.
+4. **Judge polarity on refuting Sources** — on the production config, 4 of 5
+   falsa→verdadera are Sources that refute the Claim marked `supports`, mostly on negated
+   Claims, and «vaccines cause autism» comes out `verdadera` (2026-10-13 in
+   [2026-10.md](2026-10.md)). Not a decisiveness prompt; measure a fix on a set built for
+   it.
 
 ## No longer levers
 
@@ -163,3 +168,4 @@ closed era:
 
 - 2026-10-01 Judge-only screening — Ministral 14B, local candidate
 - 2026-10-12 Analysis Verdict from Claim Verdicts: `parcialmente falsa` — adopted
+- 2026-10-13 Full pipeline on Mistral pay-as-you-go, the production config — 70/100, flat
