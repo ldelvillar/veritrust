@@ -169,3 +169,4 @@ closed era:
 - 2026-10-01 Judge-only screening — Ministral 14B, local candidate
 - 2026-10-12 Analysis Verdict from Claim Verdicts: `parcialmente falsa` — adopted
 - 2026-10-13 Full pipeline on Mistral pay-as-you-go, the production config — 70/100, flat
+- 2026-10-14 Explainer v6: grounded in the abstracts — adopted
