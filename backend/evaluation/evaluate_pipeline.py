@@ -81,6 +81,7 @@ class EvalRow(TypedDict):
     claim_evidence: list[RecordedClaim]
     evidence: list[EvidenceCall]
     evidence_live: int
+    explanation: str
 
 
 # Búsquedas del investigador por fuente: la cinta las sustituye mientras se evalúa una muestra.
@@ -361,6 +362,8 @@ async def evaluate_pipeline(
                 "evidence": tape.calls,
                 # Búsquedas que la grabación no cubría; con --replay-evidence miden el desparejamiento.
                 "evidence_live": tape.live,
+                # Informe del experto (vacío sin --with-explanation): permite evaluar su fundamentación.
+                "explanation": str(result.get("medical_explanation") or ""),
             }
             done[sample["text"]] = row
             if handle is not None:

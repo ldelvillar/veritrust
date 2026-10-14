@@ -226,6 +226,21 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
     assert rows[1]["confidence"] == 0.0
 
 
+def test_evaluate_pipeline_records_the_explanation() -> None:
+    samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
+
+    class FakeGraph:
+        async def astream(self, state: dict, stream_mode: object = None):
+            yield (
+                "values",
+                {"verdict": _verdict("fake", 0.8), "medical_explanation": "informe"},
+            )
+
+    rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+
+    assert rows[0]["explanation"] == "informe"
+
+
 def test_partly_false_counts_as_flagging_the_falsehood() -> None:
     rows = [
         _row("falsa", "parcialmente falsa"),  # tp: avisa de algo falso
