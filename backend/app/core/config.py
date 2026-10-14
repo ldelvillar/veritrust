@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     # La ventana de contexto la fija el servidor; solo se acota la generación
     mistral_max_tokens: int = 2048
     mistral_request_timeout_seconds: int = 60
+    # Reintentos ante 429 y 5xx: el límite de peticiones del workspace corta las ráfagas
+    mistral_max_retries: int = 5
 
     # Groq; la api_key es obligatoria cuando llm_provider es "groq"
     # Un modelo por rol: la cuota diaria de tokens de Groq es por modelo

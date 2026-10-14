@@ -1,5 +1,6 @@
 """Tests unitarios para la fábrica de modelos de chat de los agentes."""
 
+import httpx
 import pytest
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
@@ -42,6 +43,7 @@ class _FakeSettings:
     mistral_judge_model = "mistral-small-latest"
     mistral_max_tokens = 2048
     mistral_request_timeout_seconds = 60
+    mistral_max_retries = 5
     groq_extractor_model = "llama-3.3-70b-versatile"
     groq_translator_model = "llama-3.1-8b-instant"
     groq_health_expert_model = "llama-3.3-70b-versatile"
@@ -96,6 +98,7 @@ def test_build_chat_model_returns_mistral_for_every_role(monkeypatch, role) -> N
     assert isinstance(model, ChatMistralAI)
     assert model.model == "mistral-small-latest"
     assert model.max_tokens == 2048
+    assert model.max_retries == 5
 
 
 @pytest.mark.parametrize("role", ROLES)
@@ -314,3 +317,68 @@ def test_configured_models_rejects_unknown_provider(monkeypatch) -> None:
 
     with pytest.raises(llm_module.LLMConfigurationError, match="desconocido"):
         llm_module.configured_models()
+
+
+_MISTRAL_REPLY = {
+    "id": "respuesta-de-prueba",
+    "object": "chat.completion",
+    "model": "mistral-small-latest",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hola"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+}
+
+
+def _mistral_with_responses(monkeypatch, statuses: list[int]):
+    """Devuelve un cliente de Mistral cuya API responde con `statuses` en orden, las esperas que pidió y sus llamadas."""
+    calls: list[int] = []
+    waits: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = statuses[len(calls)]
+        calls.append(status)
+        if status == 200:
+            return httpx.Response(200, json=_MISTRAL_REPLY)
+        return httpx.Response(status, json={"message": "Rate limit exceeded"})
+
+    monkeypatch.setattr(llm_module.time, "sleep", waits.append)
+    model = llm_module._RetryingChatMistralAI(
+        api_key="clave-de-prueba",
+        max_retries=2,
+        client=httpx.Client(
+            base_url="https://api.mistral.ai/v1",
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+    return model, waits, calls
+
+
+def test_mistral_retries_a_rate_limit_and_then_answers(monkeypatch) -> None:
+    model, waits, calls = _mistral_with_responses(monkeypatch, [429, 503, 200])
+
+    assert model.invoke("hola").content == "hola"
+    assert calls == [429, 503, 200]
+    assert len(waits) == 2
+
+
+def test_mistral_gives_up_after_max_retries(monkeypatch) -> None:
+    model, waits, calls = _mistral_with_responses(monkeypatch, [429, 429, 429])
+
+    with pytest.raises(httpx.HTTPStatusError, match="429"):
+        model.invoke("hola")
+    assert len(calls) == 3
+    assert len(waits) == 2
+
+
+def test_mistral_does_not_retry_a_client_error(monkeypatch) -> None:
+    model, waits, calls = _mistral_with_responses(monkeypatch, [400])
+
+    with pytest.raises(httpx.HTTPStatusError, match="400"):
+        model.invoke("hola")
+    assert calls == [400]
+    assert waits == []

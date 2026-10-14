@@ -1,7 +1,12 @@
 """Fábrica de los modelos de chat de los agentes según el proveedor configurado."""
 
 import logging
+import random
+import time
+from typing import Any
 
+import httpx
+from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
@@ -52,6 +57,43 @@ GOOGLE_MODEL_ATTR_BY_ROLE = {
     "health_expert": "google_health_expert_model",
     "judge": "google_judge_model",
 }
+
+
+# Tope de la espera entre reintentos de Mistral, en segundos.
+MISTRAL_RETRY_MAX_WAIT_SECONDS = 16
+
+
+def _is_transient(exc: httpx.HTTPStatusError) -> bool:
+    """Indica si un error HTTP es pasajero: límite de peticiones o fallo del servidor."""
+    status = exc.response.status_code
+    return status == 429 or status >= 500
+
+
+class _RetryingChatMistralAI(ChatMistralAI):
+    """ChatMistralAI que reintenta también los 429 y 5xx; la librería solo reintenta los fallos de red."""
+
+    def completion_with_retry(
+        self, run_manager: CallbackManagerForLLMRun | None = None, **kwargs: Any
+    ) -> Any:
+        """Llama a la API con espera exponencial y jitter ante errores HTTP pasajeros."""
+        attempt = 0
+        while True:
+            try:
+                return super().completion_with_retry(run_manager=run_manager, **kwargs)
+            except httpx.HTTPStatusError as exc:
+                if not _is_transient(exc) or attempt == self.max_retries:
+                    raise
+                # El jitter evita que las llamadas paralelas del juez reintenten a la vez.
+                wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()
+                attempt += 1
+                logger.warning(
+                    "Mistral respondió %s; reintento %d/%d en %.1f s",
+                    exc.response.status_code,
+                    attempt,
+                    self.max_retries,
+                    wait,
+                )
+                time.sleep(wait)
 
 
 # Nemotron razona por defecto: mucha más latencia y tokens para la misma salida.
@@ -130,12 +172,13 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
         return model or str(getattr(settings, attr_by_role[role]))
 
     if provider == "mistral":
-        return ChatMistralAI(
+        return _RetryingChatMistralAI(
             model_name=_model_for(MISTRAL_MODEL_ATTR_BY_ROLE),
             temperature=0,
             api_key=SecretStr(_mistral_api_key()),
             max_tokens=settings.mistral_max_tokens,
             timeout=settings.mistral_request_timeout_seconds,
+            max_retries=settings.mistral_max_retries,
         )
 
     if provider == "groq":
