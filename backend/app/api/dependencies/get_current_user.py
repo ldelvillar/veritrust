@@ -8,12 +8,45 @@ import logging
 import jwt
 from fastapi import Header, HTTPException
 
+from app.core.api_keys import (
+    API_KEY_PREFIX,
+    ApiKeysMisconfigured,
+    ClerkUnreachable,
+    InvalidApiKey,
+    verify_api_key,
+)
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
 from app.core.jwks import AuthMisconfigured, get_signing_key
 from app.schemas.errors import ErrorCode
 
 logger = logging.getLogger(__name__)
+
+
+def _user_from_api_key(secret: str) -> dict[str, str]:
+    """Verifica una clave API de Clerk y devuelve el usuario al que pertenece."""
+    try:
+        return {"sub": verify_api_key(secret)}
+    except InvalidApiKey as e:
+        raise HTTPException(
+            status_code=401,
+            detail=make_error_detail(ErrorCode.INVALID_TOKEN),
+        ) from e
+    except ClerkUnreachable as e:
+        logger.warning("No se pudo verificar la clave API con Clerk: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+        ) from e
+    except ApiKeysMisconfigured as e:
+        logger.error(
+            "Claves API mal configuradas (CLERK_SECRET_KEY o activación en Clerk): %s",
+            e,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.AUTH_MISCONFIGURED),
+        ) from e
 
 
 def _get_expected_issuer() -> str:
@@ -59,6 +92,8 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
         )
 
     token = authorization.replace("Bearer ", "")
+    if token.startswith(API_KEY_PREFIX):
+        return _user_from_api_key(token)
 
     try:
         signing_key = get_signing_key(token)

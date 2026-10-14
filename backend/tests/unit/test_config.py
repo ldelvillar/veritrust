@@ -15,6 +15,7 @@ def _make_settings(**overrides) -> Settings:
         "clerk_jwks_url": "https://tenant.clerk.accounts.dev/.well-known/jwks.json",
         "clerk_issuer": None,
         "clerk_audience": "my-api",
+        "clerk_secret_key": "sk_test_dummy",
         "app_base_url": "https://veritrust.es",
         "mcp_resource_url": "https://api.veritrust.es/mcp",
     }
@@ -80,6 +81,7 @@ def test_validate_runtime_reports_missing_required_vars():
         clerk_jwks_url=None,
         clerk_issuer=None,
         clerk_audience="",
+        clerk_secret_key="",
         app_base_url="",
         mcp_resource_url="",
     )
@@ -90,6 +92,7 @@ def test_validate_runtime_reports_missing_required_vars():
     message = str(exc.value)
     assert "DATABASE_URL" in message
     assert "CLERK_AUDIENCE" in message
+    assert "CLERK_SECRET_KEY" in message
     assert "APP_BASE_URL" in message
     assert "MCP_RESOURCE_URL" in message
 

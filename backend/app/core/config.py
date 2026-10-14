@@ -145,6 +145,9 @@ class Settings(BaseSettings):
     clerk_jwks_url: str | None = None
     clerk_issuer: str | None = None
     clerk_audience: str | None = None
+    # Clave secreta del Backend API de Clerk, con la que se verifican las claves API (ak_…)
+    clerk_secret_key: str = ""
+    clerk_api_base_url: str = "https://api.clerk.com/v1"
 
     # Notificaciones por email (Resend); sin api_key el envío es un no-op silencioso
     resend_api_key: str | None = None
@@ -224,6 +227,8 @@ class Settings(BaseSettings):
             missing.append("CLERK_ISSUER o un CLERK_JWKS_URL válido")
         if self.expected_audience() is None:
             missing.append("CLERK_AUDIENCE")
+        if not self.clerk_secret_key.strip():
+            missing.append("CLERK_SECRET_KEY")
         if (
             require_cors
             and self.environment.strip().lower() != "development"

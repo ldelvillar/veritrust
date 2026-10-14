@@ -14,7 +14,7 @@ from app.schemas.errors import ErrorResponse
 # El handler de main.py da forma estructurada a los 422; sin esto FastAPI documentaría la suya.
 _VALIDATION_ERROR_RESPONSES: dict[int | str, dict] = {422: {"model": ErrorResponse}}
 
-# get_current_user responde 401 por el token y 503 si el JWKS de Clerk no responde.
+# get_current_user responde 401 por el token o la clave API y 503 si Clerk no responde.
 _AUTHENTICATED_ERROR_RESPONSES: dict[int | str, dict] = {
     **_VALIDATION_ERROR_RESPONSES,
     401: {"model": ErrorResponse},

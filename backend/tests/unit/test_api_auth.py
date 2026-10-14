@@ -1,10 +1,12 @@
-"""Tests unitarios para la autenticacion JWT (get_current_user y el cliente JWKS de app.core.jwks)."""
+"""Tests unitarios para la autenticacion (get_current_user, el cliente JWKS y las claves API de Clerk)."""
 
 import io
 import json
+import time
 import urllib.request
 from urllib.error import URLError
 
+import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -12,10 +14,15 @@ from fastapi import HTTPException
 from jwt.algorithms import RSAAlgorithm
 
 from app.api.dependencies import get_current_user as get_user_module
+from app.core import api_keys as api_keys_module
 from app.core import jwks as jwks_module
 from app.core.config import Settings
 
 _JWKS_URL = "https://tenant.clerk.accounts.dev/.well-known/jwks.json"
+_CLERK_API_URL = "https://api.clerk.test/v1"
+_CLERK_SECRET_KEY = "sk_test_dummy"
+_API_KEY = "ak_test_dummy_secret"
+_KEY_OWNER = "user_2xhFjEI5X2qWRvtV13BzSj8H6Dk"
 
 
 def _make_settings(**overrides) -> Settings:
@@ -27,16 +34,19 @@ def _make_settings(**overrides) -> Settings:
         "clerk_jwks_url": None,
         "clerk_issuer": None,
         "clerk_audience": "my-api",
+        "clerk_secret_key": _CLERK_SECRET_KEY,
+        "clerk_api_base_url": _CLERK_API_URL,
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
 
 
 def _use_settings(monkeypatch, **overrides) -> Settings:
-    """Hace que get_current_user y el cliente JWKS usen una configuración controlada."""
+    """Hace que get_current_user, el cliente JWKS y las claves API usen una configuración controlada."""
     settings = _make_settings(**overrides)
     monkeypatch.setattr(get_user_module, "get_settings", lambda: settings)
     monkeypatch.setattr(jwks_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(api_keys_module, "get_settings", lambda: settings)
     return settings
 
 
@@ -290,6 +300,172 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
 
     clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
     assert client.get_signing_key("new-key").key_id == "new-key"
+
+
+def _api_key_record(**overrides) -> dict:
+    """Cuerpo 200 de POST /api_keys/verify, con la forma del OpenAPI del Backend API de Clerk."""
+    record: dict[str, object] = {
+        "object": "api_key",
+        "id": "ak_3beecc9c60adb5f9b850e91a8ee1e992",
+        "type": "api_key",
+        "subject": _KEY_OWNER,
+        "name": "CMS de Acme",
+        "description": None,
+        "claims": None,
+        "scopes": [],
+        "revoked": False,
+        "revocation_reason": None,
+        "expired": False,
+        "expiration": None,
+        "created_by": None,
+        "last_used_at": None,
+        "created_at": 1716883200000,
+        "updated_at": 1716883200000,
+    }
+    record.update(overrides)
+    return record
+
+
+_CLERK_ERROR = {
+    "errors": [{"message": "not found", "long_message": "not found", "code": "x"}]
+}
+
+
+def _use_clerk(monkeypatch, respond) -> list[httpx.Request]:
+    """Atiende con ``respond`` las peticiones al Backend API de Clerk y devuelve las recibidas."""
+    _use_settings(monkeypatch)
+    monkeypatch.setattr(api_keys_module, "_verified", {})
+    received: list[httpx.Request] = []
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        received.append(request)
+        return respond(request)
+
+    client = httpx.Client(transport=httpx.MockTransport(_handle))
+    monkeypatch.setattr(api_keys_module.httpx, "post", client.post)
+    return received
+
+
+def test_an_api_key_maps_to_the_user_that_owns_it(monkeypatch):
+    received = _use_clerk(
+        monkeypatch, lambda _: httpx.Response(200, json=_api_key_record())
+    )
+
+    user = get_user_module.get_current_user(f"Bearer {_API_KEY}")
+
+    assert user == {"sub": _KEY_OWNER}
+    [request] = received
+    assert request.method == "POST"
+    assert str(request.url) == f"{_CLERK_API_URL}/api_keys/verify"
+    assert request.headers["authorization"] == f"Bearer {_CLERK_SECRET_KEY}"
+    assert json.loads(request.content) == {"secret": _API_KEY}
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        pytest.param(404, _CLERK_ERROR, id="unknown"),
+        pytest.param(400, _CLERK_ERROR, id="malformed"),
+        pytest.param(200, _api_key_record(revoked=True), id="revoked"),
+        pytest.param(200, _api_key_record(expired=True), id="expired"),
+        pytest.param(
+            200,
+            _api_key_record(subject="org_2xhFjEI5X2qWRvtV13BzSj8H6Dk"),
+            id="organization-scoped",
+        ),
+    ],
+)
+def test_an_unusable_api_key_returns_401(monkeypatch, status, body):
+    _use_clerk(monkeypatch, lambda _: httpx.Response(status, json=body))
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_API_KEY}")
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail["code"] == "INVALID_TOKEN"
+
+
+def _refuse_connection(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+@pytest.mark.parametrize(
+    "respond",
+    [
+        pytest.param(_refuse_connection, id="connection-refused"),
+        pytest.param(lambda _: httpx.Response(503), id="server-error"),
+        pytest.param(lambda _: httpx.Response(429), id="rate-limited"),
+    ],
+)
+def test_an_api_key_returns_503_when_clerk_is_unreachable(monkeypatch, respond):
+    _use_clerk(monkeypatch, respond)
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_API_KEY}")
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        pytest.param(401, id="secret-key-invalid"),
+        pytest.param(403, id="api-keys-not-enabled"),
+    ],
+)
+def test_an_api_key_returns_500_when_clerk_refuses_our_setup(monkeypatch, status):
+    _use_clerk(monkeypatch, lambda _: httpx.Response(status, json=_CLERK_ERROR))
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_API_KEY}")
+
+    assert exc.value.status_code == 500
+    assert exc.value.detail["code"] == "AUTH_MISCONFIGURED"
+
+
+def test_a_verified_api_key_is_served_from_cache_until_its_ttl_passes(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(api_keys_module, "monotonic", lambda: clock[0])
+    clerk = {"response": lambda: httpx.Response(200, json=_api_key_record())}
+    received = _use_clerk(monkeypatch, lambda _: clerk["response"]())
+
+    get_user_module.get_current_user(f"Bearer {_API_KEY}")
+    # Revocada en Clerk: la caché la sigue aceptando hasta que caduque su entrada.
+    clerk["response"] = lambda: httpx.Response(404, json=_CLERK_ERROR)
+    assert get_user_module.get_current_user(f"Bearer {_API_KEY}") == {"sub": _KEY_OWNER}
+    assert len(received) == 1
+
+    clock[0] += api_keys_module.VERIFIED_KEY_TTL_SECONDS
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_API_KEY}")
+    assert exc.value.status_code == 401
+    assert len(received) == 2
+
+
+def test_a_session_jwt_is_still_verified_locally_without_calling_clerk(monkeypatch):
+    received = _use_clerk(
+        monkeypatch, lambda _: httpx.Response(200, json=_api_key_record())
+    )
+    key = _rsa_key()
+    jwks = {"keys": [_jwk(key, "clerk-key")]}
+    _use_jwks(monkeypatch, lambda: jwks)
+    session_token = jwt.encode(
+        {
+            "sub": "user_1",
+            "aud": "my-api",
+            "iss": "https://tenant.clerk.accounts.dev",
+            "exp": int(time.time()) + 60,
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": "clerk-key"},
+    )
+
+    user = get_user_module.get_current_user(f"Bearer {session_token}")
+
+    assert user["sub"] == "user_1"
+    assert received == []
 
 
 def test_get_current_user_returns_500_for_invalid_key_format(monkeypatch):
