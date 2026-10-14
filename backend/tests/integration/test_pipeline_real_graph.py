@@ -165,7 +165,10 @@ def _judgments(stances: list[str], sources: int):
     """Respuesta del juez validada, como en producción, contra el esquema de ``sources`` fuentes."""
     schema = relevance_module.EVIDENCE_JUDGMENTS.schema(sources)
     return schema.model_validate(
-        {f"source_{n}": stance for n, stance in enumerate(stances, start=1)}
+        {
+            f"source_{n}": {"finding": "hallazgo", "stance": stance}
+            for n, stance in enumerate(stances, start=1)
+        }
     )
 
 
