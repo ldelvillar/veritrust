@@ -163,7 +163,8 @@ function SidebarContent({
           <div
             className={`flex items-center py-1.5 ${collapsed ? 'mt-2 justify-center border-t border-line pt-4' : 'gap-3 px-1.5'}`}
           >
-            <UserButton>
+            {/* Las claves API se emiten a mano a cada cliente Institución, no por autoservicio */}
+            <UserButton userProfileProps={{ apiKeysProps: { hide: true } }}>
               <UserButton.MenuItems>
                 <UserButton.Link
                   label="Datos personales"
