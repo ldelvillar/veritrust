@@ -4,14 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import Arrow from '@/assets/Arrow';
 import CheckIcon from '@/assets/Check';
 import CrossIcon from '@/assets/Cross';
-import WarningIcon from '@/assets/Warning';
 import PublicButton from '@/components/PublicButton';
 import { container } from './container';
 
 const highlights = [
   {
     b: 'Puntuación explicada',
-    p: '41/100 · «Falso»: mezcla un hecho real con una conclusión sin respaldo.',
+    p: '29/100 · «Falso»: las fuentes recuperadas contradicen las dos afirmaciones del texto.',
   },
   {
     b: 'Cada afirmación, por separado',
@@ -19,26 +18,14 @@ const highlights = [
   },
   {
     b: 'Fuentes para defenderlo',
-    p: 'Las revisiones de las distintas fuentes científicas respaldan el veredicto.',
+    p: 'Cuatro artículos científicos, cada uno enlazado a la afirmación que evalúa y con su postura.',
   },
 ];
 
+// Las dos afirmaciones del análisis real que muestra /ejemplo.
 const claims = [
-  {
-    tone: 'ok' as const,
-    text: 'La vitamina C es un nutriente esencial para el sistema inmunitario.',
-    verdict: 'Verdadero',
-  },
-  {
-    tone: 'bad' as const,
-    text: 'Su consumo diario previene por completo el resfriado común.',
-    verdict: 'Falso',
-  },
-  {
-    tone: 'warn' as const,
-    text: 'Refuerza el sistema inmunitario «sin ningún riesgo».',
-    verdict: 'Dudoso',
-  },
+  'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común.',
+  'El consumo diario de vitamina C en dosis altas refuerza el sistema inmunitario sin ningún riesgo.',
 ];
 
 export default function SampleReport() {
@@ -77,9 +64,9 @@ export default function SampleReport() {
             Mira cómo VeriTrust desmonta un bulo
           </h2>
           <p className="mb-5 text-base leading-relaxed text-muted">
-            Analizamos una afirmación habitual: «la vitamina C en dosis altas
-            previene por completo el resfriado». Esto es lo que devuelve el
-            sistema.
+            Analizamos un bulo habitual: «la vitamina C en dosis altas previene
+            por completo el resfriado y refuerza el sistema inmunitario sin
+            ningún riesgo». Esto es lo que devolvió el sistema.
           </p>
           <div className="mt-6 flex flex-col gap-3.5">
             {highlights.map(li => (
@@ -115,7 +102,7 @@ export default function SampleReport() {
           <div className="p-6">
             <div className="mb-5 flex items-center gap-4.5">
               <div className="flex size-30 shrink-0 flex-col items-center justify-center rounded-2xl bg-[linear-gradient(150deg,var(--color-verdict-fake-g1),var(--color-verdict-fake-g2))] text-white shadow-[0_12px_26px_rgba(210,60,93,0.3)]">
-                <b className="text-4xl leading-none font-bold">41</b>
+                <b className="text-4xl leading-none font-bold">29</b>
                 <small className="text-2xs opacity-85">/ 100</small>
               </div>
               <div>
@@ -126,8 +113,7 @@ export default function SampleReport() {
                   Credibilidad baja
                 </h4>
                 <p className="text-sm leading-snug text-muted">
-                  Parte de un hecho real pero exagera sus efectos y contradice
-                  el consenso clínico.
+                  Las fuentes recuperadas contradicen las dos afirmaciones.
                 </p>
               </div>
             </div>
@@ -136,40 +122,18 @@ export default function SampleReport() {
             </div>
             {claims.map((claim, idx) => (
               <div
-                key={claim.text}
+                key={claim}
                 className={`flex gap-3 py-3.25 ${idx > 0 ? 'border-t border-line' : ''}`}
               >
-                <span
-                  className={`mt-px grid size-6 shrink-0 place-items-center rounded-lg ${
-                    claim.tone === 'ok'
-                      ? 'bg-verdict-real-soft text-verdict-real-ink'
-                      : claim.tone === 'bad'
-                        ? 'bg-verdict-fake-soft text-verdict-fake-ink'
-                        : 'bg-verdict-uncertain-soft text-verdict-uncertain-ink'
-                  }`}
-                >
-                  {claim.tone === 'ok' ? (
-                    <CheckIcon className="size-3.25 stroke-[2.6]" />
-                  ) : claim.tone === 'bad' ? (
-                    <CrossIcon className="size-3.25" />
-                  ) : (
-                    <WarningIcon className="size-3.25" />
-                  )}
+                <span className="mt-px grid size-6 shrink-0 place-items-center rounded-lg bg-verdict-fake-soft text-verdict-fake-ink">
+                  <CrossIcon className="size-3.25" />
                 </span>
                 <div>
                   <div className="text-sm leading-snug font-semibold text-body">
-                    {claim.text}
+                    {claim}
                   </div>
-                  <span
-                    className={`mt-1 inline-block text-2xs font-extrabold tracking-[0.04em] uppercase ${
-                      claim.tone === 'ok'
-                        ? 'text-verdict-real-ink'
-                        : claim.tone === 'bad'
-                          ? 'text-verdict-fake-ink'
-                          : 'text-verdict-uncertain-ink'
-                    }`}
-                  >
-                    {claim.verdict}
+                  <span className="mt-1 inline-block text-2xs font-extrabold tracking-[0.04em] text-verdict-fake-ink uppercase">
+                    Falso
                   </span>
                 </div>
               </div>
