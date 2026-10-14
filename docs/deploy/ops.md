@@ -65,6 +65,50 @@ The backend serves an MCP server at `https://$API_DOMAIN/mcp` (`MCP_RESOURCE_URL
 
 Users connect a client with, for example, `claude mcp add --transport http veritrust https://$API_DOMAIN/mcp`, then sign in with their VeriTrust account in the browser.
 
+## REST API keys (Institución plan)
+
+Institución customers call the REST API from their own servers with a Clerk API key (`ak_…`). The backend verifies it against Clerk's Backend API with `CLERK_SECRET_KEY` and treats the request as the key's user: same history, same per-user rate limit as the web app. Keys are issued by hand; the API Keys tab Clerk would add to the profile modal is hidden.
+
+One-time Clerk Dashboard setup: **API keys → Enable API keys → Enable User API keys** (not Organization API keys: the backend rejects them). Until this is on, every `ak_…` request answers 500 `AUTH_MISCONFIGURED` and the backend logs `feature_not_enabled`.
+
+### Issuing a key
+
+The key belongs to the customer's VeriTrust user account, so the customer signs up first. Then create the key with the Backend API (the Dashboard only enables the feature), replacing `user_…` with their user ID from **Users** in the Dashboard:
+
+```bash
+curl -X POST https://api.clerk.com/v1/api_keys \
+  -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Acme CMS", "subject": "user_…"}'
+```
+
+The response's `secret` (`ak_…`) is shown **only once**; send it to the customer over a secure channel. Keep its `id` to revoke it later:
+
+```bash
+curl -X POST https://api.clerk.com/v1/api_keys/$API_KEY_ID/revoke \
+  -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"revocation_reason": "contract ended"}'
+```
+
+Successful verifications are cached in-process for 60 s, so a revoked key keeps working for up to a minute. List a user's keys with `GET https://api.clerk.com/v1/api_keys?subject=user_…`.
+
+### How the customer calls the API
+
+Submit content, then poll the analysis until its `status` leaves `pending` (`done` or `failed`):
+
+```bash
+curl -X POST https://$API_DOMAIN/analysis \
+  -H "Authorization: Bearer ak_…" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "La vitamina C cura el resfriado común."}'
+# → {"status": "pending", "analysis_id": "…"}
+
+curl https://$API_DOMAIN/analysis/$ANALYSIS_ID -H "Authorization: Bearer ak_…"
+```
+
+Send a URL instead with `{"url": "https://…", "source_type": "url"}`. An analysis takes a few minutes, so poll every few seconds; `POST /analysis` is limited to `RATE_LIMIT_MAX_REQUESTS` per `RATE_LIMIT_WINDOW_SECONDS` per user (429 `RATE_LIMIT`). An invalid, revoked or expired key answers 401 `INVALID_TOKEN`; 503 `SERVICE_UNAVAILABLE` means Clerk could not be reached, so retry.
+
 ## Capacity & scaling
 
 The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
