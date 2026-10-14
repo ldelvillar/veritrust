@@ -515,7 +515,7 @@ def main() -> dict[str, float]:
     parser.add_argument(
         "--partition",
         default="test",
-        choices=["train", "test", "validation", "gold"],
+        choices=["train", "test", "validation", "gold", "negations"],
         help="Partición de HealthVer a muestrear.",
     )
     parser.add_argument(
