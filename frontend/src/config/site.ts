@@ -7,9 +7,9 @@ export const SITE_CONFIG = {
   seo: {
     defaultTitle: 'Detector de Desinformación Médica con IA | VeriTrust',
     defaultDescription:
-      'Detector de noticias falsas de salud con IA. VeriTrust verifica afirmaciones médicas una a una y cita fuentes oficiales (OMS, Cochrane, NIH).',
+      'Detector de noticias falsas de salud con IA. VeriTrust verifica afirmaciones médicas una a una y cita la literatura científica en que se basa (PubMed, Europe PMC).',
     appDescription:
-      'Detector inteligente de bulos y noticias falsas en salud. Utiliza un sistema multiagente de IA para examinar textos, enlaces y documentos médicos, comparando afirmaciones directas con literatura oficial de forma automática y transparente.',
+      'Detector inteligente de bulos y noticias falsas en salud. Utiliza un sistema multiagente de IA para examinar textos, enlaces y documentos médicos, comparando afirmaciones directas con literatura científica de forma automática y transparente.',
     defaultImage: '/images/logo-1200x654.png',
     defaultImageWidth: 1200,
     defaultImageHeight: 654,

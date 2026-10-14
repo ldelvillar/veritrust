@@ -8,21 +8,21 @@ const claims = [
     tone: 'ok' as const,
     text: 'La vitamina C es esencial para el sistema inmunitario.',
     verdict: 'Respaldado',
-    source: 'OMS',
+    source: 'Europe PMC',
   },
   {
     n: '02',
     tone: 'bad' as const,
     text: 'Su consumo diario previene por completo el resfriado.',
     verdict: 'Refutado',
-    source: 'Cochrane 2023',
+    source: 'PubMed',
   },
   {
     n: '03',
     tone: 'warn' as const,
     text: 'Las dosis altas son «sin ningún riesgo».',
     verdict: 'Sin consenso',
-    source: 'NIH',
+    source: 'PubMed',
   },
 ];
 

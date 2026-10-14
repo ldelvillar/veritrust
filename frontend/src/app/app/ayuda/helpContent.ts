@@ -45,13 +45,13 @@ export const CATEGORIES = [
   {
     slug: 'fuentes-metodologia',
     title: 'Fuentes y metodología',
-    desc: 'OMS, Cochrane y NIH: cómo verificamos cada dato.',
+    desc: 'PubMed, Europe PMC, openFDA y CIMA: cómo verificamos cada dato.',
     icon: 'shield',
   },
   {
     slug: 'cuenta-planes',
     title: 'Cuenta y planes',
-    desc: 'Consumo, facturación y gestión del equipo.',
+    desc: 'Tu cuenta, límites de uso y planes.',
     icon: 'settings',
   },
   {
@@ -78,7 +78,7 @@ export const STEPS = [
   {
     n: '2',
     title: 'Los agentes verifican',
-    desc: 'El Extractor aísla las afirmaciones, el Traductor normaliza la terminología clínica, el Investigador busca evidencia biomédica y el Experto las contrasta con las fuentes.',
+    desc: 'El Extractor aísla las afirmaciones, el Traductor normaliza la terminología clínica, el Investigador busca evidencia biomédica y valora cada fuente, y el Experto explica el veredicto.',
     tags: ['Extractor', 'Traductor', 'Investigador', 'Experto'],
   },
   {
@@ -98,7 +98,7 @@ export const FAQ = [
   {
     cat: 'Privacidad',
     q: '¿Se guarda el contenido que analizo?',
-    a: 'El contenido se procesa de forma privada y <b>no se usa para entrenar modelos</b>. Puedes eliminar cualquier análisis desde «Análisis anteriores».',
+    a: 'Sí: se guarda en tu historial hasta que lo eliminas, y <b>no se usa para entrenar modelos</b>. Puedes eliminar cualquier análisis, o todo el historial, desde «Análisis anteriores».',
   },
   {
     cat: 'Informe',
@@ -150,7 +150,7 @@ export const ARTICLES = [
     category: 'Primeros pasos',
     title: 'Preparar documentos largos',
     summary:
-      'Divide informes extensos por secciones, conserva los encabezados clínicos y evita mezclar varios temas médicos en una sola solicitud.',
+      'Se analizan los primeros 10.000 caracteres y se buscan fuentes para hasta 8 afirmaciones por análisis: divide los informes extensos por secciones y evita mezclar varios temas médicos en una sola solicitud.',
     tags: ['PDF', 'TXT', 'Formato'],
   },
   {
@@ -198,7 +198,7 @@ export const ARTICLES = [
     category: 'Cómo leer un informe',
     title: 'Nivel de confianza',
     summary:
-      'La confianza refleja la solidez y coherencia de las fuentes encontradas, no la gravedad médica ni la importancia personal de la decisión.',
+      'La confianza refleja cuántas fuentes coinciden en el mismo sentido y cuántas afirmaciones tienen evidencia; no mide la calidad de cada estudio ni la gravedad médica.',
     tags: ['Confianza', 'Fuentes', 'Riesgo'],
   },
   {
@@ -222,16 +222,16 @@ export const ARTICLES = [
     category: 'Fuentes y metodología',
     title: 'Fuentes médicas',
     summary:
-      'VeriTrust prioriza organismos sanitarios, revisiones sistemáticas, guías clínicas y literatura biomédica reconocida para contrastar afirmaciones.',
-    tags: ['OMS', 'Cochrane', 'NIH'],
+      'Cada afirmación se busca en PubMed, Europe PMC y openFDA, y en CIMA (AEMPS) cuando nombra un medicamento. El informe enlaza cada fuente para que puedas leerla.',
+    tags: ['PubMed', 'Europe PMC', 'openFDA', 'CIMA'],
   },
   {
     id: 'seleccion-de-evidencia',
     category: 'Fuentes y metodología',
     title: 'Cómo seleccionamos evidencia',
     summary:
-      'Las fuentes se valoran por autoridad, actualidad, consenso, aplicabilidad clínica y concordancia con la afirmación concreta analizada.',
-    tags: ['Metodología', 'Consenso', 'Calidad'],
+      'Por cada afirmación se recuperan hasta 3 resultados de cada fuente; un modelo de IA valora si cada uno la respalda, la contradice o no es concluyente, y descarta los que no tratan de ella. Una regla fija decide el veredicto con esas valoraciones, sin ponderar la calidad de cada estudio; si la evidencia no basta, el veredicto es «Dudoso».',
+    tags: ['Metodología', 'Evidencia', 'Veredicto'],
   },
   {
     id: 'actualizacion-referencias',
@@ -246,7 +246,7 @@ export const ARTICLES = [
     category: 'Fuentes y metodología',
     title: 'Límites metodológicos',
     summary:
-      'La herramienta no diagnostica, no sustituye atención médica y puede mostrar baja confianza cuando la afirmación es ambigua o carece de contexto.',
+      'La herramienta no diagnostica ni sustituye la atención médica. Puede equivocarse, sobre todo con afirmaciones formuladas en negativo, y responde «Dudoso» cuando la literatura científica no trata el tema, como ocurre con muchos mitos populares.',
     tags: ['Límites', 'Diagnóstico', 'Contexto'],
   },
   {
@@ -254,55 +254,39 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Crear y configurar cuenta',
     summary:
-      'Completa el acceso, verifica tu correo y revisa el perfil para que el equipo pueda asociar análisis, historial y permisos correctamente.',
+      'Regístrate y verifica tu correo. Tus análisis y tu historial quedan asociados a tu cuenta y solo tú puedes verlos, salvo los que compartas con un enlace público.',
     tags: ['Cuenta', 'Perfil', 'Acceso'],
   },
   {
-    id: 'invitar-miembros-equipo',
+    id: 'uso-en-equipo',
     category: 'Cuenta y planes',
-    title: 'Invitar miembros del equipo',
+    title: 'Usar VeriTrust en equipo',
     summary:
-      'Añade usuarios con el correo corporativo, asigna permisos según su función y revisa periódicamente quién conserva acceso al espacio.',
-    tags: ['Equipo', 'Invitaciones', 'Permisos'],
+      'Las cuentas de equipo aún no están disponibles: cada persona usa su propia cuenta y su propio historial. Si quieres probar VeriTrust con tu redacción, pulsa «Agendar demo».',
+    tags: ['Equipo', 'Cuenta', 'Demo'],
   },
   {
-    id: 'cuotas-y-consumo',
+    id: 'limites-de-uso',
     category: 'Cuenta y planes',
-    title: 'Cuotas y consumo',
+    title: 'Límites de uso',
     summary:
-      'El consumo depende del número de análisis, el tamaño del contenido y la complejidad de las afirmaciones detectadas en cada solicitud.',
-    tags: ['Cuotas', 'Consumo', 'Límites'],
+      'Puedes lanzar hasta 5 análisis por minuto; si superas el límite, espera un momento y vuelve a intentarlo. Los textos pegados admiten hasta 10.000 caracteres y los archivos, hasta 10 MB.',
+    tags: ['Límites', 'Uso', 'Tamaño'],
   },
   {
-    id: 'cambiar-plan',
+    id: 'planes-de-pago',
     category: 'Cuenta y planes',
-    title: 'Cambiar de plan',
+    title: 'Planes de pago',
     summary:
-      'Revisa el uso actual antes de ampliar o reducir el plan; los cambios deben alinearse con el volumen de análisis previsto por el equipo.',
-    tags: ['Plan', 'Uso', 'Equipo'],
-  },
-  {
-    id: 'facturacion-recibos',
-    category: 'Cuenta y planes',
-    title: 'Facturación y recibos',
-    summary:
-      'Mantén actualizados los datos fiscales y revisa los recibos para confirmar fechas, concepto, plan contratado y método de pago.',
-    tags: ['Facturación', 'Recibos', 'Pago'],
-  },
-  {
-    id: 'permisos-roles',
-    category: 'Cuenta y planes',
-    title: 'Permisos y roles',
-    summary:
-      'Los permisos ayudan a separar quienes pueden analizar contenido, consultar historial, gestionar usuarios o modificar ajustes del espacio.',
-    tags: ['Roles', 'Seguridad', 'Equipo'],
+      'Los planes Pro y Equipo están en acceso anticipado: apúntate desde la página de precios y te avisaremos cuando abran.',
+    tags: ['Plan', 'Pro', 'Equipo'],
   },
   {
     id: 'cerrar-cuenta',
     category: 'Cuenta y planes',
     title: 'Cerrar cuenta',
     summary:
-      'Antes de cerrar una cuenta, exporta la información que necesites, elimina análisis sensibles y confirma que no quedan usuarios activos.',
+      'Descarga en PDF o CSV lo que quieras conservar, elimina tu historial desde «Análisis anteriores» y escríbenos con «Contactar con soporte»: cerraremos la cuenta y confirmaremos que no queda ningún dato.',
     tags: ['Cuenta', 'Cierre', 'Datos'],
   },
   {
@@ -310,7 +294,7 @@ export const ARTICLES = [
     category: 'Privacidad y datos',
     title: 'Contenido analizado y retención',
     summary:
-      'El contenido enviado se utiliza para producir el informe solicitado y se conserva únicamente para mostrar historial y trazabilidad al usuario.',
+      'Para generar el informe, el contenido se envía a nuestro proveedor de IA (Mistral AI), que no lo usa para entrenar modelos; a PubMed, Europe PMC, openFDA y CIMA solo llegan los términos de búsqueda de cada afirmación. El análisis se conserva en tu historial hasta que lo eliminas.',
     tags: ['Retención', 'Historial', 'Privacidad'],
   },
   {

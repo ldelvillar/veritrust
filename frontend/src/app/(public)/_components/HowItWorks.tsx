@@ -468,39 +468,39 @@ const INVESTIGATE_LOGS = [3400, 4400];
 const INVESTIGATE_SRCS = [5000, 5800, 6600];
 
 const databases = [
-  { name: 'pubmed', hits: 128 },
-  { name: 'cochrane', hits: 7 },
-  { name: 'nih.ods', hits: 3 },
-  { name: 'efsa', hits: 2 },
+  { name: 'pubmed', hits: 3 },
+  { name: 'europepmc', hits: 3 },
+  { name: 'openfda', hits: 3 },
+  { name: 'cima', hits: 3 },
 ];
 
 const investigateLog = [
   <>
-    filter: systematic_review, rct · lang: en · 2015-2025 →{' '}
+    3 resultados por base · 4 bases →{' '}
     <b className="font-medium text-console-text">12</b>
   </>,
   <>
-    rank: relevance × evidence_grade →{' '}
+    juez de relevancia →{' '}
     <b className="font-medium text-console-text">3 fuentes</b>
   </>,
 ];
 
 const investigateSources = [
   {
-    name: 'Revisión sistemática · profilaxis con vitamina C',
-    meta: 'cochrane/2023 · n=11306 · doi:10.1002/14651858 · rank 0.94',
+    name: 'Revisión sistemática · vitamina C y resfriado común',
+    meta: 'pubmed · cochrane database syst rev · 2013',
     stance: 'contradice',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
   },
   {
-    name: 'Ficha de micronutrientes · ácido ascórbico',
-    meta: 'nih.ods/2024 · fact sheet · rank 0.88',
+    name: 'Vitamina C y función inmunitaria',
+    meta: 'europepmc · nutrients · 2017',
     stance: 'respalda',
     tone: 'bg-verdict-real/16 text-verdict-real-on-dark',
   },
   {
-    name: 'Límite superior tolerable de ingesta',
-    meta: 'efsa/2022 · nutrition panel · UL 2 g/día · rank 0.81',
+    name: 'Ingesta alta de vitamina C y efectos adversos',
+    meta: 'pubmed · revisión',
     stance: 'no concluyente',
     tone: 'bg-verdict-uncertain/16 text-verdict-uncertain-on-dark',
   },
@@ -610,7 +610,7 @@ const judgements = [
   {
     id: 'C-01',
     text: 'Previene el resfriado por completo',
-    basis: 'guía OMS · revisión cochrane 2023',
+    basis: 'revisión sistemática · pubmed',
     verdict: 'refutada',
     weight: '−18',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
@@ -626,7 +626,7 @@ const judgements = [
   {
     id: 'C-03',
     text: '3 g/día no supone ningún riesgo',
-    basis: 'EFSA · UL 2 g/día',
+    basis: 'revisión · pubmed',
     verdict: 'refutada',
     weight: '−14',
     tone: 'bg-verdict-fake/16 text-verdict-fake-on-dark',
@@ -656,7 +656,7 @@ function HealthExpertArt() {
     >
       <div className="p-6">
         <div className={`${DH} mb-3.5`}>
-          pubmed · consenso OMS · cochrane · efsa · nih
+          pubmed · europe pmc · openfda · cima
         </div>
 
         {judgements.map((row, i) => (

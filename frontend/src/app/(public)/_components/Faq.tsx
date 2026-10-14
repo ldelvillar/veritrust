@@ -7,14 +7,14 @@ export const faqEntries = [
     a: (
       <>
         Es una herramienta que analiza contenido sanitario —texto, enlaces o
-        documentos— y estima su credibilidad contrastando cada afirmación con el
-        consenso médico. <strong>VeriTrust</strong> lo hace con un sistema
+        documentos— y estima su credibilidad contrastando cada afirmación con la
+        literatura científica. <strong>VeriTrust</strong> lo hace con un sistema
         multiagente de IA y cita las fuentes utilizadas, para que el resultado
         sea verificable.
       </>
     ),
     plain:
-      'Es una herramienta que analiza contenido sanitario (texto, enlaces o documentos) y estima su credibilidad contrastando cada afirmación con el consenso médico. VeriTrust lo hace con un sistema multiagente de IA y cita las fuentes utilizadas.',
+      'Es una herramienta que analiza contenido sanitario (texto, enlaces o documentos) y estima su credibilidad contrastando cada afirmación con la literatura científica. VeriTrust lo hace con un sistema multiagente de IA y cita las fuentes utilizadas.',
     open: true,
   },
   {
@@ -23,14 +23,15 @@ export const faqEntries = [
       <>
         Varios agentes trabajan en cadena: un <strong>extractor</strong> aísla
         las afirmaciones, un <strong>traductor</strong> normaliza el idioma y la
-        terminología clínica, un <strong>investigador</strong> reúne evidencia
-        científica de fuentes como OMS, Cochrane y NIH, y un{' '}
-        <strong>experto en salud</strong> contrasta cada afirmación con esa
-        evidencia antes de calcular la puntuación.
+        terminología clínica, y un <strong>investigador</strong> busca evidencia
+        en PubMed, Europe PMC y openFDA (y en CIMA, de la AEMPS, si se nombra un
+        medicamento) y valora si cada fuente respalda o contradice la
+        afirmación. Una regla fija decide el veredicto a partir de esas
+        valoraciones y un <strong>experto en salud</strong> lo explica.
       </>
     ),
     plain:
-      'Varios agentes de IA trabajan en cadena: un extractor aísla las afirmaciones, un traductor normaliza el idioma y la terminología clínica, un investigador reúne evidencia científica de fuentes como OMS, Cochrane y NIH, y un experto en salud contrasta cada afirmación con esa evidencia.',
+      'Varios agentes de IA trabajan en cadena: un extractor aísla las afirmaciones, un traductor normaliza el idioma y la terminología clínica, y un investigador busca evidencia en PubMed, Europe PMC y openFDA (y en CIMA, de la AEMPS, si se nombra un medicamento) y valora si cada fuente respalda o contradice la afirmación. Una regla fija decide el veredicto y un experto en salud lo explica.',
     open: false,
   },
   {
@@ -39,51 +40,54 @@ export const faqEntries = [
       <>
         Puedes pegar <strong>texto</strong>, introducir un{' '}
         <strong>enlace</strong> (URL de un artículo) o subir un{' '}
-        <strong>archivo</strong>: PDF, TXT o MD.
+        <strong>archivo</strong>: PDF, TXT o MD. El plan Gratis incluye texto y
+        enlaces; los archivos, el plan Pro.
       </>
     ),
     plain:
-      'Texto pegado, enlaces (URL de artículos) y archivos: PDF, TXT o MD.',
+      'Texto pegado, enlaces (URL de artículos) y archivos: PDF, TXT o MD. El plan Gratis incluye texto y enlaces; los archivos, el plan Pro.',
     open: false,
   },
   {
     q: '¿Cuál es la precisión de la herramienta?',
     a: (
       <>
-        VeriTrust alcanza un <strong>88% de precisión</strong>, medido sobre más
-        de 10.000 análisis verificados. Cada veredicto incluye sus fuentes para
-        que puedas comprobarlo por ti mismo.
+        Aún no publicamos una cifra de precisión: la mediremos sobre un conjunto
+        de prueba que no hemos usado para ajustar el sistema. Mientras tanto,
+        cada veredicto enlaza las fuentes en que se basa y, cuando la evidencia
+        no basta, responde <strong>«Dudoso»</strong> en lugar de forzar un
+        veredicto. Puede equivocarse: revisa las fuentes de cada afirmación
+        antes de publicar o difundir un resultado.
       </>
     ),
     plain:
-      'VeriTrust alcanza un 88% de precisión medido sobre más de 10.000 análisis verificados.',
+      'Aún no publicamos una cifra de precisión: la mediremos sobre un conjunto de prueba que no hemos usado para ajustar el sistema. Mientras tanto, cada veredicto enlaza las fuentes en que se basa y, cuando la evidencia no basta, responde «Dudoso» en lugar de forzar un veredicto. Puede equivocarse: revisa las fuentes de cada afirmación antes de publicar o difundir un resultado.',
     open: false,
   },
   {
     q: '¿Mis datos y los de mi organización están seguros?',
     a: (
       <>
-        Sí. El contenido se procesa de forma privada y{' '}
-        <strong>no se utiliza para entrenar modelos</strong>. Para instituciones
-        ofrecemos acuerdos de tratamiento de datos y opciones de despliegue
-        dedicado.
+        Sí. El contenido solo se usa para generar tu informe y mostrarlo en tu
+        historial, y <strong>no se utiliza para entrenar modelos</strong>. Con
+        las organizaciones firmamos un acuerdo de tratamiento de datos.
       </>
     ),
     plain:
-      'El contenido se procesa de forma privada y no se utiliza para entrenar modelos. Ofrecemos acuerdos de tratamiento de datos para instituciones.',
+      'El contenido solo se usa para generar tu informe y mostrarlo en tu historial, y no se utiliza para entrenar modelos. Con las organizaciones firmamos un acuerdo de tratamiento de datos.',
     open: false,
   },
   {
     q: '¿Hay una versión gratuita?',
     a: (
       <>
-        Sí. El plan <strong>Gratis</strong> incluye 10 análisis al mes con el
-        sistema multiagente completo y las tres vías de entrada, sin necesidad
+        Sí. El plan <strong>Gratis</strong> incluye 10 análisis al mes de{' '}
+        <strong>texto y enlaces</strong> con el sistema completo, sin necesidad
         de tarjeta.
       </>
     ),
     plain:
-      'Sí. El plan Gratis incluye 10 análisis al mes con el sistema multiagente completo y los tres tipos de entrada.',
+      'Sí. El plan Gratis incluye 10 análisis al mes de texto y enlaces con el sistema completo, sin necesidad de tarjeta.',
     open: false,
   },
 ];
