@@ -35,6 +35,11 @@ const ALLOWED_ELEMENTS = [
   'pre',
 ];
 
+// A quote ends at the first line that isn't one, so commentary never renders inside a quoted abstract.
+function closeQuotes(markdown: string): string {
+  return markdown.replace(/^([ \t]*>.*)\n(?![ \t]*(?:>|$))/gm, '$1\n\n');
+}
+
 const COPY_STYLE: Record<CopyState, string> = {
   idle: 'border-line-strong bg-white text-body hover:border-primary hover:text-primary',
   copied: 'border-success-soft bg-success-soft text-success-ink',
@@ -69,7 +74,7 @@ export default function MedicalExplanation({
             Experto en salud
           </h3>
           <p className="mt-0.5 text-xs text-muted">
-            Contrasta cada afirmación con el consenso médico actual
+            Explica el veredicto con lo que dicen las fuentes
           </p>
         </div>
       </div>
@@ -91,9 +96,9 @@ export default function MedicalExplanation({
           </button>
         </div>
 
-        <div className="prose max-w-none text-body prose-headings:text-ink prose-strong:text-ink">
+        <div className="prose max-w-none text-body prose-headings:text-ink prose-strong:text-ink [&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none">
           <MarkdownHooks allowedElements={ALLOWED_ELEMENTS} unwrapDisallowed>
-            {explanation}
+            {closeQuotes(explanation)}
           </MarkdownHooks>
         </div>
       </div>

@@ -50,6 +50,22 @@ describe('MedicalExplanation', () => {
     expect(emphasis.tagName).toBe('STRONG');
   });
 
+  it('ends a quoted abstract before the commentary that follows it', async () => {
+    render(
+      <MedicalExplanation
+        explanation={
+          '- La fuente dice:\n  > *"Sin efecto frente a placebo."*\n  Esto implica otra cosa.'
+        }
+      />
+    );
+
+    const quote = await screen.findByText('"Sin efecto frente a placebo."');
+    expect(quote.closest('blockquote')).not.toBeNull();
+    expect(
+      screen.getByText('Esto implica otra cosa.').closest('blockquote')
+    ).toBeNull();
+  });
+
   it('reports a failed copy instead of confirming', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denegado'));
     stubClipboard(writeText);
