@@ -52,3 +52,12 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
         return pd.read_json(data_path, lines=True, encoding="utf-8")
 
     return pd.read_parquet(data_path)
+
+
+def load_jsonl(path: str) -> pd.DataFrame:
+    """Carga un conjunto etiquetado en JSONL de cualquier ruta, como el reservado que no vive en el repo."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No se encontró el archivo en: {path}.")
+
+    logger.info("Cargando datos desde: %s", path)
+    return pd.read_json(path, lines=True, encoding="utf-8")

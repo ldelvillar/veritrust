@@ -25,7 +25,7 @@ from app.core.verdict import Verdict, kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 from app.utils.llm import ensure_llm_available
-from evaluation.load_data import load_dataset
+from evaluation.load_data import load_dataset, load_jsonl
 
 logger = logging.getLogger(__name__)
 
@@ -171,10 +171,13 @@ def _stance_histogram(sources: list[dict]) -> dict[str, int]:
 
 
 def load_samples(
-    partition: str = "test", limit: int = 30, seed: int = 42
+    partition: str = "test",
+    limit: int = 30,
+    seed: int = 42,
+    data: Path | None = None,
 ) -> list[Sample]:
-    """Carga una muestra binaria y balanceada de HealthVer para la evaluación."""
-    df = load_dataset(partition)
+    """Carga una muestra binaria y balanceada de una partición, o del JSONL ``data`` si se da, para la evaluación."""
+    df = load_jsonl(str(data)) if data else load_dataset(partition)
     df = df[df["label"].isin(LABEL_BY_CODE)].copy()
     df["expected"] = df["label"].map(LABEL_BY_CODE)
 
@@ -519,6 +522,12 @@ def main() -> dict[str, float]:
         help="Partición de HealthVer a muestrear.",
     )
     parser.add_argument(
+        "--data",
+        default=None,
+        metavar="JSONL",
+        help="Conjunto etiquetado fuera del repo, como el reservado; sustituye a --partition.",
+    )
+    parser.add_argument(
         "--limit", type=int, default=30, help="Número de muestras a evaluar."
     )
     parser.add_argument(
@@ -552,11 +561,14 @@ def main() -> dict[str, float]:
         os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
 
     # results/ está git-ignored; el checkpoint permite reanudar una evaluación larga.
+    data = Path(args.data) if args.data else None
+    # El conjunto se nombra por su archivo cuando no es una partición del repo.
+    source = data.stem if data else args.partition
     default_dir = Path(__file__).resolve().parents[1] / "results"
     checkpoint_path = (
         Path(args.checkpoint)
         if args.checkpoint
-        else default_dir / f"eval_pipeline_{args.partition}.jsonl"
+        else default_dir / f"eval_pipeline_{source}.jsonl"
     )
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -583,7 +595,7 @@ def main() -> dict[str, float]:
             checkpoint_path,
             describe_run(
                 prompts,
-                partition=args.partition,
+                partition=source,
                 seed=args.seed,
                 replay_evidence=str(replay_path) if replay_path else None,
             ),
@@ -592,10 +604,8 @@ def main() -> dict[str, float]:
         raise SystemExit(str(exc)) from exc
 
     graph = create_graph(prompts)
-    samples = load_samples(args.partition, args.limit, args.seed)
-    logger.info(
-        "Evaluando %d muestras de la partición '%s'", len(samples), args.partition
-    )
+    samples = load_samples(args.partition, args.limit, args.seed, data)
+    logger.info("Evaluando %d muestras de '%s'", len(samples), source)
 
     start = time()
     rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path, replay))

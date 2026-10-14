@@ -190,6 +190,24 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     assert all(s["text"] not in {"c6", "c7"} for s in samples)
 
 
+def test_load_samples_reads_a_jsonl_outside_the_repo(monkeypatch, tmp_path) -> None:
+    data = tmp_path / "reservado.jsonl"
+    rows = [{"claim": "verdad", "label": 0}, {"claim": "bulo", "label": 1}]
+    data.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+
+    def _no_partition(partition):
+        raise AssertionError("con un archivo no se lee ninguna partición")
+
+    monkeypatch.setattr(ep, "load_dataset", _no_partition)
+
+    samples = ep.load_samples(limit=2, seed=1, data=data)
+
+    assert sorted((s["text"], s["expected"]) for s in samples) == [
+        ("bulo", "falsa"),
+        ("verdad", "verdadera"),
+    ]
+
+
 def test_load_samples_skips_blank_claims(monkeypatch) -> None:
     df = pd.DataFrame({"claim": ["\xa0  ", "real claim"], "label": [0, 1]})
     monkeypatch.setattr(ep, "load_dataset", lambda partition: df.copy())
