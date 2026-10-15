@@ -64,6 +64,31 @@ gunzip -c ~/backups/veritrust-20260612.sql.gz | \
 
 `-i` keeps stdin open so the file pipes in. Use `psql` to restore, `pg_dump` to back up.
 
+## 5. Undo a bad migration
+
+Every deploy dumps the database to `~/backups/pre-deploy-<timestamp>.dump` before the `migrate` service runs (see `.github/workflows/deploy.yml`).
+
+If a migration **fails**, its transaction rolls back and the deploy goes red. Compose has already replaced the API and worker containers but won't start them, so they stay down until a fixed or reverted commit deploys. There is nothing to restore.
+
+If a migration **succeeds but damages data or schema**, restore the dump taken just before the deploy that ran it (later dumps already contain the damage). Everything written since that deploy is lost.
+
+1. Stop the writers, so nothing writes during the restore and the new code never runs against the old schema:
+
+   ```bash
+   docker compose -f ~/veritrust/docker-compose.yml stop backend worker
+   ```
+
+2. Restore the dump. `--create` drops and recreates the whole database, so tables the migration created (which aren't in the dump) go too; it connects to `postgres` because `veritrust` is the database being dropped:
+
+   ```bash
+   docker exec -i $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \
+     pg_restore -U veritrust -d postgres --clean --if-exists --create < ~/backups/pre-deploy-20261025-120000.dump
+   ```
+
+3. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
+
+The dump is in `pg_dump`'s custom format (compressed, includes `schema_migrations`), so restore it with `pg_restore`, not `psql`.
+
 ## Future: store backups off the VM
 
 Backups currently sit on the same disk as the database, so a disk or VM loss takes them with it. The eventual fix is to push each dump to a GCS bucket (`gcloud` is already authenticated on the VM):

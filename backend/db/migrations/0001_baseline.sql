@@ -1,4 +1,4 @@
--- Bootstrap schema for the in-compose Postgres. Runs once when the data volume is empty
+-- Baseline schema; applied once by app.db.migrate, then changed only by later migration files
 
 
 CREATE TABLE IF NOT EXISTS public.analysis_history (

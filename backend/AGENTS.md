@@ -9,6 +9,7 @@ uv sync --directory backend --frozen                                            
 uv sync --directory backend --frozen --extra evaluation                                  # Add evaluation stack for evaluation/ and its tests
 uv run --directory backend uvicorn app.main:app                                          # API server (http://localhost:8000)
 uv run --directory backend python -m app.worker                                          # Analysis worker (needs Redis + Ollama)
+uv run --directory backend python -m app.db.migrate                                      # Apply pending schema migrations (DATABASE_URL)
 uv run --directory backend pytest tests --cov=app --cov-fail-under=80                    # App tests
 uv run --directory backend pytest evaluation/tests --cov=evaluation --cov-fail-under=80  # Evaluation tests
 uv run --directory backend pytest tests/test_foo.py -k "test_name"                       # Single test (prefer while iterating)
@@ -33,6 +34,7 @@ uv run --directory backend mypy                                                 
 - **Typed exception dispatch** — transport failures are translated to typed errors (e.g. `OllamaConnectionError`) via `ainvoke_graph` in `app/agents/errors.py`. Branch on exception type, never on `str(exc)`.
 - **Async end-to-end, blocking I/O off the loop** — routes, dependencies, and DB functions are `async def`; invoke the graph via `ainvoke_graph`. Code that does blocking I/O stays sync and runs off the event loop instead — as a sync `def` dependency in FastAPI's threadpool (`get_current_user`: the JWKS fetch is blocking HTTP), via `await asyncio.to_thread(...)` (`extract_text_from_url`, the MCP token verifier), or as a sync agent node in LangGraph's threadpool. Never wrap blocking code in `async def`.
 - **No ORM** — raw psycopg3 async SQL under `app/db/`, served by the module-level pool opened/closed in the lifespan.
+- **Schema migrations** — the schema is the ordered SQL files in `db/migrations/` (`NNNN_snake_case.sql`), applied by `app/db/migrate.py` and recorded in `schema_migrations` (ADR-0004). To change the schema, add the next numbered file; never edit or delete an applied one — the runner refuses to start on a changed or missing file. Migrations only roll forward: no down scripts. `tests/db` builds its database through the same runner, so a query that needs a column no migration adds fails in CI.
 
 ## MCP server
 

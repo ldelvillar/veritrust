@@ -38,6 +38,10 @@ services:
   redis:
     mem_limit: 512m
 
+  migrate:
+    environment:
+      LOG_FORMAT: json
+
   backend:
     ports: !override []
     mem_limit: 1g

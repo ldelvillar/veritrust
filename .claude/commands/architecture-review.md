@@ -36,7 +36,7 @@ Red flags: business logic leaking into UI (e.g. re-deriving a Verdict the backen
 
 ## 3. BACKEND — `backend/app` (API, worker, MCP)
 
-Scope: router/dependency design, async correctness, DB access (raw psycopg3 pool) and schema evolution (`backend/db/init.sql`, no migration framework), the Analysis lifecycle across routes, arq worker and orphan reaper, the MCP server (`app/mcp/`) as a second entry point, config (`Settings`), the `ErrorCode` contract, logging/observability, auth (Clerk JWT for the web API, Clerk OAuth for MCP).
+Scope: router/dependency design, async correctness, DB access (raw psycopg3 pool) and schema evolution (`backend/db/migrations/` applied by `app/db/migrate.py`, no migration framework — ADR-0004), the Analysis lifecycle across routes, arq worker and orphan reaper, the MCP server (`app/mcp/`) as a second entry point, config (`Settings`), the `ErrorCode` contract, logging/observability, auth (Clerk JWT for the web API, Clerk OAuth for MCP).
 Red flags: fat routers / business logic in endpoints, sync calls blocking async routes, hidden global state, weak typing, circular imports, the MCP path diverging from the web API (auth, rate limits, intake), writes or decisions that bypass the modules `backend/AGENTS.md` names as sole owners.
 
 ## 4. AI PIPELINE — `backend/app/agents`, `backend/evaluation`

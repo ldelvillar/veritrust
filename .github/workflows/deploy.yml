@@ -38,7 +38,20 @@ jobs:
               rm -f .env.tmp
               echo "Secret Manager: 'veritrust-env' no accesible o inválido; se mantiene el .env actual"
             fi
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            # Copia previa a las migraciones del servicio 'migrate'; en el primer despliegue aún no hay postgres.
+            pg_cid=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)
+            if [ -n "$pg_cid" ]; then
+              mkdir -p ~/backups
+              docker exec "$pg_cid" sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+                > ~/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
+              # Conserva las 10 copias más recientes: cada push a main genera una completa.
+              ls -1t ~/backups/pre-deploy-*.dump | tail -n +11 | xargs -r rm --
+            fi
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build || {
+              # Si falla 'migrate', su error solo aparece en sus logs.
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 50 migrate
+              exit 1
+            }
             # Nadie depende de worker ni frontend por salud, así que 'up -d' vuelve aunque estén en crash-loop.
             for svc in worker frontend; do
               echo "Esperando a que $svc pase su healthcheck..."
