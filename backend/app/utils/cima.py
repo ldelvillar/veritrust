@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError
+from app.utils.evidence import EvidenceRetrievalError, join_label_sections
 from app.utils.ssrf import SSRFValidationError, resolve_public_host
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,9 @@ _DETALLE_URL = "https://cima.aemps.es/cima/publico/detalle.html?nregistro="
 
 # Tipo de documento en CIMA: 1 = ficha técnica, 2 = prospecto.
 _FICHA_TECNICA_TIPO = 1
-# Cota del texto que se envía al juez; la ficha técnica completa es demasiado larga.
+# Secciones de la ficha técnica que sirven al juez: indicaciones y seguridad, hasta la sobredosis.
+_SECTION_IDS = ("4.1", "4.3", "4.4", "4.6", "4.8", "4.9")
+# Cota del texto de una ficha sin secciones numeradas; la ficha completa es demasiado larga.
 _ABSTRACT_MAX_CHARS = 2000
 
 
@@ -97,8 +99,24 @@ def _fetch_ficha_tecnica_text(url: str, timeout: int) -> str | None:
     soup = BeautifulSoup(response.content, "html.parser")
     for tag in soup(["script", "style", "noscript"]):
         tag.extract()
+    sections = _key_sections(soup)
+    if sections:
+        return sections
     text = soup.get_text(separator=" ", strip=True)
     return text[:_ABSTRACT_MAX_CHARS] or None
+
+
+def _key_sections(soup: BeautifulSoup) -> str | None:
+    """Texto de las secciones clave de la ficha, cada una con su encabezado; ``None`` si no las numera."""
+    sections = []
+    for heading in soup.find_all(["h1", "h2"], id=list(_SECTION_IDS)):
+        body = []
+        for sibling in heading.find_next_siblings():
+            if sibling.name in ("h1", "h2"):
+                break
+            body.append(sibling.get_text(separator=" ", strip=True))
+        sections.append(f"{heading.get_text(' ', strip=True)}: {' '.join(body)}")
+    return join_label_sections(sections)
 
 
 def _map_result(result: dict, *, timeout: int) -> dict | None:
