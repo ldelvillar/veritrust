@@ -36,6 +36,8 @@ _SOURCE_ORDER = ("europepmc", "pubmed", "openfda", "cima")
 
 _LABELS = ("verdadera", "falsa")
 
+_FIRM = ("supports", "contradicts")
+
 
 @dataclass(frozen=True)
 class JudgeCase:
@@ -46,13 +48,32 @@ class JudgeCase:
     claim: Claim
 
 
+class JudgedSource(TypedDict):
+    """Postura que dio el juez a una fuente candidata."""
+
+    url: str
+    stance: str
+
+
 class JudgeRow(TypedDict):
     """Respuesta del juez para un caso y el veredicto que decide con ella."""
 
     text: str
+    claim: str
     expected: str
-    stances: list[str]
+    sources: list[JudgedSource]
     predicted: str
+
+
+@dataclass(frozen=True)
+class StanceLabel:
+    """Postura correcta de una fuente para una afirmación, etiquetada a mano."""
+
+    claim: str
+    url: str
+    label: str
+    stance: str
+    reason: str
 
 
 def load_cases(path: Path) -> list[JudgeCase]:
@@ -111,8 +132,12 @@ def judge_cases(
             verdict = decide([judged], evidence_search([judged]))
             row: JudgeRow = {
                 "text": case.text,
+                "claim": case.claim.text,
                 "expected": case.expected,
-                "stances": list(stances),
+                "sources": [
+                    {"url": item.url, "stance": stance}
+                    for item, stance in zip(case.claim.evidence, stances, strict=True)
+                ],
                 "predicted": verdict.label,
             }
             done[case.text] = row
@@ -147,14 +172,92 @@ def compute_judge_metrics(rows: list[JudgeRow]) -> dict:
         ),
         "stances": {
             label: Counter(
-                stance
+                source["stance"]
                 for row in rows
                 if row["expected"] == label
-                for stance in row["stances"]
+                for source in row["sources"]
             )
             for label in _LABELS
         },
     }
+
+
+def load_stance_labels(path: Path) -> list[StanceLabel]:
+    """Lee las posturas etiquetadas a mano de un JSONL, una por par afirmación-fuente."""
+    with path.open(encoding="utf-8") as handle:
+        records = [json.loads(line) for line in handle if line.strip()]
+    return [
+        StanceLabel(
+            claim=record["claim"],
+            url=record["url"],
+            label=record["label"],
+            stance=record["stance"],
+            reason=record["reason"],
+        )
+        for record in records
+    ]
+
+
+def score_stances(rows: list[JudgeRow], labels: list[StanceLabel]) -> dict:
+    """Compara las posturas del juez con las etiquetadas: firmes sin base, descartes de más y polaridad invertida."""
+    judged = {
+        (row["claim"], source["url"]): source["stance"]
+        for row in rows
+        for source in row["sources"]
+    }
+    scored = [
+        (label, judged[(label.claim, label.url)])
+        for label in labels
+        if (label.claim, label.url) in judged
+    ]
+    loose = [
+        (label, stance)
+        for label, stance in scored
+        if stance in _FIRM and label.stance not in _FIRM
+    ]
+    return {
+        "labels": len(labels),
+        "scored": len(scored),
+        "judge_firm": sum(stance in _FIRM for _, stance in scored),
+        "loose": len(loose),
+        # Las que empujan hacia el veredicto equivocado de su afirmación.
+        "loose_wrong_way": sum(
+            (label.label, stance)
+            in (("verdadera", "contradicts"), ("falsa", "supports"))
+            for label, stance in loose
+        ),
+        "loose_reasons": Counter(label.reason for label, _ in loose),
+        "gold_firm": sum(label.stance in _FIRM for label, _ in scored),
+        "strict": sum(
+            label.stance in _FIRM and stance not in _FIRM for label, stance in scored
+        ),
+        "polarity": sum(
+            label.stance in _FIRM and stance in _FIRM and stance != label.stance
+            for label, stance in scored
+        ),
+    }
+
+
+def format_stance_report(scores: dict) -> str:
+    """Compone el informe de posturas frente a las etiquetadas a mano."""
+
+    def share(part: int, whole: int) -> str:
+        return f"{part}/{whole} ({part / whole:.1%})" if whole else f"{part}/0"
+
+    reasons = " · ".join(
+        f"{reason} {n}" for reason, n in scores["loose_reasons"].most_common()
+    )
+    return "\n".join(
+        [
+            "",
+            f"Posturas etiquetadas: {scores['scored']}/{scores['labels']} puntuadas",
+            f"  Firmes sin base     : {share(scores['loose'], scores['judge_firm'])}"
+            f" · {scores['loose_wrong_way']} hacia el veredicto equivocado",
+            f"    por motivo        : {reasons or '-'}",
+            f"  Descartes de más    : {share(scores['strict'], scores['gold_firm'])}",
+            f"  Polaridad invertida : {scores['polarity']}",
+        ]
+    )
 
 
 def format_judge_report(metrics: dict, run: dict, cases: int) -> str:
@@ -164,7 +267,7 @@ def format_judge_report(metrics: dict, run: dict, cases: int) -> str:
         "===== Evaluación del juez =====",
         f"Proveedor : {run['provider']} · git {run.get('git') or 'desconocido'}",
         f"Juez      : {run['models']['judge']} · prompt {run['prompts']['judge']}",
-        f"Casos     : {Path(run['replay_evidence']).name}",
+        f"Casos     : {', '.join(Path(p).name for p in run['replay_evidence'])}",
         f"Juzgados  : {metrics['judged']}/{cases}",
         f"Firmes    : {metrics['firm']} · aciertos {metrics['correct']} "
         f"({metrics['accuracy']:.1%})",
@@ -190,8 +293,9 @@ def main() -> dict:
     parser.add_argument(
         "--cases",
         required=True,
+        nargs="+",
         metavar="CKPT",
-        help="Checkpoint del pipeline con la evidencia bruta grabada que se vuelve a juzgar.",
+        help="Checkpoints del pipeline con la evidencia bruta grabada que se vuelve a juzgar.",
     )
     parser.add_argument(
         "--checkpoint", required=True, help="Ruta del checkpoint JSONL de esta corrida."
@@ -207,15 +311,26 @@ def main() -> dict:
         default=None,
         help="Deja de empezar casos pasado este tiempo; la corrida se reanuda después.",
     )
+    parser.add_argument(
+        "--stance-labels",
+        default=None,
+        metavar="JSONL",
+        help="Posturas etiquetadas a mano con las que puntuar cada fuente juzgada.",
+    )
     args = parser.parse_args()
 
-    cases_path = Path(args.cases).resolve()
+    cases_paths = [Path(path).resolve() for path in args.cases]
     checkpoint_path = Path(args.checkpoint)
-    if cases_path == checkpoint_path.resolve():
-        raise SystemExit("--cases debe apuntar a otro checkpoint que --checkpoint.")
-    cases = load_cases(cases_path)
+    if checkpoint_path.resolve() in cases_paths:
+        raise SystemExit("--cases debe apuntar a otros checkpoints que --checkpoint.")
+    cases = [case for path in cases_paths for case in load_cases(path)]
     if not cases:
-        raise SystemExit(f"{cases_path} no existe o no tiene casos de una afirmación.")
+        raise SystemExit(
+            "Los checkpoints de --cases no existen o no tienen casos de una afirmación."
+        )
+    labels = (
+        load_stance_labels(Path(args.stance_labels)) if args.stance_labels else None
+    )
 
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     if args.fresh:
@@ -229,7 +344,7 @@ def main() -> dict:
         "provider": get_settings().llm_provider_name(),
         "models": {"judge": configured_models()["judge"]},
         "prompts": {"judge": prompts.judge.version},
-        "replay_evidence": str(cases_path),
+        "replay_evidence": [str(path) for path in cases_paths],
         "git": git_describe(),
     }
     try:
@@ -240,6 +355,9 @@ def main() -> dict:
     rows = judge_cases(cases, prompts.judge.text, checkpoint_path, args.minutes)
     metrics = compute_judge_metrics(rows)
     print(format_judge_report(metrics, run, len(cases)))
+    if labels is not None:
+        metrics["stance_labels"] = score_stances(rows, labels)
+        print(format_stance_report(metrics["stance_labels"]))
     return metrics
 
 

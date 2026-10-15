@@ -9,6 +9,7 @@ import pytest
 
 from app.core.claim import Claim, with_hits
 from evaluation import evaluate_judge as ej
+from evaluation import load_data
 
 
 def _hit(key: str) -> dict:
@@ -135,9 +136,14 @@ def test_judge_cases_saves_each_answer_with_the_verdict_it_decides(
 
     rows = ej.judge_cases(cases, "prompt", checkpoint)
 
-    assert [(r["text"], r["stances"], r["predicted"]) for r in rows] == [
-        ("A", ["supports", "supports"], "verdadera"),
-        ("B", ["contradicts", "contradicts"], "falsa"),
+    assert [(r["text"], r["claim"], r["predicted"]) for r in rows] == [
+        ("A", "A", "verdadera"),
+        ("B", "B", "falsa"),
+    ]
+    # Cada postura queda con la URL de su fuente, no por posición.
+    assert rows[1]["sources"] == [
+        {"url": "https://e.org/3", "stance": "contradicts"},
+        {"url": "https://e.org/4", "stance": "contradicts"},
     ]
     # Un caso sin respuesta no queda guardado: se reintenta al reanudar.
     saved = [json.loads(line)["text"] for line in checkpoint.read_text().splitlines()]
@@ -190,10 +196,15 @@ def test_judge_cases_stops_starting_cases_once_the_time_budget_runs_out(
 
 
 def _judged(expected: str, predicted: str, *stances: str) -> ej.JudgeRow:
+    text = f"{expected}-{predicted}-{len(stances)}"
     return {
-        "text": f"{expected}-{predicted}-{len(stances)}",
+        "text": text,
+        "claim": text,
         "expected": expected,
-        "stances": list(stances),
+        "sources": [
+            {"url": f"https://e.org/{i}", "stance": stance}
+            for i, stance in enumerate(stances)
+        ],
         "predicted": predicted,
     }
 
@@ -228,19 +239,29 @@ def test_format_judge_report_names_the_judge_and_the_stance_ratio():
         "provider": "mistral",
         "models": {"judge": "mistral-small-latest"},
         "prompts": {"judge": "v6"},
-        "replay_evidence": "/results/base.jsonl",
+        "replay_evidence": ["/results/base.jsonl", "/results/neg.jsonl"],
         "git": "abc1234",
     }
 
     report = ej.format_judge_report(ej.compute_judge_metrics(rows), run, cases=3)
 
     assert "mistral-small-latest · prompt v6" in report
-    assert "base.jsonl" in report
+    assert "base.jsonl, neg.jsonl" in report
     assert "Juzgados  : 2/3" in report
     assert "falsa      supports    2 · contradicts    1" in report
     assert "s:c 2.00" in report
     # Sin ningún contradicts la razón no tiene denominador.
     assert "s:c ∞" in report
+
+
+def _offline(monkeypatch) -> None:
+    """Sustituye lo que main consulta fuera del proceso: el LLM, git y la configuración."""
+    monkeypatch.setattr(ej, "ensure_llm_available", lambda: None)
+    monkeypatch.setattr(ej, "git_describe", lambda: "abc1234")
+    monkeypatch.setattr(
+        ej, "get_settings", lambda: SimpleNamespace(llm_provider_name=lambda: "ollama")
+    )
+    monkeypatch.setattr(ej, "configured_models", lambda: {"judge": "gemma4:12b"})
 
 
 def test_main_judges_the_recorded_cases_and_records_the_judge_in_the_header(
@@ -256,12 +277,7 @@ def test_main_judges_the_recorded_cases_and_records_the_judge_in_the_header(
         "argv",
         ["evaluate_judge", "--cases", str(recorded), "--checkpoint", str(checkpoint)],
     )
-    monkeypatch.setattr(ej, "ensure_llm_available", lambda: None)
-    monkeypatch.setattr(ej, "git_describe", lambda: "abc1234")
-    monkeypatch.setattr(
-        ej, "get_settings", lambda: SimpleNamespace(llm_provider_name=lambda: "ollama")
-    )
-    monkeypatch.setattr(ej, "configured_models", lambda: {"judge": "gemma4:12b"})
+    _offline(monkeypatch)
     monkeypatch.setattr(
         ej, "judge_stances", _fake_judge({"A EN": ("contradicts",)}, [])
     )
@@ -270,7 +286,7 @@ def test_main_judges_the_recorded_cases_and_records_the_judge_in_the_header(
 
     header = json.loads(checkpoint.read_text().splitlines()[0])["run"]
     assert header["models"] == {"judge": "gemma4:12b"}
-    assert header["replay_evidence"] == str(recorded.resolve())
+    assert header["replay_evidence"] == [str(recorded.resolve())]
     assert (metrics["firm"], metrics["correct"]) == (1, 1)
     assert "gemma4:12b" in capsys.readouterr().out
 
@@ -288,3 +304,117 @@ def test_main_refuses_to_judge_into_the_recorded_checkpoint(tmp_path, monkeypatc
 
     with pytest.raises(SystemExit):
         ej.main()
+
+
+def _label(
+    claim: str, key: str, label: str, stance: str, reason: str
+) -> ej.StanceLabel:
+    return ej.StanceLabel(
+        claim=claim,
+        url=f"https://e.org/{key}",
+        label=label,
+        stance=stance,
+        reason=reason,
+    )
+
+
+def test_score_stances_separates_loose_strict_and_inverted_stances():
+    row = _judged(
+        "verdadera", "falsa", "contradicts", "supports", "inconclusive", "supports"
+    )
+    claim = row["claim"]
+    labels = [
+        # Firme sin base, hacia el veredicto equivocado.
+        _label(claim, "0", "verdadera", "inconclusive", "off_point"),
+        # Firme sin base, en la dirección de la etiqueta.
+        _label(claim, "1", "verdadera", "unrelated", "indirect"),
+        _label(claim, "2", "verdadera", "supports", "on_point"),
+        _label(claim, "3", "verdadera", "contradicts", "on_point"),
+        # Una fuente que el juez no vio no se puntúa.
+        _label(claim, "9", "verdadera", "supports", "on_point"),
+    ]
+
+    scores = ej.score_stances([row], labels)
+
+    assert (scores["labels"], scores["scored"], scores["judge_firm"]) == (5, 4, 3)
+    assert (scores["loose"], scores["loose_wrong_way"]) == (2, 1)
+    assert scores["loose_reasons"] == {"off_point": 1, "indirect": 1}
+    assert (scores["gold_firm"], scores["strict"], scores["polarity"]) == (2, 1, 1)
+
+
+def test_main_judges_several_checkpoints_and_scores_the_stance_labels(
+    tmp_path, monkeypatch, capsys
+):
+    gold = _write(
+        tmp_path / "gold.jsonl",
+        _row("A", "verdadera", ["A EN"], [_call("europepmc", "E1", "E2")]),
+    )
+    negations = _write(
+        tmp_path / "negations.jsonl",
+        _row("B", "falsa", ["B EN"], [_call("pubmed", "P1")]),
+    )
+    labels = _write(
+        tmp_path / "labels.jsonl",
+        {
+            "claim": "A (extraída)",
+            "url": "https://e.org/E1",
+            "label": "verdadera",
+            "stance": "supports",
+            "reason": "on_point",
+        },
+        {
+            "claim": "A (extraída)",
+            "url": "https://e.org/E2",
+            "label": "verdadera",
+            "stance": "unrelated",
+            "reason": "off_point",
+        },
+        {
+            "claim": "B (extraída)",
+            "url": "https://e.org/P1",
+            "label": "falsa",
+            "stance": "contradicts",
+            "reason": "on_point",
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_judge",
+            "--cases",
+            str(gold),
+            str(negations),
+            "--checkpoint",
+            str(tmp_path / "judge.jsonl"),
+            "--stance-labels",
+            str(labels),
+        ],
+    )
+    _offline(monkeypatch)
+    monkeypatch.setattr(
+        ej,
+        "judge_stances",
+        _fake_judge({"A EN": ("supports", "supports"), "B EN": ("contradicts",)}, []),
+    )
+
+    metrics = ej.main()
+
+    assert metrics["judged"] == 2
+    scores = metrics["stance_labels"]
+    assert (scores["scored"], scores["judge_firm"], scores["loose"]) == (3, 3, 1)
+    out = capsys.readouterr().out
+    assert "gold.jsonl, negations.jsonl" in out
+    assert "Firmes sin base     : 1/3 (33.3%) · 0 hacia el veredicto equivocado" in out
+    assert "Descartes de más    : 0/2 (0.0%)" in out
+
+
+def test_stance_labels_give_an_on_point_reason_only_to_firm_stances():
+    path = Path(load_data.BASE_DIR) / "data" / "judge_stances_es.jsonl"
+    labels = ej.load_stance_labels(path)
+
+    assert len({(label.claim, label.url) for label in labels}) == len(labels)
+    for label in labels:
+        assert label.stance in ("supports", "contradicts", "inconclusive", "unrelated")
+        firm = label.stance in ("supports", "contradicts")
+        assert firm == (label.reason in ("on_point", "background")), label
