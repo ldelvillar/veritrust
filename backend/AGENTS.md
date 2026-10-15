@@ -8,7 +8,7 @@ Python (FastAPI + arq worker). Run every command from the **repo root** — neve
 uv sync --directory backend --frozen                                                     # Serving/API deps + app tests (excludes evaluation stack)
 uv sync --directory backend --frozen --extra evaluation                                  # Add evaluation stack for evaluation/ and its tests
 uv run --directory backend uvicorn app.main:app                                          # API server (http://localhost:8000)
-uv run --directory backend python -m app.worker                                          # Analysis worker (needs Redis + Ollama)
+uv run --directory backend python -m app.worker                                          # Analysis worker (needs Redis + the LLM_PROVIDER)
 uv run --directory backend python -m app.db.migrate                                      # Apply pending schema migrations (DATABASE_URL)
 uv run --directory backend pytest tests --cov=app --cov-fail-under=80                    # App tests
 uv run --directory backend pytest evaluation/tests --cov=evaluation --cov-fail-under=80  # Evaluation tests
@@ -41,6 +41,6 @@ uv run --directory backend mypy                                                 
 The web process also serves a remote MCP server (`backend/app/mcp/`, official `mcp` SDK, Streamable HTTP) at `/mcp`, so AI clients can use VeriTrust on a signed-in user's behalf:
 
 - **`verify_claim`** (text or URL) — opens an `origin='mcp'` analysis through the same `AnalysisIntake` as `POST /analysis`, then polls the row until it leaves `pending` or `MCP_TOOL_WAIT_SECONDS` runs out; **`get_verification`** resumes a long-running one.
-- **`search_evidence`** — enqueues `run_evidence_search`, which runs Extractor → Translator → evidence search + relevance judge (`create_evidence_graph`) with no verdict. It goes through the worker, never the web process, so Ollama load stays serialized. The arq result is kept for an hour and bound to the caller in Redis, so **`get_evidence`** resumes a search that outlasted the wait.
+- **`search_evidence`** — enqueues `run_evidence_search`, which runs Extractor → Translator → evidence search + relevance judge (`create_evidence_graph`) with no verdict. It goes through the worker, never the web process, so LLM calls stay within `WORKER_MAX_JOBS`. The arq result is kept for an hour and bound to the caller in Redis, so **`get_evidence`** resumes a search that outlasted the wait.
 
 Auth is Clerk OAuth: clients discover Clerk from `/.well-known/oauth-protected-resource/mcp`, and `ClerkOAuthTokenVerifier` checks the JWT access token (same JWKS, issuer, `client_id` present). The server is built in the lifespan after `validate_runtime()` and reached through two exact routes, not a catch-all mount. Tool calls share the per-user rate limit with the web API.
