@@ -123,6 +123,53 @@ def test_real_migrations_build_the_schema_the_app_queries(empty_dsn):
     assert {"analysis_history", "analysis_feedback"} <= _tables(empty_dsn)
 
 
+# Restricciones de verdict previas a 'mixed': (tabla, nombre, condición).
+_PRE_MIXED_CHECKS = [
+    (
+        "analysis_history",
+        "analysis_history_verdict_check",
+        "verdict IS NULL OR verdict IN ('real', 'fake', 'uncertain')",
+    ),
+    (
+        "analysis_feedback",
+        "analysis_feedback_suggested_verdict_check",
+        "suggested_verdict IS NULL OR suggested_verdict IN ('real', 'fake', 'uncertain')",
+    ),
+    (
+        "analysis_feedback",
+        "analysis_feedback_verdict_snapshot_check",
+        "verdict_snapshot IN ('real', 'fake', 'uncertain')",
+    ),
+]
+
+
+def test_migrations_let_a_pre_mixed_database_store_mixed_verdicts(empty_dsn, tmp_path):
+    baseline = load_migrations()[0]
+    _write(tmp_path, f"{baseline.version}.sql", baseline.sql)
+    apply_migrations(empty_dsn, tmp_path)
+    # El baseline no toca tablas existentes, así que una base antigua conserva estas restricciones.
+    with psycopg.connect(empty_dsn) as conn:
+        for table, name, condition in _PRE_MIXED_CHECKS:
+            conn.execute(
+                f"ALTER TABLE {table} DROP CONSTRAINT {name}, "
+                f"ADD CONSTRAINT {name} CHECK ({condition})"
+            )
+
+    assert apply_migrations(empty_dsn) == [m.version for m in load_migrations()[1:]]
+
+    with psycopg.connect(empty_dsn) as conn:
+        analysis_id = conn.execute(
+            "INSERT INTO analysis_history (user_id, source_type, verdict) "
+            "VALUES ('u', 'text', 'mixed') RETURNING id"
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO analysis_feedback "
+            "(analysis_id, user_id, is_correct, suggested_verdict, verdict_snapshot) "
+            "VALUES (%s, 'u', false, 'mixed', 'mixed')",
+            (analysis_id,),
+        )
+
+
 @pytest.fixture
 def database_url(monkeypatch):
     """Fija DATABASE_URL para ``main`` y descarta la configuración cacheada."""
