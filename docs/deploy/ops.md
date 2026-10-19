@@ -122,6 +122,40 @@ pipeline uses one model at a time, so peak RAM tracks the largest model (~6 GB
 for `llama3` at 8k ctx) at the cost of a model swap between stages. If you
 change the machine type or the models, revisit both.
 
+**Measured footprint with a hosted LLM (19 Oct 2026).** With `LLM_PROVIDER=mistral` and no
+`ollama` container, the stack needs well under 1 GB at runtime; the one-off peak is the image
+build. Measured on Docker Desktop (8 GB VM, 16 CPUs) with the base compose file (no Caddy, no
+`mem_limit`s), `WORKER_MAX_JOBS=1`, one analysis of each kind run back to back, and 320 page
+loads over 8 concurrent connections. Peaks are each container's cgroup `memory.peak` since start:
+
+| Service | Idle | Peak | Peak CPU |
+| --- | --- | --- | --- |
+| worker | ~135 MiB | 250 MiB | ~200% (PDF parsing) |
+| backend | ~145 MiB | 204 MiB¹ | ~100% |
+| frontend | ~45 MiB | 105 MiB | ~75% |
+| postgres | ~40 MiB | 85 MiB | ~30% |
+| redis | ~11 MiB | 18 MiB | — |
+| autoheal | ~8 MiB | 14 MiB | — |
+| **Total** | **~385 MiB** | **~675 MiB** | |
+
+¹ Includes the ~50 MiB test driver that ran inside the backend container to enqueue the jobs.
+
+| Run | Input | Wall time |
+| --- | --- | --- |
+| Text | 3 claims, 260 characters | 21 s |
+| URL | `es.wikipedia.org/wiki/Vacuna`, cut to 10,000 characters | 34 s |
+| PDF | CIMA ficha técnica, 13 pages, 200 KB | 29 s |
+| PDF | EMA Comirnaty product information, 381 pages, 2.4 MB | 50 s |
+
+- **Build:** `docker compose build --no-cache backend frontend` with the stack running raised
+  the VM's used memory from 1.2 GB to 2.85 GB (+1.6 GB) for ~2.5 minutes. Images: backend
+  333 MB, frontend 222 MB; the build cache grows with every rebuild, so prune it on small disks.
+- **Sizing:** OS and Docker (~0.4 GB) + stack (~0.7 GB) + build (~1.6 GB) ≈ 2.7 GB, so a
+  4 GB host fits with 2 GB of swap as headroom, provided the `mem_limit`s above are lowered to
+  fit it; 8 GB has room to raise `WORKER_MAX_JOBS`.
+- **Not covered:** a 10 MB PDF (the upload limit), Caddy (~30–50 MiB, not measured), concurrent
+  jobs, and Postgres growth as data accrues (shared buffers default to 128 MB).
+
 The judge, `ministral-3:14b` (the `Settings` default; see `docs/experiments/2026-10.md`,
 2026-10-01), needs ~11 GB loaded at 8k ctx: more than Ollama's 9g cap above, and on
 CPU about a minute per claim. A production VM for it needs a 16 GB GPU and a higher
