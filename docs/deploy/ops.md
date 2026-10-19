@@ -113,11 +113,14 @@ Send a URL instead with `{"url": "https://…", "source_type": "url"}`. An analy
 
 The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
 
-**Memory budget (e2-standard-4, 16 GB).** `docker-compose.prod.yml` caps each
-service with `mem_limit` (ollama 9g, worker 3g, postgres/backend 1g each,
-frontend 768m, redis 512m, caddy 256m); a runaway container is OOM-killed and
+**Memory budget (4 GB host, hosted LLM).** `docker-compose.prod.yml` caps each
+service with `mem_limit` (worker 1g, postgres/backend 512m each, frontend/redis
+384m each, caddy 128m, autoheal 32m; ~2.9 GB in total, 3–6× the measured peaks
+below); a runaway container is OOM-killed and
 restarted by its restart policy instead of triggering a VM-level OOM where the
-kernel picks the victim. Ollama runs with `OLLAMA_MAX_LOADED_MODELS=1` — the
+kernel picks the victim. Redis's cap must stay above its 256 MB `maxmemory`. The
+`ollama` profile adds a 9g cap that only fits a 16 GB host (the old e2-standard-4).
+Ollama runs with `OLLAMA_MAX_LOADED_MODELS=1` — the
 pipeline uses one model at a time, so peak RAM tracks the largest model (~6 GB
 for `llama3` at 8k ctx) at the cost of a model swap between stages. If you
 change the machine type or the models, revisit both.
@@ -151,8 +154,8 @@ loads over 8 concurrent connections. Peaks are each container's cgroup `memory.p
   the VM's used memory from 1.2 GB to 2.85 GB (+1.6 GB) for ~2.5 minutes. Images: backend
   333 MB, frontend 222 MB; the build cache grows with every rebuild, so prune it on small disks.
 - **Sizing:** OS and Docker (~0.4 GB) + stack (~0.7 GB) + build (~1.6 GB) ≈ 2.7 GB, so a
-  4 GB host fits with 2 GB of swap as headroom, provided the `mem_limit`s above are lowered to
-  fit it; 8 GB has room to raise `WORKER_MAX_JOBS`.
+  4 GB host fits with the caps above and 2 GB of swap as headroom for builds; 8 GB has room
+  to raise `WORKER_MAX_JOBS`.
 - **Not covered:** a 10 MB PDF (the upload limit), Caddy (~30–50 MiB, not measured), concurrent
   jobs, and Postgres growth as data accrues (shared buffers default to 128 MB).
 
