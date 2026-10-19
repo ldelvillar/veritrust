@@ -118,9 +118,9 @@ cp frontend/.env.example frontend/.env  # set the Clerk keys and API URLs
 docker compose up -d --build
 ```
 
-Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres, a one-shot `migrate` service that applies pending schema migrations before the API and worker start, Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
+Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres, a one-shot `migrate` service that applies pending schema migrations before the API and worker start, Redis, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
-The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `backend/.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you set `LLM_PROVIDER=ollama` and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma && docker compose exec ollama ollama pull ministral-3:14b`).
+The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `backend/.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. For self-hosted inference, set `LLM_PROVIDER=ollama`, start the stack with `docker compose --profile ollama up -d --build` (or set `COMPOSE_PROFILES=ollama` in `.env`), and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma && docker compose exec ollama ollama pull ministral-3:14b`).
 
 ### Local development (processes on your machine)
 
