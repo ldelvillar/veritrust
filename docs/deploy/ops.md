@@ -1,12 +1,13 @@
 # Production operations
 
-All commands run on the VM unless noted otherwise.
+All commands run on the VM unless noted otherwise. First-time server setup: [vps-setup.md](vps-setup.md).
 
 ## Hardening (one-time)
 
-### Restrict SSH access
+### SSH, firewall, updates
 
-In GCP Console → VPC network → Firewall, edit the SSH rule (port 22) and set source IP to your own IP instead of `0.0.0.0/0`.
+Key-only SSH without root login, ufw allowing only 22/80/443, and unattended security
+updates: [vps-setup.md](vps-setup.md) §2.
 
 ### Log rotation
 
@@ -33,13 +34,6 @@ cd ~/veritrust
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-### Automatic security updates
-
-```bash
-sudo apt-get install unattended-upgrades
-sudo dpkg-reconfigure --priority=low unattended-upgrades
-```
-
 ## Backups
 
 See [backups.md](backups.md).
@@ -55,6 +49,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --
 ```
 
 `--no-deps` avoids restarting Postgres, Redis, and Ollama unnecessarily.
+
+Deploys never restart Caddy, so a `Caddyfile` change only applies after
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml restart caddy`.
 
 ## MCP server
 
