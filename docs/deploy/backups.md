@@ -91,10 +91,4 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 ## Future: store backups off the VM
 
-Backups currently sit on the same disk as the database, so a disk or VM loss takes them with it. The eventual fix is to push each dump to a GCS bucket (`gcloud` is already authenticated on the VM):
-
-```bash
-&& gsutil cp ~/backups/veritrust-$(date +\%Y\%m\%d).sql.gz gs://YOUR_BUCKET/veritrust-backups/
-```
-
-Append that to the cron line once a bucket exists.
+Backups currently sit on the same disk as the database, so a disk or VM loss takes them with it. The fix is to copy each dump to storage at a different provider (the destination is not chosen yet) by appending the upload command to the cron line.

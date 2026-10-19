@@ -27,17 +27,6 @@ jobs:
             set -e
             cd ~/veritrust
             git pull --ff-only
-            # Renderiza .env desde Secret Manager (docs/deploy/secrets.md); si el
-            # secreto no existe o su contenido no es plausible, conserva el .env actual.
-            if gcloud secrets versions access latest --secret=veritrust-env > .env.tmp 2>/dev/null \
-              && grep -q '^POSTGRES_PASSWORD=..*' .env.tmp \
-              && grep -q '^REDIS_PASSWORD=..*' .env.tmp \
-              && grep -q '^APP_DOMAIN=..*' .env.tmp; then
-              mv .env.tmp .env
-            else
-              rm -f .env.tmp
-              echo "Secret Manager: 'veritrust-env' no accesible o inválido; se mantiene el .env actual"
-            fi
             # Copia previa a las migraciones del servicio 'migrate'; en el primer despliegue aún no hay postgres.
             pg_cid=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)
             if [ -n "$pg_cid" ]; then

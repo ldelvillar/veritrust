@@ -56,7 +56,7 @@ Red flags: risky CI/CD gaps, weak test pyramid, drift between code and docs.
 
 ## 7. SECURITY
 
-Scope: CORS, auth exposure (Clerk JWT and JWKS handling, MCP OAuth, the unauthenticated share-link and `/config` routes), secret/env handling (production `.env` from GCP Secret Manager), rate limiting & abuse prevention (including the contact form), SSRF on URL fetching, prompt injection (IN SCOPE: user-submitted text, URLs, files and MCP tool inputs flow into the LangGraph pipeline), rendering of LLM output in the frontend, file-upload risks, stored health content and its deletion, unsafe deserialization, dependency vulnerabilities.
+Scope: CORS, auth exposure (Clerk JWT and JWKS handling, MCP OAuth, the unauthenticated share-link and `/config` routes), secret/env handling (production `.env` files kept only on the server, see `docs/deploy/env.md`), rate limiting & abuse prevention (including the contact form), SSRF on URL fetching, prompt injection (IN SCOPE: user-submitted text, URLs, files and MCP tool inputs flow into the LangGraph pipeline), rendering of LLM output in the frontend, file-upload risks, stored health content and its deletion, unsafe deserialization, dependency vulnerabilities.
 Report risks that apply to this code and deployment, not theoretical ones.
 
 ---

@@ -82,7 +82,7 @@ Three guardrails temper the raw verdict (`app/core/verdict.py`):
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
 - **Evaluation** — pipeline evaluation harness in `backend/evaluation/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/experiments/`
-- **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
+- **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to an EU VPS
 
 ## Repository layout
 
@@ -141,20 +141,20 @@ pnpm --dir frontend dev                            # → http://localhost:3000
 
 Required backend env: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CLERK_SECRET_KEY` (and `CORS_ALLOWED_ORIGINS` outside `ENVIRONMENT=development`). Missing config surfaces at startup and as a `/healthz` 503, not as per-request 500s. See `backend/.env.example` for every knob (Ollama models/timeouts, evidence-source URLs, queue tuning, rate limits).
 
-### Production (GCP VM + Caddy TLS)
+### Production (VPS + Caddy TLS)
 
-The production deployment is the same compose stack on a single GCP Compute Engine VM, behind a Caddy reverse proxy that terminates TLS (automatic Let's Encrypt) for two subdomains — `app.<domain>` (frontend) and `api.<domain>` (backend). The overlay unpublishes every port except Caddy's 80/443 and adds per-container memory caps.
+The production deployment is the same compose stack on a single EU VPS, behind a Caddy reverse proxy that terminates TLS (automatic Let's Encrypt) for the app domain (frontend; `www.` redirects to it) and the API domain (backend). The overlay unpublishes every port except Caddy's 80/443 and adds per-container memory caps.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Requires DNS `A` records for both subdomains, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://app.<domain>` as an allowed origin in Clerk.
+Requires DNS `A` records for the app domain, its `www.` and the API domain, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://<app domain>` as an allowed origin in Clerk.
 
-**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VM, renders the production `.env` from GCP Secret Manager, dumps the database to `~/backups/`, and redeploys the stack (migrations included). Operational runbooks live in [docs/deploy/](docs/deploy/):
+**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VPS, dumps the database to `~/backups/`, and redeploys the stack (migrations included). Operational runbooks live in [docs/deploy/](docs/deploy/):
 
-- [secrets.md](docs/deploy/secrets.md) — production `.env` in Secret Manager (source of truth)
-- [env.md](docs/deploy/env.md) — env bootstrap before the secret exists
+- [vps-setup.md](docs/deploy/vps-setup.md) — first-time server setup, from SSH keys to the first deploy
+- [env.md](docs/deploy/env.md) — the three production env files and how to change them
 - [backups.md](docs/deploy/backups.md) — automated `pg_dump` backups
 - [monitoring.md](docs/deploy/monitoring.md) — uptime checks + alerting
 - [ops.md](docs/deploy/ops.md) — hardening, log rotation, day-2 operations
