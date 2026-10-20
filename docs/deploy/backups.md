@@ -30,10 +30,23 @@ What each piece does:
 
 ## 2. Automate with cron
 
+Each dump is also encrypted with [age](https://github.com/FiloSottile/age) to a public key, so the copies that leave the VM are unreadable without the private key, which never touches the server. Create the key pair once on your workstation:
+
+```powershell
+age-keygen | age -p -a -o $env:USERPROFILE\.age\veritrust-backup.key.age
+```
+
+It prints the public key (`age1…`) and asks for a passphrase; the unprotected private key is never written to disk. Keep the passphrase and the contents of `veritrust-backup.key.age` in your password manager: losing either makes every encrypted backup unreadable. Then on the VM:
+
+```bash
+sudo apt install -y age
+mkdir -p ~/.config/age && echo 'age1…' > ~/.config/age/backup-recipients.txt
+```
+
 `crontab -e` opens your personal schedule (as `deploy`, not with `sudo`). Add this line:
 
 ```cron
-0 3 * * * docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > ~/backups/veritrust-$(date +\%Y\%m\%d).dump 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump" -mtime +7 -delete
+0 3 * * * f=$HOME/backups/veritrust-$(date +\%Y\%m\%d).dump; docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > $f 2>> ~/backups/backup.log && age -R ~/.config/age/backup-recipients.txt -o $f.age $f 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump*" -mtime +7 -delete
 ```
 
 The schedule `0 3 * * *` means **every day at 03:00** server time (minute, hour, day-of-month, month, day-of-week).
@@ -41,8 +54,9 @@ The schedule `0 3 * * *` means **every day at 03:00** server time (minute, hour,
 Important details in that line:
 
 - `$(date +\%Y\%m\%d)` names each file by date so backups don't overwrite each other. The `%` signs **must** be escaped as `\%` — cron treats a bare `%` as a newline, the #1 cause of silent backup failure.
-- `2>> ~/backups/backup.log` captures `pg_dump`'s errors. There is no pipe, so a failed dump is logged and `&&` skips the cleanup; a `| gzip` here would hide both.
-- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days. Adjust `+7` for a longer retention window. The deploy workflow's `pre-deploy-*.dump` files have their own retention.
+- `2>> ~/backups/backup.log` captures `pg_dump`'s and `age`'s errors. There is no pipe, so a failed dump is logged and `&&` skips the encryption and cleanup; a `| gzip` here would hide both.
+- `age -R ... -o $f.age $f` writes an encrypted `veritrust-YYYYMMDD.dump.age` next to the plain dump. The plain one stays on the VM for the restores in sections 4 and 5; only the `.age` copy leaves it.
+- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days, plain and encrypted. Adjust `+7` for a longer retention window. The deploy workflow's `pre-deploy-*.dump` files have their own retention.
 
 ## 3. Verify the cron job
 
@@ -50,7 +64,7 @@ Make cron run it once, a couple of minutes from now:
 
 1. `date` shows the server time; say it is 10:42.
 2. `crontab -e` and change `0 3` to `44 10`.
-3. After 10:44, `ls -lh ~/backups/` must show a `veritrust-YYYYMMDD.dump` of several KB or more, and `cat ~/backups/backup.log` must print nothing.
+3. After 10:44, `ls -lh ~/backups/` must show a `veritrust-YYYYMMDD.dump` of several KB or more and a slightly larger `veritrust-YYYYMMDD.dump.age`, and `cat ~/backups/backup.log` must print nothing.
 4. `crontab -e` again and put back `0 3`; `crontab -l` confirms it.
 
 ## 4. Restore from a backup
@@ -97,6 +111,13 @@ If a migration **succeeds but damages data or schema**, restore the dump taken j
 
 The dump is in `pg_dump`'s custom format (compressed, includes `schema_migrations`), so restore it with `pg_restore`, not `psql`.
 
-## Future: store backups off the VM
+## Off-site copies
 
-Backups currently sit on the same disk as the database, so a disk or VM loss takes them with it. The fix is to copy each dump to storage at a different provider (the destination is not chosen yet) by appending the upload command to the cron line.
+A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily with `scp -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>`; it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+
+To restore from an off-site copy, decrypt it on the workstation (it asks for the passphrase), then copy it to the VM and restore it as in section 4:
+
+```powershell
+age -d -i $env:USERPROFILE\.age\veritrust-backup.key.age -o veritrust.dump veritrust-YYYYMMDD.dump.age
+scp veritrust.dump veritrust:/tmp/veritrust.dump
+```
