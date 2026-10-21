@@ -3,6 +3,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mutate } from 'swr';
 import { useApiQuery } from '@/hooks/useApiQuery';
+import { RECENT_HISTORY_PATH } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
 type PendingSummary =
@@ -13,11 +14,6 @@ const FINISHED_DISMISS_MS = 20_000;
 
 export interface FinishedAnalysis {
   analysisId: string;
-}
-
-// Refresca el indicador y todo listado de /history en caché tras crear o borrar análisis.
-export function refreshHistory(): Promise<unknown> {
-  return mutate(key => typeof key === 'string' && key.startsWith('/history'));
 }
 
 // Vigila los análisis 'pending' del usuario para el indicador global del menú.
@@ -39,6 +35,8 @@ export function usePendingAnalyses() {
       count: latest.count,
       analysisId: latest.newest_analysis_id ?? previous.analysisId,
     };
+    // Un análisis terminó: los recientes del menú no sondean y estrenan veredicto.
+    if (latest.count < previous.count) void mutate(RECENT_HISTORY_PATH);
     if (latest.count > 0) {
       setFinished(null);
     } else if (previous.count > 0 && previous.analysisId) {

@@ -18,12 +18,12 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useHistoryExport } from '@/hooks/useHistoryExport';
 import { useHistoryFilters } from '@/hooks/useHistoryFilters';
-import { PAGE_SIZE, isExportable } from '@/lib/historyQuery';
-import type { paths } from '@/types/api';
-
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
-type HistoryItem = HistoryPayload['items'][number];
+import {
+  PAGE_SIZE,
+  isExportable,
+  type HistoryItem,
+  type HistoryPayload,
+} from '@/lib/historyQuery';
 
 interface HistorialClientProps {
   initialData: HistoryPayload;

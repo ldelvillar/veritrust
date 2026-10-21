@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshHistory } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
 import type { paths } from '@/types/api';
 
 type ReanalyzeAnalysisResponse =

@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshHistory } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
 import type { components, paths } from '@/types/api';
 
 type AnalysisRequest = components['schemas']['AnalysisRequest'];

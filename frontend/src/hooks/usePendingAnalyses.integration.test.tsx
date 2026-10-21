@@ -2,7 +2,8 @@ import { StrictMode, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { refreshHistory, usePendingAnalyses } from './usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
+import { usePendingAnalyses } from './usePendingAnalyses';
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => ({ isSignedIn: true, getToken: vi.fn(async () => 'jwt-123') }),

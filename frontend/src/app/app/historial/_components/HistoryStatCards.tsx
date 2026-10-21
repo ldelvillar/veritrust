@@ -1,8 +1,5 @@
-import type { VerdictFilter } from '@/lib/historyQuery';
-import type { paths } from '@/types/api';
+import type { HistoryPayload, VerdictFilter } from '@/lib/historyQuery';
 
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
 type VerdictCounts = HistoryPayload['verdict_counts'];
 
 const STAT_CARDS = [

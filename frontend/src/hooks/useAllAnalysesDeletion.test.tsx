@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { refreshHistory } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useAllAnalysesDeletion } from './useAllAnalysesDeletion';
 
@@ -8,7 +8,7 @@ vi.mock('@clerk/nextjs', () => ({
   useAuth: () => ({ getToken: vi.fn(async () => 'jwt-123') }),
 }));
 
-vi.mock('@/hooks/usePendingAnalyses', () => ({
+vi.mock('@/lib/historyCache', () => ({
   refreshHistory: vi.fn(),
 }));
 

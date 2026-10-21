@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshHistory } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
 import type { paths } from '@/types/api';
 
 type DeleteAnalysisResponse =
@@ -25,8 +25,8 @@ export function useAnalysisDeletion() {
         )
       );
       if (data === null) return false;
-      // Borrar un análisis cambia los listados y, si estaba pendiente, el indicador global.
-      void refreshHistory();
+      // Esperamos al refresco: al cerrar el diálogo la fila borrada ya no debe verse.
+      await refreshHistory();
       return true;
     },
     [getToken, mutate]

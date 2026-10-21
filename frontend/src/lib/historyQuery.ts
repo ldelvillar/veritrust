@@ -120,10 +120,14 @@ function withSearch(
   return `${endpoint}?${params.toString()}`;
 }
 
-export function historyPath(filters: HistoryFilters, page: number): string {
+export function historyPath(
+  filters: HistoryFilters,
+  page: number,
+  pageSize: number = PAGE_SIZE
+): string {
   const query: Required<Omit<HistoryParams, 'search'>> = {
     page,
-    page_size: PAGE_SIZE,
+    page_size: pageSize,
     source_type: filters.sourceType,
     verdict: filters.verdict,
     status: filters.status,
@@ -151,3 +155,6 @@ export function isExportable(status: StatusFilter): boolean {
 
 // Consulta que precarga el servidor; el cliente solo reusa initialData si su ruta coincide.
 export const INITIAL_HISTORY_PATH = historyPath(DEFAULT_HISTORY_FILTERS, 1);
+
+// Clave propia del menú: compartir la del historial anularía su precarga de servidor.
+export const RECENT_HISTORY_PATH = historyPath(DEFAULT_HISTORY_FILTERS, 1, 5);

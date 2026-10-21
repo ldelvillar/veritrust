@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock('@/hooks/usePendingAnalyses', () => ({
+vi.mock('@/lib/historyCache', () => ({
   refreshHistory: vi.fn(),
 }));
 

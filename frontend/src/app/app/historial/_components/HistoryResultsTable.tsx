@@ -19,11 +19,7 @@ import {
 } from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
-import type { paths } from '@/types/api';
-
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
-type HistoryItem = HistoryPayload['items'][number];
+import type { HistoryItem } from '@/lib/historyQuery';
 
 interface HistoryResultsTableProps {
   history: HistoryItem[];
