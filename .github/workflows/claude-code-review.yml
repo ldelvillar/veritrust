@@ -1,0 +1,237 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    name: Claude bug review
+    # Dependabot PRs get no secrets and the action rejects bot authors.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git log:*)"
+            --append-system-prompt "Before reviewing, read REVIEW.md at the repository root and follow it."
+
+      - name: Fail if Claude did not review
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/assert-claude-ran
+        with:
+          conclusion: ${{ steps.claude-review.outputs.conclusion }}
+          execution_file: ${{ steps.claude-review.outputs.execution_file }}
+          job: Claude bug review
+
+  claude-rereview:
+    name: Claude re-review of new commits
+    # The bug review plugin skips PRs Claude already commented on, so later pushes get reviewed here.
+    if: ${{ github.event.action == 'synchronize' && github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Find the commits pushed since the last review
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.pull_request.head.sha }}
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          claude_comments=$(
+            { gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.user.type == "Bot" and (.user.login | startswith("claude"))) | .id'
+              gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/comments" --jq '.[] | select(.user.type == "Bot" and (.user.login | startswith("claude"))) | .id'; } | wc -l
+          )
+          if [ "$claude_comments" -eq 0 ]; then
+            echo "No Claude comments yet, so the bug review plugin reviews this push in full."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git merge-base --is-ancestor "$BEFORE" "$AFTER"; then
+            since="$BEFORE"
+          else
+            since=$(git merge-base "$BASE" "$AFTER")
+            echo "Force push: re-reviewing the whole PR."
+          fi
+          commits=$(git log --first-parent --no-merges --reverse --format='%h %s' "$since..$AFTER")
+          if [ -z "$commits" ]; then
+            echo "Only merge commits since the last review; nothing new to review."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$commits"
+          {
+            echo "found=true"
+            echo "since=$since"
+            echo 'commits<<EOF_COMMITS'
+            echo "$commits"
+            echo 'EOF_COMMITS'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude re-review
+        id: rereview
+        if: steps.scope.outputs.found == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Re-review pull request #${{ github.event.pull_request.number }}. Claude has already reviewed it; these commits were pushed since:
+
+            ${{ steps.scope.outputs.commits }}
+
+            1. Read REVIEW.md at the repository root and follow it. The rules in CLAUDE.md and AGENTS.md files apply too.
+            2. Review only what those commits change: `git log --first-parent --no-merges -p --reverse ${{ steps.scope.outputs.since }}..${{ github.event.pull_request.head.sha }}`. Read whole files for context as needed.
+            3. Flag only Important problems the new commits introduce: bugs, broken conventions, and undone fixes (REVIEW.md, "History"). Leave security to the security review. Skip nits and pre-existing issues.
+            4. Read the comments already on the PR with `gh pr view ${{ github.event.pull_request.number }} --comments` and `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`. Skip a finding when an existing comment already raises it on the same hunk. A new commit that fixes an earlier finding needs no comment.
+            5. Post each remaining finding as one inline comment on its line with `mcp__github_inline_comment__create_inline_comment` (`confirmed: true`), starting with "**Important – re-review:**" and giving the failing scenario. Post nothing when there are no findings.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments),Read,Grep,Glob"
+
+      - name: Fail if Claude did not review
+        if: ${{ !cancelled() && steps.scope.outputs.found == 'true' }}
+        uses: ./.github/actions/assert-claude-ran
+        with:
+          conclusion: ${{ steps.rereview.outputs.conclusion }}
+          execution_file: ${{ steps.rereview.outputs.execution_file }}
+          job: Claude re-review
+
+  security-review:
+    name: Claude security review
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude security review
+        id: security-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: '/pr-security-review'
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git diff:*),Bash(git status:*),Bash(git log:*),Bash(git show:*),Bash(git remote show:*),Read,Glob,Grep,LS,Task"
+
+      - name: Fail if Claude did not review
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/assert-claude-ran
+        with:
+          conclusion: ${{ steps.security-review.outputs.conclusion }}
+          execution_file: ${{ steps.security-review.outputs.execution_file }}
+          job: Claude security review
+
+  history-check:
+    name: Claude undone-fix check
+    # Runs after the bug review and re-review so it can skip undone fixes they already flagged.
+    needs: [claude-review, claude-rereview]
+    if: ${{ !cancelled() && github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Lists the fix: commits that last touched each changed hunk, so Claude only runs when there are some.
+      - name: Find fix commits under the changed lines
+        id: fixes
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          base_commit=$(git merge-base "$BASE" HEAD)
+          git diff --name-only --diff-filter=M "$base_commit" HEAD | while read -r file; do
+            { git diff -U0 "$base_commit" HEAD -- "$file" | grep '^@@' || true; } | while read -r hunk; do
+              [[ $hunk =~ ^@@\ -([0-9]+)(,([0-9]+))? ]] || continue
+              start=${BASH_REMATCH[1]}
+              len=${BASH_REMATCH[3]:-1}
+              [ "$len" -eq 0 ] && continue
+              end=$((start + len - 1))
+              git log -s --format='%h %s' -L "$start,$end:$file" "$base_commit" \
+                | grep -E '^[0-9a-f]+ fix(\(|:|!)' | sed "s|^|$file:$start-$end |" || true
+            done
+          done | sort -u | sed -n '1,20p' > "$RUNNER_TEMP/fixes.txt"
+          cat "$RUNNER_TEMP/fixes.txt"
+          {
+            echo "found=$([ -s "$RUNNER_TEMP/fixes.txt" ] && echo true || echo false)"
+            echo 'list<<EOF_FIXES'
+            cat "$RUNNER_TEMP/fixes.txt"
+            echo 'EOF_FIXES'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude undone-fix check
+        id: history-check
+        if: steps.fixes.outputs.found == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Check pull request #${{ github.event.pull_request.number }} for undone fixes. These `fix:` commits last touched lines this PR changes (`file:old-lines sha subject`):
+
+            ${{ steps.fixes.outputs.list }}
+
+            1. Read the PR title and description with `gh pr view ${{ github.event.pull_request.number }}`, and the inline comments already posted with `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`.
+            2. For each candidate, run `git show <sha>` to see what the fix changed and why, and `git diff origin/${{ github.base_ref }}...HEAD -- <file>` to see what this PR does to those lines.
+            3. A candidate is a finding only when the PR undoes or weakens what that fix did (its old behaviour comes back, or a guard it added is removed or bypassed) and the PR description does not name the commit and say why the fix no longer applies. Moving, reformatting or rewriting the fixed code with the same behaviour is not a finding. Most candidates are not findings.
+            4. Skip a finding when any existing comment on this PR sits on a line inside the same changed hunk, whatever it cites (an ADR, a test, a convention or the commit). For each remaining finding, post one inline comment on the changed line with `mcp__github_inline_comment__create_inline_comment` (`confirmed: true`). Start it with "**Important – undone fix:**", name the commit and what it fixed, and give the failing scenario the PR brings back. Post nothing otherwise.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git show:*),Bash(git diff:*),Bash(git log:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments),Read,Grep"
+
+      - name: Fail if Claude did not review
+        if: ${{ !cancelled() && steps.fixes.outputs.found == 'true' }}
+        uses: ./.github/actions/assert-claude-ran
+        with:
+          conclusion: ${{ steps.history-check.outputs.conclusion }}
+          execution_file: ${{ steps.history-check.outputs.execution_file }}
+          job: Claude undone-fix check

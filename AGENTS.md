@@ -11,7 +11,32 @@ VeriTrust is an AI-powered medical misinformation detection system: users submit
 CI enforces all of these; fix failures at the root cause, never by suppression.
 
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
-- **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, and build.
+- **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
+
+## Review before opening a PR
+
+Every change reaches `main` through a PR (squash-merged; the PR title becomes the commit title), so start work on a branch. Before the first push of a **risky** change, run `/code-review` (with no upstream yet, it reviews the branch against `main` plus uncommitted changes). A change is risky when it touches any of:
+
+- pipeline agents, prompts, graph wiring, or verdict/confidence logic — also run `/eval-pipeline`
+- DB models or migrations
+- API schemas (anything that regenerates `api.d.ts`)
+- the worker, queue, or analysis lifecycle (state transitions, Retry vs Reanalyze, orphaned analyses)
+- auth, file/URL ingestion, or user input reaching an LLM — also run `/security-review`
+- `Settings`, env vars, CI/deploy, backups, or infra runbooks
+- both `backend/` and `frontend/`
+- roughly 200+ changed lines, or a new module or abstraction — also run `/simplify`
+
+A **high-risk** change (migrations, verdict logic or prompts, auth or ingestion, CI/deploy/backups) gets `/code-review max`, and the user reads its diff before merging.
+
+When reviewing a change, read `REVIEW.md` first. Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
+
+After changing the review setup (`REVIEW.md`, the review commands or workflow, any `CLAUDE.md`/`AGENTS.md`), run the reviewer evals in `docs/review-evals.md` and keep the change only if no case regresses.
+
+Keep review rounds converging:
+
+- After the first round, re-review only what changed since: `/code-review <last-reviewed-sha>..HEAD`.
+- Fix the whole class of bug a finding names, every instance, not only the flagged line.
+- If a third round still raises Important findings, stop and reconsider the approach with the user.
 
 ## Shell command conventions
 
@@ -21,7 +46,7 @@ Run every command from the **repo root** — never `cd` into a subdirectory. Bac
 
 ### Request flow
 
-The pipeline is slow (several sequential LLM calls, plus medical-source lookups for every claim), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`. The provider and per-agent models are configurable (`LLM_PROVIDER` plus that provider's own fields in `Settings`); `backend/.env.example` is the source of truth for the accepted values. Production runs `ollama` self-hosted; the hosted API providers are development-only.
+The pipeline is slow (several sequential LLM calls, plus medical-source lookups for every claim), so it runs **out of the request** in an arq worker. The web process only enqueues; the client polls the detail endpoint until the row leaves `pending`. The provider and per-agent models are configurable (`LLM_PROVIDER` plus that provider's own fields in `Settings`); `backend/.env.example` is the source of truth for the accepted values. Production runs the Mistral API (`mistral`) until a dedicated GPU server is bought, then returns to self-hosted `ollama`; the other hosted API providers are development-only.
 
 ## Conventions
 

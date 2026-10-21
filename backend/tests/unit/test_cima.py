@@ -79,6 +79,32 @@ def test_search_evidence_maps_med_and_fetches_ficha_tecnica(monkeypatch):
     assert "tracker" not in source["abstract"]
 
 
+def test_search_evidence_sends_each_key_section_of_a_numbered_ficha(monkeypatch):
+    advertencias = "Riesgo de hemorragia digestiva. " * 40
+    html = (
+        '<html><body><h1 id="1">1. NOMBRE DEL MEDICAMENTO</h1><p>Ibuprofeno.</p>'
+        '<h2 id="4.1">4.1. Indicaciones terapéuticas</h2><p>Dolor leve.</p>'
+        '<h2 id="4.2">4.2. Posología</h2><p>Un comprimido cada 8 horas.</p>'
+        f'<h2 id="4.4">4.4. Advertencias</h2><p>{advertencias}</p>'
+        '<h2 id="4.9">4.9. Sobredosis</h2><p>Puede causar daño renal.</p>'
+        "</body></html>"
+    ).encode()
+    _patch_get(
+        monkeypatch,
+        search=_FakeResponse(payload={"resultados": [_MED]}),
+        ft=_FakeResponse(content=html),
+    )
+
+    (source,) = search_evidence("ibuprofeno", max_results=3)
+
+    assert source["abstract"].startswith("4.1. Indicaciones terapéuticas: Dolor leve.")
+    # Una sección larga se recorta y no desplaza a la sobredosis, que va al final.
+    assert source["abstract"].endswith("4.9. Sobredosis: Puede causar daño renal.")
+    assert len(source["abstract"]) < len(advertencias)
+    assert "Posología" not in source["abstract"]
+    assert "NOMBRE" not in source["abstract"]
+
+
 def test_search_evidence_keeps_source_when_ficha_tecnica_fetch_fails(monkeypatch):
     _patch_get(
         monkeypatch,

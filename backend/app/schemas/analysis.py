@@ -18,7 +18,7 @@ class SourceType(str, Enum):
     URL = "url"
 
 
-# Ciclo de vida de un análisis; coincide con el CHECK de status en init.sql.
+# Ciclo de vida de un análisis; coincide con el CHECK de status en db/migrations.
 AnalysisStatus = Literal["pending", "done", "failed"]
 
 # Etapa que reporta el worker: la preparación de la entrada y luego cada nodo del grafo.
@@ -26,7 +26,7 @@ AnalysisStage = Literal[
     "preparing", "extractor", "translator", "investigator", "health_expert"
 ]
 
-# Canal que creó el análisis; coincide con el CHECK de origin en init.sql.
+# Canal que creó el análisis; coincide con el CHECK de origin en db/migrations.
 AnalysisOrigin = Literal["web", "mcp"]
 
 

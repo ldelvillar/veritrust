@@ -19,6 +19,11 @@
 	reverse_proxy frontend:3000
 }
 
+# Old links and bookmarks use www; send them to the canonical domain.
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 # Backend (FastAPI). The browser calls this directly via NEXT_PUBLIC_API_URL.
 {$API_DOMAIN} {
 	import security_headers

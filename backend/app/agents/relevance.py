@@ -6,8 +6,10 @@ from functools import lru_cache
 from itertools import count
 from typing import Any
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
+from pydantic import BaseModel, Field, ValidationError
 
 from app.agents.numbered_answers import NumberedAnswers
 from app.agents.sanitize import neutralize_delimiters
@@ -17,16 +19,27 @@ from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
+
+class SourceJudgment(BaseModel):
+    """Juicio de una fuente: su hallazgo va antes que su postura para que el juez lo compare con la afirmación."""
+
+    finding: str = Field(
+        description="Qué concluye la fuente, en una frase, escrito sin mirar la afirmación."
+    )
+    stance: JudgeStance = Field(
+        description=(
+            "'supports' si el hallazgo respalda la afirmación, 'contradicts' si la refuta, "
+            "'inconclusive' si la aborda sin concluir, 'unrelated' si trata de otro tema."
+        )
+    )
+
+
 # Un campo por fuente candidata: el juez no puede dar más posturas ni menos que fuentes.
 EVIDENCE_JUDGMENTS = NumberedAnswers(
     name="EvidenceJudgments",
     field="source",
-    answer=JudgeStance,
-    description=(
-        "Postura de la fuente {n}: 'supports' si su resumen respalda la afirmación, "
-        "'contradicts' si la refuta, 'inconclusive' si la aborda sin concluir, "
-        "'unrelated' si trata de otro tema."
-    ),
+    answer=SourceJudgment,
+    description="Hallazgo y postura de la fuente {n}.",
 )
 
 
@@ -59,7 +72,7 @@ def get_relevance_chain(
             (
                 "user",
                 "Afirmación:\n<<USER_INPUT>>\n{claim}\n<<END>>\n\n"
-                "Fuentes candidatas:\n<<USER_INPUT>>\n{sources}\n<<END>>",
+                "Fuentes candidatas ({count}):\n<<USER_INPUT>>\n{sources}\n<<END>>",
             ),
         ]
     )
@@ -77,6 +90,25 @@ def _format_candidates(evidence: Sequence[Evidence]) -> str:
     return "\n".join(lines)
 
 
+def _ask_judge(
+    prompt_text: str, claim: str, evidence: Sequence[Evidence]
+) -> tuple[JudgeStance, ...]:
+    """Una llamada al juez; lanza si falla o si su respuesta no nombra cada fuente una vez."""
+    chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
+    answer = chain.invoke(
+        {
+            "claim": neutralize_delimiters(claim),
+            "sources": _format_candidates(evidence),
+            # Sin saber cuántas son, el juez llega a saltarse la última fuente.
+            "count": len(evidence),
+        }
+    )
+    return tuple(
+        judgment.stance
+        for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
+    )
+
+
 def judge_stances(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...] | None:
@@ -85,17 +117,19 @@ def judge_stances(
         return ()
 
     try:
-        chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
-        answer = chain.invoke(
-            {
-                "claim": neutralize_delimiters(claim),
-                "sources": _format_candidates(evidence),
-            }
-        )
+        try:
+            return _ask_judge(prompt_text, claim, evidence)
+        except (ValidationError, OutputParserException):
+            if len(evidence) < 2:
+                raise
+            # Una respuesta larga es la que sale incompleta: cada mitad pide una más corta.
+            half = len(evidence) // 2
+            return _ask_judge(prompt_text, claim, evidence[:half]) + _ask_judge(
+                prompt_text, claim, evidence[half:]
+            )
     except Exception:
         logger.warning(
             "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",
             exc_info=True,
         )
         return None
-    return EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))

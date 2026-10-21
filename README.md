@@ -82,7 +82,7 @@ Three guardrails temper the raw verdict (`app/core/verdict.py`):
 - **Frontend** — Next.js 16 (App Router), React 19, Clerk, SWR, Tailwind CSS v4
 - **Data** — PostgreSQL 16, Redis 7 (job queue)
 - **Evaluation** — pipeline evaluation harness in `backend/evaluation/`, scored against HealthVer and a hand-written Spanish gold set; see `docs/experiments/`
-- **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to a GCP VM
+- **Ops** — Docker Compose with healthchecks + autoheal, Caddy TLS reverse proxy, GitHub Actions CI/CD deploying to an EU VPS
 
 ## Repository layout
 
@@ -91,7 +91,7 @@ backend/
   app/            FastAPI service: routes, agents, db, schemas, prompts
   evaluation/     Pipeline evaluation harness (separate test suite)
   data/           HealthVer splits + gold_es.jsonl hand-written gold set (committed)
-  db/init.sql     Database schema (applied to a fresh Postgres)
+  db/migrations/  Database schema as ordered SQL migrations (app/db/migrate.py)
 frontend/
   src/            Next.js App Router app
 docs/
@@ -118,9 +118,9 @@ cp frontend/.env.example frontend/.env  # set the Clerk keys and API URLs
 docker compose up -d --build
 ```
 
-Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres (schema auto-applied from `backend/db/init.sql`), Redis, Ollama, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
+Frontend at `http://localhost:3000`, API at `http://localhost:8000` (health at `/healthz`). The compose stack wires everything: Postgres, a one-shot `migrate` service that applies pending schema migrations before the API and worker start, Redis, the API, the worker, the frontend, and an autoheal sidecar that restarts any container whose healthcheck fails.
 
-The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `backend/.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. The `ollama` container ships with the stack for self-hosted inference, but nothing calls it until you set `LLM_PROVIDER=ollama` and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma && docker compose exec ollama ollama pull ministral-3:14b`).
+The worker defaults to `LLM_PROVIDER=mistral`, so agent calls go to the Mistral API; set `LLM_PROVIDER=groq` plus `GROQ_API_KEY` (or `LLM_PROVIDER=google` plus `GOOGLE_API_KEY`) in `backend/.env` to route them elsewhere. Either way the worker refuses to start without the chosen provider's key. For self-hosted inference, set `LLM_PROVIDER=ollama`, start the stack with `docker compose --profile ollama up -d --build` (or set `COMPOSE_PROFILES=ollama` in `.env`), and pull the models (`docker compose exec ollama ollama pull llama3.2 && docker compose exec ollama ollama pull translategemma && docker compose exec ollama ollama pull ministral-3:14b`).
 
 ### Local development (processes on your machine)
 
@@ -131,6 +131,7 @@ cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_API_URL + Clerk 
 ollama pull llama3 && ollama pull llama3.2 && ollama pull translategemma && ollama pull ministral-3:14b
 
 uv sync --directory backend --frozen
+uv run --directory backend python -m app.db.migrate    # apply pending schema migrations
 uv run --directory backend uvicorn app.main:app    # API → http://localhost:8000
 uv run --directory backend python -m app.worker    # worker (separate terminal)
 
@@ -140,20 +141,20 @@ pnpm --dir frontend dev                            # → http://localhost:3000
 
 Required backend env: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CLERK_SECRET_KEY` (and `CORS_ALLOWED_ORIGINS` outside `ENVIRONMENT=development`). Missing config surfaces at startup and as a `/healthz` 503, not as per-request 500s. See `backend/.env.example` for every knob (Ollama models/timeouts, evidence-source URLs, queue tuning, rate limits).
 
-### Production (GCP VM + Caddy TLS)
+### Production (VPS + Caddy TLS)
 
-The production deployment is the same compose stack on a single GCP Compute Engine VM, behind a Caddy reverse proxy that terminates TLS (automatic Let's Encrypt) for two subdomains — `app.<domain>` (frontend) and `api.<domain>` (backend). The overlay unpublishes every port except Caddy's 80/443 and adds per-container memory caps.
+The production deployment is the same compose stack on a single EU VPS, behind a Caddy reverse proxy that terminates TLS (automatic Let's Encrypt) for the app domain (frontend; `www.` redirects to it) and the API domain (backend). The overlay unpublishes every port except Caddy's 80/443 and adds per-container memory caps.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Requires DNS `A` records for both subdomains, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://app.<domain>` as an allowed origin in Clerk.
+Requires DNS `A` records for the app domain, its `www.` and the API domain, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://<app domain>` as an allowed origin in Clerk.
 
-**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VM, renders the production `.env` from GCP Secret Manager, and redeploys the stack. Operational runbooks live in [docs/deploy/](docs/deploy/):
+**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VPS, dumps the database to `~/backups/`, and redeploys the stack (migrations included). Operational runbooks live in [docs/deploy/](docs/deploy/):
 
-- [secrets.md](docs/deploy/secrets.md) — production `.env` in Secret Manager (source of truth)
-- [env.md](docs/deploy/env.md) — env bootstrap before the secret exists
+- [vps-setup.md](docs/deploy/vps-setup.md) — first-time server setup, from SSH keys to the first deploy
+- [env.md](docs/deploy/env.md) — the three production env files and how to change them
 - [backups.md](docs/deploy/backups.md) — automated `pg_dump` backups
 - [monitoring.md](docs/deploy/monitoring.md) — uptime checks + alerting
 - [ops.md](docs/deploy/ops.md) — hardening, log rotation, day-2 operations
@@ -178,7 +179,7 @@ pnpm --dir frontend build               # production build (also type-checks)
 ```
 
 - **Typed API contract** — `frontend/src/types/api.d.ts` is generated from the backend's OpenAPI spec. After any backend schema change run `pnpm --dir frontend generate:api-types` (backend running); never edit it by hand.
-- **Database schema** — `backend/db/init.sql`, applied once to a fresh database. No migration framework yet: recreate the volume (`docker compose down -v && docker compose up`) to pick up schema changes.
+- **Database schema** — ordered SQL files in `backend/db/migrations/`, applied by `app/db/migrate.py` (the compose `migrate` service runs it on every `up`). To change the schema, add the next numbered file; never edit one that has been applied — the runner refuses to start if an applied file changed. See [ADR-0004](docs/adr/0004-hand-rolled-sql-migrations.md).
 - **Prompts** — all agent system prompts live in `backend/app/prompts/prompts.yaml`, never inline in Python.
 - **Pipeline evaluation** — `evaluation/evaluate_pipeline.py` runs the full four-agent pipeline against labeled HealthVer samples (or `--partition gold`) and reports classification metrics.
 

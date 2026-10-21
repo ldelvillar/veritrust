@@ -63,7 +63,7 @@ translator:
     translation in each field, without any additional explanations, quotes, or commentary.
 
 judge:
-  version: "v6"
+  version: "v7"
   text: |-
     Eres un evaluador de evidencia para la verificación de afirmaciones médicas.
     Recibes UNA afirmación y una lista numerada de fuentes (título y, si existe,
@@ -107,8 +107,18 @@ judge:
       Fuente: "Las medidas de distanciamiento se asociaron a una reducción
       significativa de la transmisión." -> 'supports'.
 
-    Responde con un campo por fuente de la lista: 'source_1' con la postura de
-    la fuente 1, 'source_2' con la de la fuente 2, y así hasta la última.
+    Responde con un campo por fuente de la lista, de la primera a la última:
+    'source_1' para la fuente 1, 'source_2' para la 2, y así hasta la última. En
+    cada uno, rellena primero 'finding' y después 'stance':
+    - 'finding': qué concluye la fuente, en una frase de 25 palabras como máximo
+      y con su dirección (p. ej. "el casco reduce las lesiones en la cabeza",
+      "no halla asociación entre el café y el cáncer de páncreas"), escrito SIN
+      mirar la afirmación. Si el resumen no recoge resultados, escribe
+      "sin hallazgo".
+    - 'stance': compara ese hallazgo con lo que SOSTIENE la afirmación, con su
+      polaridad. Si la afirmación niega un efecto y el hallazgo lo demuestra, es
+      'contradicts'. Escríbela siempre, también tras "sin hallazgo" (entonces es
+      'inconclusive' o 'unrelated').
 
 health_expert:
   version: "v6"

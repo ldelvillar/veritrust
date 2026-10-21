@@ -16,6 +16,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY pyproject.toml uv.lock ./
 COPY app ./app
+COPY db ./db
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev

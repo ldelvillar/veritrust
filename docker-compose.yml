@@ -15,7 +15,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-veritrust}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veritrust}"]
       interval: 5s
@@ -23,6 +22,7 @@ services:
       retries: 10
 
   ollama:
+    profiles: ["ollama"]
     image: ollama/ollama:latest
     restart: unless-stopped
     logging: *default-logging
@@ -44,7 +44,6 @@ services:
     image: redis:8-alpine
     restart: unless-stopped
     logging: *default-logging
-    # maxmemory + noeviction: la cola falla ruidosamente (503 al encolar) antes que comerse la RAM de la VM.
     command:
       [
         "redis-server",
@@ -70,6 +69,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build:
+      context: ./backend
+    image: veritrust-backend
+    restart: "no"
+    logging: *default-logging
+    command: ["python", "-m", "app.db.migrate"]
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-veritrust}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veritrust}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
     build:
@@ -98,8 +111,8 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
@@ -124,12 +137,13 @@ services:
       retries: 3
       start_period: 120s
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       ollama:
         condition: service_healthy
+        required: false
 
   frontend:
     build:

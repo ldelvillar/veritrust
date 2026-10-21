@@ -44,6 +44,20 @@ def test_load_dataset_reads_gold_partition_as_jsonl(
     pd.testing.assert_frame_equal(out, fake_df)
 
 
+def test_load_jsonl_raises_when_file_does_not_exist(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="No se encontró el archivo"):
+        load_data.load_jsonl(str(tmp_path / "no_existe.jsonl"))
+
+
+def test_negations_set_pairs_each_claim_with_its_negation() -> None:
+    df = load_data.load_dataset("negations")
+
+    # Cada tema tiene su versión afirmativa y la negada, con etiquetas opuestas.
+    for _, pair in df.groupby("topic"):
+        assert sorted(pair["negated"]) == [False, True]
+        assert sorted(pair["label"]) == [0, 1]
+
+
 def test_load_dataset_reads_expected_partition_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -21,6 +21,9 @@ VALIDATION_PATH = os.path.join(BASE_DIR, "data", "healthver_validation.parquet")
 # Conjunto oro escrito a mano: JSONL para poder revisar cada etiqueta en un diff
 GOLD_PATH = os.path.join(BASE_DIR, "data", "gold_es.jsonl")
 
+# Pares afirmación/negación sobre la misma literatura: aíslan la polaridad del juez
+NEGATIONS_PATH = os.path.join(BASE_DIR, "data", "negations_es.jsonl")
+
 
 def load_dataset(partition: str = "train") -> pd.DataFrame:
     """Función para cargar una partición del dataset."""
@@ -33,9 +36,11 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
         data_path = VALIDATION_PATH
     elif partition == "gold":
         data_path = GOLD_PATH
+    elif partition == "negations":
+        data_path = NEGATIONS_PATH
     else:
         raise ValueError(
-            "La partición debe ser 'train', 'test', 'validation' o 'gold'."
+            "La partición debe ser 'train', 'test', 'validation', 'gold' o 'negations'."
         )
 
     if not os.path.exists(data_path):
@@ -47,3 +52,12 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
         return pd.read_json(data_path, lines=True, encoding="utf-8")
 
     return pd.read_parquet(data_path)
+
+
+def load_jsonl(path: str) -> pd.DataFrame:
+    """Carga un conjunto etiquetado en JSONL de cualquier ruta, como el reservado que no vive en el repo."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No se encontró el archivo en: {path}.")
+
+    logger.info("Cargando datos desde: %s", path)
+    return pd.read_json(path, lines=True, encoding="utf-8")
