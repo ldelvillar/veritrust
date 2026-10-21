@@ -30,6 +30,8 @@ A **high-risk** change (migrations, verdict logic or prompts, auth or ingestion,
 
 When reviewing a change, read `REVIEW.md` first. Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
 
+After changing the review setup (`REVIEW.md`, the review commands or workflow, any `CLAUDE.md`/`AGENTS.md`), run the reviewer evals in `docs/review-evals.md` and keep the change only if no case regresses.
+
 Keep review rounds converging:
 
 - After the first round, re-review only what changed since: `/code-review <last-reviewed-sha>..HEAD`.
