@@ -24,7 +24,9 @@ Every change reaches `main` through a PR (squash-merged; the PR title becomes th
 - auth, file/URL ingestion, or user input reaching an LLM — also run `/security-review`
 - `Settings`, env vars, CI/deploy, backups, or infra runbooks
 - both `backend/` and `frontend/`
-- roughly 200+ changed lines, or a new module or abstraction
+- roughly 200+ changed lines, or a new module or abstraction — also run `/simplify`
+
+A **high-risk** change (migrations, verdict logic or prompts, auth or ingestion, CI/deploy/backups) gets `/code-review max`, and the user reads its diff before merging.
 
 When reviewing a change, read `REVIEW.md` first. Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
 
