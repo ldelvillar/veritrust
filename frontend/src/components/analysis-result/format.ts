@@ -151,6 +151,25 @@ export function displayHostname(url: string): string {
   }
 }
 
+export type AnalysisStatusKey = 'pending' | 'failed' | 'failed_no_claims';
+
+// Estado de un análisis sin veredicto en listados; null cuando ya tiene veredicto.
+export function getStatusKey(
+  item: Pick<HistoryItem, 'status' | 'error_code'>
+): AnalysisStatusKey | null {
+  if (item.status === 'pending') return 'pending';
+  if (item.status !== 'failed') return null;
+  return item.error_code === 'NO_MEDICAL_CLAIMS'
+    ? 'failed_no_claims'
+    : 'failed';
+}
+
+export const STATUS_LABEL: Record<AnalysisStatusKey, string> = {
+  pending: 'En curso',
+  failed: 'Fallido',
+  failed_no_claims: 'Sin afirmaciones',
+};
+
 // Título de un análisis en listados: la URL, el nombre del archivo o el texto enviado.
 export function getAnalysisTitle(
   item: Pick<

@@ -17,17 +17,17 @@ export function useAnalysisDeletion() {
 
   const remove = useCallback(
     async (analysisId: string): Promise<boolean> => {
-      const data = await mutate(() =>
-        fetchJsonWithAuth<DeleteAnalysisResponse>(
+      // El refresco va dentro de la mutación: el diálogo sigue ocupado hasta que la fila desaparece.
+      const data = await mutate(async () => {
+        const deleted = await fetchJsonWithAuth<DeleteAnalysisResponse>(
           getToken,
           `/analysis/${analysisId}`,
           { method: 'DELETE' }
-        )
-      );
-      if (data === null) return false;
-      // Esperamos al refresco: al cerrar el diálogo la fila borrada ya no debe verse.
-      await refreshHistory();
-      return true;
+        );
+        await refreshHistory();
+        return deleted;
+      });
+      return data !== null;
     },
     [getToken, mutate]
   );

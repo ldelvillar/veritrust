@@ -1,5 +1,4 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { mutate } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { refreshHistory } from '@/lib/historyCache';
@@ -25,19 +24,21 @@ const mockedFetch = vi.mocked(fetchJsonWithAuth);
 
 const OTHER_PATH = '/dashboard/summary';
 let pendingCount = 0;
+let recentStatus: 'pending' | 'done' = 'done';
 
 const callsFor = (path: string) =>
   mockedFetch.mock.calls.filter(([, key]) => key === path).length;
 
-// Sin proveedor propio: refreshHistory y el sondeo usan el mutate global sobre la caché por defecto.
+// Sin proveedor propio: refreshHistory usa el mutate global sobre la caché por defecto.
 describe('recent analyses refresh (SWR real)', () => {
   beforeEach(() => {
     pendingCount = 0;
+    recentStatus = 'done';
     mockedFetch.mockReset();
     mockedFetch.mockImplementation(async (_getToken, path) => {
       if (path === '/history/pending')
         return { count: pendingCount, newest_analysis_id: 'aaa' };
-      return { items: [] };
+      return { items: [{ status: recentStatus }] };
     });
   });
 
@@ -60,20 +61,29 @@ describe('recent analyses refresh (SWR real)', () => {
     expect(callsFor(OTHER_PATH)).toBe(otherBefore);
   });
 
-  it('refetches the recents when a pending analysis finishes', async () => {
-    pendingCount = 1;
-    const { result } = renderHook(() => usePendingAnalyses());
-    renderHook(() => useRecentAnalyses());
-    await waitFor(() => expect(result.current.pendingCount).toBe(1));
-    const recentBefore = callsFor(RECENT_HISTORY_PATH);
+  it('polls the recents only while one of them is in progress', async () => {
+    vi.useFakeTimers();
+    try {
+      recentStatus = 'pending';
+      renderHook(() => useRecentAnalyses());
+      await act(async () => {
+        await refreshHistory();
+      });
+      const whilePending = callsFor(RECENT_HISTORY_PATH);
 
-    pendingCount = 0;
-    await act(async () => {
-      await mutate('/history/pending');
-    });
+      recentStatus = 'done';
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      const afterFinish = callsFor(RECENT_HISTORY_PATH);
+      expect(afterFinish).toBeGreaterThan(whilePending);
 
-    await waitFor(() =>
-      expect(callsFor(RECENT_HISTORY_PATH)).toBeGreaterThan(recentBefore)
-    );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(callsFor(RECENT_HISTORY_PATH)).toBe(afterFinish);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

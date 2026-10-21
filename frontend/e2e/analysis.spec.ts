@@ -24,7 +24,7 @@ test('a submitted text opens its report, which shows the verdict once the pipeli
   await expect(page.getByRole('heading', FINISHED_VERDICT)).toBeVisible(
     PIPELINE_TIMEOUT
   );
-  // El menú no sondea: el fin del análisis le llega por el indicador de pendientes.
+  // El menú sondea mientras el análisis sigue en curso, así que estrena el veredicto solo.
   await expect(recent).toContainText('Falso', PIPELINE_TIMEOUT);
 });
 

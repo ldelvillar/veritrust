@@ -241,7 +241,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-line bg-white pt-2 pb-2 transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0' : 'w-66.5 px-1.5'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-line bg-white pt-2 pb-2 transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0' : 'w-66.5 px-1.5'}`}
       >
         <SidebarContent
           pending={pending}

@@ -1,9 +1,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { mutate } from 'swr';
 import { useApiQuery } from '@/hooks/useApiQuery';
-import { RECENT_HISTORY_PATH } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
 type PendingSummary =
@@ -35,8 +33,6 @@ export function usePendingAnalyses() {
       count: latest.count,
       analysisId: latest.newest_analysis_id ?? previous.analysisId,
     };
-    // Un análisis terminó: los recientes del menú no sondean y estrenan veredicto.
-    if (latest.count < previous.count) void mutate(RECENT_HISTORY_PATH);
     if (latest.count > 0) {
       setFinished(null);
     } else if (previous.count > 0 && previous.analysisId) {

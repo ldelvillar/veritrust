@@ -15,7 +15,10 @@ import Button from '@/components/Button';
 import {
   formatCoverage,
   getAnalysisTitle,
+  getStatusKey,
+  STATUS_LABEL,
   VERDICT_LABEL,
+  type AnalysisStatusKey,
 } from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
@@ -101,21 +104,21 @@ const STAGE_LABEL: Record<NonNullable<HistoryItem['stage']>, string> = {
 
 const STATUS_BADGES = {
   pending: {
-    text: 'En curso',
+    text: STATUS_LABEL.pending,
     textColor: 'var(--color-primary)',
     bgColor: 'var(--color-primary-soft)',
   },
   failed_no_claims: {
-    text: 'Sin afirmaciones',
+    text: STATUS_LABEL.failed_no_claims,
     textColor: 'var(--color-muted)',
     bgColor: 'var(--color-surface)',
   },
   failed: {
-    text: 'Fallido',
+    text: STATUS_LABEL.failed,
     textColor: 'var(--color-danger-ink)',
     bgColor: 'var(--color-danger-soft)',
   },
-} as const;
+} as const satisfies Record<AnalysisStatusKey, object>;
 
 // El tono lo decide el veredicto; la credibilidad solo se muestra como número.
 const TONE_BY_VERDICT = {
@@ -368,22 +371,14 @@ export default function HistoryResultsTable({
                 ? 'var(--color-primary)'
                 : 'var(--color-line-strong)';
 
-            let statusBadgeCfg: {
-              text: string;
-              textColor: string;
-              bgColor: string;
-            } | null = null;
-            let detailLabel = 'Ver informe';
-            if (item.status === 'pending') {
-              statusBadgeCfg = STATUS_BADGES.pending;
-              detailLabel = 'Ver estado';
-            } else if (item.status === 'failed') {
-              statusBadgeCfg =
-                item.error_code === 'NO_MEDICAL_CLAIMS'
-                  ? STATUS_BADGES.failed_no_claims
-                  : STATUS_BADGES.failed;
-              detailLabel = 'Ver detalle';
-            }
+            const statusKey = getStatusKey(item);
+            const statusBadgeCfg = statusKey ? STATUS_BADGES[statusKey] : null;
+            const detailLabel =
+              statusKey === 'pending'
+                ? 'Ver estado'
+                : statusKey
+                  ? 'Ver detalle'
+                  : 'Ver informe';
 
             const badgeText = statusBadgeCfg
               ? statusBadgeCfg.text

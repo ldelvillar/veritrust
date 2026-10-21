@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import {
   getAnalysisTitle,
+  getStatusKey,
+  STATUS_LABEL,
   VERDICT_META,
 } from '@/components/analysis-result/format';
 import type { HistoryItem } from '@/lib/historyQuery';
@@ -11,15 +13,12 @@ import type { HistoryItem } from '@/lib/historyQuery';
 const COMPACT_LIMIT = 3;
 
 function dotFor(item: HistoryItem): { className: string; label: string } {
-  if (item.status === 'pending')
-    return { className: 'animate-pulse bg-primary', label: 'En curso' };
-  if (item.status === 'failed')
+  const statusKey = getStatusKey(item);
+  if (statusKey)
     return {
-      className: 'bg-line-strong',
-      label:
-        item.error_code === 'NO_MEDICAL_CLAIMS'
-          ? 'Sin afirmaciones'
-          : 'Fallido',
+      className:
+        statusKey === 'pending' ? 'animate-pulse bg-primary' : 'bg-line-strong',
+      label: STATUS_LABEL[statusKey],
     };
   const meta = VERDICT_META[item.verdict];
   return { className: meta.solid, label: meta.label };
