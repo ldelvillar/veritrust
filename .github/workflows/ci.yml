@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
     paths:
       - backend/**
       - frontend/**
@@ -9,14 +10,8 @@ on:
       - Caddyfile
       - .github/workflows/deploy.yml
       - .github/workflows/ci.yml
+  # Sin filtro de rutas: el check requerido "CI passed" debe reportar en todo PR.
   pull_request:
-    paths:
-      - backend/**
-      - frontend/**
-      - docker-compose*.yml
-      - Caddyfile
-      - .github/workflows/deploy.yml
-      - .github/workflows/ci.yml
   workflow_dispatch:
 
 concurrency:
