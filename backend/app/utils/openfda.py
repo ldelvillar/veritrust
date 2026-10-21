@@ -5,23 +5,25 @@ import logging
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError
+from app.utils.evidence import EvidenceRetrievalError, join_label_sections
 
 logger = logging.getLogger(__name__)
 
 _LABEL_PATH = "/drug/label.json"
 _DAILYMED_URL = "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid="
 
-# Secciones de la ficha que sirven para juzgar la relevancia de la afirmación.
+# Secciones de la ficha que sirven al juez; las fichas actuales avisan en warnings_and_cautions.
 _ABSTRACT_SECTIONS = (
     "purpose",
     "indications_and_usage",
+    "boxed_warning",
     "warnings",
-    "adverse_reactions",
+    "warnings_and_cautions",
     "contraindications",
+    "adverse_reactions",
+    "overdosage",
+    "pregnancy",
 )
-# Cota del texto que se envía al juez; la ficha completa es demasiado larga.
-_ABSTRACT_MAX_CHARS = 1500
 
 
 def _first(values: object) -> str:
@@ -32,14 +34,13 @@ def _first(values: object) -> str:
 
 
 def _build_abstract(result: dict) -> str | None:
-    """Une las secciones clave de la ficha en un resumen acotado para el juez."""
+    """Une las secciones clave de la ficha, cada una recortada, en un resumen para el juez."""
     parts: list[str] = []
     for section in _ABSTRACT_SECTIONS:
         value = result.get(section)
         if isinstance(value, list) and value:
             parts.append(" ".join(str(item).strip() for item in value if item))
-    text = " ".join(part for part in parts if part).strip()
-    return text[:_ABSTRACT_MAX_CHARS] or None
+    return join_label_sections(parts)
 
 
 def _map_result(result: dict) -> dict:

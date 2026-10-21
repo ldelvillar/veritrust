@@ -1,0 +1,36 @@
+name: Assert Claude ran
+description: Fails the job when a claude-code-action step skipped itself or ran zero turns, so a missing review never shows as a green check.
+
+inputs:
+  conclusion:
+    description: The `conclusion` output of the claude-code-action step.
+    required: false
+    default: ""
+  execution_file:
+    description: The `execution_file` output of the claude-code-action step.
+    required: false
+    default: ""
+  job:
+    description: Name of the review, for the error message.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Check that Claude reviewed
+      shell: bash
+      env:
+        CONCLUSION: ${{ inputs.conclusion }}
+        EXECUTION_FILE: ${{ inputs.execution_file }}
+        JOB: ${{ inputs.job }}
+      run: |
+        if [ "$CONCLUSION" != "success" ] || [ ! -s "$EXECUTION_FILE" ]; then
+          echo "::error::$JOB did not run (conclusion '${CONCLUSION:-none}'): workflow file differs from the base branch, or auth, quota or an outage stopped it. This PR got no review from it; review by hand or re-run the job."
+          exit 1
+        fi
+        turns=$(jq '[.[] | select(.type == "result")] | last | .num_turns // 0' "$EXECUTION_FILE")
+        if [ "$turns" -eq 0 ]; then
+          echo "::error::$JOB ran 0 turns, so it reviewed nothing. Check its prompt or command; this PR got no review from it."
+          exit 1
+        fi
+        echo "$JOB ran $turns turns."

@@ -59,6 +59,25 @@ def test_search_evidence_maps_label_to_dailymed_source(monkeypatch):
     ]
 
 
+def test_search_evidence_keeps_the_overdose_section_after_long_ones(monkeypatch):
+    label = {
+        **_LABEL,
+        "purpose": [],
+        "warnings": [],
+        "indications_and_usage": ["1 INDICATIONS AND USAGE " + "x" * 3000],
+        "warnings_and_cautions": ["5 WARNINGS AND PRECAUTIONS Lactic acidosis."],
+        "overdosage": ["10 OVERDOSAGE Liver damage may occur."],
+    }
+    _patch_get(monkeypatch, _FakeResponse(payload={"results": [label]}))
+
+    (source,) = search_evidence("metformin", max_results=3)
+
+    # Cada sección se recorta por separado: la primera no se come a las demás.
+    assert "5 WARNINGS AND PRECAUTIONS Lactic acidosis." in source["abstract"]
+    assert source["abstract"].endswith("10 OVERDOSAGE Liver damage may occur.")
+    assert len(source["abstract"]) < 1000
+
+
 def test_search_evidence_falls_back_to_generic_name(monkeypatch):
     label = {**_LABEL, "openfda": {"generic_name": ["IBUPROFEN"]}}
     _patch_get(monkeypatch, _FakeResponse(payload={"results": [label]}))

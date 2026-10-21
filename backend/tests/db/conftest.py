@@ -11,12 +11,12 @@ import os
 import subprocess
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import psycopg
 import pytest
 
 import app.db.pool as pool_module
+from app.db.migrate import apply_migrations
 
 
 def pytest_asyncio_loop_factories(config, item):
@@ -25,7 +25,6 @@ def pytest_asyncio_loop_factories(config, item):
 
 
 _IMAGE = "postgres:16-alpine"
-_INIT_SQL = Path(__file__).resolve().parents[2] / "db" / "init.sql"
 _SKIP_REASON = (
     "Pruebas 'db' omitidas: define TEST_DATABASE_URL o arranca Docker "
     "para levantar un PostgreSQL efímero."
@@ -99,10 +98,8 @@ def postgres_dsn():
 
 @pytest.fixture(scope="session")
 def database_schema(postgres_dsn):
-    """Aplica el esquema real de despliegue (db/init.sql) una vez por sesión."""
-    with psycopg.connect(postgres_dsn) as conn:
-        conn.execute(_INIT_SQL.read_text(encoding="utf-8"))
-        conn.commit()
+    """Aplica las migraciones reales de despliegue una vez por sesión."""
+    apply_migrations(postgres_dsn)
     return postgres_dsn
 
 

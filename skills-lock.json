@@ -13,12 +13,6 @@
       "skillPath": "skills/in-progress/claude-handoff/SKILL.md",
       "computedHash": "c0fa5d0eede556bc7809c8461a25ec2c7db5726f338970458aa7bbf702b8ea8c"
     },
-    "code-review": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/code-review/SKILL.md",
-      "computedHash": "b4f17857c85ca60af1df7d0b623dd03c2a48419f6123e714f3d9748ca744a1bf"
-    },
     "codebase-design": {
       "source": "mattpocock/skills",
       "sourceType": "github",

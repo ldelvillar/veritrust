@@ -7,92 +7,42 @@ Two layers:
    `autoheal` sidecar restarts containers whose healthcheck fails while the process
    stays up (e.g. a hung Ollama). The worker's cron reaper fails orphaned `pending`
    rows so users never stare at an eternal spinner.
-2. **GCP Cloud Monitoring** (this doc): uptime checks + email alerts so a dead site
-   or a failing worker pages you instead of relying on someone watching logs.
+2. **External checks** (this doc): an uptime service emails you when the site or the
+   API stops answering, and the logs show failed analyses.
 
-Run these once from your local machine with `gcloud` pointed at the project.
-Replace `PROJECT_ID`, `APP_DOMAIN`, `API_DOMAIN`, and `you@example.com`.
+## 1. Uptime checks (frontend + API readiness)
 
-## 1. Notification channel (email)
+Any external checker works; UptimeRobot's free plan checks every 5 minutes and alerts
+by email. Create two HTTPS monitors:
 
-```bash
-gcloud beta monitoring channels create \
-  --display-name="VeriTrust alerts" \
-  --type=email \
-  --channel-labels=email_address=you@example.com
-```
+- `https://API_DOMAIN/healthz`: it returns 503 unless Postgres and Redis answer, so this
+  one check covers the API process and its dependencies.
+- `https://APP_DOMAIN`: the frontend behind Caddy.
 
-Note the channel name it prints (`projects/PROJECT_ID/notificationChannels/NNN`).
+The checker runs outside the server, so it also catches a dead VM, an expired
+certificate or a DNS mistake.
 
-## 2. Uptime checks (frontend + API readiness)
+## 2. Failed analyses
 
-`/healthz` returns 503 unless Postgres and Redis answer, so this single check covers
-the API process and its dependencies:
-
-```bash
-gcloud monitoring uptime create veritrust-api \
-  --resource-type=uptime-url \
-  --resource-labels=host=API_DOMAIN,project_id=PROJECT_ID \
-  --protocol=https --port=443 --path=/healthz \
-  --period=1 --timeout=10
-
-gcloud monitoring uptime create veritrust-app \
-  --resource-type=uptime-url \
-  --resource-labels=host=APP_DOMAIN,project_id=PROJECT_ID \
-  --protocol=https --port=443 --path=/ \
-  --period=1 --timeout=10
-```
-
-Then in Console → Monitoring → Uptime checks, open each check and add an alert
-policy bound to the email channel (one click; doing it via CLI requires a JSON
-policy file and offers nothing extra here).
-
-## 3. Worker failure alerts (Ops Agent + log-based metric)
-
-On the VM, install the Ops Agent and ship container logs:
+`/healthz` stays green when the pipeline itself breaks (a bad Mistral key, an evidence
+source down), so look at the errors too. The backend and worker log one JSON line per
+record in production (`LOG_FORMAT=json`); count the last day's errors:
 
 ```bash
-curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
-sudo bash add-google-cloud-ops-agent-repo.sh --also-install
+cd ~/veritrust
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --since 24h backend worker | grep -c '"severity": "ERROR"'
 ```
 
-Configure it to tail Docker's JSON log files (`/etc/google-cloud-ops-agent/config.yaml`):
+An isolated failed analysis logs one ERROR; a broken pipeline logs a stream. Drop the
+`-c` to read them. Nothing alerts on these automatically yet.
 
-```yaml
-logging:
-  receivers:
-    veritrust_containers:
-      type: files
-      include_paths:
-        - /var/lib/docker/containers/*/*-json.log
-  processors:
-    parse_docker:
-      type: parse_json
-  service:
-    pipelines:
-      containers:
-        receivers: [veritrust_containers]
-        processors: [parse_docker]
-```
+## 3. Disk space
+
+Images, build cache, logs and backups all share the VM's disk:
 
 ```bash
-sudo systemctl restart google-cloud-ops-agent
+df -h / && docker system df
 ```
-
-The backend and worker emit one JSON line per log record in production
-(`LOG_FORMAT=json`, set in `docker-compose.prod.yml`), so a substring filter on the
-docker envelope is stable. Create a metric counting worker/API errors:
-
-```bash
-gcloud logging metrics create veritrust_app_errors \
-  --description="Lineas de log ERROR/CRITICAL de backend y worker" \
-  --log-filter='resource.type="gce_instance" AND jsonPayload.log:"\"severity\": \"ERROR\""'
-```
-
-In Console → Monitoring → Alerting, create a policy on
-`logging/user/veritrust_app_errors` (threshold: above 3 in 5 minutes is a sane
-start — an isolated failed analysis logs one ERROR; a broken pipeline logs a
-stream) and bind it to the email channel.
 
 ## 4. Demo-day quick checks
 
@@ -108,9 +58,35 @@ docker stats --no-stream
 ```
 
 Freeze deploys while presenting: a push to `main` triggers the Deploy workflow,
-which rebuilds images **on the VM** and competes with Ollama for CPU. Either avoid
+which rebuilds images **on the VM** and competes with running analyses for CPU. Either avoid
 pushing, or disable the workflow for the day:
 
 ```bash
 gh workflow disable Deploy   # re-enable afterwards: gh workflow enable Deploy
 ```
+
+## 5. CPU steal log (shared-vCPU hosts)
+
+On a host that oversells vCPUs (e.g. Contabo), **steal** (`st`) is the share of time the
+VM wanted a CPU but the hypervisor gave it to another tenant. Log it once a minute so you
+can tell whether the provider is slowing analyses down. `crontab -e` and add:
+
+```cron
+* * * * * vmstat 55 2 | awk -v t="$(date -Is)" 'NR==2{for(i=1;i<=NF;i++)c[$i]=i} END{print t, "us=" $c["us"], "sy=" $c["sy"], "id=" $c["id"], "wa=" $c["wa"], "st=" $c["st"]}' >> ~/monitoring/cpu-steal.log 2>&1
+```
+
+Create the directory first with `mkdir -p ~/monitoring`. Each line is the average over the
+55 s window that starts at its timestamp (`vmstat`'s second report; the first is since
+boot), for example `2026-10-26T10:15:00+00:00 us=4 sy=1 id=95 wa=0 st=0`. Columns are
+found by header name, so newer `vmstat` versions with extra columns still work. The log
+grows ~30 MB a year, so it needs no rotation.
+
+Daily summary (average and maximum steal, and how many minutes it was at 10% or more):
+
+```bash
+awk '{d=substr($1,1,10); split($6,s,"="); n[d]++; sum[d]+=s[2]; if(s[2]+0>mx[d]+0)mx[d]=s[2]; if(s[2]>=10)hi[d]++} END{for(d in n) print d, "minutes=" n[d], "avg_st=" sum[d]/n[d], "max_st=" mx[d]+0, "minutes_st_ge_10=" hi[d]+0}' ~/monitoring/cpu-steal.log | sort
+```
+
+Read `st` together with `us`/`sy`: steal only costs you time when the VM is busy (an
+analysis or a build running). Sustained `st` above 10–20% under load means a noisy host;
+open a ticket or move providers (see `ops.md` for the measured footprint to size the next VM).
