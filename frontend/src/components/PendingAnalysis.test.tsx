@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import PendingAnalysis from './PendingAnalysis';
 
@@ -40,10 +40,32 @@ describe('PendingAnalysis', () => {
       />
     );
 
+    const bar = screen.getByText(
+      'El informe aparecerá aquí en cuanto termine el análisis'
+    ).parentElement?.parentElement;
+    expect(bar).toBeDefined();
     expect(
-      screen.getByRole('button', { name: 'Eliminar' })
+      within(bar as HTMLElement).getByRole('button', { name: 'Eliminar' })
     ).toBeInTheDocument();
   });
+
+  it.each([
+    { minutes: 1, stage: 'extractor', eta: 'Quedan ~7 min' },
+    { minutes: 7.5, stage: 'investigator', eta: 'Queda ~1 min' },
+    { minutes: 9, stage: 'investigator', eta: 'Casi listo' },
+    { minutes: 1, stage: 'health_expert', eta: 'Casi listo' },
+  ] as const)(
+    'estimates "$eta" after $minutes min at the $stage stage',
+    ({ minutes, stage, eta }) => {
+      render(
+        <PendingAnalysis createdAt={minutesAgoIso(minutes)} stage={stage} />
+      );
+
+      expect(
+        screen.getByText(new RegExp(`Tiempo estimado: 8 min · ${eta}\\.`))
+      ).toBeInTheDocument();
+    }
+  );
 
   it('surfaces an escape hatch once the analysis is overdue', () => {
     render(

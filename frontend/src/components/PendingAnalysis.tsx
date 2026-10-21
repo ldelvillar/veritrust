@@ -370,27 +370,30 @@ export default function PendingAnalysis({
               </Notice>
             ) : null}
 
-            <p role="status" className="sr-only">
-              {status}
-            </p>
-            <button
-              type="button"
-              aria-expanded={trailOpen}
-              aria-controls="pending-trail"
-              onClick={() => setTrailOpen(open => !open)}
-              className="group inline-flex max-w-full cursor-pointer items-center gap-2.5 self-start rounded-md py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-            >
-              <span className="animate-thinking text-base font-semibold">
+            <div className="flex max-w-full items-center gap-2.5 py-1">
+              <p
+                role="status"
+                className="animate-thinking text-base font-semibold"
+              >
                 {status}
-              </span>
-              <span className="text-sm font-semibold text-muted tabular-nums group-hover:text-ink">
+              </p>
+              <span className="text-sm font-semibold text-muted tabular-nums">
                 {formatElapsed(elapsed)}
               </span>
-              <Chevron
-                aria-hidden
-                className={`size-3.5 text-muted transition-transform group-hover:text-ink ${trailOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
+              <button
+                type="button"
+                aria-label="Pasos del análisis"
+                aria-expanded={trailOpen}
+                aria-controls="pending-trail"
+                onClick={() => setTrailOpen(open => !open)}
+                className="grid size-6 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Chevron
+                  aria-hidden
+                  className={`size-3.5 transition-transform ${trailOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            </div>
 
             <ol
               id="pending-trail"
