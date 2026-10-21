@@ -211,13 +211,89 @@ html {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #e9e7e0 25%, #f6f4ee 50%, #e9e7e0 75%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e9e7e0) 25%,
+    var(--skeleton-shine, #f6f4ee) 50%,
+    var(--skeleton-base, #e9e7e0) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* Contenedor oscuro: sus esqueletos toman tonos claros translúcidos. */
+.skeleton-on-dark {
+  --skeleton-base: rgb(255 255 255 / 0.08);
+  --skeleton-shine: rgb(255 255 255 / 0.18);
+}
+
+/* Análisis en curso: texto de estado con brillo, avatar con pulso y puntos de escritura. */
+@keyframes thinkingShine {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+.animate-thinking {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 40%,
+    var(--color-ink) 50%,
+    var(--color-muted) 60%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: thinkingShine 2.2s linear infinite;
+}
+
+/* El anillo se escala en un pseudo-elemento: transform y opacity no repintan la página. */
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-primary);
+  animation: pulseRing 1.8s ease-out infinite;
+  z-index: -1;
+}
+
+@keyframes typingDot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.animate-typing-dot {
+  animation: typingDot 1.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .skeleton,
+  .animate-thinking,
+  .animate-pulse-ring::after,
+  .animate-typing-dot {
     animation: none;
   }
 }

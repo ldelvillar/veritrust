@@ -14,7 +14,9 @@ test('a submitted text opens its report, which shows the verdict once the pipeli
   await page.getByRole('button', { name: 'Analizar credibilidad' }).click();
 
   await expect(page).toHaveURL(/\/app\/analisis\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('Analizando contenido…')).toBeVisible();
+  await expect(
+    page.getByText('El informe aparecerá aquí en cuanto termine el análisis')
+  ).toBeVisible();
   await expect(page.getByRole('heading', FINISHED_VERDICT)).toBeVisible(
     PIPELINE_TIMEOUT
   );
@@ -24,7 +26,9 @@ test('a failed analysis can be retried until it finishes', async ({ page }) => {
   await page.goto('/app/analisis/failed-connection');
   await page.getByRole('button', { name: 'Reintentar análisis' }).click();
 
-  await expect(page.getByText('Analizando contenido…')).toBeVisible();
+  await expect(
+    page.getByText('El informe aparecerá aquí en cuanto termine el análisis')
+  ).toBeVisible();
   await expect(page.getByRole('heading', FINISHED_VERDICT)).toBeVisible(
     PIPELINE_TIMEOUT
   );
