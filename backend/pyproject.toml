@@ -8,12 +8,12 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     # API
-    "fastapi>=0.143.0",
+    "fastapi>=0.146.0",
     "uvicorn[standard]>=0.54.0",
     "python-multipart>=0.0.32",
     "python-dotenv>=1.2.4",
     "pydantic>=2.14.1",
-    "pydantic-settings>=2.15.0",
+    "pydantic-settings>=2.16.0",
     "httpx>=0.28",
     # Auth
     "PyJWT>=2.12",
@@ -24,14 +24,14 @@ dependencies = [
     "arq>=0.26",
     "redis>=5",
     # LLM / Agents
-    "langchain>=1.4.4",
-    "langchain-core>=1.6.5",
+    "langchain>=1.4.6",
+    "langchain-core>=1.6.12",
     "langchain-ollama>=1.1.0",
     "langchain-mistralai>=1.1",
     "langchain-groq>=1.0",
-    "langchain-google-genai>=4.4.1",
-    "langchain-nvidia-ai-endpoints>=1.0",
-    "langgraph>=1.2.14",
+    "langchain-google-genai>=4.4.2",
+    "langchain-nvidia-ai-endpoints>=1.5.0",
+    "langgraph>=1.2.16",
     "ollama>=0.6.3",
     # Web scraping
     "beautifulsoup4>=4.15.0",
@@ -39,7 +39,7 @@ dependencies = [
     # Utilities
     "PyYAML>=6.0",
     "orjson>=3.13.0",
-    "pypdf>=6.20.0",
+    "pypdf>=6.21.1",
     "mcp>=2.3.0",
 ]
 
@@ -47,7 +47,7 @@ dependencies = [
 # Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra evaluation
 evaluation = [
     "pandas>=3.0.6",
-    "pyarrow>=25.0.1",
+    "pyarrow>=26.0.0",
 ]
 
 [dependency-groups]
@@ -56,9 +56,9 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1",
     "coverage>=7.16.2",
-    "ruff>=0.17.0",
+    "ruff>=0.17.1",
     "mypy>=2.4.0",
-    "fakeredis>=2.39.0",
+    "fakeredis>=2.40.0",
 ]
 
 [tool.pytest.ini_options]
