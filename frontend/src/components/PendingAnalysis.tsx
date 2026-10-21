@@ -1,51 +1,93 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import Link from 'next/link';
-import Spinner from '@/assets/Spinner';
-import Check from '@/assets/Check';
-import Scan from '@/assets/Scan';
-import Magnifier from '@/assets/Magnifier';
-import LanguageIcon from '@/assets/Language';
-import Newspaper from '@/assets/Newspaper';
-import Heart from '@/assets/Heart';
+import Button from '@/components/Button';
 import Bell from '@/assets/Bell';
-import type { AnalysisStage } from '@/components/analysis-result/types';
+import Check from '@/assets/Check';
+import Chevron from '@/assets/Chevron';
+import ClockIcon from '@/assets/Clock';
+import DocumentIcon from '@/assets/Document';
+import GlobeIcon from '@/assets/Globe';
+import Heart from '@/assets/Heart';
+import LanguageIcon from '@/assets/Language';
+import Magnifier from '@/assets/Magnifier';
+import Newspaper from '@/assets/Newspaper';
+import RefreshIcon from '@/assets/Refresh';
+import Scan from '@/assets/Scan';
+import ShieldIcon from '@/assets/Shield';
+import StopIcon from '@/assets/Stop';
+import WarningIcon from '@/assets/Warning';
+import type {
+  AnalysisStage,
+  ReportView,
+} from '@/components/analysis-result/types';
 
 interface PendingAnalysisProps {
   createdAt: string;
   stage?: AnalysisStage | null;
+  sourceType?: ReportView['source_type'];
+  inputText?: string | null;
+  inputUrl?: string | null;
+  fileFilename?: string | null;
   connectionError?: string | null;
   onRetry?: () => void;
+  onStop?: () => void;
 }
 
 const STEPS = [
   {
     name: 'Preparando el contenido',
     description: 'Obteniendo y preparando el texto a analizar.',
+    done: 'Contenido preparado',
     Icon: Scan,
   },
   {
     name: 'Agente Extractor',
     description: 'Extrayendo las afirmaciones médicas del texto.',
+    done: 'Afirmaciones médicas extraídas',
     Icon: Magnifier,
   },
   {
     name: 'Agente Traductor',
     description: 'Traduciendo las afirmaciones al inglés clínico.',
+    done: 'Afirmaciones traducidas al inglés clínico',
     Icon: LanguageIcon,
   },
   {
     name: 'Agente Investigador',
     description: 'Buscando evidencia en nuestras fuentes biomédicas.',
+    done: 'Evidencia reunida de nuestras fuentes biomédicas',
     Icon: Newspaper,
   },
   {
     name: 'Agente Médico',
     description: 'Sopesando la evidencia y redactando el informe.',
+    done: 'Informe redactado',
     Icon: Heart,
   },
 ] as const;
+
+// El primer paso depende de lo que hay que preparar según el tipo de entrada.
+const SOURCE_COPY: Record<
+  ReportView['source_type'],
+  { meta: string; prep: string }
+> = {
+  text: {
+    meta: 'Análisis de texto',
+    prep: 'Obteniendo y preparando el texto a analizar.',
+  },
+  url: {
+    meta: 'Análisis de enlace',
+    prep: 'Descargando el artículo y extrayendo su texto.',
+  },
+  file: {
+    meta: 'Análisis de archivo',
+    prep: 'Leyendo el archivo y extrayendo su texto.',
+  },
+};
+
+// Estimación habitual del pipeline completo, en segundos.
+const ESTIMATED_SECONDS = 480;
 
 // Superada con margen la estimación de 8 min, avisamos y ofrecemos una salida.
 const SLOW_AFTER_SECONDS = 600;
@@ -63,6 +105,14 @@ function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 type NotifyPermission = NotificationPermission | 'unsupported';
@@ -90,13 +140,80 @@ function requestNotifyPermission(): Promise<void> {
   });
 }
 
+// El contenido enviado se muestra como el mensaje del usuario en la conversación.
+function SubmittedContent({
+  sourceType,
+  inputText,
+  inputUrl,
+  fileFilename,
+}: Pick<
+  PendingAnalysisProps,
+  'sourceType' | 'inputText' | 'inputUrl' | 'fileFilename'
+>) {
+  const bubble =
+    'self-end border border-line bg-white rounded-tl-3xl rounded-tr-3xl rounded-br-md rounded-bl-3xl';
+
+  if (sourceType === 'url' && inputUrl) {
+    return (
+      <a
+        href={inputUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${bubble} flex w-105 max-w-full items-center gap-3.5 px-4 py-3.5 transition-colors hover:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none`}
+      >
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+          <GlobeIcon className="size-4.5" />
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <b className="text-sm font-bold text-ink">{hostnameOf(inputUrl)}</b>
+          <span className="truncate text-xs text-primary">{inputUrl}</span>
+        </span>
+      </a>
+    );
+  }
+
+  if (sourceType === 'file' && fileFilename) {
+    const extension = fileFilename.split('.').pop()?.toUpperCase() ?? '';
+    return (
+      <div
+        className={`${bubble} flex w-105 max-w-full items-center gap-3.5 px-4 py-3.5`}
+      >
+        <span className="grid h-12 w-10 shrink-0 place-items-center rounded-lg bg-danger-soft text-2xs font-extrabold tracking-wide text-danger-ink">
+          {extension}
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <b className="truncate text-sm font-bold text-ink">{fileFilename}</b>
+          <span className="text-xs font-semibold text-muted">
+            Archivo subido
+          </span>
+        </span>
+      </div>
+    );
+  }
+
+  if (!inputText) return null;
+  return (
+    <div
+      className={`${bubble} max-w-140 px-4.5 py-3.5 text-base leading-relaxed whitespace-pre-wrap text-body`}
+    >
+      {inputText}
+    </div>
+  );
+}
+
 export default function PendingAnalysis({
   createdAt,
   stage,
+  sourceType = 'text',
+  inputText,
+  inputUrl,
+  fileFilename,
   connectionError,
   onRetry,
+  onStop,
 }: PendingAnalysisProps) {
   const [elapsed, setElapsed] = useState(0);
+  const [trailOpen, setTrailOpen] = useState(true);
 
   useEffect(() => {
     const parsed = new Date(createdAt).getTime();
@@ -118,168 +235,248 @@ export default function PendingAnalysis({
   // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
   const activeStep = stage != null ? STAGE_INDEX[stage] : 0;
 
+  // Solo cronometramos los pasos cuyo inicio hemos visto en esta pestaña.
+  const [seenStep, setSeenStep] = useState(activeStep);
+  const [stepStarts, setStepStarts] = useState<Record<number, number>>({});
+  if (activeStep !== seenStep) {
+    setSeenStep(activeStep);
+    setStepStarts(starts => ({ ...starts, [activeStep]: elapsed }));
+  }
+  const stepDuration = (index: number): string | null => {
+    const start = stepStarts[index];
+    const end = stepStarts[index + 1];
+    return start != null && end != null ? formatElapsed(end - start) : null;
+  };
+
+  const copy = SOURCE_COPY[sourceType];
+  const descriptionOf = (index: number) =>
+    index === 0 ? copy.prep : STEPS[index].description;
+  const lastStep = STEPS.length - 1;
+  const stepsLeft = lastStep - activeStep;
+
   const isSlow = elapsed >= SLOW_AFTER_SECONDS;
-  const showReassurance = !isSlow && activeStep === STEPS.length - 1;
+  const status = isSlow
+    ? 'Está tardando más de lo habitual…'
+    : `${descriptionOf(activeStep).replace(/\.$/, '')}…`;
+  const minutesLeft = Math.max(
+    1,
+    Math.ceil((ESTIMATED_SECONDS - elapsed) / 60)
+  );
+  const eta =
+    activeStep === lastStep
+      ? 'Casi listo'
+      : minutesLeft === 1
+        ? 'Queda ~1 min'
+        : `Quedan ~${minutesLeft} min`;
+  const sentAt = new Date(createdAt).toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex w-full max-w-2xl flex-col items-center gap-6 rounded-xl border border-line bg-white p-8 text-center shadow-sm md:p-10"
-    >
-      <div className="flex flex-col items-center gap-3">
-        <Spinner className="size-10 animate-spin text-primary" />
-        <h3 className="text-xl font-bold text-ink">Analizando contenido…</h3>
-        <p className="max-w-md text-sm leading-relaxed text-muted">
-          Nuestros agentes están analizando el contenido, buscando evidencia y
-          evaluando las afirmaciones médicas. La página se actualizará
-          automáticamente al terminar.
+    <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col">
+      <div className="flex flex-1 flex-col gap-7">
+        <p className="flex items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap text-muted">
+          <DocumentIcon className="size-4" />
+          {copy.meta} · enviado a las {sentAt}
         </p>
-        <p className="text-xs font-medium text-faint">
-          <span className="tabular-nums" aria-hidden="true">
-            {formatElapsed(elapsed)}
-          </span>{' '}
-          · {isSlow ? 'Tardando más de lo habitual' : 'Tiempo estimado: 8 min'}
-        </p>
-      </div>
 
-      {connectionError ? (
-        <div
-          role="alert"
-          className="w-full rounded-xl border border-danger/30 bg-danger-soft p-4 text-left"
-        >
-          <p className="text-sm font-bold text-danger-ink">
-            Se ha interrumpido la conexión
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-danger-ink">
-            {connectionError}
-          </p>
-          {onRetry ? (
+        <SubmittedContent
+          sourceType={sourceType}
+          inputText={inputText}
+          inputUrl={inputUrl}
+          fileFilename={fileFilename}
+        />
+
+        <div className="flex items-start gap-3.5">
+          <div
+            aria-hidden="true"
+            className="animate-pulse-ring grid size-8.5 shrink-0 place-items-center rounded-xl bg-primary text-white"
+          >
+            <ShieldIcon className="size-4.5" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-3 pt-0.5">
+            <p className="-mb-2 text-sm leading-7.5 font-bold text-ink">
+              VeriTrust
+            </p>
+
+            {connectionError ? (
+              <div
+                role="alert"
+                className="flex items-start gap-3.5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3.5 text-danger-ink"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+                  <WarningIcon className="size-4.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">
+                    Se ha interrumpido la conexión
+                  </p>
+                  <p className="mt-0.5 text-sm leading-relaxed">
+                    {connectionError}
+                  </p>
+                  {onRetry ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant="soft" onClick={onRetry}>
+                        <RefreshIcon />
+                        Reintentar ahora
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             <button
               type="button"
-              onClick={onRetry}
-              className="mt-3 inline-flex items-center justify-center rounded-lg border border-danger/40 bg-white px-3.5 py-2 text-xs font-bold text-danger-ink transition hover:bg-danger-soft focus:ring-2 focus:ring-danger/40 focus:outline-none"
-            >
-              Reintentar ahora
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <ol className="flex w-full flex-col gap-2.5 text-left">
-        {STEPS.map((step, index) => {
-          const isDone = index < activeStep;
-          const isActive = index === activeStep;
-          const StepIcon = step.Icon;
-
-          return (
-            <li
-              key={step.name}
-              aria-current={isActive ? 'step' : undefined}
-              className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
-                isDone
-                  ? 'border-success-soft bg-success-soft/50'
-                  : isActive
-                    ? 'border-primary/30 bg-primary/5'
-                    : 'border-line bg-white'
-              }`}
+              aria-expanded={trailOpen}
+              aria-controls="pending-trail"
+              onClick={() => setTrailOpen(open => !open)}
+              className="group inline-flex max-w-full cursor-pointer items-center gap-2.5 self-start rounded-md py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
             >
               <span
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-                  isDone
-                    ? 'bg-success-soft text-success-ink'
-                    : isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-surface text-faint'
-                }`}
+                role="status"
+                aria-live="polite"
+                className="animate-thinking text-base font-semibold"
               >
-                {isDone ? (
-                  <Check className="size-4" />
-                ) : isActive ? (
-                  <Spinner className="size-4 animate-spin" />
-                ) : (
-                  <StepIcon className="size-4" />
-                )}
+                {status}
               </span>
-              <div className="min-w-0">
-                <p
-                  className={`text-sm font-bold ${
-                    isDone || isActive ? 'text-ink' : 'text-faint'
-                  }`}
-                >
-                  {step.name}
-                </p>
-                <p
-                  className={`text-xs leading-snug ${
-                    isDone || isActive ? 'text-muted' : 'text-faint'
-                  }`}
-                >
-                  {step.description}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+              <span className="text-sm font-semibold text-muted tabular-nums group-hover:text-ink">
+                {formatElapsed(elapsed)}
+              </span>
+              <Chevron
+                aria-hidden
+                className={`size-3.5 text-muted transition-transform group-hover:text-ink ${trailOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
 
-      {isSlow ? (
-        <div className="w-full rounded-xl border border-warning/30 bg-warning-soft p-4 text-left">
-          <p className="text-sm font-bold text-warning-ink">
-            Está tardando más de lo habitual
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-warning-ink">
-            El análisis sigue en marcha y esta página se actualizará sola al
-            terminar. Puedes esperar aquí o volver más tarde: lo guardamos en tu
-            historial. Si no llegara a completarse, se marcará como fallido y
-            podrás reintentarlo.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href="/app/historial"
-              className="inline-flex items-center justify-center rounded-lg border border-warning/40 bg-white px-3.5 py-2 text-xs font-bold text-warning-ink transition hover:bg-warning/10 focus:ring-2 focus:ring-warning/40 focus:outline-none"
-            >
-              Ir al historial
-            </Link>
-            <Link
-              href="/app/analisis"
-              className="inline-flex items-center justify-center rounded-lg border border-warning/30 bg-white px-3.5 py-2 text-xs font-bold text-warning-ink transition hover:bg-warning/10 focus:ring-2 focus:ring-warning/30 focus:outline-none"
-            >
-              Analizar otro contenido
-            </Link>
+            {trailOpen && (
+              <ol
+                id="pending-trail"
+                className="flex flex-col border-l-2 border-line py-0.5 pl-4"
+              >
+                {STEPS.map((step, index) => {
+                  if (index > activeStep) return null;
+                  const isDone = index < activeStep;
+                  const StepIcon = isDone ? Check : step.Icon;
+                  return (
+                    <li
+                      key={step.name}
+                      aria-current={isDone ? undefined : 'step'}
+                      className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-2.5 py-1.75"
+                    >
+                      <span
+                        className={`grid size-5.5 place-items-center rounded-full ${
+                          isDone
+                            ? 'bg-success-soft text-success-ink'
+                            : 'bg-primary-soft text-primary'
+                        }`}
+                      >
+                        <StepIcon className="size-3.25" />
+                      </span>
+                      <span className="flex flex-col gap-px text-sm leading-snug text-muted">
+                        <b
+                          className={`text-sm font-bold ${isDone ? 'text-body' : 'text-ink'}`}
+                        >
+                          {step.name}
+                        </b>
+                        {isDone ? step.done : descriptionOf(index)}
+                      </span>
+                      <span
+                        className={`pt-0.5 text-xs font-semibold tabular-nums ${isDone ? 'text-muted' : 'text-primary'}`}
+                      >
+                        {isDone ? stepDuration(index) : 'en curso'}
+                      </span>
+                    </li>
+                  );
+                })}
+                {stepsLeft > 0 && (
+                  <li className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5 py-1.75">
+                    <span className="size-5.5 rounded-full border-[1.5px] border-dashed border-line-strong" />
+                    <span className="text-sm leading-snug text-muted">
+                      {stepsLeft} {stepsLeft === 1 ? 'paso más' : 'pasos más'}{' '}
+                      antes del informe
+                    </span>
+                  </li>
+                )}
+              </ol>
+            )}
+
+            {isSlow && (
+              <div className="flex items-start gap-3.5 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3.5 text-warning-ink">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+                  <ClockIcon className="size-4.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">
+                    Está tardando más de lo habitual
+                  </p>
+                  <p className="mt-0.5 text-sm leading-relaxed">
+                    El análisis sigue en marcha y esta página se actualizará
+                    sola al terminar. Puedes esperar aquí o volver más tarde: lo
+                    guardamos en tu historial. Si no llegara a completarse, se
+                    marcará como fallido y podrás reintentarlo.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button href="/app/historial" variant="soft">
+                      Ir al historial
+                    </Button>
+                    <Button href="/app/analisis" variant="soft">
+                      Analizar otro contenido
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-1.25 pt-1.5" aria-hidden="true">
+              {['', '[animation-delay:.15s]', '[animation-delay:.3s]'].map(
+                delay => (
+                  <i
+                    key={delay}
+                    className={`animate-typing-dot size-1.75 rounded-full bg-primary ${delay}`}
+                  />
+                )
+              )}
+            </div>
           </div>
         </div>
-      ) : (
-        <div className="w-full rounded-xl border border-line bg-surface-subtle p-4 text-left">
-          {showReassurance && (
-            <p className="mb-3 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
-              <Spinner className="size-4 animate-spin" />
-              Casi listo, redactando el informe…
-            </p>
-          )}
-          <p className="text-sm font-bold text-ink">
-            Puedes cerrar esta pestaña
+      </div>
+
+      <div className="sticky bottom-6 mt-8 flex flex-wrap items-center gap-3 rounded-3xl border border-line-strong bg-white py-3.5 pr-3.5 pl-5 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.08)]">
+        <div className="min-w-0 flex-[1_1_300px]">
+          <p className="text-sm font-semibold text-ink">
+            El informe aparecerá aquí en cuanto termine el análisis
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-muted">
-            Seguimos analizando en segundo plano y guardamos el informe en tu
-            historial; no perderás el resultado.
+          <p className="mt-0.5 text-xs leading-snug text-muted">
+            {isSlow
+              ? 'Lo normal son unos 8 min.'
+              : `Tiempo estimado: 8 min · ${eta}.`}{' '}
+            Puedes cerrar esta pestaña; lo guardamos en tu historial.
           </p>
-          {notifyPermission === 'granted' ? (
-            <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-success-ink">
-              <Bell className="size-3.5 shrink-0" />
-              Te avisaremos cuando termine.
-            </p>
-          ) : notifyPermission === 'default' ? (
-            <button
-              type="button"
-              onClick={() => void requestNotifyPermission()}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 py-2 text-xs font-bold text-body transition hover:border-primary hover:text-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
-            >
-              <Bell className="size-3.5 shrink-0" />
-              Avísame al terminar
-            </button>
-          ) : null}
         </div>
-      )}
+        {notifyPermission === 'granted' ? (
+          <span className="inline-flex items-center gap-1.75 px-1 py-2.25 text-sm font-semibold whitespace-nowrap text-success-ink">
+            <Check className="size-3.75" />
+            Te avisaremos cuando termine
+          </span>
+        ) : notifyPermission === 'default' ? (
+          <Button variant="soft" onClick={() => void requestNotifyPermission()}>
+            <Bell />
+            Avísame al terminar
+          </Button>
+        ) : null}
+        {onStop ? (
+          <Button
+            variant="danger"
+            onClick={onStop}
+            aria-label="Detener y eliminar el análisis"
+          >
+            <StopIcon className="size-3.5" />
+            Detener
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

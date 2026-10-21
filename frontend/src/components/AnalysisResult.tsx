@@ -26,6 +26,7 @@ interface ResultProps {
   retryError?: string | null;
   pollError?: string | null;
   onRetryPoll?: () => void;
+  onDelete?: () => void;
   isPublic?: boolean;
 }
 
@@ -37,21 +38,22 @@ export default function AnalysisResult({
   retryError,
   pollError,
   onRetryPoll,
+  onDelete,
   isPublic = false,
 }: ResultProps) {
   if (result.status === 'pending') {
     return (
-      <div className="mx-auto w-full max-w-2xl">
-        {headerActions && (
-          <div className="mb-4 flex justify-end">{headerActions}</div>
-        )}
-        <PendingAnalysis
-          createdAt={result.created_at}
-          stage={result.stage ?? null}
-          connectionError={pollError ?? null}
-          onRetry={onRetryPoll}
-        />
-      </div>
+      <PendingAnalysis
+        createdAt={result.created_at}
+        stage={result.stage ?? null}
+        sourceType={result.source_type}
+        inputText={result.input_text}
+        inputUrl={result.input_url}
+        fileFilename={result.file_filename}
+        connectionError={pollError ?? null}
+        onRetry={onRetryPoll}
+        onStop={onDelete}
+      />
     );
   }
 
