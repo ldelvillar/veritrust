@@ -145,13 +145,13 @@ async def test_rows_are_isolated_per_user(db_pool):
     assert (
         await get_user_analysis_by_id(user_id="user-b", analysis_id=analysis_id) is None
     )
-    assert not await delete_user_analysis(user_id="user-b", analysis_id=analysis_id)
+    assert await delete_user_analysis(user_id="user-b", analysis_id=analysis_id) is None
     page = await search_history(
         user_id="user-b", query=HistoryQuery(), page=1, page_size=20
     )
     assert (page.items, page.total) == ([], 0)
 
-    assert await delete_user_analysis(user_id=USER, analysis_id=analysis_id)
+    assert await delete_user_analysis(user_id=USER, analysis_id=analysis_id) == "done"
 
 
 async def test_delete_all_removes_only_own_rows(db_pool):
@@ -162,7 +162,8 @@ async def test_delete_all_removes_only_own_rows(db_pool):
         user_id="user-b", request=AnalysisRequest(text="Otro usuario")
     )
 
-    assert await delete_all_user_analyses(user_id=USER) == 2
+    deleted = await delete_all_user_analyses(user_id=USER)
+    assert deleted.count == 2
 
     page = await search_history(
         user_id=USER, query=HistoryQuery(), page=1, page_size=20
@@ -173,7 +174,23 @@ async def test_delete_all_removes_only_own_rows(db_pool):
 
 async def test_delete_all_returns_zero_when_history_empty(db_pool):
     """Sin filas que borrar, delete_all devuelve 0 sin error."""
-    assert await delete_all_user_analyses(user_id="user-sin-actividad") == 0
+    deleted = await delete_all_user_analyses(user_id="user-sin-actividad")
+    assert (deleted.count, deleted.pending_ids) == (0, [])
+
+
+async def test_delete_all_names_only_the_pending_analyses(db_pool):
+    """delete_all señala las filas pending para abortar sus Runs, no las ya cerradas."""
+    pending_id = await _pending()
+    done_id = await _pending("El paracetamol reduce la fiebre")
+    await seed_done(
+        analysis_id=done_id, label="falsa", confidence=0.9, explanation=None
+    )
+    failed_id = await _pending("La lejía cura el resfriado")
+    await seed_failed(analysis_id=failed_id, error_code="INTERNAL")
+
+    deleted = await delete_all_user_analyses(user_id=USER)
+
+    assert (deleted.count, deleted.pending_ids) == (3, [pending_id])
 
 
 async def test_file_bytes_round_trip_exactly(db_pool):

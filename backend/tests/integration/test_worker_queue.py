@@ -139,6 +139,30 @@ async def test_job_exceeding_timeout_is_cancelled_mid_run(arq_pool):
     assert isinstance(info.result, TimeoutError)
 
 
+async def test_cancelling_a_running_job_aborts_its_run(arq_pool):
+    """Cancelar el job de una Run en curso la corta sin cerrarla y suelta el job."""
+    runner = _RecordingRunner(hang=True)
+    queue = ArqAnalysisQueue(arq_pool)
+
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+    worker = _make_worker(
+        arq_pool,
+        runner,
+        allow_abort_jobs=worker_module.WorkerSettings.allow_abort_jobs,
+        keep_result=worker_module.WorkerSettings.keep_result,
+    )
+    main = asyncio.create_task(worker.main())
+    while not runner.runs:
+        await asyncio.sleep(0.01)
+
+    await queue.cancel([ANALYSIS_ID])
+    await asyncio.wait_for(main, timeout=5)
+
+    assert runner.finished == []
+    assert (worker.jobs_complete, worker.jobs_failed) == (0, 1)
+    assert await queue.is_live(ANALYSIS_ID) is False
+
+
 async def test_job_with_unknown_function_name_fails_without_running(arq_pool):
     """Un desfase de nombres web/worker falla el job en arq sin abrir ninguna Run."""
     runner = _RecordingRunner()

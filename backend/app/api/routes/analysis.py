@@ -359,24 +359,27 @@ async def get_analysis_file_content(
 async def delete_analysis_detail(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    intake: AnalysisIntake = Depends(analysis_intake),
 ):
-    """Elimina un análisis del usuario autenticado."""
+    """Elimina un análisis del usuario autenticado y aborta su Run si sigue en curso."""
     user_id = user["sub"]
 
     try:
-        deleted = await delete_user_analysis(user_id=user_id, analysis_id=analysis_id)
+        status = await delete_user_analysis(user_id=user_id, analysis_id=analysis_id)
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.ANALYSIS_DELETE_FAILED),
         ) from e
 
-    if not deleted:
+    if status is None:
         raise HTTPException(
             status_code=404,
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
+    if status == "pending":
+        await intake.cancel_runs([analysis_id])
     return {"status": "deleted", "analysis_id": analysis_id}
 
 

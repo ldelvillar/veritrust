@@ -5,6 +5,7 @@ import inspect
 import fakeredis.aioredis
 import pytest
 from arq.connections import ArqRedis
+from arq.constants import abort_jobs_ss
 from arq.jobs import Job
 from redis.exceptions import RedisError
 
@@ -53,6 +54,16 @@ async def test_enqueueing_a_live_analysis_again_keeps_a_single_job(redis) -> Non
     assert await redis.zcard("arq:queue") == 1
 
 
+async def test_cancelling_asks_arq_to_abort_only_the_live_jobs(redis) -> None:
+    queue = ArqAnalysisQueue(redis)
+    await queue.enqueue(ANALYSIS_ID, notify_email=None)
+
+    # El segundo id no tiene job: arq nunca retiraría su aborto.
+    await queue.cancel([ANALYSIS_ID, "22222222-2222-2222-2222-222222222222"])
+
+    assert await redis.zrange(abort_jobs_ss, 0, -1) == [ANALYSIS_ID.encode()]
+
+
 class _BrokenRedis:
     def __init__(self, error: Exception):
         self._error = error
@@ -61,6 +72,12 @@ class _BrokenRedis:
         raise self._error
 
     async def exists(self, *keys):
+        raise self._error
+
+    def register_script(self, script):
+        return self._fail
+
+    async def _fail(self, **kwargs):
         raise self._error
 
 
@@ -72,3 +89,5 @@ async def test_transport_failures_surface_as_queue_unavailable(error) -> None:
         await queue.enqueue(ANALYSIS_ID, notify_email=None)
     with pytest.raises(QueueUnavailable):
         await queue.is_live(ANALYSIS_ID)
+    with pytest.raises(QueueUnavailable):
+        await queue.cancel([ANALYSIS_ID])

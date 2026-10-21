@@ -58,7 +58,7 @@ dev = [
     "coverage>=7.16.2",
     "ruff>=0.17.1",
     "mypy>=2.4.0",
-    "fakeredis>=2.40.0",
+    "fakeredis[lua]>=2.40.0",
 ]
 
 [tool.pytest.ini_options]

@@ -11,6 +11,7 @@ class InMemoryAnalysisQueue:
 
     def __init__(self, *, live=(), down=False, fail_enqueue=False):
         self.enqueued: list[tuple[str, str | None]] = []
+        self.cancelled: list[list[str]] = []
         self.live: set[str] = set(live)
         self.down = down
         self.fail_enqueue = fail_enqueue
@@ -27,6 +28,12 @@ class InMemoryAnalysisQueue:
         if self.down:
             raise QueueUnavailable(analysis_id)
         return analysis_id in self.live
+
+    async def cancel(self, analysis_ids):
+        if self.down:
+            raise QueueUnavailable(analysis_ids)
+        self.cancelled.append(list(analysis_ids))
+        self.live.difference_update(analysis_ids)
 
     def finish(self, analysis_id):
         """Simula que el worker terminó la Run y arq soltó su job."""
@@ -63,6 +70,9 @@ class StubIntake:
     async def reanalyze(self, submitter, analysis_id):
         self.calls.append(("reanalyze", submitter, analysis_id))
         return self._answer(analysis_id)
+
+    async def cancel_runs(self, analysis_ids):
+        self.calls.append(("cancel_runs", list(analysis_ids)))
 
 
 class RecordingNotifier:

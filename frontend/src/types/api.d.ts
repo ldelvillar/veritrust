@@ -84,7 +84,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Analysis Detail
-         * @description Elimina un análisis del usuario autenticado.
+         * @description Elimina un análisis del usuario autenticado y aborta su Run si sigue en curso.
          */
         delete: operations["delete_analysis_detail_analysis__analysis_id__delete"];
         options?: never;
@@ -228,7 +228,7 @@ export interface paths {
         post?: never;
         /**
          * Delete History
-         * @description Elimina todo el historial de análisis del usuario autenticado.
+         * @description Elimina todo el historial del usuario autenticado y aborta sus Runs en curso.
          */
         delete: operations["delete_history_history_delete"];
         options?: never;

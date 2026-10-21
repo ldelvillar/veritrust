@@ -426,6 +426,25 @@ async def test_reopen_fails_the_row_again_when_enqueueing_fails(db_pool, intake,
     assert (row["status"], row["error_code"]) == ("failed", "SERVICE_UNAVAILABLE")
 
 
+async def test_cancel_runs_cancels_every_deleted_analysis_at_once(intake, queue):
+    await intake.cancel_runs(["a", "b"])
+    await intake.cancel_runs([])
+
+    assert queue.cancelled == [["a", "b"]]
+
+
+async def test_cancel_runs_never_raises_when_the_queue_is_down(intake, queue):
+    queue.down = True
+
+    await intake.cancel_runs(["a", "b"])
+
+    assert queue.cancelled == []
+
+
+async def test_cancel_runs_without_a_queue_does_nothing():
+    await AnalysisIntake(None, max_file_bytes=MAX_FILE_BYTES).cancel_runs(["a"])
+
+
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 
