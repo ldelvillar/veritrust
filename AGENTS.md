@@ -13,9 +13,9 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
 
-## Review before committing
+## Review before opening a PR
 
-Before committing a **risky** change, run `/code-review` (it covers uncommitted changes). A change is risky when it touches any of:
+Every change reaches `main` through a PR (squash-merged; the PR title becomes the commit title), so start work on a branch. Before the first push of a **risky** change, run `/code-review` (with no upstream yet, it reviews the branch against `main` plus uncommitted changes). A change is risky when it touches any of:
 
 - pipeline agents, prompts, graph wiring, or verdict/confidence logic — also run `/eval-pipeline`
 - DB models or migrations
@@ -26,7 +26,13 @@ Before committing a **risky** change, run `/code-review` (it covers uncommitted 
 - both `backend/` and `frontend/`
 - roughly 200+ changed lines, or a new module or abstraction
 
-Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
+When reviewing a change, read `REVIEW.md` first. Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
+
+Keep review rounds converging:
+
+- After the first round, re-review only what changed since: `/code-review <last-reviewed-sha>..HEAD`.
+- Fix the whole class of bug a finding names, every instance, not only the flagged line.
+- If a third round still raises Important findings, stop and reconsider the approach with the user.
 
 ## Shell command conventions
 
