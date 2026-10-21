@@ -26,7 +26,6 @@ interface ResultProps {
   retryError?: string | null;
   pollError?: string | null;
   onRetryPoll?: () => void;
-  onDelete?: () => void;
   isPublic?: boolean;
 }
 
@@ -38,7 +37,6 @@ export default function AnalysisResult({
   retryError,
   pollError,
   onRetryPoll,
-  onDelete,
   isPublic = false,
 }: ResultProps) {
   if (result.status === 'pending') {
@@ -52,7 +50,7 @@ export default function AnalysisResult({
         fileFilename={result.file_filename}
         connectionError={pollError ?? null}
         onRetry={onRetryPoll}
-        onDelete={onDelete}
+        actions={headerActions}
       />
     );
   }

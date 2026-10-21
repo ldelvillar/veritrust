@@ -4,7 +4,10 @@ import { notFound } from 'next/navigation';
 
 import AnalysisResult from '@/components/AnalysisResult';
 import PublicButton from '@/components/PublicButton';
-import { getVerdictInfo } from '@/components/analysis-result/format';
+import {
+  displayHostname,
+  getVerdictInfo,
+} from '@/components/analysis-result/format';
 import { ApiError } from '@/lib/apiClient';
 import { fetchPublicJsonServer } from '@/lib/serverApi';
 import type { paths } from '@/types/api';
@@ -40,11 +43,7 @@ function truncate(text: string, max: number): string {
 // Asunto analizado (dominio, archivo o fragmento del texto) para dar contexto.
 function analyzedSubject(report: PublicReport): string | null {
   if (report.source_type === 'url' && report.input_url) {
-    try {
-      return new URL(report.input_url).hostname.replace(/^www\./, '');
-    } catch {
-      return report.input_url;
-    }
+    return displayHostname(report.input_url);
   }
   if (report.source_type === 'file' && report.file_filename) {
     return report.file_filename;

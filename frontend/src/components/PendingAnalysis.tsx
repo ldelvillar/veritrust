@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  type SVGProps,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import Button from '@/components/Button';
 import Bell from '@/assets/Bell';
 import Check from '@/assets/Check';
@@ -15,8 +22,8 @@ import Newspaper from '@/assets/Newspaper';
 import RefreshIcon from '@/assets/Refresh';
 import Scan from '@/assets/Scan';
 import ShieldIcon from '@/assets/Shield';
-import Trash from '@/assets/Trash';
 import WarningIcon from '@/assets/Warning';
+import { displayHostname } from '@/components/analysis-result/format';
 import type {
   AnalysisStage,
   ReportView,
@@ -31,7 +38,7 @@ interface PendingAnalysisProps {
   fileFilename?: string | null;
   connectionError?: string | null;
   onRetry?: () => void;
-  onDelete?: () => void;
+  actions?: ReactNode;
 }
 
 const STEPS = [
@@ -67,15 +74,12 @@ const STEPS = [
   },
 ] as const;
 
-// El primer paso depende de lo que hay que preparar según el tipo de entrada.
+// Enlaces y archivos sustituyen la descripción del primer paso por la suya.
 const SOURCE_COPY: Record<
   ReportView['source_type'],
-  { meta: string; prep: string }
+  { meta: string; prep?: string }
 > = {
-  text: {
-    meta: 'Análisis de texto',
-    prep: 'Obteniendo y preparando el texto a analizar.',
-  },
+  text: { meta: 'Análisis de texto' },
   url: {
     meta: 'Análisis de enlace',
     prep: 'Descargando el artículo y extrayendo su texto.',
@@ -88,8 +92,9 @@ const SOURCE_COPY: Record<
 
 // Estimación habitual del pipeline completo, en segundos.
 const ESTIMATED_SECONDS = 480;
+const ESTIMATED_MINUTES = ESTIMATED_SECONDS / 60;
 
-// Superada con margen la estimación de 8 min, avisamos y ofrecemos una salida.
+// Superada con margen la estimación, avisamos y ofrecemos una salida.
 const SLOW_AFTER_SECONDS = 600;
 
 // El worker reporta la etapa real; aquí la traducimos al paso visible.
@@ -109,22 +114,14 @@ function formatElapsed(totalSeconds: number): string {
 
 // La hora local solo existe en el navegador; en SSR no se pinta para no desajustar la hidratación.
 const subscribeNever = () => () => {};
+const SENT_AT_FORMAT = new Intl.DateTimeFormat('es-ES', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 function formatSentAt(createdAt: string): string | null {
   const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
+  return Number.isNaN(date.getTime()) ? null : SENT_AT_FORMAT.format(date);
 }
 
 type NotifyPermission = NotificationPermission | 'unsupported';
@@ -152,6 +149,46 @@ function requestNotifyPermission(): Promise<void> {
   });
 }
 
+const NOTICE_TONE = {
+  danger: 'border-danger/30 bg-danger-soft text-danger-ink',
+  warning: 'border-warning/30 bg-warning-soft text-warning-ink',
+} as const;
+
+// Aviso dentro de la respuesta: error de conexión o análisis más lento de lo normal.
+function Notice({
+  tone,
+  Icon,
+  title,
+  children,
+  actions,
+  role,
+}: {
+  tone: keyof typeof NOTICE_TONE;
+  Icon: ComponentType<SVGProps<SVGSVGElement>>;
+  title: string;
+  children: ReactNode;
+  actions?: ReactNode;
+  role?: 'alert';
+}) {
+  return (
+    <div
+      role={role}
+      className={`flex items-start gap-3.5 rounded-xl border px-4 py-3.5 ${NOTICE_TONE[tone]}`}
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+        <Icon className="size-4.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold">{title}</p>
+        <p className="mt-0.5 text-sm leading-relaxed">{children}</p>
+        {actions ? (
+          <div className="mt-3 flex flex-wrap gap-2">{actions}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // El contenido enviado se muestra como el mensaje del usuario en la conversación.
 function SubmittedContent({
   sourceType,
@@ -177,7 +214,9 @@ function SubmittedContent({
           <GlobeIcon className="size-4.5" />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <b className="text-sm font-bold text-ink">{hostnameOf(inputUrl)}</b>
+          <b className="text-sm font-bold text-ink">
+            {displayHostname(inputUrl)}
+          </b>
           <span className="truncate text-xs text-primary">{inputUrl}</span>
         </span>
       </a>
@@ -222,7 +261,7 @@ export default function PendingAnalysis({
   fileFilename,
   connectionError,
   onRetry,
-  onDelete,
+  actions,
 }: PendingAnalysisProps) {
   const [elapsed, setElapsed] = useState(0);
   const [trailOpen, setTrailOpen] = useState(true);
@@ -243,6 +282,11 @@ export default function PendingAnalysis({
     getNotifyPermission,
     () => 'unsupported' as NotifyPermission
   );
+  const sentAt = useSyncExternalStore(
+    subscribeNever,
+    () => formatSentAt(createdAt),
+    () => null
+  );
 
   // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
   const activeStep = stage != null ? STAGE_INDEX[stage] : 0;
@@ -262,7 +306,7 @@ export default function PendingAnalysis({
 
   const copy = SOURCE_COPY[sourceType];
   const descriptionOf = (index: number) =>
-    index === 0 ? copy.prep : STEPS[index].description;
+    (index === 0 && copy.prep) || STEPS[index].description;
   const lastStep = STEPS.length - 1;
   const stepsLeft = lastStep - activeStep;
 
@@ -270,24 +314,17 @@ export default function PendingAnalysis({
   const status = isSlow
     ? 'Está tardando más de lo habitual…'
     : `${descriptionOf(activeStep).replace(/\.$/, '')}…`;
-  const minutesLeft = Math.max(
-    1,
-    Math.ceil((ESTIMATED_SECONDS - elapsed) / 60)
-  );
-  const eta =
-    activeStep === lastStep || elapsed >= ESTIMATED_SECONDS
-      ? 'Casi listo'
-      : minutesLeft === 1
-        ? 'Queda ~1 min'
-        : `Quedan ~${minutesLeft} min`;
-  const sentAt = useSyncExternalStore(
-    subscribeNever,
-    () => formatSentAt(createdAt),
-    () => null
-  );
+
+  const etaText = () => {
+    if (activeStep === lastStep || elapsed >= ESTIMATED_SECONDS) {
+      return 'Casi listo';
+    }
+    const minutesLeft = Math.ceil((ESTIMATED_SECONDS - elapsed) / 60);
+    return minutesLeft === 1 ? 'Queda ~1 min' : `Quedan ~${minutesLeft} min`;
+  };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
       <div className="flex flex-1 flex-col gap-7">
         <p className="flex items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap text-muted">
           <DocumentIcon className="size-4" />
@@ -305,7 +342,7 @@ export default function PendingAnalysis({
         <div className="flex items-start gap-3.5">
           <div
             aria-hidden="true"
-            className="animate-pulse-ring grid size-8.5 shrink-0 place-items-center rounded-xl bg-primary text-white"
+            className="animate-pulse-ring relative isolate grid size-8.5 shrink-0 place-items-center rounded-xl bg-primary text-white"
           >
             <ShieldIcon className="size-4.5" />
           </div>
@@ -315,30 +352,22 @@ export default function PendingAnalysis({
             </p>
 
             {connectionError ? (
-              <div
+              <Notice
                 role="alert"
-                className="flex items-start gap-3.5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3.5 text-danger-ink"
+                tone="danger"
+                Icon={WarningIcon}
+                title="Se ha interrumpido la conexión"
+                actions={
+                  onRetry ? (
+                    <Button variant="soft" onClick={onRetry}>
+                      <RefreshIcon />
+                      Reintentar ahora
+                    </Button>
+                  ) : null
+                }
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
-                  <WarningIcon className="size-4.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold">
-                    Se ha interrumpido la conexión
-                  </p>
-                  <p className="mt-0.5 text-sm leading-relaxed">
-                    {connectionError}
-                  </p>
-                  {onRetry ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="soft" onClick={onRetry}>
-                        <RefreshIcon />
-                        Reintentar ahora
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+                {connectionError}
+              </Notice>
             ) : null}
 
             <p role="status" className="sr-only">
@@ -416,30 +445,26 @@ export default function PendingAnalysis({
             </ol>
 
             {isSlow && (
-              <div className="flex items-start gap-3.5 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3.5 text-warning-ink">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
-                  <ClockIcon className="size-4.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold">
-                    Está tardando más de lo habitual
-                  </p>
-                  <p className="mt-0.5 text-sm leading-relaxed">
-                    El análisis sigue en marcha y esta página se actualizará
-                    sola al terminar. Puedes esperar aquí o volver más tarde: lo
-                    guardamos en tu historial. Si no llegara a completarse, se
-                    marcará como fallido y podrás reintentarlo.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
+              <Notice
+                tone="warning"
+                Icon={ClockIcon}
+                title="Está tardando más de lo habitual"
+                actions={
+                  <>
                     <Button href="/app/historial" variant="soft">
                       Ir al historial
                     </Button>
                     <Button href="/app/analisis" variant="soft">
                       Analizar otro contenido
                     </Button>
-                  </div>
-                </div>
-              </div>
+                  </>
+                }
+              >
+                El análisis sigue en marcha y esta página se actualizará sola al
+                terminar. Puedes esperar aquí o volver más tarde: lo guardamos
+                en tu historial. Si no llegara a completarse, se marcará como
+                fallido y podrás reintentarlo.
+              </Notice>
             )}
 
             <div className="flex gap-1.25 pt-1.5" aria-hidden="true">
@@ -463,8 +488,8 @@ export default function PendingAnalysis({
           </p>
           <p className="mt-0.5 text-xs leading-snug text-muted">
             {isSlow
-              ? 'Lo normal son unos 8 min.'
-              : `Tiempo estimado: 8 min · ${eta}.`}{' '}
+              ? `Lo normal son unos ${ESTIMATED_MINUTES} min.`
+              : `Tiempo estimado: ${ESTIMATED_MINUTES} min · ${etaText()}.`}{' '}
             Puedes cerrar esta pestaña; lo guardamos en tu historial.
           </p>
         </div>
@@ -479,12 +504,7 @@ export default function PendingAnalysis({
             Avísame al terminar
           </Button>
         ) : null}
-        {onDelete ? (
-          <Button variant="danger" onClick={onDelete}>
-            <Trash className="size-4" />
-            Eliminar
-          </Button>
-        ) : null}
+        {actions}
       </div>
     </div>
   );

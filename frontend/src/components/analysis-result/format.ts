@@ -141,6 +141,15 @@ function pillFor(verdict: Verdict): { tile: string; pill: string } {
   return { tile: VERDICT_META[verdict].pill, pill: VERDICT_META[verdict].pill };
 }
 
+// Dominio legible de un enlace analizado, sin «www.»; si no es una URL válida, el texto tal cual.
+export function displayHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 // Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.
 export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));

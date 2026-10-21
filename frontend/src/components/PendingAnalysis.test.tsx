@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import PendingAnalysis from './PendingAnalysis';
 
@@ -29,24 +29,6 @@ describe('PendingAnalysis', () => {
     expect(
       screen.getByText('2 pasos más antes del informe')
     ).toBeInTheDocument();
-  });
-
-  it('offers to delete the analysis only when a delete handler is given', () => {
-    const onDelete = vi.fn();
-    const { rerender } = render(
-      <PendingAnalysis createdAt={minutesAgoIso(1)} stage="extractor" />
-    );
-    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
-
-    rerender(
-      <PendingAnalysis
-        createdAt={minutesAgoIso(1)}
-        stage="extractor"
-        onDelete={onDelete}
-      />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
-    expect(onDelete).toHaveBeenCalledOnce();
   });
 
   it('surfaces an escape hatch once the analysis is overdue', () => {

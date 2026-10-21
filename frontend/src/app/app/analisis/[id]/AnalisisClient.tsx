@@ -187,13 +187,14 @@ export default function AnalisisClient({
     </Button>
   );
 
-  const handleDeleteOpen = () => {
-    setDeleteError(null);
-    setConfirmOpen(true);
-  };
-
   const deleteButton = (
-    <Button variant="danger" onClick={handleDeleteOpen}>
+    <Button
+      variant="danger"
+      onClick={() => {
+        setDeleteError(null);
+        setConfirmOpen(true);
+      }}
+    >
       <Trash className="size-4" />
       Eliminar
     </Button>
@@ -218,7 +219,6 @@ export default function AnalisisClient({
         retryError={retryError}
         pollError={pollErrorMessage}
         onRetryPoll={refetchStatus}
-        onDelete={handleDeleteOpen}
       />
 
       <ConfirmDialog

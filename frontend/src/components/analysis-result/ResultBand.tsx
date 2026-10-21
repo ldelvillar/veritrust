@@ -8,8 +8,25 @@ import {
 } from './format';
 import type { ReportView } from './types';
 
-// Ancho de barra acotado a 0-100 aunque el backend redondee por encima o por debajo.
-const clampPercent = (value: number) => Math.min(Math.max(value, 0), 100);
+// Barra sobre la banda oscura; el ancho se acota a 0-100 aunque el backend redondee fuera.
+function Bar({
+  percent,
+  track,
+  fill,
+}: {
+  percent: number;
+  track: string;
+  fill: string;
+}) {
+  return (
+    <div className={`rounded-full bg-white/14 ${track}`}>
+      <span
+        className={`block h-full rounded-full ${fill}`}
+        style={{ width: `${Math.min(Math.max(percent, 0), 100)}%` }}
+      />
+    </div>
+  );
+}
 
 function Meter({
   label,
@@ -24,12 +41,7 @@ function Meter({
     <div className="flex flex-col gap-1.5">
       <span className="text-sm text-white/60">{label}</span>
       <strong className="text-base font-bold">{value}</strong>
-      <div className="h-0.75 rounded-full bg-white/14">
-        <span
-          className="block h-full rounded-full bg-white"
-          style={{ width: `${clampPercent(percent)}%` }}
-        />
-      </div>
+      <Bar percent={percent} track="h-0.75" fill="bg-white" />
     </div>
   );
 }
@@ -81,12 +93,7 @@ export default function ResultBand({ result }: { result: ReportView }) {
               {score === null ? 'Sin puntuación' : '/ 100'}
             </small>
           </div>
-          <div className="h-1 rounded-full bg-white/14">
-            <span
-              className={`block h-full rounded-full ${meta.solid}`}
-              style={{ width: `${clampPercent(score ?? 0)}%` }}
-            />
-          </div>
+          <Bar percent={score ?? 0} track="h-1" fill={meta.solid} />
         </div>
 
         <div className="flex flex-col gap-3 p-6 @lg:px-9 @lg:py-7">
