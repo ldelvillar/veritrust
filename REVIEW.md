@@ -23,6 +23,10 @@ Rank findings by these, worst first:
 - `backend/data/**` — evaluation datasets.
 - Anything ruff, mypy, eslint, prettier or the type check already enforce.
 
+## History
+
+- **Undone fixes** — for each changed hunk, run `git log -L <start>,<end>:<file>` and read any `fix:` commit that touched those lines. A change that undoes or weakens one is an Important finding, unless the PR description names that commit and says why the fix no longer applies.
+
 ## Reporting
 
 - **Evidence** — every finding cites a file and line plus a concrete failing scenario (input or state → wrong result); a guess from a name is not a finding.
