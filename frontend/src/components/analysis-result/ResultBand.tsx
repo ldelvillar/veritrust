@@ -1,24 +1,15 @@
 import QuestionIcon from '@/assets/Question';
 import Tooltip from '@/components/Tooltip';
-import { VERDICT_META, formatCoverage, getVerdictInfo } from './format';
-import type { ConfidenceLevel, ReportView, Verdict } from './types';
+import {
+  CONFIDENCE_LEVEL_LABEL,
+  VERDICT_META,
+  formatCoverage,
+  getVerdictInfo,
+} from './format';
+import type { ReportView } from './types';
 
-// Tono del veredicto sobre la banda oscura: etiqueta, punto y barra de puntuación.
-const VERDICT_TONE: Record<Verdict, { text: string; bar: string }> = {
-  real: { text: 'text-verdict-real', bar: VERDICT_META.real.solid },
-  fake: { text: 'text-verdict-fake', bar: VERDICT_META.fake.solid },
-  uncertain: {
-    text: 'text-verdict-uncertain',
-    bar: VERDICT_META.uncertain.solid,
-  },
-  mixed: { text: 'text-verdict-mixed', bar: VERDICT_META.mixed.solid },
-};
-
-const CONFIDENCE_SHORT: Record<ConfidenceLevel, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
-};
+// Ancho de barra acotado a 0-100 aunque el backend redondee por encima o por debajo.
+const clampPercent = (value: number) => Math.min(Math.max(value, 0), 100);
 
 function Meter({
   label,
@@ -36,7 +27,7 @@ function Meter({
       <div className="h-0.75 rounded-full bg-white/14">
         <span
           className="block h-full rounded-full bg-white"
-          style={{ width: `${percent}%` }}
+          style={{ width: `${clampPercent(percent)}%` }}
         />
       </div>
     </div>
@@ -46,7 +37,7 @@ function Meter({
 export default function ResultBand({ result }: { result: ReportView }) {
   const score = result.credibility ?? null;
   const verdict = getVerdictInfo(result.verdict);
-  const tone = VERDICT_TONE[result.verdict];
+  const meta = VERDICT_META[result.verdict];
   const level = result.confidence_level ?? null;
   const confidence =
     result.confidence != null ? Math.round(result.confidence * 100) : null;
@@ -92,21 +83,21 @@ export default function ResultBand({ result }: { result: ReportView }) {
           </div>
           <div className="h-1 rounded-full bg-white/14">
             <span
-              className={`block h-full rounded-full ${tone.bar}`}
-              style={{ width: `${score ?? 0}%` }}
+              className={`block h-full rounded-full ${meta.solid}`}
+              style={{ width: `${clampPercent(score ?? 0)}%` }}
             />
           </div>
         </div>
 
         <div className="flex flex-col gap-3 p-6 @lg:px-9 @lg:py-7">
           <span
-            className={`inline-flex items-center gap-2 text-sm font-bold tracking-[.06em] uppercase ${tone.text}`}
+            className={`inline-flex items-center gap-2 text-sm font-bold tracking-[.06em] uppercase ${meta.text}`}
           >
             <span
-              className={`size-2.5 rounded-full ${tone.bar}`}
+              className={`size-2.5 rounded-full ${meta.solid}`}
               aria-hidden="true"
             />
-            {VERDICT_META[result.verdict].label}
+            {meta.label}
           </span>
           <h2 className="text-3xl leading-tight font-extrabold tracking-tight">
             {verdict.text}
@@ -121,8 +112,8 @@ export default function ResultBand({ result }: { result: ReportView }) {
                   label="Confianza en el veredicto"
                   value={
                     confidence != null
-                      ? `${CONFIDENCE_SHORT[level]} · ${confidence}%`
-                      : CONFIDENCE_SHORT[level]
+                      ? `${CONFIDENCE_LEVEL_LABEL[level]} · ${confidence}%`
+                      : CONFIDENCE_LEVEL_LABEL[level]
                   }
                   percent={confidence ?? 0}
                 />

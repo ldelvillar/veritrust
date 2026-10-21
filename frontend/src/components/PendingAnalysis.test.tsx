@@ -31,26 +31,22 @@ describe('PendingAnalysis', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers to stop the analysis only when a stop handler is given', () => {
-    const onStop = vi.fn();
+  it('offers to delete the analysis only when a delete handler is given', () => {
+    const onDelete = vi.fn();
     const { rerender } = render(
       <PendingAnalysis createdAt={minutesAgoIso(1)} stage="extractor" />
     );
-    expect(
-      screen.queryByRole('button', { name: 'Detener y eliminar el análisis' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
 
     rerender(
       <PendingAnalysis
         createdAt={minutesAgoIso(1)}
         stage="extractor"
-        onStop={onStop}
+        onDelete={onDelete}
       />
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Detener y eliminar el análisis' })
-    );
-    expect(onStop).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 
   it('surfaces an escape hatch once the analysis is overdue', () => {

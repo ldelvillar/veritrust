@@ -15,7 +15,7 @@ import Newspaper from '@/assets/Newspaper';
 import RefreshIcon from '@/assets/Refresh';
 import Scan from '@/assets/Scan';
 import ShieldIcon from '@/assets/Shield';
-import StopIcon from '@/assets/Stop';
+import Trash from '@/assets/Trash';
 import WarningIcon from '@/assets/Warning';
 import type {
   AnalysisStage,
@@ -31,7 +31,7 @@ interface PendingAnalysisProps {
   fileFilename?: string | null;
   connectionError?: string | null;
   onRetry?: () => void;
-  onStop?: () => void;
+  onDelete?: () => void;
 }
 
 const STEPS = [
@@ -105,6 +105,18 @@ function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// La hora local solo existe en el navegador; en SSR no se pinta para no desajustar la hidratación.
+const subscribeNever = () => () => {};
+
+function formatSentAt(createdAt: string): string | null {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function hostnameOf(url: string): string {
@@ -194,7 +206,7 @@ function SubmittedContent({
   if (!inputText) return null;
   return (
     <div
-      className={`${bubble} max-w-140 px-4.5 py-3.5 text-base leading-relaxed whitespace-pre-wrap text-body`}
+      className={`${bubble} max-h-60 max-w-140 overflow-y-auto px-4.5 py-3.5 text-base leading-relaxed whitespace-pre-wrap text-body`}
     >
       {inputText}
     </div>
@@ -210,7 +222,7 @@ export default function PendingAnalysis({
   fileFilename,
   connectionError,
   onRetry,
-  onStop,
+  onDelete,
 }: PendingAnalysisProps) {
   const [elapsed, setElapsed] = useState(0);
   const [trailOpen, setTrailOpen] = useState(true);
@@ -263,22 +275,24 @@ export default function PendingAnalysis({
     Math.ceil((ESTIMATED_SECONDS - elapsed) / 60)
   );
   const eta =
-    activeStep === lastStep
+    activeStep === lastStep || elapsed >= ESTIMATED_SECONDS
       ? 'Casi listo'
       : minutesLeft === 1
         ? 'Queda ~1 min'
         : `Quedan ~${minutesLeft} min`;
-  const sentAt = new Date(createdAt).toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const sentAt = useSyncExternalStore(
+    subscribeNever,
+    () => formatSentAt(createdAt),
+    () => null
+  );
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col">
       <div className="flex flex-1 flex-col gap-7">
         <p className="flex items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap text-muted">
           <DocumentIcon className="size-4" />
-          {copy.meta} · enviado a las {sentAt}
+          {copy.meta}
+          {sentAt && ` · enviado a las ${sentAt}`}
         </p>
 
         <SubmittedContent
@@ -327,18 +341,18 @@ export default function PendingAnalysis({
               </div>
             ) : null}
 
+            <p role="status" className="sr-only">
+              {status}
+            </p>
             <button
               type="button"
+              aria-label="Pasos del análisis"
               aria-expanded={trailOpen}
               aria-controls="pending-trail"
               onClick={() => setTrailOpen(open => !open)}
               className="group inline-flex max-w-full cursor-pointer items-center gap-2.5 self-start rounded-md py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
             >
-              <span
-                role="status"
-                aria-live="polite"
-                className="animate-thinking text-base font-semibold"
-              >
+              <span className="animate-thinking text-base font-semibold">
                 {status}
               </span>
               <span className="text-sm font-semibold text-muted tabular-nums group-hover:text-ink">
@@ -350,57 +364,56 @@ export default function PendingAnalysis({
               />
             </button>
 
-            {trailOpen && (
-              <ol
-                id="pending-trail"
-                className="flex flex-col border-l-2 border-line py-0.5 pl-4"
-              >
-                {STEPS.map((step, index) => {
-                  if (index > activeStep) return null;
-                  const isDone = index < activeStep;
-                  const StepIcon = isDone ? Check : step.Icon;
-                  return (
-                    <li
-                      key={step.name}
-                      aria-current={isDone ? undefined : 'step'}
-                      className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-2.5 py-1.75"
+            <ol
+              id="pending-trail"
+              hidden={!trailOpen}
+              className="flex flex-col border-l-2 border-line py-0.5 pl-4"
+            >
+              {STEPS.map((step, index) => {
+                if (index > activeStep) return null;
+                const isDone = index < activeStep;
+                const StepIcon = isDone ? Check : step.Icon;
+                return (
+                  <li
+                    key={step.name}
+                    aria-current={isDone ? undefined : 'step'}
+                    className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-2.5 py-1.75"
+                  >
+                    <span
+                      className={`grid size-5.5 place-items-center rounded-full ${
+                        isDone
+                          ? 'bg-success-soft text-success-ink'
+                          : 'bg-primary-soft text-primary'
+                      }`}
                     >
-                      <span
-                        className={`grid size-5.5 place-items-center rounded-full ${
-                          isDone
-                            ? 'bg-success-soft text-success-ink'
-                            : 'bg-primary-soft text-primary'
-                        }`}
+                      <StepIcon className="size-3.25" />
+                    </span>
+                    <span className="flex flex-col gap-px text-sm leading-snug text-muted">
+                      <b
+                        className={`text-sm font-bold ${isDone ? 'text-body' : 'text-ink'}`}
                       >
-                        <StepIcon className="size-3.25" />
-                      </span>
-                      <span className="flex flex-col gap-px text-sm leading-snug text-muted">
-                        <b
-                          className={`text-sm font-bold ${isDone ? 'text-body' : 'text-ink'}`}
-                        >
-                          {step.name}
-                        </b>
-                        {isDone ? step.done : descriptionOf(index)}
-                      </span>
-                      <span
-                        className={`pt-0.5 text-xs font-semibold tabular-nums ${isDone ? 'text-muted' : 'text-primary'}`}
-                      >
-                        {isDone ? stepDuration(index) : 'en curso'}
-                      </span>
-                    </li>
-                  );
-                })}
-                {stepsLeft > 0 && (
-                  <li className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5 py-1.75">
-                    <span className="size-5.5 rounded-full border-[1.5px] border-dashed border-line-strong" />
-                    <span className="text-sm leading-snug text-muted">
-                      {stepsLeft} {stepsLeft === 1 ? 'paso más' : 'pasos más'}{' '}
-                      antes del informe
+                        {step.name}
+                      </b>
+                      {isDone ? step.done : descriptionOf(index)}
+                    </span>
+                    <span
+                      className={`pt-0.5 text-xs font-semibold tabular-nums ${isDone ? 'text-muted' : 'text-primary'}`}
+                    >
+                      {isDone ? stepDuration(index) : 'en curso'}
                     </span>
                   </li>
-                )}
-              </ol>
-            )}
+                );
+              })}
+              {stepsLeft > 0 && (
+                <li className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5 py-1.75">
+                  <span className="size-5.5 rounded-full border-[1.5px] border-dashed border-line-strong" />
+                  <span className="text-sm leading-snug text-muted">
+                    {stepsLeft} {stepsLeft === 1 ? 'paso más' : 'pasos más'}{' '}
+                    antes del informe
+                  </span>
+                </li>
+              )}
+            </ol>
 
             {isSlow && (
               <div className="flex items-start gap-3.5 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3.5 text-warning-ink">
@@ -466,14 +479,10 @@ export default function PendingAnalysis({
             Avísame al terminar
           </Button>
         ) : null}
-        {onStop ? (
-          <Button
-            variant="danger"
-            onClick={onStop}
-            aria-label="Detener y eliminar el análisis"
-          >
-            <StopIcon className="size-3.5" />
-            Detener
+        {onDelete ? (
+          <Button variant="danger" onClick={onDelete}>
+            <Trash className="size-4" />
+            Eliminar
           </Button>
         ) : null}
       </div>

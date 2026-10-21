@@ -52,7 +52,7 @@ export default function AnalysisResult({
         fileFilename={result.file_filename}
         connectionError={pollError ?? null}
         onRetry={onRetryPoll}
-        onStop={onDelete}
+        onDelete={onDelete}
       />
     );
   }

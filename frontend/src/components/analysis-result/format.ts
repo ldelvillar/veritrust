@@ -6,13 +6,21 @@ import type { ConfidenceLevel, Verdict } from './types';
 // Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
 export const VERDICT_META: Record<
   Verdict,
-  { label: string; solid: string; soft: string; ink: string; pill: string }
+  {
+    label: string;
+    solid: string;
+    soft: string;
+    ink: string;
+    text: string;
+    pill: string;
+  }
 > = {
   real: {
     label: 'Verdadero',
     solid: 'bg-verdict-real',
     soft: 'bg-verdict-real-soft',
     ink: 'text-verdict-real-ink',
+    text: 'text-verdict-real',
     pill: 'bg-verdict-real-soft text-verdict-real-ink',
   },
   fake: {
@@ -20,6 +28,7 @@ export const VERDICT_META: Record<
     solid: 'bg-verdict-fake',
     soft: 'bg-verdict-fake-soft',
     ink: 'text-verdict-fake-ink',
+    text: 'text-verdict-fake',
     pill: 'bg-verdict-fake-soft text-verdict-fake-ink',
   },
   uncertain: {
@@ -27,6 +36,7 @@ export const VERDICT_META: Record<
     solid: 'bg-verdict-uncertain',
     soft: 'bg-verdict-uncertain-soft',
     ink: 'text-verdict-uncertain-ink',
+    text: 'text-verdict-uncertain',
     pill: 'bg-verdict-uncertain-soft text-verdict-uncertain-ink',
   },
   mixed: {
@@ -34,6 +44,7 @@ export const VERDICT_META: Record<
     solid: 'bg-verdict-mixed',
     soft: 'bg-verdict-mixed-soft',
     ink: 'text-verdict-mixed-ink',
+    text: 'text-verdict-mixed',
     pill: 'bg-verdict-mixed-soft text-verdict-mixed-ink',
   },
 };
@@ -101,17 +112,11 @@ export function formatDuration(
 }
 
 // Los tramos los decide el backend junto a las bandas del veredicto; aquí solo se rotulan.
-const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {
-  high: 'Confianza alta',
-  medium: 'Confianza media',
-  low: 'Confianza baja',
+export const CONFIDENCE_LEVEL_LABEL: Record<ConfidenceLevel, string> = {
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
 };
-
-export function confidenceLabel(
-  level: ConfidenceLevel | null | undefined
-): string | null {
-  return level ? CONFIDENCE_LABEL[level] : null;
-}
 
 export function getClaimStyle(verdict: Verdict): {
   Icon: typeof Check;
