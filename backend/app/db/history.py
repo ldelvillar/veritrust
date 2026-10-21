@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import secrets
+from dataclasses import dataclass
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
-from app.schemas.analysis import AnalysisStatusResponse
+from app.schemas.analysis import AnalysisStatus, AnalysisStatusResponse
 from app.schemas.history import (
     AnalysisHistoryItem,
     PendingAnalysesSummary,
@@ -195,17 +196,24 @@ async def get_analysis_file(
     return bytes(row[0]), row[1]
 
 
-async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
-    """Elimina un análisis propio del usuario. Devuelve True si borró una fila."""
+async def delete_user_analysis(
+    *, user_id: str, analysis_id: str
+) -> AnalysisStatus | None:
+    """Elimina un análisis propio del usuario y devuelve el estado que tenía, o None si no existía."""
     pool = await get_pool()
 
-    query = "DELETE FROM public.analysis_history WHERE user_id = %s AND id = %s"
+    query = """
+        DELETE FROM public.analysis_history
+        WHERE user_id = %s AND id = %s
+        RETURNING status
+    """
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(query, (user_id, analysis_id))
-                return cur.rowcount > 0
+                row = await cur.fetchone()
+                return row[0] if row else None
     except psycopg.Error as exc:
         raise DatabaseError(
             _build_database_error(
@@ -214,23 +222,40 @@ async def delete_user_analysis(*, user_id: str, analysis_id: str) -> bool:
         ) from exc
 
 
-async def delete_all_user_analyses(*, user_id: str) -> int:
-    """Elimina todos los análisis propios del usuario. Devuelve cuántas filas borró."""
+@dataclass(frozen=True)
+class DeletedHistory:
+    """Cuántos análisis se borraron y los ids de los que seguían ``pending``."""
+
+    count: int
+    pending_ids: list[str]
+
+
+async def delete_all_user_analyses(*, user_id: str) -> DeletedHistory:
+    """Elimina todos los análisis propios del usuario y señala cuáles tenían una Run pendiente."""
     pool = await get_pool()
 
-    query = "DELETE FROM public.analysis_history WHERE user_id = %s"
+    query = """
+        DELETE FROM public.analysis_history
+        WHERE user_id = %s
+        RETURNING id, status
+    """
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(query, (user_id,))
-                return cur.rowcount
+                rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(
             _build_database_error(
                 "No se pudo eliminar el historial en la base de datos."
             )
         ) from exc
+
+    return DeletedHistory(
+        count=len(rows),
+        pending_ids=[str(row[0]) for row in rows if row[1] == "pending"],
+    )
 
 
 async def set_analysis_share_token(*, user_id: str, analysis_id: str) -> str | None:

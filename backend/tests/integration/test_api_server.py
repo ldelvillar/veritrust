@@ -18,6 +18,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.core.analysis_lifecycle import REFUSAL_CODES, AnalysisIntake, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
+from app.db.history import DeletedHistory
 from app.db.history_query import HistoryPage
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
@@ -476,7 +477,7 @@ def test_delete_analisis_returns_200_when_deleted(monkeypatch):
     async def fake_delete_user_analysis(*, user_id, analysis_id):
         assert user_id == "test-user"
         assert analysis_id == "11111111-1111-1111-1111-111111111111"
-        return True
+        return "pending"
 
     monkeypatch.setattr(
         "app.api.routes.analysis.delete_user_analysis",
@@ -489,24 +490,45 @@ def test_delete_analisis_returns_200_when_deleted(monkeypatch):
     body = response.json()
     assert body["status"] == "deleted"
     assert body["analysis_id"] == "11111111-1111-1111-1111-111111111111"
+    calls = server_module.app.state.analysis_intake.calls
+    assert calls == [("cancel_runs", ["11111111-1111-1111-1111-111111111111"])]
+
+
+def test_delete_analisis_of_a_finished_analysis_cancels_no_run(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_user_analysis(**kwargs):
+        return "done"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.delete_user_analysis",
+        fake_delete_user_analysis,
+    )
+
+    response = client.delete("/analysis/11111111-1111-1111-1111-111111111111")
+
+    assert response.status_code == 200
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_delete_analisis_returns_404_when_not_found(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_returns_false(**kwargs):
-        return False
+    async def fake_finds_nothing(**kwargs):
+        return None
 
     monkeypatch.setattr(
         "app.api.routes.analysis.delete_user_analysis",
-        fake_returns_false,
+        fake_finds_nothing,
     )
 
     response = client.delete("/analysis/11111111-1111-1111-1111-111111111111")
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
+    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_delete_analisis_returns_400_when_id_is_invalid(monkeypatch):
@@ -543,7 +565,7 @@ def test_delete_history_returns_200_with_deleted_count(monkeypatch):
 
     async def fake_delete_all_user_analyses(*, user_id):
         assert user_id == "test-user"
-        return 3
+        return DeletedHistory(count=3, pending_ids=["p1", "p2"])
 
     monkeypatch.setattr(
         "app.api.routes.history.delete_all_user_analyses",
@@ -556,6 +578,8 @@ def test_delete_history_returns_200_with_deleted_count(monkeypatch):
     body = response.json()
     assert body["status"] == "deleted"
     assert body["deleted_count"] == 3
+    calls = server_module.app.state.analysis_intake.calls
+    assert calls == [("cancel_runs", ["p1", "p2"])]
 
 
 def test_delete_history_returns_200_when_nothing_to_delete(monkeypatch):
@@ -563,7 +587,7 @@ def test_delete_history_returns_200_when_nothing_to_delete(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_delete_all_user_analyses(*, user_id):
-        return 0
+        return DeletedHistory(count=0, pending_ids=[])
 
     monkeypatch.setattr(
         "app.api.routes.history.delete_all_user_analyses",

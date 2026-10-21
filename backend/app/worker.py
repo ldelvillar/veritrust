@@ -209,6 +209,8 @@ class WorkerSettings:
     )
     max_jobs = get_settings().worker_max_jobs
     keep_result = 0
+    # Borrar un análisis pendiente aborta su job: el agente en curso acaba, pero no arranca ninguno más.
+    allow_abort_jobs = True
     health_check_interval = 30
 
 

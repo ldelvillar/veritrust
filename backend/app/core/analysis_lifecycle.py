@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, get_args
@@ -47,6 +47,10 @@ class AnalysisQueue(Protocol):
 
     async def is_live(self, analysis_id: str) -> bool:
         """Indica si el análisis tiene un job en cola o en ejecución."""
+        ...
+
+    async def cancel(self, analysis_ids: Sequence[str]) -> None:
+        """Aborta los jobs en cola o en ejecución de los análisis; lanza QueueUnavailable si no puede."""
         ...
 
 
@@ -103,7 +107,7 @@ class FileUpload(Protocol):
 
 
 class AnalysisIntake:
-    """Abre análisis ``pending`` (altas, Retry y Reanalyze) y los deja encolados."""
+    """Abre análisis ``pending`` (altas, Retry y Reanalyze), los deja encolados y detiene las Runs de los borrados."""
 
     def __init__(self, queue: AnalysisQueue | None, *, max_file_bytes: int) -> None:
         self._queue = queue
@@ -224,6 +228,16 @@ class AnalysisIntake:
 
         await self._enqueue(queue, analysis_id, submitter)
         return analysis_id
+
+    async def cancel_runs(self, analysis_ids: Sequence[str]) -> None:
+        """Aborta las Runs de análisis ya borrados; un fallo de la cola no deshace el borrado."""
+        if self._queue is None or not analysis_ids:
+            return
+        try:
+            await self._queue.cancel(analysis_ids)
+        except QueueUnavailable:
+            # Las Runs seguirán hasta el final y sus cierres se descartarán sobre filas ausentes.
+            logger.warning("No se pudieron abortar las Runs de %s", analysis_ids)
 
     def _require_queue(self) -> AnalysisQueue:
         """Devuelve la cola o rechaza la apertura si el proceso aún no la tiene."""

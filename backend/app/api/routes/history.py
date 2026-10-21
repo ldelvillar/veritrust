@@ -2,7 +2,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
+from app.api.dependencies.analysis_intake import analysis_intake
 from app.api.dependencies.get_current_user import get_current_user
+from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.errors import make_error_detail
 from app.core.history_export import build_history_csv
 from app.db.history import delete_all_user_analyses, get_pending_analyses_summary
@@ -114,16 +116,20 @@ async def export_history(
 @router.delete(
     "", response_model=DeleteAllResponse, responses=_DELETE_ALL_ERROR_RESPONSES
 )
-async def delete_history(user=Depends(get_current_user)):
-    """Elimina todo el historial de análisis del usuario autenticado."""
+async def delete_history(
+    user=Depends(get_current_user),
+    intake: AnalysisIntake = Depends(analysis_intake),
+):
+    """Elimina todo el historial del usuario autenticado y aborta sus Runs en curso."""
     user_id = user["sub"]
 
     try:
-        deleted_count = await delete_all_user_analyses(user_id=user_id)
+        deleted = await delete_all_user_analyses(user_id=user_id)
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
             detail=make_error_detail(ErrorCode.HISTORY_DELETE_FAILED),
         ) from e
 
-    return {"status": "deleted", "deleted_count": deleted_count}
+    await intake.cancel_runs(deleted.pending_ids)
+    return {"status": "deleted", "deleted_count": deleted.count}
