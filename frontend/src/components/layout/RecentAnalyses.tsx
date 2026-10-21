@@ -3,35 +3,32 @@
 import Link from 'next/link';
 import {
   getAnalysisTitle,
-  VERDICT_LABEL,
   VERDICT_META,
 } from '@/components/analysis-result/format';
-import {
-  type RecentAnalysis,
-  useRecentAnalyses,
-} from '@/hooks/useRecentAnalyses';
+import type { HistoryItem } from '@/lib/historyQuery';
 
-function dotFor(item: RecentAnalysis): { className: string; label: string } {
+const RECENT_LIMIT = 5;
+// En ventanas bajas solo caben estos sin empujar el pie del menú.
+const COMPACT_LIMIT = 3;
+
+function dotFor(item: HistoryItem): { className: string; label: string } {
   if (item.status === 'pending')
     return { className: 'animate-pulse bg-primary', label: 'En curso' };
   if (item.status === 'failed')
     return { className: 'bg-line-strong', label: 'Fallido' };
-  return {
-    className: VERDICT_META[item.verdict].solid,
-    label: VERDICT_LABEL[item.verdict],
-  };
+  const meta = VERDICT_META[item.verdict];
+  return { className: meta.solid, label: meta.label };
 }
 
 interface RecentAnalysesProps {
-  pendingCount: number;
+  items: HistoryItem[];
   onNavigate?: () => void;
 }
 
 export default function RecentAnalyses({
-  pendingCount,
+  items,
   onNavigate,
 }: RecentAnalysesProps) {
-  const items = useRecentAnalyses(pendingCount);
   if (items.length === 0) return null;
 
   return (
@@ -47,14 +44,16 @@ export default function RecentAnalyses({
         </Link>
       </div>
       <ul className="flex flex-col gap-0.5">
-        {items.map((item, index) => {
+        {items.slice(0, RECENT_LIMIT).map((item, index) => {
           const title = getAnalysisTitle(item);
           const dot = dotFor(item);
           return (
             <li
               key={item.analysis_id}
               className={
-                index >= 3 ? '[@media(max-height:760px)]:hidden' : undefined
+                index >= COMPACT_LIMIT
+                  ? '[@media(max-height:760px)]:hidden'
+                  : undefined
               }
             >
               <Link

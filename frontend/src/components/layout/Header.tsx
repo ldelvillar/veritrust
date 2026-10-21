@@ -5,10 +5,7 @@ import { useEffect, useState } from 'react';
 import { Show, SignInButton } from '@clerk/nextjs';
 import PublicButton from '@/components/PublicButton';
 import Logo from '@/assets/Logo';
-
-// translate-y-px recentra el logotipo: Instrument Serif reserva un descendente que «VeriTrust» no usa
-const wordmark =
-  'translate-y-px font-display text-2xl leading-none font-normal text-ink italic';
+import Wordmark from '@/components/Wordmark';
 
 const navLinks = [
   { href: '/#como-funciona', label: 'Cómo funciona' },
@@ -61,7 +58,7 @@ export default function Header() {
           onClick={closeMenu}
         >
           <Logo className="size-4.75" />
-          <span className={wordmark}>VeriTrust</span>
+          <Wordmark className="text-2xl" />
         </Link>
 
         <div className="mx-auto hidden items-center gap-1 md:flex">
@@ -119,7 +116,7 @@ export default function Header() {
               onClick={closeMenu}
             >
               <Logo className="size-4.75" />
-              <span className={wordmark}>VeriTrust</span>
+              <Wordmark className="text-2xl" />
             </Link>
             <button
               type="button"

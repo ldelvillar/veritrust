@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/hooks/usePendingAnalyses', () => ({
-  refreshPendingAnalyses: vi.fn(),
+  refreshHistory: vi.fn(),
 }));
 
 vi.mock('@/lib/apiClient', async importOriginal => {

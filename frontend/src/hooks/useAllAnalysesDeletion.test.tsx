@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/hooks/usePendingAnalyses';
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useAllAnalysesDeletion } from './useAllAnalysesDeletion';
 
@@ -9,7 +9,7 @@ vi.mock('@clerk/nextjs', () => ({
 }));
 
 vi.mock('@/hooks/usePendingAnalyses', () => ({
-  refreshPendingAnalyses: vi.fn(),
+  refreshHistory: vi.fn(),
 }));
 
 vi.mock('@/lib/apiClient', async importOriginal => {
@@ -18,7 +18,7 @@ vi.mock('@/lib/apiClient', async importOriginal => {
 });
 
 const mockedFetch = vi.mocked(fetchJsonWithAuth);
-const mockedRefresh = vi.mocked(refreshPendingAnalyses);
+const mockedRefresh = vi.mocked(refreshHistory);
 
 describe('useAllAnalysesDeletion', () => {
   beforeEach(() => {

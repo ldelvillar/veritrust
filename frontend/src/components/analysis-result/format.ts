@@ -1,6 +1,7 @@
 import Check from '@/assets/Check';
 import Cross from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
+import type { HistoryItem } from '@/lib/historyQuery';
 import type { ConfidenceLevel, Verdict } from './types';
 
 // Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
@@ -151,12 +152,12 @@ export function displayHostname(url: string): string {
 }
 
 // Título de un análisis en listados: la URL, el nombre del archivo o el texto enviado.
-export function getAnalysisTitle(item: {
-  source_type: string;
-  input_url?: string | null;
-  file_filename?: string | null;
-  input_text?: string | null;
-}): string {
+export function getAnalysisTitle(
+  item: Pick<
+    HistoryItem,
+    'source_type' | 'input_url' | 'file_filename' | 'input_text'
+  >
+): string {
   if (item.source_type === 'url' && item.input_url) return item.input_url;
   if (item.source_type === 'file' && item.file_filename)
     return item.file_filename;

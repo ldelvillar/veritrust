@@ -108,19 +108,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     const success = await deleteAnalysis(pendingDelete.analysis_id);
     if (!success) return;
     setPendingDelete(null);
-    if (wasLastOnPage && currentPage > 1) {
-      setPage(currentPage - 1);
-    } else {
-      await fetchHistory();
-    }
-  }, [
-    pendingDelete,
-    history.length,
-    deleteAnalysis,
-    currentPage,
-    setPage,
-    fetchHistory,
-  ]);
+    // La página actual ya se refresca desde useAnalysisDeletion; solo retrocedemos si quedó vacía.
+    if (wasLastOnPage && currentPage > 1) setPage(currentPage - 1);
+  }, [pendingDelete, history.length, deleteAnalysis, currentPage, setPage]);
 
   // Conteos globales del backend, independientes de la página y del propio filtro.
   const verdictFacets = data?.verdict_counts ?? null;

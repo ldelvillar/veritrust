@@ -15,9 +15,9 @@ export interface FinishedAnalysis {
   analysisId: string;
 }
 
-// Refresca el indicador en cuanto una acción encola un análisis, sin esperar al sondeo.
-export function refreshPendingAnalyses(): Promise<unknown> {
-  return mutate(PENDING_PATH);
+// Refresca el indicador y todo listado de /history en caché tras crear o borrar análisis.
+export function refreshHistory(): Promise<unknown> {
+  return mutate(key => typeof key === 'string' && key.startsWith('/history'));
 }
 
 // Vigila los análisis 'pending' del usuario para el indicador global del menú.

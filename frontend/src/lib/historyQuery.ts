@@ -7,6 +7,10 @@ type ExportParams = NonNullable<
   paths['/history/export']['get']['parameters']['query']
 >;
 
+export type HistoryPayload =
+  paths['/history']['get']['responses']['200']['content']['application/json'];
+export type HistoryItem = HistoryPayload['items'][number];
+
 export type SourceTypeFilter = NonNullable<HistoryParams['source_type']>;
 export type VerdictFilter = NonNullable<HistoryParams['verdict']>;
 export type StatusFilter = NonNullable<HistoryParams['status']>;

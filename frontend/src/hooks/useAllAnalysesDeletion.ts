@@ -5,8 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
-import { refreshRecentAnalyses } from '@/hooks/useRecentAnalyses';
+import { refreshHistory } from '@/hooks/usePendingAnalyses';
 import type { components } from '@/types/api';
 
 type DeleteAllResponse = components['schemas']['DeleteAllResponse'];
@@ -23,9 +22,8 @@ export function useAllAnalysesDeletion() {
       })
     );
     if (data === null) return false;
-    // Borrar la actividad elimina también los análisis pendientes del indicador global.
-    void refreshPendingAnalyses();
-    void refreshRecentAnalyses();
+    // Borrar la actividad vacía los listados y el indicador global.
+    void refreshHistory();
     return true;
   }, [getToken, mutate]);
 

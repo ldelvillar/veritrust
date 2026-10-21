@@ -14,6 +14,9 @@ import QuestionIcon from '@/assets/Question';
 import UserIcon from '@/assets/User';
 import PendingIndicator from '@/components/layout/PendingIndicator';
 import RecentAnalyses from '@/components/layout/RecentAnalyses';
+import Wordmark from '@/components/Wordmark';
+import { useRecentAnalyses } from '@/hooks/useRecentAnalyses';
+import type { HistoryItem } from '@/lib/historyQuery';
 import { usePendingAnalyses } from '@/hooks/usePendingAnalyses';
 
 type PendingState = ReturnType<typeof usePendingAnalyses>;
@@ -58,9 +61,7 @@ function Brand({
         onClick={onNavigate}
         className="flex items-center"
       >
-        <span className="font-display text-[21px] font-normal text-ink italic">
-          VeriTrust
-        </span>
+        <Wordmark className="text-[21px]" />
       </Link>
       {onCollapse && (
         <button
@@ -78,12 +79,14 @@ function Brand({
 
 function SidebarContent({
   pending,
+  recent,
   onNavigate,
   onCollapse,
   onExpand,
   collapsed,
 }: {
   pending: PendingState;
+  recent: HistoryItem[];
   onNavigate?: () => void;
   onCollapse?: () => void;
   onExpand?: () => void;
@@ -145,12 +148,7 @@ function SidebarContent({
         onNavigate={onNavigate}
       />
 
-      {!collapsed && (
-        <RecentAnalyses
-          pendingCount={pending.pendingCount}
-          onNavigate={onNavigate}
-        />
-      )}
+      {!collapsed && <RecentAnalyses items={recent} onNavigate={onNavigate} />}
 
       <div className="mt-auto pt-4">
         {!collapsed && (
@@ -236,6 +234,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   // Una sola instancia del sondeo; escritorio, drawer y lanzador móvil la comparten.
   const pending = usePendingAnalyses();
+  const recent = useRecentAnalyses();
   const close = () => setOpen(false);
 
   return (
@@ -246,6 +245,7 @@ export default function Sidebar() {
       >
         <SidebarContent
           pending={pending}
+          recent={recent}
           onCollapse={() => setCollapsed(true)}
           onExpand={() => setCollapsed(false)}
           collapsed={collapsed}
@@ -280,9 +280,7 @@ export default function Sidebar() {
           )}
         </button>
         <Link href="/app/dashboard" className="flex items-center">
-          <span className="font-display text-base font-normal text-ink italic">
-            VeriTrust
-          </span>
+          <Wordmark className="text-base" />
         </Link>
       </div>
 
@@ -295,7 +293,11 @@ export default function Sidebar() {
             aria-hidden="true"
           />
           <aside className="absolute top-0 left-0 flex h-full w-70 max-w-[85%] flex-col overflow-y-auto border-r border-line bg-white px-4.5 pt-6.5 pb-5.5">
-            <SidebarContent pending={pending} onNavigate={close} />
+            <SidebarContent
+              pending={pending}
+              recent={recent}
+              onNavigate={close}
+            />
           </aside>
         </div>
       )}
