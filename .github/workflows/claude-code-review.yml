@@ -66,7 +66,9 @@ jobs:
 
   history-check:
     name: Claude undone-fix check
-    if: github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft
+    # Runs after the bug review so it can skip undone fixes that review already flagged.
+    needs: claude-review
+    if: ${{ !cancelled() && github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -120,6 +122,6 @@ jobs:
             1. Read the PR title and description with `gh pr view ${{ github.event.pull_request.number }}`, and the inline comments already posted with `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`.
             2. For each candidate, run `git show <sha>` to see what the fix changed and why, and `git diff origin/${{ github.base_ref }}...HEAD -- <file>` to see what this PR does to those lines.
             3. A candidate is a finding only when the PR undoes or weakens what that fix did (its old behaviour comes back, or a guard it added is removed or bypassed) and the PR description does not name the commit and say why the fix no longer applies. Moving, reformatting or rewriting the fixed code with the same behaviour is not a finding. Most candidates are not findings.
-            4. For each finding not already posted on this PR, post one inline comment on the changed line with `mcp__github_inline_comment__create_inline_comment` (`confirmed: true`). Start it with "**Important – undone fix:**", name the commit and what it fixed, and give the failing scenario the PR brings back. Post nothing otherwise.
+            4. For each finding that no existing comment on this PR already raises (whatever its wording), post one inline comment on the changed line with `mcp__github_inline_comment__create_inline_comment` (`confirmed: true`). Start it with "**Important – undone fix:**", name the commit and what it fixed, and give the failing scenario the PR brings back. Post nothing otherwise.
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git show:*),Bash(git diff:*),Bash(git log:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments),Read,Grep"
