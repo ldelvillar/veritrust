@@ -43,6 +43,7 @@ CRITICAL INSTRUCTIONS:
    - Denial of Service (DOS) vulnerabilities, even if they allow service disruption
    - Secrets or sensitive data stored on disk (these are handled by other processes)
    - Rate limiting or resource exhaustion issues
+   - VeriTrust exception to the two exclusions above: still report, as security findings, changes this PR introduces that (a) remove or weaken an existing rate limit or cap, or key it on client-controlled input, or (b) let one unauthenticated or cheap request trigger unbounded outbound calls or paid work (JWKS fetches, literature searches, LLM calls, emails)
 
 SECURITY CATEGORIES TO EXAMINE:
 
@@ -140,6 +141,7 @@ FALSE POSITIVE FILTERING:
 > 2. Secrets or credentials stored on disk if they are otherwise secured.
 > 3. Rate limiting concerns or service overload scenarios.
 > 4. Memory consumption or CPU exhaustion issues.
+>    VeriTrust exception to exclusions 1, 3 and 4: keep findings where this PR (a) removes or weakens an existing rate limit or cap, or keys it on client-controlled input, or (b) lets one unauthenticated or cheap request trigger unbounded outbound calls or paid work (JWKS fetches, literature searches, LLM calls, emails).
 > 5. Lack of input validation on non-security-critical fields without proven security impact.
 > 6. Input sanitization concerns for GitHub Action workflows unless they are clearly triggerable via untrusted input.
 > 7. A lack of hardening measures. Code is not expected to implement all security best practices, only flag concrete vulnerabilities.
