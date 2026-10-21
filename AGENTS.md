@@ -13,6 +13,21 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
 
+## Review before committing
+
+Before committing a **risky** change, run `/code-review` (it covers uncommitted changes). A change is risky when it touches any of:
+
+- pipeline agents, prompts, graph wiring, or verdict/confidence logic — also run `/eval-pipeline`
+- DB models or migrations
+- API schemas (anything that regenerates `api.d.ts`)
+- the worker, queue, or analysis lifecycle (state transitions, Retry vs Reanalyze, orphaned analyses)
+- auth, file/URL ingestion, or user input reaching an LLM — also run `/security-review`
+- `Settings`, env vars, CI/deploy, backups, or infra runbooks
+- both `backend/` and `frontend/`
+- roughly 200+ changed lines, or a new module or abstraction
+
+Hand the reviewer only the target, never your own reasoning. Triage every finding with the user: fix it, or reject it with a stated reason.
+
 ## Shell command conventions
 
 Run every command from the **repo root** — never `cd` into a subdirectory. Backend tools: `uv run --directory backend <tool>` (uv, not pip). Frontend scripts: `pnpm --dir frontend <script>` (pnpm v11, not npm/yarn). Chain with `&&` when running both.
