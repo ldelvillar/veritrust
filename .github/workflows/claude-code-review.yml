@@ -63,3 +63,63 @@ jobs:
           prompt: '/pr-security-review'
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git diff:*),Bash(git status:*),Bash(git log:*),Bash(git show:*),Bash(git remote show:*),Read,Glob,Grep,LS,Task"
+
+  history-check:
+    name: Claude undone-fix check
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Lists the fix: commits that last touched each changed hunk, so Claude only runs when there are some.
+      - name: Find fix commits under the changed lines
+        id: fixes
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          base_commit=$(git merge-base "$BASE" HEAD)
+          git diff --name-only --diff-filter=M "$base_commit" HEAD | while read -r file; do
+            { git diff -U0 "$base_commit" HEAD -- "$file" | grep '^@@' || true; } | while read -r hunk; do
+              [[ $hunk =~ ^@@\ -([0-9]+)(,([0-9]+))? ]] || continue
+              start=${BASH_REMATCH[1]}
+              len=${BASH_REMATCH[3]:-1}
+              [ "$len" -eq 0 ] && continue
+              end=$((start + len - 1))
+              git log -s --format='%h %s' -L "$start,$end:$file" "$base_commit" \
+                | grep -E '^[0-9a-f]+ fix(\(|:|!)' | sed "s|^|$file:$start-$end |" || true
+            done
+          done | sort -u | sed -n '1,20p' > "$RUNNER_TEMP/fixes.txt"
+          cat "$RUNNER_TEMP/fixes.txt"
+          {
+            echo "found=$([ -s "$RUNNER_TEMP/fixes.txt" ] && echo true || echo false)"
+            echo 'list<<EOF_FIXES'
+            cat "$RUNNER_TEMP/fixes.txt"
+            echo 'EOF_FIXES'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude undone-fix check
+        if: steps.fixes.outputs.found == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Check pull request #${{ github.event.pull_request.number }} for undone fixes. These `fix:` commits last touched lines this PR changes (`file:old-lines sha subject`):
+
+            ${{ steps.fixes.outputs.list }}
+
+            1. Read the PR title and description with `gh pr view ${{ github.event.pull_request.number }}`, and the inline comments already posted with `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`.
+            2. For each candidate, run `git show <sha>` to see what the fix changed and why, and `git diff origin/${{ github.base_ref }}...HEAD -- <file>` to see what this PR does to those lines.
+            3. A candidate is a finding only when the PR undoes or weakens what that fix did (its old behaviour comes back, or a guard it added is removed or bypassed) and the PR description does not name the commit and say why the fix no longer applies. Moving, reformatting or rewriting the fixed code with the same behaviour is not a finding. Most candidates are not findings.
+            4. For each finding not already posted on this PR, post one inline comment on the changed line with `mcp__github_inline_comment__create_inline_comment` (`confirmed: true`). Start it with "**Important – undone fix:**", name the commit and what it fixed, and give the failing scenario the PR brings back. Post nothing otherwise.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(git show:*),Bash(git diff:*),Bash(git log:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments),Read,Grep"
