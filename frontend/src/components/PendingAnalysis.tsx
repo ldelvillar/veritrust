@@ -180,7 +180,7 @@ function Notice({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold">{title}</p>
-        <p className="mt-0.5 text-sm leading-relaxed">{children}</p>
+        <div className="mt-0.5 text-sm leading-relaxed">{children}</div>
         {actions ? (
           <div className="mt-3 flex flex-wrap gap-2">{actions}</div>
         ) : null}
@@ -315,13 +315,13 @@ export default function PendingAnalysis({
     ? 'Está tardando más de lo habitual…'
     : `${descriptionOf(activeStep).replace(/\.$/, '')}…`;
 
-  const etaText = () => {
-    if (activeStep === lastStep || elapsed >= ESTIMATED_SECONDS) {
-      return 'Casi listo';
-    }
-    const minutesLeft = Math.ceil((ESTIMATED_SECONDS - elapsed) / 60);
-    return minutesLeft === 1 ? 'Queda ~1 min' : `Quedan ~${minutesLeft} min`;
-  };
+  const minutesLeft = Math.ceil((ESTIMATED_SECONDS - elapsed) / 60);
+  const eta =
+    activeStep === lastStep || minutesLeft <= 0
+      ? 'Casi listo'
+      : minutesLeft === 1
+        ? 'Queda ~1 min'
+        : `Quedan ~${minutesLeft} min`;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
@@ -375,7 +375,6 @@ export default function PendingAnalysis({
             </p>
             <button
               type="button"
-              aria-label="Pasos del análisis"
               aria-expanded={trailOpen}
               aria-controls="pending-trail"
               onClick={() => setTrailOpen(open => !open)}
@@ -489,7 +488,7 @@ export default function PendingAnalysis({
           <p className="mt-0.5 text-xs leading-snug text-muted">
             {isSlow
               ? `Lo normal son unos ${ESTIMATED_MINUTES} min.`
-              : `Tiempo estimado: ${ESTIMATED_MINUTES} min · ${etaText()}.`}{' '}
+              : `Tiempo estimado: ${ESTIMATED_MINUTES} min · ${eta}.`}{' '}
             Puedes cerrar esta pestaña; lo guardamos en tu historial.
           </p>
         </div>

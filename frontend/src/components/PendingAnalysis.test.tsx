@@ -31,6 +31,20 @@ describe('PendingAnalysis', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the page actions in the bottom bar', () => {
+    render(
+      <PendingAnalysis
+        createdAt={minutesAgoIso(1)}
+        stage="extractor"
+        actions={<button type="button">Eliminar</button>}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Eliminar' })
+    ).toBeInTheDocument();
+  });
+
   it('surfaces an escape hatch once the analysis is overdue', () => {
     render(
       <PendingAnalysis createdAt={minutesAgoIso(11)} stage="investigator" />
