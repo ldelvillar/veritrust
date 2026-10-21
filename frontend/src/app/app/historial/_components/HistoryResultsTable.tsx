@@ -360,18 +360,18 @@ export default function HistoryResultsTable({
             const { Icon: SourceIcon } = typeMeta;
             const credibility = item.credibility ?? null;
             const isDeleting = deletingId === item.analysis_id;
+            const statusKey = getStatusKey(item);
             const stageLabel =
-              item.status === 'pending' && item.stage
+              statusKey === 'pending' && item.stage
                 ? STAGE_LABEL[item.stage]
                 : null;
 
             const railStyle = toneCfg
               ? toneCfg.rail
-              : item.status === 'pending'
+              : statusKey === 'pending'
                 ? 'var(--color-primary)'
                 : 'var(--color-line-strong)';
 
-            const statusKey = getStatusKey(item);
             const statusBadgeCfg = statusKey ? STATUS_BADGES[statusKey] : null;
             const detailLabel =
               statusKey === 'pending'
@@ -416,7 +416,7 @@ export default function HistoryResultsTable({
                 {/* Credibility gauge */}
                 {tone !== null && credibility !== null ? (
                   <CredibilityGauge score={credibility} tone={tone} />
-                ) : item.status === 'failed' && statusBadgeCfg ? (
+                ) : statusKey !== 'pending' && statusBadgeCfg ? (
                   <FailedFigure
                     color={statusBadgeCfg.textColor}
                     background={statusBadgeCfg.bgColor}

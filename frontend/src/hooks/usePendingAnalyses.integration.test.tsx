@@ -2,7 +2,7 @@ import { StrictMode, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { refreshHistory } from '@/lib/historyCache';
+import { refreshPending } from '@/lib/historyCache';
 import { usePendingAnalyses } from './usePendingAnalyses';
 
 vi.mock('@clerk/nextjs', () => ({
@@ -72,10 +72,10 @@ describe('usePendingAnalyses (SWR real)', () => {
     }
   });
 
-  it('refreshHistory updates the indicator without navigation or poll', async () => {
+  it('refreshPending updates the indicator without navigation or poll', async () => {
     serverCount = 1;
     serverNewestId = 'aaa';
-    // Sin proveedor propio: el mutate global de refreshHistory opera sobre la caché por defecto.
+    // Sin proveedor propio: el mutate global de refreshPending opera sobre la caché por defecto.
     const { result } = renderHook(() => usePendingAnalyses(), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <StrictMode>{children}</StrictMode>
@@ -86,7 +86,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     serverCount = 2;
     serverNewestId = 'bbb';
     await act(async () => {
-      await refreshHistory();
+      await refreshPending();
     });
 
     await waitFor(() => expect(result.current.pendingCount).toBe(2));

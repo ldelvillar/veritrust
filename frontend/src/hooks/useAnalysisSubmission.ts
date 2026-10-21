@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth, postFormWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshHistory } from '@/lib/historyCache';
+import { refreshPending } from '@/lib/historyCache';
 import type { components, paths } from '@/types/api';
 
 type AnalysisRequest = components['schemas']['AnalysisRequest'];
@@ -28,7 +28,7 @@ export function useAnalysisSubmission() {
         setError(NO_ID_ERROR);
         return;
       }
-      void refreshHistory();
+      void refreshPending();
       router.push(`/app/analisis/${data.analysis_id}`);
     },
     [mutate, router, setError]

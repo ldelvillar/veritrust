@@ -3,6 +3,7 @@ import CrossIcon from '@/assets/Cross';
 import FunnelIcon from '@/assets/Funnel';
 import Magnifier from '@/assets/Magnifier';
 import SortIcon from '@/assets/Sort';
+import { STATUS_LABEL } from '@/components/analysis-result/format';
 import type {
   DateRangeFilter,
   SortOrder,
@@ -21,8 +22,8 @@ const SOURCE_TYPE_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: 'all' as StatusFilter, label: 'Todos los estados' },
   { value: 'done' as StatusFilter, label: 'Completado' },
-  { value: 'pending' as StatusFilter, label: 'En curso' },
-  { value: 'failed' as StatusFilter, label: 'Fallido' },
+  { value: 'pending' as StatusFilter, label: STATUS_LABEL.pending },
+  { value: 'failed' as StatusFilter, label: STATUS_LABEL.failed },
 ];
 
 const DATE_RANGE_OPTIONS = [

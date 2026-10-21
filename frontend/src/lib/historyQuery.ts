@@ -28,6 +28,8 @@ export interface HistoryFilters {
 
 export const PAGE_SIZE = 10;
 
+export const PENDING_HISTORY_PATH = '/history/pending';
+
 export const DEFAULT_HISTORY_FILTERS: HistoryFilters = {
   search: '',
   sourceType: 'all',

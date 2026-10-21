@@ -2,12 +2,13 @@ import { useAuth } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApiQuery } from '@/hooks/useApiQuery';
+import { refreshHistoryLists } from '@/lib/historyCache';
+import { PENDING_HISTORY_PATH } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
 type PendingSummary =
   paths['/history/pending']['get']['responses']['200']['content']['application/json'];
 
-const PENDING_PATH = '/history/pending';
 const FINISHED_DISMISS_MS = 20_000;
 
 export interface FinishedAnalysis {
@@ -24,10 +25,21 @@ export function usePendingAnalyses() {
     count: 0,
     analysisId: null,
   });
+  // Último resumen recibido; null hasta la primera respuesta para no refrescar al montar.
+  const lastSummary = useRef<PendingSummary | null>(null);
 
   // Detecta la transición >0 → 0 para el aviso transitorio de "finalizado".
   const trackTransition = useCallback((latest: PendingSummary) => {
     setHasPending(latest.count > 0);
+    const before = lastSummary.current;
+    lastSummary.current = latest;
+    // Un análisis empezó o terminó: los listados abiertos lo reflejan en el mismo sondeo.
+    if (
+      before &&
+      (before.count !== latest.count ||
+        before.newest_analysis_id !== latest.newest_analysis_id)
+    )
+      void refreshHistoryLists();
     const previous = lastSeen.current;
     lastSeen.current = {
       count: latest.count,
@@ -47,7 +59,7 @@ export function usePendingAnalyses() {
   );
 
   const { data, refetch } = useApiQuery<PendingSummary>(
-    isSignedIn ? PENDING_PATH : null,
+    isSignedIn ? PENDING_HISTORY_PATH : null,
     {
       refreshInterval,
       onSuccess: trackTransition,

@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { mutate } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApiQuery } from '@/hooks/useApiQuery';
-import { refreshHistory } from '@/lib/historyCache';
-import { RECENT_HISTORY_PATH } from '@/lib/historyQuery';
+import { refreshHistoryLists, refreshPending } from '@/lib/historyCache';
+import { PENDING_HISTORY_PATH, RECENT_HISTORY_PATH } from '@/lib/historyQuery';
 import { usePendingAnalyses } from './usePendingAnalyses';
 import { useRecentAnalyses } from './useRecentAnalyses';
 
@@ -24,66 +25,80 @@ const mockedFetch = vi.mocked(fetchJsonWithAuth);
 
 const OTHER_PATH = '/dashboard/summary';
 let pendingCount = 0;
-let recentStatus: 'pending' | 'done' = 'done';
+let newestId: string | null = null;
 
 const callsFor = (path: string) =>
   mockedFetch.mock.calls.filter(([, key]) => key === path).length;
 
-// Sin proveedor propio: refreshHistory usa el mutate global sobre la caché por defecto.
-describe('recent analyses refresh (SWR real)', () => {
-  beforeEach(() => {
+// Los helpers usan el mutate global, así que cada test arranca con la caché por defecto vacía.
+describe('history lists refresh (SWR real)', () => {
+  beforeEach(async () => {
+    // Sin hooks montados, mutate sin datos solo borra las peticiones deduplicadas del test anterior.
+    await mutate(() => true);
+    await mutate(() => true, undefined, { revalidate: false });
     pendingCount = 0;
-    recentStatus = 'done';
+    newestId = null;
     mockedFetch.mockReset();
-    mockedFetch.mockImplementation(async (_getToken, path) => {
-      if (path === '/history/pending')
-        return { count: pendingCount, newest_analysis_id: 'aaa' };
-      return { items: [{ status: recentStatus }] };
-    });
+    mockedFetch.mockImplementation(async (_getToken, path) =>
+      path === PENDING_HISTORY_PATH
+        ? { count: pendingCount, newest_analysis_id: newestId }
+        : { items: [] }
+    );
   });
 
-  it('refreshHistory refetches every /history key and leaves the rest alone', async () => {
+  it('refreshHistoryLists refetches the lists and leaves other keys alone', async () => {
     renderHook(() => {
       usePendingAnalyses();
       useRecentAnalyses();
       useApiQuery(OTHER_PATH);
     });
     await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(1));
-    const pendingBefore = callsFor('/history/pending');
+    const pendingBefore = callsFor(PENDING_HISTORY_PATH);
     const otherBefore = callsFor(OTHER_PATH);
 
     await act(async () => {
-      await refreshHistory();
+      await refreshHistoryLists();
     });
 
     expect(callsFor(RECENT_HISTORY_PATH)).toBe(2);
-    expect(callsFor('/history/pending')).toBeGreaterThan(pendingBefore);
+    expect(callsFor(PENDING_HISTORY_PATH)).toBe(pendingBefore);
     expect(callsFor(OTHER_PATH)).toBe(otherBefore);
   });
 
-  it('polls the recents only while one of them is in progress', async () => {
-    vi.useFakeTimers();
-    try {
-      recentStatus = 'pending';
-      renderHook(() => useRecentAnalyses());
-      await act(async () => {
-        await refreshHistory();
-      });
-      const whilePending = callsFor(RECENT_HISTORY_PATH);
+  it('a change in the pending summary refreshes the lists once', async () => {
+    const { result } = renderHook(() => {
+      useRecentAnalyses();
+      return usePendingAnalyses();
+    });
+    await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(1));
+    await waitFor(() =>
+      expect(callsFor(PENDING_HISTORY_PATH)).toBeGreaterThan(0)
+    );
 
-      recentStatus = 'done';
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(10_000);
-      });
-      const afterFinish = callsFor(RECENT_HISTORY_PATH);
-      expect(afterFinish).toBeGreaterThan(whilePending);
+    pendingCount = 1;
+    newestId = 'aaa';
+    await act(async () => {
+      await refreshPending();
+    });
 
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(30_000);
-      });
-      expect(callsFor(RECENT_HISTORY_PATH)).toBe(afterFinish);
-    } finally {
-      vi.useRealTimers();
-    }
+    await waitFor(() => expect(result.current.pendingCount).toBe(1));
+    await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(2));
+  });
+
+  it('an unchanged pending summary leaves the lists alone', async () => {
+    renderHook(() => {
+      useRecentAnalyses();
+      usePendingAnalyses();
+    });
+    await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(1));
+    await waitFor(() =>
+      expect(callsFor(PENDING_HISTORY_PATH)).toBeGreaterThan(0)
+    );
+
+    await act(async () => {
+      await refreshPending();
+    });
+
+    expect(callsFor(RECENT_HISTORY_PATH)).toBe(1);
   });
 });
