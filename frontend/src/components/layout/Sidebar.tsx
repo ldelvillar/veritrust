@@ -13,6 +13,7 @@ import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
 import UserIcon from '@/assets/User';
 import PendingIndicator from '@/components/layout/PendingIndicator';
+import RecentAnalyses from '@/components/layout/RecentAnalyses';
 import { usePendingAnalyses } from '@/hooks/usePendingAnalyses';
 
 type PendingState = ReturnType<typeof usePendingAnalyses>;
@@ -57,7 +58,7 @@ function Brand({
         onClick={onNavigate}
         className="flex items-center"
       >
-        <span className="text-xl font-bold tracking-[-0.02em] text-ink">
+        <span className="font-display text-[21px] font-normal text-ink italic">
           VeriTrust
         </span>
       </Link>
@@ -144,7 +145,14 @@ function SidebarContent({
         onNavigate={onNavigate}
       />
 
-      <div className="mt-auto">
+      {!collapsed && (
+        <RecentAnalyses
+          pendingCount={pending.pendingCount}
+          onNavigate={onNavigate}
+        />
+      )}
+
+      <div className="mt-auto pt-4">
         {!collapsed && (
           <div className="mb-3.5 rounded-2xl border border-line bg-surface p-4">
             <h4 className="text-sm font-bold text-ink">
@@ -271,9 +279,8 @@ export default function Sidebar() {
             />
           )}
         </button>
-        <Link href="/app/dashboard" className="flex items-center gap-2">
-          <Logo className="h-6 w-auto" />
-          <span className="text-base font-bold tracking-[-0.02em] text-ink">
+        <Link href="/app/dashboard" className="flex items-center">
+          <span className="font-display text-base font-normal text-ink italic">
             VeriTrust
           </span>
         </Link>

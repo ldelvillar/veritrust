@@ -150,6 +150,20 @@ export function displayHostname(url: string): string {
   }
 }
 
+// Título de un análisis en listados: la URL, el nombre del archivo o el texto enviado.
+export function getAnalysisTitle(item: {
+  source_type: string;
+  input_url?: string | null;
+  file_filename?: string | null;
+  input_text?: string | null;
+}): string {
+  if (item.source_type === 'url' && item.input_url) return item.input_url;
+  if (item.source_type === 'file' && item.file_filename)
+    return item.file_filename;
+  if (item.input_text) return item.input_text;
+  return 'Análisis sin título';
+}
+
 // Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.
 export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));

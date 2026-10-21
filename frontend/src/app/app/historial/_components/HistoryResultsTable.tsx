@@ -14,6 +14,7 @@ import BookIcon from '@/assets/Book';
 import Button from '@/components/Button';
 import {
   formatCoverage,
+  getAnalysisTitle,
   VERDICT_LABEL,
 } from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
@@ -131,14 +132,6 @@ const TONE_BY_VERDICT = {
 function toneFromItem(item: HistoryItem): Tone | null {
   if (item.status !== 'done') return null;
   return TONE_BY_VERDICT[item.verdict];
-}
-
-function getTitle(item: HistoryItem): string {
-  if (item.source_type === 'url' && item.input_url) return item.input_url;
-  if (item.source_type === 'file' && item.file_filename)
-    return item.file_filename;
-  if (item.input_text) return item.input_text;
-  return 'Análisis sin título';
 }
 
 function getSource(item: HistoryItem): string {
@@ -495,7 +488,7 @@ export default function HistoryResultsTable({
                     )}
                   </div>
                   <p className="text-base font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
-                    {getTitle(item)}
+                    {getAnalysisTitle(item)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-muted sm:truncate">
                     Fuente:{' '}
