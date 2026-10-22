@@ -83,6 +83,11 @@ describe('history lists refresh (SWR real)', () => {
 
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
     await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(2));
+    // Margen para que un segundo refresco, si lo hubiera, llegue a contarse.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    expect(callsFor(RECENT_HISTORY_PATH)).toBe(2);
   });
 
   it('an unchanged pending summary leaves the lists alone', async () => {

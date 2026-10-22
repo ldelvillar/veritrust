@@ -28,7 +28,7 @@ export function usePendingAnalyses() {
   // Último resumen recibido; null hasta la primera respuesta para no refrescar al montar.
   const lastSummary = useRef<PendingSummary | null>(null);
 
-  // Detecta la transición >0 → 0 para el aviso transitorio de "finalizado".
+  // Refresca los listados si cambia el resumen y detecta >0 → 0 para el aviso de "finalizado".
   const trackTransition = useCallback((latest: PendingSummary) => {
     setHasPending(latest.count > 0);
     const before = lastSummary.current;

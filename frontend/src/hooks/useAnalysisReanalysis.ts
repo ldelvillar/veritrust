@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshPending } from '@/lib/historyCache';
+import { refreshHistory } from '@/lib/historyCache';
 import type { paths } from '@/types/api';
 
 type ReanalyzeAnalysisResponse =
@@ -25,8 +25,8 @@ export function useAnalysisReanalysis() {
         )
       );
       if (!data) return false;
-      // La fila vuelve a pending sin navegación: el indicador cambia y arrastra a los listados.
-      void refreshPending();
+      // La fila vuelve a pending sin navegación: refrescamos el indicador y los listados.
+      void refreshHistory();
       return true;
     },
     [getToken, mutate]

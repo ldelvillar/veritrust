@@ -164,7 +164,8 @@ export function getStatusKey(
     : 'failed';
 }
 
-export const STATUS_LABEL: Record<AnalysisStatusKey, string> = {
+export const STATUS_LABEL: Record<AnalysisStatusKey | 'done', string> = {
+  done: 'Completado',
   pending: 'En curso',
   failed: 'Fallido',
   failed_no_claims: 'Sin afirmaciones',

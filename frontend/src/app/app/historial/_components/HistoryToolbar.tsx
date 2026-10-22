@@ -21,7 +21,7 @@ const SOURCE_TYPE_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: 'all' as StatusFilter, label: 'Todos los estados' },
-  { value: 'done' as StatusFilter, label: 'Completado' },
+  { value: 'done' as StatusFilter, label: STATUS_LABEL.done },
   { value: 'pending' as StatusFilter, label: STATUS_LABEL.pending },
   { value: 'failed' as StatusFilter, label: STATUS_LABEL.failed },
 ];

@@ -14,7 +14,7 @@ export function refreshHistoryLists(): Promise<unknown> {
   return mutate(keyStartsWith('/history?'));
 }
 
-// Tras un borrado: el indicador puede no cambiar, así que los listados se piden aparte.
+// Tras una acción propia: los listados se piden aparte por si el indicador no ve el cambio.
 export function refreshHistory(): Promise<unknown> {
   return Promise.all([refreshPending(), refreshHistoryLists()]);
 }
