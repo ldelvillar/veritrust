@@ -15,12 +15,16 @@ class _FakeGraph:
     def __init__(self, chunks=(), error=None):
         self._chunks = chunks
         self._error = error
+        self.closed = False
 
     async def astream(self, state, stream_mode=None):
         if self._error is not None:
             raise self._error
-        for chunk in self._chunks:
-            yield chunk
+        try:
+            for chunk in self._chunks:
+                yield chunk
+        finally:
+            self.closed = True
 
 
 async def test_ainvoke_graph_returns_last_values_chunk_and_reports_stages() -> None:
@@ -47,6 +51,20 @@ async def test_ainvoke_graph_works_without_stage_callback() -> None:
     result = await ainvoke_graph(_FakeGraph(chunks), {})
 
     assert result == {"label": "verdadera"}
+
+
+async def test_a_stage_callback_that_stops_the_run_closes_the_stream() -> None:
+    graph = _FakeGraph(
+        [("updates", {"extractor": {}}), ("updates", {"translator": {}})]
+    )
+
+    async def on_stage(node: str) -> None:
+        raise LookupError(node)
+
+    # El ciclo de vida para así una Run borrada: el error llega intacto y el grafo no sigue.
+    with pytest.raises(LookupError, match="extractor"):
+        await ainvoke_graph(graph, {}, on_stage=on_stage)
+    assert graph.closed
 
 
 async def test_ainvoke_graph_translates_connection_error() -> None:

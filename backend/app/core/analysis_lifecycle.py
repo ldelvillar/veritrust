@@ -236,7 +236,7 @@ class AnalysisIntake:
         try:
             await self._queue.cancel(analysis_ids)
         except QueueUnavailable:
-            # Las Runs seguirán hasta el final y sus cierres se descartarán sobre filas ausentes.
+            # Sin aborto, cada Run se detiene en su siguiente etapa, o descarta su cierre si ya iba por la última.
             logger.warning("No se pudieron abortar las Runs de %s", analysis_ids)
 
     def _require_queue(self) -> AnalysisQueue:
@@ -331,6 +331,10 @@ class AnalysisNotifier(Protocol):
 RunOutcome = Literal["done", "failed", "skipped", "discarded"]
 
 
+class _AnalysisGone(Exception):
+    """El análisis de la Run se borró o dejó de estar ``pending`` mientras corría."""
+
+
 class AnalysisRun:
     """Una Run en curso: su entrada y cómo reporta su avance mientras sigue ``pending``."""
 
@@ -345,13 +349,18 @@ class AnalysisRun:
             await self._show(next_stage)
 
     async def _show(self, stage: AnalysisStage) -> None:
-        """Muestra la etapa activa; un fallo aquí nunca rompe la Run."""
+        """Muestra la etapa activa y detiene la Run si su análisis ya no está pendiente; un fallo de BD nunca la rompe."""
         try:
-            await transitions.set_stage(analysis_id=self.analysis_id, stage=stage)
+            shown = await transitions.set_stage(
+                analysis_id=self.analysis_id, stage=stage
+            )
         except Exception:
             logger.warning(
                 "No se pudo fijar la etapa %s de %s", stage, self.analysis_id
             )
+            return
+        if not shown:
+            raise _AnalysisGone(self.analysis_id)
 
     async def keep_input_text(self, text: str) -> None:
         """Guarda el texto extraído de un archivo para que el historial lo encuentre aunque la Run falle."""
@@ -394,11 +403,17 @@ class AnalysisRunner:
             )
 
         run = AnalysisRun(analysis_id, content)
-        await run._show(_STAGES[0])
         result: Completion | ErrorCode
         try:
+            await run._show(_STAGES[0])
             async with asyncio.timeout(self._run_timeout_seconds):
                 result = await work(run)
+        except _AnalysisGone:
+            # No depende del aborto de arq, que puede retrasarse o perderse si Redis no responde.
+            logger.info(
+                "El análisis %s ya no está pendiente; se detiene su Run", analysis_id
+            )
+            return "discarded"
         except AnalysisFailure as exc:
             result = exc.code
         except TimeoutError:

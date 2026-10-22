@@ -494,6 +494,25 @@ def test_delete_analisis_returns_200_when_deleted(monkeypatch):
     assert calls == [("cancel_runs", ["11111111-1111-1111-1111-111111111111"])]
 
 
+def test_delete_analisis_cancels_the_run_by_its_canonical_id(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_delete_user_analysis(**kwargs):
+        return "pending"
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.delete_user_analysis",
+        fake_delete_user_analysis,
+    )
+
+    response = client.delete("/analysis/AAAAAAAABBBBCCCCDDDDEEEEEEEEEEEE")
+
+    assert response.status_code == 200
+    calls = server_module.app.state.analysis_intake.calls
+    assert calls == [("cancel_runs", ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"])]
+
+
 def test_delete_analisis_of_a_finished_analysis_cancels_no_run(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
@@ -1923,6 +1942,9 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
     closed: list[str] = []
 
     class _Pool:
+        def register_script(self, script):
+            return None
+
         async def close(self):
             closed.append("arq")
 

@@ -707,6 +707,29 @@ async def test_a_cancelled_run_leaves_the_analysis_pending_for_the_reaper(
     assert notifier.sent == []
 
 
+async def test_a_run_whose_analysis_is_deleted_stops_at_the_next_stage(
+    db_pool, intake, runner, notifier
+):
+    analysis_id = await _submit(intake)
+    reached: list[str] = []
+
+    async def deleted_meanwhile(run):
+        # Borrada mientras su job sigue en arq sin aborto, como con una cola atascada.
+        async with db_pool.connection() as conn:
+            await conn.execute(
+                "DELETE FROM public.analysis_history WHERE id = %s", (analysis_id,)
+            )
+        await run.stage_finished("preparing")
+        reached.append("extractor")
+        return _completion()
+
+    outcome = await runner.run(analysis_id, deleted_meanwhile, notify_email=EMAIL)
+
+    assert outcome == "discarded"
+    assert reached == []
+    assert notifier.sent == []
+
+
 async def test_run_skips_an_analysis_that_is_no_longer_pending(
     db_pool, intake, queue, runner, notifier
 ):
