@@ -1,3 +1,5 @@
+/* Clerk va en su propia capa, por debajo de las utilidades, para que las clases de appearance ganen */
+@layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 

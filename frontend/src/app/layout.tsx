@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
-import { esES } from '@clerk/localizations';
 import { Onest, Instrument_Serif } from 'next/font/google';
 import { clientEnv } from '@/env/client';
 import '@/env/server';
 import { SITE_CONFIG } from '@/config/site';
+import { AFTER_AUTH_URL, SIGN_IN_URL, SIGN_UP_URL } from '@/config/auth';
+import { clerkLocalization } from '@/config/clerk';
 import '@/styles/globals.css';
 
 const onest = Onest({
@@ -69,7 +70,12 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <ClerkProvider
           publishableKey={clientEnv.clerkPublishableKey}
-          localization={esES}
+          localization={clerkLocalization}
+          appearance={{ cssLayerName: 'clerk' }}
+          signInUrl={SIGN_IN_URL}
+          signUpUrl={SIGN_UP_URL}
+          signInFallbackRedirectUrl={AFTER_AUTH_URL}
+          signUpFallbackRedirectUrl={AFTER_AUTH_URL}
         >
           {children}
         </ClerkProvider>
