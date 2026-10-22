@@ -160,13 +160,13 @@ async def fail(*, analysis_id: str, error_code: str) -> bool:
     )
 
 
-async def set_stage(*, analysis_id: str, stage: str) -> None:
-    """Registra la etapa activa de un análisis mientras sigue ``pending``."""
+async def set_stage(*, analysis_id: str, stage: str) -> bool:
+    """Registra la etapa activa de un análisis y devuelve False si ya no sigue ``pending``."""
     query = (
         "UPDATE public.analysis_history SET stage = %s "
         "WHERE id = %s AND status = 'pending'"
     )
-    await _update(
+    return await _update(
         query,
         (stage, analysis_id),
         "No se pudo actualizar la etapa del análisis en la base de datos.",

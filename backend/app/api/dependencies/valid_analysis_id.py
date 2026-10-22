@@ -9,13 +9,14 @@ from app.schemas.errors import ErrorCode
 
 
 async def valid_analysis_id(analysis_id: str) -> str:
-    """Devuelve el id de la ruta si es un UUID o responde 400 con INVALID_ANALYSIS_ID."""
+    """Devuelve el id de la ruta en forma canónica si es un UUID o responde 400 con INVALID_ANALYSIS_ID."""
     try:
-        UUID(analysis_id)
+        canonical = UUID(analysis_id)
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
         ) from e
 
-    return analysis_id
+    # Las claves de arq usan la forma canónica; una variante en mayúsculas o sin guiones no las encontraría.
+    return str(canonical)

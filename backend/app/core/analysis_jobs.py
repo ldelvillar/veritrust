@@ -30,6 +30,7 @@ class ArqAnalysisQueue:
 
     def __init__(self, redis: ArqRedis) -> None:
         self._redis = redis
+        self._abort_live_jobs = redis.register_script(_ABORT_LIVE_JOBS)
 
     async def enqueue(self, analysis_id: str, *, notify_email: str | None) -> None:
         """Encola la Run con ``_job_id=analysis_id`` para que un doble encolado sea un no-op."""
@@ -56,7 +57,7 @@ class ArqAnalysisQueue:
         """Pide a arq que aborte los jobs de los análisis que aún siguen en cola o en ejecución."""
         job_keys = [job_key_prefix + analysis_id for analysis_id in analysis_ids]
         try:
-            await self._redis.register_script(_ABORT_LIVE_JOBS)(
+            await self._abort_live_jobs(
                 keys=[abort_jobs_ss, *job_keys],
                 args=[timestamp_ms(), *analysis_ids],
             )

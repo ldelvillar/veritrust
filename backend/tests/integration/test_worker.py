@@ -294,7 +294,11 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     monkeypatch.setattr(worker, "describe_pipeline", lambda prompts: ("run", prompts))
     monkeypatch.setattr(worker, "get_pool", fake_get_pool)
 
-    ctx: dict = {"redis": object()}
+    class _Redis:
+        def register_script(self, script):
+            return None
+
+    ctx: dict = {"redis": _Redis()}
     await worker.startup(ctx)
 
     # El worker no sirve peticiones web: no debe exigir CORS ni la URL MCP.

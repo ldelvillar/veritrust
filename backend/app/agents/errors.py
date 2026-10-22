@@ -1,6 +1,7 @@
 """Errores tipados del pipeline de agentes y traducción desde la capa de transporte."""
 
 from collections.abc import Awaitable, Callable
+from contextlib import aclosing
 from typing import Any, Optional
 
 import aiohttp
@@ -24,13 +25,15 @@ async def ainvoke_graph(
     """Ejecuta el grafo por streaming, notifica cada agente terminado y traduce errores de conexión."""
     final_state = state
     try:
-        async for mode, chunk in graph.astream(
-            state, stream_mode=["updates", "values"]
-        ):
-            if mode == "values":
-                final_state = chunk
-            elif mode == "updates" and on_stage is not None:
-                await on_stage(next(iter(chunk)))
+        # aclosing cierra el stream al momento si on_stage corta la Run.
+        async with aclosing(
+            graph.astream(state, stream_mode=["updates", "values"])
+        ) as stream:
+            async for mode, chunk in stream:
+                if mode == "values":
+                    final_state = chunk
+                elif mode == "updates" and on_stage is not None:
+                    await on_stage(next(iter(chunk)))
     except (
         ConnectionError,
         httpx.ConnectError,
