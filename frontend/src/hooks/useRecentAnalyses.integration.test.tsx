@@ -2,7 +2,11 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { mutate } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApiQuery } from '@/hooks/useApiQuery';
-import { refreshHistoryLists, refreshPending } from '@/lib/historyCache';
+import {
+  refreshHistory,
+  refreshHistoryLists,
+  refreshPending,
+} from '@/lib/historyCache';
 import { PENDING_HISTORY_PATH, RECENT_HISTORY_PATH } from '@/lib/historyQuery';
 import { usePendingAnalyses } from './usePendingAnalyses';
 import { useRecentAnalyses } from './useRecentAnalyses';
@@ -87,6 +91,46 @@ describe('history lists refresh (SWR real)', () => {
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });
+    expect(callsFor(RECENT_HISTORY_PATH)).toBe(2);
+  });
+
+  it('an own action that changes the pending summary fetches the lists once', async () => {
+    renderHook(() => {
+      useRecentAnalyses();
+      usePendingAnalyses();
+    });
+    await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(1));
+    await waitFor(() =>
+      expect(callsFor(PENDING_HISTORY_PATH)).toBeGreaterThan(0)
+    );
+
+    pendingCount = 1;
+    newestId = 'aaa';
+    await act(async () => {
+      await refreshHistory();
+    });
+    // Margen para que el refresco que dispara el indicador, si lo hubiera, llegue a contarse.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    expect(callsFor(RECENT_HISTORY_PATH)).toBe(2);
+  });
+
+  it('an own action the pending summary misses still refreshes the lists', async () => {
+    renderHook(() => {
+      useRecentAnalyses();
+      usePendingAnalyses();
+    });
+    await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(1));
+    await waitFor(() =>
+      expect(callsFor(PENDING_HISTORY_PATH)).toBeGreaterThan(0)
+    );
+
+    await act(async () => {
+      await refreshHistory();
+    });
+
     expect(callsFor(RECENT_HISTORY_PATH)).toBe(2);
   });
 

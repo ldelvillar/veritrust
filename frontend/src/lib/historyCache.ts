@@ -9,12 +9,17 @@ export function refreshPending(): Promise<unknown> {
   return mutate(PENDING_HISTORY_PATH);
 }
 
+let lastListsRefresh: Promise<unknown> | null = null;
+
 // Refresca todo listado de /history en caché: el menú y la página abierta del historial.
 export function refreshHistoryLists(): Promise<unknown> {
-  return mutate(keyStartsWith('/history?'));
+  lastListsRefresh = mutate(keyStartsWith('/history?'));
+  return lastListsRefresh;
 }
 
-// Tras una acción propia: los listados se piden aparte por si el indicador no ve el cambio.
-export function refreshHistory(): Promise<unknown> {
-  return Promise.all([refreshPending(), refreshHistoryLists()]);
+// Tras una acción propia: si el indicador no vio el cambio, los listados se piden aquí.
+export async function refreshHistory(): Promise<unknown> {
+  const before = lastListsRefresh;
+  await refreshPending();
+  return lastListsRefresh !== before ? lastListsRefresh : refreshHistoryLists();
 }
