@@ -1,6 +1,7 @@
 import Check from '@/assets/Check';
 import Cross from '@/assets/Cross';
 import WarningIcon from '@/assets/Warning';
+import type { HistoryItem } from '@/lib/historyQuery';
 import type { ConfidenceLevel, Verdict } from './types';
 
 // Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
@@ -148,6 +149,40 @@ export function displayHostname(url: string): string {
   } catch {
     return url;
   }
+}
+
+export type AnalysisStatusKey = 'pending' | 'failed' | 'failed_no_claims';
+
+// Estado de un análisis sin veredicto en listados; null cuando ya tiene veredicto.
+export function getStatusKey(
+  item: Pick<HistoryItem, 'status' | 'error_code'>
+): AnalysisStatusKey | null {
+  if (item.status === 'pending') return 'pending';
+  if (item.status !== 'failed') return null;
+  return item.error_code === 'NO_MEDICAL_CLAIMS'
+    ? 'failed_no_claims'
+    : 'failed';
+}
+
+export const STATUS_LABEL: Record<AnalysisStatusKey | 'done', string> = {
+  done: 'Completado',
+  pending: 'En curso',
+  failed: 'Fallido',
+  failed_no_claims: 'Sin afirmaciones',
+};
+
+// Título de un análisis en listados: la URL, el nombre del archivo o el texto enviado.
+export function getAnalysisTitle(
+  item: Pick<
+    HistoryItem,
+    'source_type' | 'input_url' | 'file_filename' | 'input_text'
+  >
+): string {
+  if (item.source_type === 'url' && item.input_url) return item.input_url;
+  if (item.source_type === 'file' && item.file_filename)
+    return item.file_filename;
+  if (item.input_text) return item.input_text;
+  return 'Análisis sin título';
 }
 
 // Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.

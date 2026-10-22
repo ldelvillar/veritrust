@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 
-import { INITIAL_HISTORY_PATH } from '@/lib/historyQuery';
+import { INITIAL_HISTORY_PATH, type HistoryPayload } from '@/lib/historyQuery';
 import { fetchJsonServer } from '@/lib/serverApi';
-import type { paths } from '@/types/api';
 
 import HistorialClient from './HistorialClient';
 
@@ -13,9 +12,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
-
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
 
 export default async function HistorialPage() {
   const initialData =

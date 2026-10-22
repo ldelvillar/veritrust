@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 
 import { fetchJsonWithAuth } from '@/lib/apiClient';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import { refreshPendingAnalyses } from '@/hooks/usePendingAnalyses';
+import { refreshHistory } from '@/lib/historyCache';
 import type { paths } from '@/types/api';
 
 type RetryAnalysisResponse =
@@ -25,8 +25,8 @@ export function useAnalysisRetry() {
         )
       );
       if (!data) return false;
-      // La fila vuelve a pending sin navegación: refrescamos el indicador global.
-      void refreshPendingAnalyses();
+      // La fila vuelve a pending sin navegación: refrescamos el indicador y los listados.
+      void refreshHistory();
       return true;
     },
     [getToken, mutate]

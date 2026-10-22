@@ -14,15 +14,15 @@ import BookIcon from '@/assets/Book';
 import Button from '@/components/Button';
 import {
   formatCoverage,
+  getAnalysisTitle,
+  getStatusKey,
+  STATUS_LABEL,
   VERDICT_LABEL,
+  type AnalysisStatusKey,
 } from '@/components/analysis-result/format';
 import HistoryStatePanel from './HistoryStatePanel';
 import { SkeletonRows } from './HistorySkeleton';
-import type { paths } from '@/types/api';
-
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
-type HistoryItem = HistoryPayload['items'][number];
+import type { HistoryItem } from '@/lib/historyQuery';
 
 interface HistoryResultsTableProps {
   history: HistoryItem[];
@@ -104,21 +104,21 @@ const STAGE_LABEL: Record<NonNullable<HistoryItem['stage']>, string> = {
 
 const STATUS_BADGES = {
   pending: {
-    text: 'En curso',
+    text: STATUS_LABEL.pending,
     textColor: 'var(--color-primary)',
     bgColor: 'var(--color-primary-soft)',
   },
   failed_no_claims: {
-    text: 'Sin afirmaciones',
+    text: STATUS_LABEL.failed_no_claims,
     textColor: 'var(--color-muted)',
     bgColor: 'var(--color-surface)',
   },
   failed: {
-    text: 'Fallido',
+    text: STATUS_LABEL.failed,
     textColor: 'var(--color-danger-ink)',
     bgColor: 'var(--color-danger-soft)',
   },
-} as const;
+} as const satisfies Record<AnalysisStatusKey, object>;
 
 // El tono lo decide el veredicto; la credibilidad solo se muestra como número.
 const TONE_BY_VERDICT = {
@@ -131,14 +131,6 @@ const TONE_BY_VERDICT = {
 function toneFromItem(item: HistoryItem): Tone | null {
   if (item.status !== 'done') return null;
   return TONE_BY_VERDICT[item.verdict];
-}
-
-function getTitle(item: HistoryItem): string {
-  if (item.source_type === 'url' && item.input_url) return item.input_url;
-  if (item.source_type === 'file' && item.file_filename)
-    return item.file_filename;
-  if (item.input_text) return item.input_text;
-  return 'Análisis sin título';
 }
 
 function getSource(item: HistoryItem): string {
@@ -368,33 +360,25 @@ export default function HistoryResultsTable({
             const { Icon: SourceIcon } = typeMeta;
             const credibility = item.credibility ?? null;
             const isDeleting = deletingId === item.analysis_id;
+            const statusKey = getStatusKey(item);
             const stageLabel =
-              item.status === 'pending' && item.stage
+              statusKey === 'pending' && item.stage
                 ? STAGE_LABEL[item.stage]
                 : null;
 
             const railStyle = toneCfg
               ? toneCfg.rail
-              : item.status === 'pending'
+              : statusKey === 'pending'
                 ? 'var(--color-primary)'
                 : 'var(--color-line-strong)';
 
-            let statusBadgeCfg: {
-              text: string;
-              textColor: string;
-              bgColor: string;
-            } | null = null;
-            let detailLabel = 'Ver informe';
-            if (item.status === 'pending') {
-              statusBadgeCfg = STATUS_BADGES.pending;
-              detailLabel = 'Ver estado';
-            } else if (item.status === 'failed') {
-              statusBadgeCfg =
-                item.error_code === 'NO_MEDICAL_CLAIMS'
-                  ? STATUS_BADGES.failed_no_claims
-                  : STATUS_BADGES.failed;
-              detailLabel = 'Ver detalle';
-            }
+            const statusBadgeCfg = statusKey ? STATUS_BADGES[statusKey] : null;
+            const detailLabel =
+              statusKey === 'pending'
+                ? 'Ver estado'
+                : statusKey
+                  ? 'Ver detalle'
+                  : 'Ver informe';
 
             const badgeText = statusBadgeCfg
               ? statusBadgeCfg.text
@@ -432,7 +416,7 @@ export default function HistoryResultsTable({
                 {/* Credibility gauge */}
                 {tone !== null && credibility !== null ? (
                   <CredibilityGauge score={credibility} tone={tone} />
-                ) : item.status === 'failed' && statusBadgeCfg ? (
+                ) : statusKey !== 'pending' && statusBadgeCfg ? (
                   <FailedFigure
                     color={statusBadgeCfg.textColor}
                     background={statusBadgeCfg.bgColor}
@@ -495,7 +479,7 @@ export default function HistoryResultsTable({
                     )}
                   </div>
                   <p className="text-base font-semibold text-pretty text-ink transition-colors group-hover:text-primary sm:truncate sm:text-left">
-                    {getTitle(item)}
+                    {getAnalysisTitle(item)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-muted sm:truncate">
                     Fuente:{' '}

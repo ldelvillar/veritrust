@@ -2,10 +2,8 @@ import { StrictMode, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  refreshPendingAnalyses,
-  usePendingAnalyses,
-} from './usePendingAnalyses';
+import { refreshPending } from '@/lib/historyCache';
+import { usePendingAnalyses } from './usePendingAnalyses';
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => ({ isSignedIn: true, getToken: vi.fn(async () => 'jwt-123') }),
@@ -74,10 +72,10 @@ describe('usePendingAnalyses (SWR real)', () => {
     }
   });
 
-  it('refreshPendingAnalyses updates the indicator without navigation or poll', async () => {
+  it('refreshPending updates the indicator without navigation or poll', async () => {
     serverCount = 1;
     serverNewestId = 'aaa';
-    // Sin proveedor propio: el mutate global de refreshPendingAnalyses opera sobre la caché por defecto.
+    // Sin proveedor propio: el mutate global de refreshPending opera sobre la caché por defecto.
     const { result } = renderHook(() => usePendingAnalyses(), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <StrictMode>{children}</StrictMode>
@@ -88,7 +86,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     serverCount = 2;
     serverNewestId = 'bbb';
     await act(async () => {
-      await refreshPendingAnalyses();
+      await refreshPending();
     });
 
     await waitFor(() => expect(result.current.pendingCount).toBe(2));

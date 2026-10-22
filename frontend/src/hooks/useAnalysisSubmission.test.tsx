@@ -13,8 +13,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock('@/hooks/usePendingAnalyses', () => ({
-  refreshPendingAnalyses: vi.fn(),
+vi.mock('@/lib/historyCache', () => ({
+  refreshHistory: vi.fn(),
 }));
 
 vi.mock('@/lib/apiClient', async importOriginal => {

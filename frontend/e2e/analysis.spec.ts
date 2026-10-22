@@ -17,9 +17,15 @@ test('a submitted text opens its report, which shows the verdict once the pipeli
   await expect(
     page.getByText('El informe aparecerá aquí en cuanto termine el análisis')
   ).toBeVisible();
+  const recent = page
+    .getByRole('complementary')
+    .getByRole('link', { name: /El consumo diario de vitamina C/ });
+  await expect(recent).toContainText('En curso');
   await expect(page.getByRole('heading', FINISHED_VERDICT)).toBeVisible(
     PIPELINE_TIMEOUT
   );
+  // El sondeo del indicador ve terminar el análisis y refresca los recientes del menú.
+  await expect(recent).toContainText('Falso', PIPELINE_TIMEOUT);
 });
 
 test('a failed analysis can be retried until it finishes', async ({ page }) => {

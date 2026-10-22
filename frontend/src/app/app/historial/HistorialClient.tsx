@@ -18,12 +18,12 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useHistoryExport } from '@/hooks/useHistoryExport';
 import { useHistoryFilters } from '@/hooks/useHistoryFilters';
-import { PAGE_SIZE, isExportable } from '@/lib/historyQuery';
-import type { paths } from '@/types/api';
-
-type HistoryPayload =
-  paths['/history']['get']['responses']['200']['content']['application/json'];
-type HistoryItem = HistoryPayload['items'][number];
+import {
+  PAGE_SIZE,
+  isExportable,
+  type HistoryItem,
+  type HistoryPayload,
+} from '@/lib/historyQuery';
 
 interface HistorialClientProps {
   initialData: HistoryPayload;
@@ -108,19 +108,9 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     const success = await deleteAnalysis(pendingDelete.analysis_id);
     if (!success) return;
     setPendingDelete(null);
-    if (wasLastOnPage && currentPage > 1) {
-      setPage(currentPage - 1);
-    } else {
-      await fetchHistory();
-    }
-  }, [
-    pendingDelete,
-    history.length,
-    deleteAnalysis,
-    currentPage,
-    setPage,
-    fetchHistory,
-  ]);
+    // La página actual ya se refresca desde useAnalysisDeletion; solo retrocedemos si quedó vacía.
+    if (wasLastOnPage && currentPage > 1) setPage(currentPage - 1);
+  }, [pendingDelete, history.length, deleteAnalysis, currentPage, setPage]);
 
   // Conteos globales del backend, independientes de la página y del propio filtro.
   const verdictFacets = data?.verdict_counts ?? null;
