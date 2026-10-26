@@ -106,6 +106,34 @@ curl https://$API_DOMAIN/analysis/$ANALYSIS_ID -H "Authorization: Bearer ak_…"
 
 Send a URL instead with `{"url": "https://…", "source_type": "url"}`. An analysis takes a few minutes, so poll every few seconds; `POST /analysis` is limited to `RATE_LIMIT_MAX_REQUESTS` per `RATE_LIMIT_WINDOW_SECONDS` per user (429 `RATE_LIMIT`). An invalid, revoked or expired key answers 401 `INVALID_TOKEN`; 503 `SERVICE_UNAVAILABLE` means Clerk could not be reached, so retry.
 
+## Billing (Stripe)
+
+Pro is sold through Stripe Billing in EUR, IVA included (ADR-0005). The backend only creates Checkout and Customer Portal sessions; everything below is set up by hand in the Stripe Dashboard. Do it all in **test mode** first, then repeat steps 3 to 7 in **live mode** for production. Test-mode and live-mode keys are never mixed: test keys (`sk_test_…`) go in local `.env` files, live keys (`sk_live_…`) only in the server's `backend/.env` (see `env.md`).
+
+1. **Account**: a Stripe account in Spain with EUR as the default currency. Under **Settings → Business → Public details**, set the terms of service URL to `https://$APP_DOMAIN/terminos-y-condiciones`; Checkout asks the customer to accept the terms and refuses to open without that URL.
+2. **Stripe Tax** (**Tax → Settings**): add the Spain registration, set the origin address, and set the product tax code to the SaaS code that matches the audience (check Stripe's list; the personal-use SaaS code is the likely default). Add OSS later, once cross-border EU B2C sales get close to 10,000€/year.
+3. **Product**: "VeriTrust Pro" with two prices, 29.00 EUR monthly and 290.00 EUR yearly, both with tax behaviour **inclusive**. Copy the price IDs (`price_…`) into `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`. A Subscription on any other price never makes a user Pro, so never replace a price ID while Subscriptions still use it: move them to the new price first, or existing subscribers drop to Free.
+4. **Customer Portal** (**Settings → Billing → Customer portal**): allow cancelling (at the end of the period), switching between the two Pro prices, updating the payment method and seeing invoice history. Disallow quantity changes.
+5. **One subscription per customer** (**Settings → Checkout and Payment Links → Subscriptions**): turn on **Limit customers to one subscription**, so a customer who already pays is sent to the portal instead of a second Checkout. The backend also expires a customer's other open Checkout sessions when it opens a new one.
+6. **Billing settings** (**Settings → Billing → Subscriptions and emails**): Smart Retries on, and **cancel the subscription** when all retries fail (that ends `past_due`, which keeps Pro while retries run). Turn on Stripe's customer emails for receipts, failed payments and upcoming renewals, in Spanish.
+7. **Webhook** (**Developers → Webhooks → Add endpoint**): URL `https://$API_DOMAIN/billing/webhook`, API version `2026-09-30.endive` (the version pinned as `STRIPE_API_VERSION` in `backend/app/core/billing.py`), and these events:
+   - `checkout.session.completed`
+   - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+   - `invoice.paid`, `invoice.payment_failed`
+
+   Copy the endpoint's signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`. The secret key from **Developers → API keys** goes into `STRIPE_SECRET_KEY`.
+8. **Local development**: `stripe listen --forward-to localhost:8000/billing/webhook` forwards test-mode events and prints a local `whsec_…` for `backend/.env`. `stripe trigger invoice.payment_failed` exercises `past_due`.
+
+The four `STRIPE_*` variables are required: without them the backend refuses to start and `/healthz` answers 503. The webhook answers 400 to a request with a bad signature, and 5xx when handling fails, so Stripe retries it (**Developers → Webhooks → the endpoint** lists failed deliveries and can resend them). The backend logs each event's id and type, never its payload.
+
+To check a user's Plan by hand:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec postgres \
+  psql -U veritrust -d veritrust -c \
+  "SELECT status, price_id, current_period_end FROM subscriptions WHERE user_id = 'user_…'"
+```
+
 ## Capacity & scaling
 
 The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.

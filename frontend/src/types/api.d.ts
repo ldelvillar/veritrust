@@ -296,6 +296,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/billing/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Plan
+         * @description Devuelve el Plan del usuario, su Subscription y el Usage de este mes.
+         */
+        get: operations["get_plan_billing_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Checkout
+         * @description Abre un Checkout de Stripe para pasar a Pro; rechaza a quien ya es Pro.
+         */
+        post: operations["create_checkout_billing_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Portal
+         * @description Abre el portal de cliente de Stripe para gestionar la Subscription.
+         */
+        post: operations["create_portal_billing_portal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stripe Webhook
+         * @description Recibe los eventos de Stripe; sin auth de usuario, solo la firma del cuerpo crudo.
+         */
+        post: operations["stripe_webhook_billing_webhook_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contact": {
         parameters: {
             query?: never;
@@ -485,10 +565,29 @@ export interface components {
             /** Stage */
             stage?: ("preparing" | "extractor" | "translator" | "investigator" | "health_expert") | null;
         };
+        /**
+         * BillingUrlResponse
+         * @description URL de Stripe a la que el frontend redirige al usuario.
+         */
+        BillingUrlResponse: {
+            /** Url */
+            url: string;
+        };
         /** Body_analyze_file_analysis_file_post */
         Body_analyze_file_analysis_file_post: {
             /** File */
             file: string;
+        };
+        /**
+         * CheckoutRequest
+         * @description Periodicidad del plan Pro que se va a contratar.
+         */
+        CheckoutRequest: {
+            /**
+             * Interval
+             * @enum {string}
+             */
+            interval: "month" | "year";
         };
         /**
          * ClaimItem
@@ -686,7 +785,7 @@ export interface components {
          * @description Códigos estables que el frontend puede usar para identificar errores.
          * @enum {string}
          */
-        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "EVIDENCE_SEARCH_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_REANALYZABLE" | "ANALYSIS_REANALYZE_FAILED" | "FEEDBACK_NOT_ALLOWED" | "FEEDBACK_ALREADY_SUBMITTED" | "FEEDBACK_SAVE_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "HISTORY_DELETE_FAILED" | "DASHBOARD_FETCH_FAILED" | "CONTACT_SEND_FAILED" | "VALIDATION" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
+        ErrorCode: "CONNECTION" | "INTERNAL" | "NO_MEDICAL_CLAIMS" | "ANALYSIS_SAVE_FAILED" | "SERVICE_UNAVAILABLE" | "URL_EXTRACTION" | "INVALID_FILE" | "FILE_TOO_LARGE" | "FILE_EXTRACTION" | "INVALID_ANALYSIS_ID" | "ANALYSIS_NOT_FOUND" | "EVIDENCE_SEARCH_NOT_FOUND" | "ANALYSIS_FETCH_FAILED" | "ANALYSIS_DELETE_FAILED" | "ANALYSIS_NOT_RETRYABLE" | "ANALYSIS_RETRY_FAILED" | "ANALYSIS_NOT_REANALYZABLE" | "ANALYSIS_REANALYZE_FAILED" | "FEEDBACK_NOT_ALLOWED" | "FEEDBACK_ALREADY_SUBMITTED" | "FEEDBACK_SAVE_FAILED" | "ANALYSIS_NOT_SHAREABLE" | "SHARE_FAILED" | "SHARED_REPORT_NOT_FOUND" | "HISTORY_FETCH_FAILED" | "HISTORY_DELETE_FAILED" | "DASHBOARD_FETCH_FAILED" | "CONTACT_SEND_FAILED" | "ALREADY_SUBSCRIBED" | "BILLING_ACCOUNT_NOT_FOUND" | "BILLING_UNAVAILABLE" | "BILLING_FETCH_FAILED" | "INVALID_WEBHOOK" | "VALIDATION" | "RATE_LIMIT" | "UNAUTHENTICATED" | "INVALID_TOKEN" | "EXPIRED_TOKEN" | "AUTH_MISCONFIGURED";
         /**
          * ErrorDetail
          * @description Forma del campo `detail` que se envía en HTTPException.
@@ -824,6 +923,75 @@ export interface components {
             newest_analysis_id?: string | null;
         };
         /**
+         * PlanLimits
+         * @description Lo que un Plan permite a su usuario.
+         */
+        PlanLimits: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "free" | "pro";
+            /** Analyses Per Month */
+            analyses_per_month: number;
+            /** Max Input Chars */
+            max_input_chars: number;
+            /** History Days */
+            history_days: number | null;
+            /** Files */
+            files: boolean;
+            /** History Tools */
+            history_tools: boolean;
+            /** Dashboard */
+            dashboard: boolean;
+            /** Csv Export */
+            csv_export: boolean;
+            /** Share */
+            share: boolean;
+            /** Mcp */
+            mcp: boolean;
+            /** Pdf */
+            pdf: boolean;
+        };
+        /**
+         * PlanResponse
+         * @description El Plan del usuario, su Subscription (si la tuvo) y su Usage del mes.
+         */
+        PlanResponse: {
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "free" | "pro";
+            /** Status */
+            status: string | null;
+            /** Interval */
+            interval: ("month" | "year") | null;
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Cancel At */
+            cancel_at: string | null;
+            limits: components["schemas"]["PlanLimits"];
+            usage: components["schemas"]["PlanUsage"];
+        };
+        /**
+         * PlanUsage
+         * @description Usage del mes en curso (Madrid) y cuándo se renueva la Allowance.
+         */
+        PlanUsage: {
+            /** Used */
+            used: number;
+            /** Pending */
+            pending: number;
+            /** Remaining */
+            remaining: number;
+            /**
+             * Resets At
+             * Format: date-time
+             */
+            resets_at: string;
+        };
+        /**
          * PublicAnalysisReport
          * @description Vista pública de solo lectura de un informe compartido; sin datos de identidad.
          */
@@ -917,6 +1085,14 @@ export interface components {
             text: string;
             /** Stance */
             stance?: ("supports" | "contradicts" | "inconclusive") | null;
+        };
+        /**
+         * WebhookResponse
+         * @description Acuse de recibo de un webhook de Stripe.
+         */
+        WebhookResponse: {
+            /** Received */
+            received: boolean;
         };
     };
     responses: never;
@@ -2197,6 +2373,260 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_plan_billing_plan_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_checkout_billing_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUrlResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_portal_billing_portal_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUrlResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stripe_webhook_billing_webhook_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "stripe-signature"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

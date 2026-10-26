@@ -103,7 +103,7 @@ CREATE TABLE public.subscriptions (
     price_id               TEXT NOT NULL,
     billing_interval       TEXT NOT NULL CHECK (billing_interval IN ('month','year')),
     current_period_end     TIMESTAMPTZ NOT NULL,
-    cancel_at_period_end   BOOLEAN NOT NULL DEFAULT FALSE,
+    cancel_at              TIMESTAMPTZ,
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_subscriptions_user ON public.subscriptions (user_id);
@@ -180,7 +180,7 @@ Processing: verify the signature on the **raw** body (`await request.body()`, ne
 
 Register them in `app/api/router.py`. Every route raises `HTTPException(detail=make_error_detail(ErrorCode.X))` and declares its codes in `responses=`.
 
-- `GET /billing/plan` (auth) → `PlanResponse`: `plan`, `status | None`, `interval | None`, `current_period_end | None`, `cancel_at_period_end`, `limits` (the `PlanLimits` fields), `usage` (`used`, `pending`, `remaining`, `resets_at`). The frontend's only source of plan state.
+- `GET /billing/plan` (auth) → `PlanResponse`: `plan`, `status | None`, `interval | None`, `current_period_end | None`, `cancel_at | None` (the date a scheduled cancellation takes effect), `limits` (the `PlanLimits` fields), `usage` (`used`, `pending`, `remaining`, `resets_at`). The frontend's only source of plan state.
 - `POST /billing/checkout` (auth) body `{interval: "month" | "year"}` → `{url}`. 409 `ALREADY_SUBSCRIBED` if the user is already Pro.
 - `POST /billing/portal` (auth) → `{url}`. 404 `BILLING_ACCOUNT_NOT_FOUND` if the user never had a customer.
 - `POST /billing/webhook` (no auth, signature only). 400 `INVALID_WEBHOOK`. Exclude it from the per-user rate limit and from CORS concerns (Stripe calls it server to server). Check that Caddy's `request_body max_size` and any body-parsing middleware leave the raw body intact.
@@ -267,7 +267,7 @@ After the schema changes: start the backend and run `pnpm --dir frontend generat
 New `_components/PlanCard.tsx` above the existing cards (`id="plan"`):
 
 - Free: what Pro adds (reuse the landing's item list, imported from a shared module rather than copied), a monthly/annual toggle, "Hazte Pro" → `POST /billing/checkout` → `window.location.assign(url)`.
-- Pro: interval, next renewal date, "Se cancelará el …" when `cancel_at_period_end`, a warning band when `past_due` ("No hemos podido cobrar tu suscripción, actualiza tu método de pago"), and "Gestionar suscripción" → `POST /billing/portal`.
+- Pro: interval, next renewal date, "Se cancelará el …" with `cancel_at` when it is set, a warning band when `past_due` ("No hemos podido cobrar tu suscripción, actualiza tu método de pago"), and "Gestionar suscripción" → `POST /billing/portal`.
 - `?checkout=success`: show "Activando tu plan Pro…" and poll `GET /billing/plan` (for example every 2s, up to 30s) until it says Pro, because the webhook can land after the redirect. Then show a success message (`success` tokens). `?checkout=cancelled`: a neutral note.
 - `CuentaClient.tsx`: point "Exportar mis datos" at the new `GET /account/export` instead of `/history/export`.
 

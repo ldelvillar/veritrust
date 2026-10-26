@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.billing import router as billing_router
+from app.api.routes.billing import webhook_router as billing_webhook_router
 from app.api.routes.config import router as config_router
 from app.api.routes.contact import router as contact_router
 from app.api.routes.dashboard import router as dashboard_router
@@ -45,6 +47,19 @@ api_router.include_router(
     share_router,
     prefix="/shared",
     tags=["Share"],
+    responses=_VALIDATION_ERROR_RESPONSES,
+)
+api_router.include_router(
+    billing_router,
+    prefix="/billing",
+    tags=["Billing"],
+    responses=_AUTHENTICATED_ERROR_RESPONSES,
+)
+# El webhook lo llama Stripe servidor a servidor: sin usuario, solo la firma del cuerpo.
+api_router.include_router(
+    billing_webhook_router,
+    prefix="/billing",
+    tags=["Billing"],
     responses=_VALIDATION_ERROR_RESPONSES,
 )
 api_router.include_router(

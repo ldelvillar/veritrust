@@ -160,6 +160,12 @@ class Settings(BaseSettings):
     # Buzón del equipo al que llegan los formularios de contacto y demo
     contact_to_email: str = ""
 
+    # Stripe (planes de pago): clave secreta, secreto de firma del webhook e ids de los precios Pro
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro_monthly: str = ""
+    stripe_price_pro_yearly: str = ""
+
     # Servidor MCP: URL pública del endpoint (termina en /mcp), identificador del recurso OAuth
     mcp_resource_url: str | None = None
     # Espera máxima de una llamada MCP antes de responder que el trabajo sigue en curso
@@ -205,10 +211,8 @@ class Settings(BaseSettings):
         """Devuelve el proveedor de LLM normalizado en minúsculas."""
         return self.llm_provider.strip().lower()
 
-    def validate_runtime(
-        self, *, require_cors: bool = True, require_mcp: bool = True
-    ) -> None:
-        """Valida la configuración obligatoria. Invocado en el startup del lifespan."""
+    def validate_runtime(self, *, web: bool = True) -> None:
+        """Valida la configuración obligatoria; el worker pasa web=False y omite CORS, MCP y Stripe."""
         missing: list[str] = []
 
         provider = self.llm_provider_name()
@@ -232,14 +236,23 @@ class Settings(BaseSettings):
         if not self.clerk_secret_key.strip():
             missing.append("CLERK_SECRET_KEY")
         if (
-            require_cors
+            web
             and self.environment.strip().lower() != "development"
             and not self.cors_origins()
         ):
             missing.append("CORS_ALLOWED_ORIGINS")
         if not self.app_base_url:
             missing.append("APP_BASE_URL")
-        if require_mcp and not (self.mcp_resource_url or "").strip():
+        if web:
+            for name in (
+                "stripe_secret_key",
+                "stripe_webhook_secret",
+                "stripe_price_pro_monthly",
+                "stripe_price_pro_yearly",
+            ):
+                if not getattr(self, name).strip():
+                    missing.append(name.upper())
+        if web and not (self.mcp_resource_url or "").strip():
             missing.append("MCP_RESOURCE_URL")
 
         if missing:
@@ -247,12 +260,10 @@ class Settings(BaseSettings):
                 "Faltan variables de entorno obligatorias: " + ", ".join(missing)
             )
 
-        if require_mcp and not (self.mcp_resource_url or "").rstrip("/").endswith(
-            "/mcp"
-        ):
+        if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
-        if require_cors and self.cors_allow_credentials and "*" in self.cors_origins():
+        if web and self.cors_allow_credentials and "*" in self.cors_origins():
             raise SettingsValidationError(
                 "CORS_ALLOWED_ORIGINS no puede contener '*' cuando "
                 "allow_credentials=True"

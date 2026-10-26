@@ -114,8 +114,11 @@ async def db_pool(database_schema, monkeypatch):
     pool = await pool_module.get_pool()
     try:
         async with pool.connection() as conn:
-            # CASCADE arrastra analysis_feedback, que referencia al historial.
-            await conn.execute("TRUNCATE public.analysis_history CASCADE")
+            # CASCADE arrastra analysis_feedback y usage_events, que referencian al historial.
+            await conn.execute(
+                "TRUNCATE public.analysis_history, public.billing_customers, "
+                "public.subscriptions, public.stripe_events CASCADE"
+            )
         yield pool
     finally:
         await pool_module.close_pool()
