@@ -178,6 +178,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "22"
+          check-latest: true
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -228,6 +229,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "22"
+          check-latest: true
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -279,6 +281,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "22"
+          check-latest: true
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
