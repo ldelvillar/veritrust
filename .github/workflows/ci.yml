@@ -25,6 +25,7 @@ jobs:
     outputs:
       backend_app: ${{ steps.filter.outputs.backend_app }}
       backend_evaluation: ${{ steps.filter.outputs.backend_evaluation }}
+      backend_image: ${{ steps.filter.outputs.backend_image }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout
@@ -43,6 +44,14 @@ jobs:
             backend_evaluation:
               - 'backend/evaluation/**'
               - 'backend/data/**'
+              - 'backend/uv.lock'
+              - 'backend/pyproject.toml'
+              - '.github/workflows/ci.yml'
+            backend_image:
+              - 'backend/Dockerfile'
+              - 'backend/.dockerignore'
+              - 'backend/app/**'
+              - 'backend/db/**'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
               - '.github/workflows/ci.yml'
@@ -304,9 +313,49 @@ jobs:
             exit 1
           }
 
+  docker_images:
+    name: Docker images (build)
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_image == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image
+        if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_image == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build frontend image
+        if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.example.com
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ci_placeholder
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
   ci_ok:
     name: CI passed
-    needs: [changes, backend_app, backend_evaluation, frontend, frontend_e2e, api_contract]
+    needs:
+      [
+        changes,
+        backend_app,
+        backend_evaluation,
+        frontend,
+        frontend_e2e,
+        api_contract,
+        docker_images,
+      ]
     if: always()
     runs-on: ubuntu-latest
     steps:
