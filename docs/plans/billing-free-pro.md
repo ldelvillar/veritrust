@@ -244,6 +244,7 @@ Users delete their account through Clerk's `UserButton`. Without handling, a del
 - `POST /webhooks/clerk` verifying the Svix signature (`svix` package, new `CLERK_WEBHOOK_SECRET` in `Settings`, `.env.example`, `docs/deploy/env.md` and `validate_runtime`).
 - On `user.deleted`: cancel any active Stripe subscription immediately (`prorate` per your T&C, see 8), and delete that user's `billing_customers`/`subscriptions` rows. Keep `usage_events` only if you need them for disputes; otherwise delete them too, and say which in the privacy policy.
 - Document the Clerk dashboard webhook setup in `docs/deploy/stripe.md`.
+- Cancelling needs **Subscriptions: Write** on the fine-grained Stripe key; update the permission table in `docs/deploy/stripe.md` and both keys (test and live).
 
 ### 5.10 Regenerate the contract
 

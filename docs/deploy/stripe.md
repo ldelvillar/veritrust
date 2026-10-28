@@ -8,7 +8,20 @@ Activate the account first (step 1), then do steps 2 to 6 in its **test mode** f
 
 Use the activated account's test mode, not a separate sandbox: test mode shares the live account's business and public details (the terms URL Checkout needs), while a sandbox is an isolated account without them.
 
-Test-mode and live-mode keys are never mixed: test keys (`sk_test_…`) go in local `.env` files, live keys (`sk_live_…`) only in the server's `backend/.env` (see [env.md](env.md)).
+Test-mode and live-mode keys are never mixed: test keys go in local `.env` files, live keys only in the server's `backend/.env` (see [env.md](env.md)).
+
+## API key
+
+`STRIPE_SECRET_KEY` is a **fine-grained key** (**Developers → API keys → Create fine-grained key**), never the account's full-access secret key, so a leaked key can't touch refunds, payouts or anything else. Create one per mode, named for example `veritrust-backend`, with only the permissions the backend uses (`backend/app/core/billing.py`) and everything else set to **None**:
+
+| Resource | Permission | Used for |
+| --- | --- | --- |
+| Customers | Write | creating the Stripe customer on the first checkout |
+| Checkout Sessions | Write | creating a session, and listing and expiring the customer's other open ones |
+| Customer portal | Write | opening portal sessions |
+| Subscriptions | Read | re-reading the Subscription on every webhook |
+
+The webhook signature is checked locally with `STRIPE_WEBHOOK_SECRET`, and prices and tax need no permission, since the backend only passes the price IDs and turns automatic tax on. A missing permission makes the call fail with 503 `BILLING_UNAVAILABLE` and logs `PermissionError`, so check the test-mode key through the local flow before creating the live one.
 
 ## Dashboard setup
 
@@ -28,6 +41,7 @@ Test-mode and live-mode keys are never mixed: test keys (`sk_test_…`) go in lo
 6. **Billing settings** (**Settings → Billing → Subscriptions and emails**):
    - Under **Manage failed payments → Card payments → Manage**, keep **Smart Retries** on. The default, up to 8 retries within 2 weeks, is the grace period in which a `past_due` user keeps Pro.
    - The **Subscription status** section (shown by **View all settings**, editable only in live mode) must say **When the first payment attempt for a renewal fails: leave the subscription overdue** (`past_due`, still Pro) and **If all retries for a payment fail: cancel the subscription** (which ends `past_due`). Both are the defaults. **Invoice status** doesn't affect the backend.
+   - For renewals that need the customer's confirmation (3D Secure), turn on **Customer emails: Send a Stripe-hosted link for customers to confirm their payments when required**. Under its **Subscription status**, set **If a recurring payment is incomplete for 15 days: cancel the subscription**. The default, "leave the subscription overdue", keeps it `past_due`, which counts as Pro, so a customer who never confirms would keep Pro forever. Its **Invoice status** can stay "leave the invoice as-is".
    - Leave **Local payment methods** at their defaults, since Checkout only takes cards.
    - Further down, turn on the customer emails for successful payments, failed payments, upcoming renewals and expiring cards. Stripe sends them in the customer's language, and Checkout runs in Spanish.
 
@@ -37,7 +51,7 @@ Test-mode and live-mode keys are never mixed: test keys (`sk_test_…`) go in lo
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
    - `invoice.paid`, `invoice.payment_failed`
 
-   Copy the endpoint's signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`, and the live **Secret key** from **Developers → API keys** into `STRIPE_SECRET_KEY`.
+   Open the new destination and **Reveal** its **Signing secret**. Copy that `whsec_…` (not the one `stripe listen` prints, which only works locally) into `STRIPE_WEBHOOK_SECRET`. Each endpoint has its own secret, so recreating the destination or rolling its secret means updating `.env` again; otherwise every webhook answers 400 `INVALID_WEBHOOK`. Copy and the live fine-grained key (see [API key](#api-key)) into `STRIPE_SECRET_KEY`.
 
 ## Local development
 
@@ -45,7 +59,7 @@ Test mode only (**Workbench → Webhooks → Test with a local listener** shows 
 
 1. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli) (1.51 or later) and run `stripe login`, approving it in the browser for the activated VeriTrust account in **test mode**, not a sandbox.
 2. Fill the four values in `backend/.env`; the web process refuses to start until all are set:
-   - `STRIPE_SECRET_KEY`: the `sk_test_…` **Secret key** from **Developers → API keys** in test mode, never an `sk_live_…` one.
+   - `STRIPE_SECRET_KEY`: the test-mode fine-grained key (see [API key](#api-key)), never a live one.
    - `STRIPE_WEBHOOK_SECRET`: the `whsec_…` printed by `stripe listen --print-secret`, which doesn't need the backend running and stays the same on this machine.
    - `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`: the test-mode price IDs from step 3.
 
