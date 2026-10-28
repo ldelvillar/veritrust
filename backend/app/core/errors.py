@@ -63,6 +63,13 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CONTACT_SEND_FAILED: (
         "No se pudo enviar tu mensaje. Por favor, inténtalo de nuevo en unos momentos."
     ),
+    ErrorCode.ALREADY_SUBSCRIBED: "Ya tienes el plan Pro.",
+    ErrorCode.BILLING_ACCOUNT_NOT_FOUND: "Todavía no tienes una suscripción.",
+    ErrorCode.BILLING_UNAVAILABLE: (
+        "No se pudo conectar con el sistema de pagos. Inténtalo de nuevo."
+    ),
+    ErrorCode.BILLING_FETCH_FAILED: "No se pudo recuperar tu plan.",
+    ErrorCode.INVALID_WEBHOOK: "La firma del webhook no es válida.",
     ErrorCode.VALIDATION: "Los datos enviados no son válidos.",
     ErrorCode.RATE_LIMIT: (
         "Has superado el límite de peticiones. Intenta de nuevo en un minuto."

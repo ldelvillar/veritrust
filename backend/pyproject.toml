@@ -41,6 +41,7 @@ dependencies = [
     "orjson>=3.13.0",
     "pypdf>=6.21.1",
     "mcp>=2.3.0",
+    "stripe>=16.0.0",
 ]
 
 [project.optional-dependencies]

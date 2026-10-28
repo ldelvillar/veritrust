@@ -273,9 +273,8 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
         analysis_job_timeout_seconds = 900
         analysis_stale_after_seconds = 300
 
-        def validate_runtime(self, *, require_cors=True, require_mcp=True):
-            validated["require_cors"] = require_cors
-            validated["require_mcp"] = require_mcp
+        def validate_runtime(self, *, web=True):
+            validated["web"] = web
 
     def fake_create_graph(prompts):
         assert prompts is sentinel_prompts
@@ -302,7 +301,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     await worker.startup(ctx)
 
     # El worker no sirve peticiones web: no debe exigir CORS ni la URL MCP.
-    assert validated == {"require_cors": False, "require_mcp": False}
+    assert validated == {"web": False}
     assert ctx["verification_system"] is sentinel_graph
     assert ctx["evidence_system"] == ("evidence", sentinel_prompts)
     # La configuración registrada describe los mismos prompts con los que se construyó el grafo.

@@ -1077,6 +1077,7 @@ def test_openapi_documents_every_422_as_the_structured_error(monkeypatch):
 _PUBLIC_OPERATIONS = {
     "GET /shared/{token}",
     "POST /contact",
+    "POST /billing/webhook",
     "GET /config",
     "GET /healthz",
 }

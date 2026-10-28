@@ -172,7 +172,7 @@ async def reap_orphaned_analyses(ctx: dict) -> None:
 async def startup(ctx: dict) -> None:
     """Inicializa recursos de IA una vez al arrancar el worker."""
     settings = get_settings()
-    settings.validate_runtime(require_cors=False, require_mcp=False)
+    settings.validate_runtime(web=False)
     ensure_llm_available()
     prompts = load_prompts()
     ctx["verification_system"] = create_graph(prompts)

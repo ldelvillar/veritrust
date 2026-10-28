@@ -3,6 +3,7 @@
 import pytest
 
 from app.core.config import Settings, SettingsValidationError
+from tests.support.billing import PRICE_MONTHLY, PRICE_YEARLY, WEBHOOK_SECRET
 
 
 def _make_settings(**overrides) -> Settings:
@@ -18,6 +19,10 @@ def _make_settings(**overrides) -> Settings:
         "clerk_secret_key": "sk_test_dummy",
         "app_base_url": "https://veritrust.es",
         "mcp_resource_url": "https://api.veritrust.es/mcp",
+        "stripe_secret_key": "sk_test_dummy",
+        "stripe_webhook_secret": WEBHOOK_SECRET,
+        "stripe_price_pro_monthly": PRICE_MONTHLY,
+        "stripe_price_pro_yearly": PRICE_YEARLY,
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
@@ -84,6 +89,10 @@ def test_validate_runtime_reports_missing_required_vars():
         clerk_secret_key="",
         app_base_url="",
         mcp_resource_url="",
+        stripe_secret_key="",
+        stripe_webhook_secret="",
+        stripe_price_pro_monthly="",
+        stripe_price_pro_yearly=" ",
     )
 
     with pytest.raises(SettingsValidationError) as exc:
@@ -95,6 +104,10 @@ def test_validate_runtime_reports_missing_required_vars():
     assert "CLERK_SECRET_KEY" in message
     assert "APP_BASE_URL" in message
     assert "MCP_RESOURCE_URL" in message
+    assert "STRIPE_SECRET_KEY" in message
+    assert "STRIPE_WEBHOOK_SECRET" in message
+    assert "STRIPE_PRICE_PRO_MONTHLY" in message
+    assert "STRIPE_PRICE_PRO_YEARLY" in message
 
 
 def test_validate_runtime_requires_mcp_url_to_end_in_mcp():
@@ -104,10 +117,16 @@ def test_validate_runtime_requires_mcp_url_to_end_in_mcp():
         settings.validate_runtime()
 
 
-def test_validate_runtime_skips_mcp_url_for_the_worker():
-    settings = _make_settings(mcp_resource_url=None)
+def test_validate_runtime_skips_web_only_settings_for_the_worker():
+    settings = _make_settings(
+        environment="production",
+        cors_allowed_origins="",
+        mcp_resource_url=None,
+        stripe_secret_key="",
+        stripe_webhook_secret="",
+    )
 
-    settings.validate_runtime(require_cors=False, require_mcp=False)
+    settings.validate_runtime(web=False)
 
 
 def test_validate_runtime_requires_cors_origins_in_production():

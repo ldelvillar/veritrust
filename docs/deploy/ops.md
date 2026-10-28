@@ -106,6 +106,10 @@ curl https://$API_DOMAIN/analysis/$ANALYSIS_ID -H "Authorization: Bearer ak_…"
 
 Send a URL instead with `{"url": "https://…", "source_type": "url"}`. An analysis takes a few minutes, so poll every few seconds; `POST /analysis` is limited to `RATE_LIMIT_MAX_REQUESTS` per `RATE_LIMIT_WINDOW_SECONDS` per user (429 `RATE_LIMIT`). An invalid, revoked or expired key answers 401 `INVALID_TOKEN`; 503 `SERVICE_UNAVAILABLE` means Clerk could not be reached, so retry.
 
+## Billing (Stripe)
+
+Pro is sold through Stripe Billing (ADR-0005). The Stripe Dashboard setup, the test-mode local workflow and the webhook operations live in [stripe.md](stripe.md). The four `STRIPE_*` variables are required by the web process, so a deploy without them answers `/healthz` 503.
+
 ## Capacity & scaling
 
 The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.

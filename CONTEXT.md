@@ -111,3 +111,25 @@ _Avoid_: stats, totals
 **Export**:
 The done Analyses a History query finds, with their Verdicts, as a file to download.
 _Avoid_: dump, download
+
+## Plans
+
+**Plan**:
+What a user is entitled to: Free or Pro.
+_Avoid_: tier, level, package
+
+**Subscription**:
+The paid Stripe agreement that makes a user Pro while it is active or past due.
+_Avoid_: membership, license
+
+**Allowance**:
+How many done Runs a Plan allows per calendar month, Madrid time.
+_Avoid_: quota, credits
+
+**Usage**:
+The done Runs and successful evidence searches counted against the Allowance this month; deleting an Analysis never gives its Usage back.
+_Avoid_: consumption, spend
+
+**History window**:
+How far back a Plan sees its History: 30 days for Free, everything for Pro. Analyses outside it are hidden, never deleted.
+_Avoid_: retention

@@ -55,7 +55,7 @@ Use the `domain-modeling` skill.
   - **History window**: how far back a Plan sees its History; 30 days for Free, unlimited for Pro. _Avoid_: retention (nothing is deleted).
 - Write `docs/adr/0005-billing-with-stripe-and-postgres-entitlements.md`: Stripe over Clerk Billing (currency, VAT, 3DS), Postgres as the entitlement source of truth (all auth paths, instant effect), Usage as an append-only ledger written in the same transaction as `complete()` so deleting analyses never refunds units, and the advisory-lock allowance check living inside `analysis_transitions` to keep ADR-0001 intact.
 
-## 4. Stripe setup (manual, document in `docs/deploy/ops.md`)
+## 4. Stripe setup (manual, document in `docs/deploy/stripe.md`)
 
 The coding session can't click through Stripe, so write these steps as a runbook. Consider the `wizard` skill for an interactive script.
 
@@ -103,7 +103,7 @@ CREATE TABLE public.subscriptions (
     price_id               TEXT NOT NULL,
     billing_interval       TEXT NOT NULL CHECK (billing_interval IN ('month','year')),
     current_period_end     TIMESTAMPTZ NOT NULL,
-    cancel_at_period_end   BOOLEAN NOT NULL DEFAULT FALSE,
+    cancel_at              TIMESTAMPTZ,
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_subscriptions_user ON public.subscriptions (user_id);
@@ -180,7 +180,7 @@ Processing: verify the signature on the **raw** body (`await request.body()`, ne
 
 Register them in `app/api/router.py`. Every route raises `HTTPException(detail=make_error_detail(ErrorCode.X))` and declares its codes in `responses=`.
 
-- `GET /billing/plan` (auth) → `PlanResponse`: `plan`, `status | None`, `interval | None`, `current_period_end | None`, `cancel_at_period_end`, `limits` (the `PlanLimits` fields), `usage` (`used`, `pending`, `remaining`, `resets_at`). The frontend's only source of plan state.
+- `GET /billing/plan` (auth) → `PlanResponse`: `plan`, `status | None`, `interval | None`, `current_period_end | None`, `cancel_at | None` (the date a scheduled cancellation takes effect), `limits` (the `PlanLimits` fields), `usage` (`used`, `pending`, `remaining`, `resets_at`). The frontend's only source of plan state.
 - `POST /billing/checkout` (auth) body `{interval: "month" | "year"}` → `{url}`. 409 `ALREADY_SUBSCRIBED` if the user is already Pro.
 - `POST /billing/portal` (auth) → `{url}`. 404 `BILLING_ACCOUNT_NOT_FOUND` if the user never had a customer.
 - `POST /billing/webhook` (no auth, signature only). 400 `INVALID_WEBHOOK`. Exclude it from the per-user rate limit and from CORS concerns (Stripe calls it server to server). Check that Caddy's `request_body max_size` and any body-parsing middleware leave the raw body intact.
@@ -243,7 +243,8 @@ Users delete their account through Clerk's `UserButton`. Without handling, a del
 
 - `POST /webhooks/clerk` verifying the Svix signature (`svix` package, new `CLERK_WEBHOOK_SECRET` in `Settings`, `.env.example`, `docs/deploy/env.md` and `validate_runtime`).
 - On `user.deleted`: cancel any active Stripe subscription immediately (`prorate` per your T&C, see 8), and delete that user's `billing_customers`/`subscriptions` rows. Keep `usage_events` only if you need them for disputes; otherwise delete them too, and say which in the privacy policy.
-- Document the Clerk dashboard webhook setup in `docs/deploy/ops.md`.
+- Document the Clerk dashboard webhook setup in `docs/deploy/stripe.md`.
+- Cancelling needs **Subscriptions: Write** on the fine-grained Stripe key; update the permission table in `docs/deploy/stripe.md` and both keys (test and live).
 
 ### 5.10 Regenerate the contract
 
@@ -267,7 +268,7 @@ After the schema changes: start the backend and run `pnpm --dir frontend generat
 New `_components/PlanCard.tsx` above the existing cards (`id="plan"`):
 
 - Free: what Pro adds (reuse the landing's item list, imported from a shared module rather than copied), a monthly/annual toggle, "Hazte Pro" → `POST /billing/checkout` → `window.location.assign(url)`.
-- Pro: interval, next renewal date, "Se cancelará el …" when `cancel_at_period_end`, a warning band when `past_due` ("No hemos podido cobrar tu suscripción, actualiza tu método de pago"), and "Gestionar suscripción" → `POST /billing/portal`.
+- Pro: interval, next renewal date, "Se cancelará el …" with `cancel_at` when it is set, a warning band when `past_due` ("No hemos podido cobrar tu suscripción, actualiza tu método de pago"), and "Gestionar suscripción" → `POST /billing/portal`.
 - `?checkout=success`: show "Activando tu plan Pro…" and poll `GET /billing/plan` (for example every 2s, up to 30s) until it says Pro, because the webhook can land after the redirect. Then show a success message (`success` tokens). `?checkout=cancelled`: a neutral note.
 - `CuentaClient.tsx`: point "Exportar mis datos" at the new `GET /account/export` instead of `/history/export`.
 
@@ -311,7 +312,7 @@ Every change goes through a squash-merged PR from a branch. Put the checks below
 
 | PR | Scope | Required review |
 | --- | --- | --- |
-| 1. Billing foundations | `CONTEXT.md`, ADR-0005, migration `0003`, `Settings`, `plans.py`, `db/billing.py`, `core/billing.py`, billing routes, webhook, `GET /billing/plan`, Stripe runbook in `docs/deploy/ops.md`, env docs | `/code-review max` (migration, Settings), `/security-review` (webhook, payment input), `/simplify` |
+| 1. Billing foundations | `CONTEXT.md`, ADR-0005, migration `0003`, `Settings`, `plans.py`, `db/billing.py`, `core/billing.py`, billing routes, webhook, `GET /billing/plan`, Stripe runbook in `docs/deploy/stripe.md`, env docs | `/code-review max` (migration, Settings), `/security-review` (webhook, payment input), `/simplify` |
 | 2. Backend enforcement | Allowance in `analysis_transitions`, usage ledger in `complete()`, intake gates, worker truncation, history window and tool gates, dashboard, exports split, share gating, MCP gating, Clerk `user.deleted` webhook, regenerated `api.d.ts` | `/code-review max` (lifecycle, auth), `/security-review` (Clerk webhook), `/simplify` |
 | 3. Frontend | Plan hook, account plan card, checkout and portal flows, gates on every screen, landing and demo copy, help, e2e | `/code-review`, `/simplify` |
 | 4. Legal pages | Terms, privacy, legal notice | the user reads the diff |
