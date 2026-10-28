@@ -26,6 +26,8 @@ _SUBSCRIPTION_EVENTS = frozenset(
     }
 )
 _INVOICE_EVENTS = frozenset({"invoice.paid", "invoice.payment_failed"})
+# Estados en que una Subscription ya no cobra y Stripe no deja cancelarla
+_ENDED_STATUSES = frozenset({"canceled", "incomplete_expired"})
 
 _TERMS_MESSAGE = (
     "Acepto los [Términos y condiciones]({app_url}/terminos-y-condiciones) y pido que "
@@ -192,6 +194,22 @@ async def sync_subscription(subscription_id: str) -> None:
             ),
             conn,
         )
+
+
+async def forget_user(user_id: str) -> None:
+    """Cancela ya, sin prorrateo, las Subscriptions de un usuario que eliminó su cuenta y borra su facturación."""
+    customer_id = await billing_db.get_customer_id(user_id)
+    if customer_id is not None:
+        async with _stripe_errors():
+            subscriptions = await _client().v1.subscriptions.list_async(
+                params={"customer": customer_id, "limit": 100}
+            )
+            for subscription in subscriptions.data:
+                if subscription.status not in _ENDED_STATUSES:
+                    await _client().v1.subscriptions.cancel_async(subscription.id)
+    # El cliente de Stripe y sus facturas se conservan: la ley fiscal obliga a guardarlas.
+    await billing_db.delete_user_billing(user_id)
+    logger.info("Facturación del usuario eliminado %s dada de baja", user_id)
 
 
 async def _handle(event_type: str, obj: Any) -> None:

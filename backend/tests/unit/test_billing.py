@@ -56,6 +56,25 @@ class _CheckoutSessions(_Service):
         self.expired.append(session_id)
 
 
+class _Subscriptions(_Service):
+    """Subscriptions de mentira: las que lista el cliente y las que se cancelan."""
+
+    def __init__(self, result):
+        super().__init__(result)
+        self.listed: list = []
+        self.list_params: list = []
+        self.cancelled: list[str] = []
+
+    async def list_async(self, params=None, options=None):
+        self.list_params.append(params)
+        return SimpleNamespace(data=self.listed)
+
+    async def cancel_async(self, subscription_id, params=None, options=None):
+        if self.error is not None:
+            raise self.error
+        self.cancelled.append(subscription_id)
+
+
 class _FakeStripe:
     """StripeClient de mentira; la verificación de firmas es la real del SDK."""
 
@@ -65,7 +84,7 @@ class _FakeStripe:
             SimpleNamespace(url="https://checkout.stripe.test/s")
         )
         self.portal = _Service(SimpleNamespace(url="https://billing.stripe.test/p"))
-        self.subscriptions = _Service(_subscription())
+        self.subscriptions = _Subscriptions(_subscription())
         self.v1 = SimpleNamespace(
             customers=self.customers,
             checkout=SimpleNamespace(sessions=self.checkout),
@@ -83,6 +102,7 @@ class _FakeBillingDb:
         self.subscriptions: dict[str, SubscriptionRow] = {}
         self.events: dict[str, str] = {}
         self.locked: list[str] = []
+        self.forgotten: list[str] = []
 
     async def get_customer_id(self, user_id):
         return self.customers.get(user_id)
@@ -108,6 +128,10 @@ class _FakeBillingDb:
     async def subscription_lock(self, stripe_subscription_id):
         self.locked.append(stripe_subscription_id)
         yield None
+
+    async def delete_user_billing(self, user_id):
+        self.forgotten.append(user_id)
+        self.customers.pop(user_id, None)
 
 
 def _subscription(**overrides) -> stripe.Subscription:
@@ -392,3 +416,45 @@ async def test_sync_skips_a_subscription_with_no_user(fake_stripe, fake_db):
     await billing.sync_subscription("sub_1")
 
     assert fake_db.subscriptions == {}
+
+
+async def test_forget_user_cancels_every_live_subscription_then_deletes_the_rows(
+    fake_stripe, fake_db
+):
+    fake_db.customers[USER] = "cus_1"
+    fake_stripe.subscriptions.listed = [
+        SimpleNamespace(id=f"sub_{status}", status=status)
+        for status in ("active", "past_due", "canceled", "incomplete_expired")
+    ]
+
+    await billing.forget_user(USER)
+
+    assert fake_stripe.subscriptions.list_params == [
+        {"customer": "cus_1", "limit": 100}
+    ]
+    # Stripe no deja cancelar las ya terminadas: se saltan.
+    assert fake_stripe.subscriptions.cancelled == ["sub_active", "sub_past_due"]
+    assert fake_db.forgotten == [USER]
+
+
+async def test_forget_user_without_a_customer_only_deletes_the_rows(
+    fake_stripe, fake_db
+):
+    await billing.forget_user(USER)
+
+    assert fake_stripe.subscriptions.list_params == []
+    assert fake_db.forgotten == [USER]
+
+
+async def test_forget_user_keeps_the_rows_when_stripe_fails_so_clerk_retries(
+    fake_stripe, fake_db
+):
+    fake_db.customers[USER] = "cus_1"
+    fake_stripe.subscriptions.listed = [SimpleNamespace(id="sub_1", status="active")]
+    fake_stripe.subscriptions.error = stripe.PermissionError("sin Subscriptions: Write")
+
+    with pytest.raises(billing.BillingUnavailable):
+        await billing.forget_user(USER)
+
+    assert fake_db.forgotten == []
+    assert fake_db.customers == {USER: "cus_1"}

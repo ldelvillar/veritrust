@@ -6,12 +6,14 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol, get_args
 
+from app.core.plans import Allowance, PlanLimits, allowance_for, history_floor
 from app.core.verdict import Verdict
 from app.db import analysis_transitions as transitions
-from app.db.history import get_user_analysis_status
+from app.db.history import HiddenAnalysis, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
     AnalysisOrigin,
@@ -75,17 +77,25 @@ REFUSAL_CODES: frozenset[ErrorCode] = frozenset(
         ErrorCode.ANALYSIS_RETRY_FAILED,
         ErrorCode.ANALYSIS_NOT_REANALYZABLE,
         ErrorCode.ANALYSIS_REANALYZE_FAILED,
+        ErrorCode.PLAN_REQUIRED,
+        ErrorCode.ALLOWANCE_EXHAUSTED,
+        ErrorCode.TEXT_TOO_LONG_FOR_PLAN,
     }
 )
 
 
 @dataclass(frozen=True)
 class Submitter:
-    """Quién abre el análisis, desde qué Origin y a qué email avisar al terminar."""
+    """Quién abre el análisis, desde qué Origin, con qué Plan y a qué email avisar al terminar."""
 
     user_id: str
     origin: AnalysisOrigin
+    limits: PlanLimits
     notify_email: str | None = None
+
+    def allowance(self) -> Allowance:
+        """La Allowance de su Plan en el mes de Madrid en curso."""
+        return allowance_for(self.limits, datetime.now(UTC))
 
 
 class FileUpload(Protocol):
@@ -117,6 +127,10 @@ class AnalysisIntake:
         """Da de alta un análisis de texto o URL y devuelve su id ya encolado."""
         queue = self._require_queue()
         is_url = request.source_type == SourceType.URL
+        limits = submitter.limits
+        # El esquema acota a 10.000 para todos; el Plan puede acotar menos.
+        if not is_url and len(request.text or "") > limits.max_input_chars:
+            raise AnalysisRefused(ErrorCode.TEXT_TOO_LONG_FOR_PLAN)
         try:
             analysis_id = await transitions.insert_pending(
                 user_id=submitter.user_id,
@@ -124,7 +138,11 @@ class AnalysisIntake:
                 source_type=request.source_type.value,
                 input_text=None if is_url else request.text,
                 input_url=str(request.url) if is_url and request.url else None,
+                max_input_chars=limits.max_input_chars,
+                allowance=submitter.allowance(),
             )
+        except transitions.AllowanceExhausted as exc:
+            raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
         except DatabaseError as exc:
             logger.exception("No se pudo crear el análisis pendiente")
             raise AnalysisRefused(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
@@ -135,6 +153,9 @@ class AnalysisIntake:
     async def submit_file(self, submitter: Submitter, upload: FileUpload) -> str:
         """Valida y guarda un archivo (PDF/TXT/MD) y devuelve el id de su análisis encolado."""
         queue = self._require_queue()
+        # Se rechaza antes de leer el cuerpo: un Plan sin archivos no paga esa memoria.
+        if not submitter.limits.files:
+            raise AnalysisRefused(ErrorCode.PLAN_REQUIRED)
         filename = (upload.filename or _DEFAULT_FILENAME)[:_MAX_FILENAME_CHARS]
         suffix = Path(filename).suffix.lower()
         if suffix not in ALLOWED_FILE_SUFFIXES:
@@ -158,7 +179,11 @@ class AnalysisIntake:
                 origin=submitter.origin,
                 filename=filename,
                 data=data,
+                max_input_chars=submitter.limits.max_input_chars,
+                allowance=submitter.allowance(),
             )
+        except transitions.AllowanceExhausted as exc:
+            raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
         except DatabaseError as exc:
             logger.exception("No se pudo crear el análisis de archivo pendiente")
             raise AnalysisRefused(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
@@ -199,8 +224,12 @@ class AnalysisIntake:
         queue = self._require_queue()
         try:
             current = await get_user_analysis_status(
-                user_id=submitter.user_id, analysis_id=analysis_id
+                user_id=submitter.user_id,
+                analysis_id=analysis_id,
+                visible_since=history_floor(submitter.limits, datetime.now(UTC)),
             )
+        except HiddenAnalysis as exc:
+            raise AnalysisRefused(ErrorCode.PLAN_REQUIRED) from exc
         except DatabaseError as exc:
             raise AnalysisRefused(ErrorCode.ANALYSIS_FETCH_FAILED) from exc
 
@@ -214,11 +243,15 @@ class AnalysisIntake:
             raise AnalysisRefused(not_allowed)
 
         try:
+            # Un Retry también necesita un Run libre: si termina done consumirá la primera unidad.
             reopened = await transitions.reopen(
                 user_id=submitter.user_id,
                 analysis_id=analysis_id,
                 from_status=from_status,
+                allowance=submitter.allowance(),
             )
+        except transitions.AllowanceExhausted as exc:
+            raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
         except DatabaseError as exc:
             raise AnalysisRefused(write_failed) from exc
 
@@ -284,17 +317,19 @@ class TextContent:
 
 @dataclass(frozen=True)
 class UrlContent:
-    """Página web cuyo texto hay que extraer."""
+    """Página web cuyo texto hay que extraer, hasta el tope del Plan con que se abrió el análisis."""
 
     url: str
+    max_chars: int
 
 
 @dataclass(frozen=True)
 class FileContent:
-    """Archivo subido cuyo texto hay que extraer."""
+    """Archivo subido cuyo texto hay que extraer, hasta el tope del Plan con que se abrió el análisis."""
 
     data: bytes
     filename: str
+    max_chars: int
 
 
 AnalysisContent = TextContent | UrlContent | FileContent
@@ -505,11 +540,13 @@ class AnalysisRunner:
 def _content_from_row(row: dict[str, Any]) -> AnalysisContent | None:
     """Construye la entrada de la Run desde la fila; None si falta el archivo subido."""
     if row["source_type"] == SourceType.URL.value:
-        return UrlContent(url=str(row["input_url"]))
+        return UrlContent(url=str(row["input_url"]), max_chars=row["max_input_chars"])
     if row["source_type"] == SourceType.FILE.value:
         if row["file_data"] is None:
             return None
         return FileContent(
-            data=bytes(row["file_data"]), filename=row["file_filename"] or ""
+            data=bytes(row["file_data"]),
+            filename=row["file_filename"] or "",
+            max_chars=row["max_input_chars"],
         )
     return TextContent(text=row["input_text"] or "")

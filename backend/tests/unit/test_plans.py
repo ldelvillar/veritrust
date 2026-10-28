@@ -1,6 +1,8 @@
 """Tablas de casos de ``app/core/plans.py``: qué Subscription da Pro y el mes de la Allowance."""
 
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
+from typing import get_args
 
 import pytest
 
@@ -8,6 +10,10 @@ from app.core.plans import (
     FREE,
     MADRID,
     PRO,
+    Allowance,
+    Feature,
+    PlanLimits,
+    allowance_for,
     history_floor,
     limits_for,
     month_window,
@@ -87,6 +93,21 @@ def test_month_window_offsets_follow_daylight_saving():
 
     assert start.utcoffset() == timedelta(hours=2)
     assert end.utcoffset() == timedelta(hours=1)
+
+
+def test_features_are_exactly_the_boolean_limits():
+    booleans = {field.name for field in fields(PlanLimits) if field.type is bool}
+
+    assert set(get_args(Feature)) == booleans
+
+
+def test_allowance_is_the_plans_runs_in_the_madrid_month():
+    now = datetime(2026, 10, 31, 23, 30, tzinfo=UTC)
+
+    assert allowance_for(FREE, now) == Allowance(
+        runs=10, month_start=_madrid(2026, 11, 1), month_end=_madrid(2026, 12, 1)
+    )
+    assert allowance_for(PRO, now).runs == 300
 
 
 def test_history_floor_is_thirty_days_for_free_and_none_for_pro():

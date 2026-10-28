@@ -29,7 +29,8 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.pool import close_pool, get_pool
+from app.db.billing import record_evidence_search
+from app.db.pool import DatabaseError, close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
 from app.schemas.mcp import EVIDENCE_RESULT_TTL_SECONDS, MAX_ABSTRACT_CHARS
@@ -50,7 +51,9 @@ async def _input_text(run: AnalysisRun) -> str:
     content = run.content
     if isinstance(content, UrlContent):
         try:
-            return await asyncio.to_thread(extract_text_from_url, content.url)
+            return await asyncio.to_thread(
+                extract_text_from_url, content.url, content.max_chars
+            )
         except URLExtractionError as exc:
             logger.info("[Worker] Extracción de URL fallida para %s", run.analysis_id)
             raise AnalysisFailure(ErrorCode.URL_EXTRACTION) from exc
@@ -58,7 +61,10 @@ async def _input_text(run: AnalysisRun) -> str:
     if isinstance(content, FileContent):
         try:
             text = await asyncio.to_thread(
-                extract_text_from_file, content.data, content.filename
+                extract_text_from_file,
+                content.data,
+                content.filename,
+                content.max_chars,
             )
         except FileExtractionError as exc:
             logger.info(
@@ -127,7 +133,7 @@ def _truncate_abstract(text: str | None) -> str | None:
     return text[:MAX_ABSTRACT_CHARS].rstrip() + "…"
 
 
-async def run_evidence_search(ctx: dict, claim: str) -> dict:
+async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
     """
     Busca y juzga la evidencia de una afirmación sin
     emitir veredicto; devuelve un dict serializable.
@@ -161,6 +167,13 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
         for hit in entry["hits"] or []:
             hit["abstract"] = _truncate_abstract(hit["abstract"])
 
+    # Solo una búsqueda con resultado consume Allowance; si anotarla falla, el resultado se entrega igual.
+    try:
+        await record_evidence_search(user_id)
+    except DatabaseError:
+        logger.exception(
+            "[Worker] No se pudo anotar la búsqueda de evidencia en el Usage"
+        )
     return report
 
 

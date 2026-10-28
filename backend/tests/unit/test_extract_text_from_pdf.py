@@ -47,28 +47,28 @@ def _make_pdf(text: str) -> bytes:
 
 
 def test_extracts_text_from_valid_pdf():
-    result = extract_text_from_pdf(_make_pdf("Hello World"))
+    result = extract_text_from_pdf(_make_pdf("Hello World"), MAX_INPUT_TEXT_LENGTH)
 
     assert "Hello World" in result
 
 
-def test_truncates_to_max_input_length():
+def test_truncates_to_the_given_limit():
     long_text = "A" * (MAX_INPUT_TEXT_LENGTH + 2000)
 
-    result = extract_text_from_pdf(_make_pdf(long_text))
+    result = extract_text_from_pdf(_make_pdf(long_text), 3000)
 
-    assert len(result) <= MAX_INPUT_TEXT_LENGTH
+    assert len(result) <= 3000
     assert result.startswith("AAAA")
 
 
 def test_raises_on_pdf_without_extractable_text():
     with pytest.raises(PDFExtractionError, match="No se pudo extraer texto"):
-        extract_text_from_pdf(_make_pdf(""))
+        extract_text_from_pdf(_make_pdf(""), MAX_INPUT_TEXT_LENGTH)
 
 
 def test_raises_on_corrupt_input():
     with pytest.raises(PDFExtractionError, match="No se pudo leer el PDF"):
-        extract_text_from_pdf(b"this is not a pdf")
+        extract_text_from_pdf(b"this is not a pdf", MAX_INPUT_TEXT_LENGTH)
 
 
 def test_raises_on_password_protected_pdf():
@@ -80,4 +80,4 @@ def test_raises_on_password_protected_pdf():
     writer.write(buffer)
 
     with pytest.raises(PDFExtractionError, match="protegido con contraseña"):
-        extract_text_from_pdf(buffer.getvalue())
+        extract_text_from_pdf(buffer.getvalue(), MAX_INPUT_TEXT_LENGTH)

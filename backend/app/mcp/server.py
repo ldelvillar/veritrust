@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, TypeVar
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -22,11 +23,13 @@ from app.agents.main import PIPELINE_STAGES
 from app.core.analysis_lifecycle import AnalysisIntake, AnalysisRefused, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
+from app.core.plans import PlanLimits, limits_for, month_window, remaining
 from app.core.rate_limit import (
     RateLimitRefused,
     enforce_sliding_window,
     user_rate_limit_key,
 )
+from app.db.billing import get_user_subscription, usage_this_month
 from app.db.history import get_user_analysis_by_id, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.mcp.auth import ClerkOAuthTokenVerifier
@@ -113,6 +116,28 @@ def _current_user_id() -> str:
     return token.subject
 
 
+async def _require_mcp_plan(user_id: str) -> PlanLimits:
+    """Devuelve el Plan del usuario, leído en cada llamada, y rechaza si no incluye MCP."""
+    try:
+        limits = limits_for(await get_user_subscription(user_id))
+    except DatabaseError as exc:
+        raise _tool_error(ErrorCode.BILLING_FETCH_FAILED) from exc
+    if not limits.mcp:
+        raise _tool_error(ErrorCode.PLAN_REQUIRED)
+    return limits
+
+
+async def _require_allowance(user_id: str, limits: PlanLimits) -> None:
+    """Rechaza una búsqueda de evidencia con la Allowance del mes agotada; no cuenta las búsquedas en curso."""
+    start, end = month_window(datetime.now(UTC))
+    try:
+        usage = await usage_this_month(user_id, start, end)
+    except DatabaseError as exc:
+        raise _tool_error(ErrorCode.BILLING_FETCH_FAILED) from exc
+    if remaining(limits, usage.used, usage.pending) == 0:
+        raise _tool_error(ErrorCode.ALLOWANCE_EXHAUSTED)
+
+
 async def _consume_rate_limit(redis: Any, user_id: str) -> None:
     """Descuenta una llamada del mismo presupuesto por usuario que la API web."""
     settings = get_settings()
@@ -166,7 +191,8 @@ async def _read_analysis(
 ) -> RowT:
     """Lee el análisis del usuario, traduciendo un fallo de BD o su ausencia al contrato."""
     try:
-        row = await read(user_id=user_id, analysis_id=analysis_id)
+        # MCP es solo de Pro, cuya History window no tiene límite.
+        row = await read(user_id=user_id, analysis_id=analysis_id, visible_since=None)
     except DatabaseError as exc:
         raise _tool_error(ErrorCode.ANALYSIS_FETCH_FAILED) from exc
     if row is None:
@@ -345,10 +371,11 @@ def build_mcp_server(
             raise ToolError(f"Invalid input: {messages}") from exc
 
         user_id = _current_user_id()
+        limits = await _require_mcp_plan(user_id)
         await _consume_rate_limit(redis, user_id)
 
         # Sin email: el cliente MCP recibe el resultado en la propia llamada.
-        submitter = Submitter(user_id=user_id, origin="mcp")
+        submitter = Submitter(user_id=user_id, origin="mcp", limits=limits)
         try:
             analysis_id = await analysis_intake.submit(submitter, request)
         except AnalysisRefused as exc:
@@ -368,6 +395,7 @@ def build_mcp_server(
     ) -> VerificationResult:
         """Espera y devuelve el estado de un análisis MCP del usuario."""
         user_id = _current_user_id()
+        await _require_mcp_plan(user_id)
         try:
             UUID(analysis_id)
         except ValueError as exc:
@@ -391,7 +419,9 @@ def build_mcp_server(
     ) -> EvidenceSearchResult:
         """Encola la búsqueda de evidencia en el worker y espera su resultado."""
         user_id = _current_user_id()
+        limits = await _require_mcp_plan(user_id)
         await _consume_rate_limit(redis, user_id)
+        await _require_allowance(user_id, limits)
 
         job_id = uuid4().hex
         try:
@@ -402,8 +432,9 @@ def build_mcp_server(
                 ex=get_settings().analysis_job_timeout_seconds
                 + EVIDENCE_RESULT_TTL_SECONDS,
             )
+            # El worker anota la búsqueda en el Usage de user_id solo si termina con resultado.
             job = await arq_pool.enqueue_job(
-                "run_evidence_search", claim.strip(), _job_id=job_id
+                "run_evidence_search", claim.strip(), user_id, _job_id=job_id
             )
         except (OSError, RedisError) as exc:
             logger.exception("[MCP] No se pudo encolar la búsqueda de evidencia")
@@ -429,6 +460,7 @@ def build_mcp_server(
     ) -> EvidenceSearchResult:
         """Espera y devuelve el resultado de una búsqueda de evidencia del usuario."""
         user_id = _current_user_id()
+        await _require_mcp_plan(user_id)
         try:
             owner = await redis.get(_EVIDENCE_OWNER_KEY.format(job_id=job_id))
         except (OSError, RedisError) as exc:

@@ -12,6 +12,9 @@ _UPDATE_SET = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _ASSIGNS_STATE = re.compile(r"\b(status|stage)\s*=", re.IGNORECASE)
+_WRITES_USAGE = re.compile(
+    r"\b(INSERT\s+INTO|UPDATE)\s+public\.usage_events\b", re.IGNORECASE
+)
 
 
 def _writes_state(source: str) -> list[str]:
@@ -50,6 +53,15 @@ def test_no_other_sql_opens_an_analysis_or_writes_its_status_or_stage():
     }
 
     assert offenders == {}
+
+
+def test_only_run_completion_and_evidence_searches_write_the_usage_ledger():
+    # ADR-0005: el Usage de una Run nace con su done; el de una búsqueda, en el worker.
+    writers = sorted(
+        name for name, source in _app_sources().items() if _WRITES_USAGE.search(source)
+    )
+
+    assert writers == ["db/analysis_transitions.py", "db/billing.py"]
 
 
 def test_the_check_still_recognises_the_real_transitions():

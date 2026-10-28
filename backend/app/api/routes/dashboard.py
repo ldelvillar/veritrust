@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.dependencies.get_current_user import get_current_user
+from app.api.dependencies.plan import require
 from app.core.errors import make_error_detail
 from app.db.dashboard import get_user_dashboard_summary
 from app.db.pool import DatabaseError
@@ -14,6 +15,7 @@ router = APIRouter()
 
 _GET_SUMMARY_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
 
@@ -26,6 +28,7 @@ _GET_SUMMARY_ERROR_RESPONSES: dict[int | str, dict] = {
 async def get_dashboard_summary(
     trend_days: int = Query(default=14, ge=7, le=90),
     user=Depends(get_current_user),
+    _plan=Depends(require("dashboard")),
 ):
     """Endpoint para obtener métricas agregadas del dashboard del usuario."""
     user_id = user["sub"]

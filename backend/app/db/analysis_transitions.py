@@ -1,4 +1,4 @@
-"""Escrituras de estado y etapa de un análisis; solo las usa ``app.core.analysis_lifecycle``."""
+"""Escrituras de estado y etapa de un análisis y de la Usage de sus Runs; solo las usa ``app.core.analysis_lifecycle``."""
 
 from __future__ import annotations
 
@@ -8,8 +8,42 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from app.core.plans import Allowance
 from app.core.verdict import Verdict
+from app.db.billing import usage_this_month
 from app.db.pool import DatabaseError, _build_database_error, get_pool
+
+# Serializa las aperturas de un mismo usuario hasta que su transacción termina.
+_LOCK_ALLOWANCE = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
+
+# La primera Run done de un análisis cuenta como analysis y cada una posterior como reanalysis.
+_RECORD_RUN_USAGE = """
+    INSERT INTO public.usage_events (user_id, kind, analysis_id)
+    VALUES (
+        %s,
+        CASE WHEN EXISTS (SELECT 1 FROM public.usage_events WHERE analysis_id = %s)
+             THEN 'reanalysis' ELSE 'analysis' END,
+        %s
+    )
+"""
+
+
+class AllowanceExhausted(Exception):
+    """El usuario no tiene Runs libres en la Allowance de este mes; no se escribió nada."""
+
+
+async def _claim_allowance(
+    conn: psycopg.AsyncConnection, user_id: str, allowance: Allowance
+) -> None:
+    """Bloquea las aperturas del usuario y lanza AllowanceExhausted si su Allowance está agotada."""
+    async with conn.cursor() as cur:
+        await cur.execute(_LOCK_ALLOWANCE, (user_id,))
+    # Los pendientes cuentan: cada uno consumirá un Run si termina done.
+    usage = await usage_this_month(
+        user_id, allowance.month_start, allowance.month_end, conn
+    )
+    if usage.used + usage.pending >= allowance.runs:
+        raise AllowanceExhausted(user_id)
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -47,43 +81,63 @@ async def insert_pending(
     source_type: str,
     input_text: str | None,
     input_url: str | None,
+    max_input_chars: int,
+    allowance: Allowance,
 ) -> str:
-    """Inserta un análisis de texto o URL en estado ``pending`` y devuelve su id."""
+    """Inserta un análisis de texto o URL en estado ``pending`` si cabe en la Allowance y devuelve su id."""
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, origin, input_text, input_url, status)
-        VALUES (%s, %s, %s, %s, %s, 'pending')
+        (user_id, source_type, origin, input_text, input_url, max_input_chars, status)
+        VALUES (%s, %s, %s, %s, %s, %s, 'pending')
         RETURNING id
     """
     return await _insert(
         query,
-        (user_id, source_type, origin, input_text, input_url),
+        (user_id, source_type, origin, input_text, input_url, max_input_chars),
         "No se pudo guardar el analisis en la base de datos.",
+        user_id=user_id,
+        allowance=allowance,
     )
 
 
 async def insert_pending_file(
-    *, user_id: str, origin: str, filename: str, data: bytes
+    *,
+    user_id: str,
+    origin: str,
+    filename: str,
+    data: bytes,
+    max_input_chars: int,
+    allowance: Allowance,
 ) -> str:
-    """Inserta un análisis de archivo en estado ``pending`` con su binario y devuelve su id."""
+    """Inserta un análisis de archivo en estado ``pending`` con su binario si cabe en la Allowance y devuelve su id."""
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, origin, file_data, file_filename, status)
-        VALUES (%s, 'file', %s, %s, %s, 'pending')
+        (user_id, source_type, origin, file_data, file_filename, max_input_chars, status)
+        VALUES (%s, 'file', %s, %s, %s, %s, 'pending')
         RETURNING id
     """
     return await _insert(
         query,
-        (user_id, origin, data, filename),
+        (user_id, origin, data, filename, max_input_chars),
         "No se pudo guardar el archivo en la base de datos.",
+        user_id=user_id,
+        allowance=allowance,
     )
 
 
-async def _insert(query: str, params: tuple[Any, ...], context: str) -> str:
-    """Ejecuta un INSERT … RETURNING id y devuelve el id creado."""
+async def _insert(
+    query: str,
+    params: tuple[Any, ...],
+    context: str,
+    *,
+    user_id: str,
+    allowance: Allowance,
+) -> str:
+    """Comprueba la Allowance y ejecuta un INSERT … RETURNING id en la misma transacción."""
     pool = await get_pool()
     try:
-        async with pool.connection() as conn:
+        async with pool.connection() as conn, conn.transaction():
+            await _claim_allowance(conn, user_id, allowance)
             async with conn.cursor() as cur:
                 await cur.execute(query, params)
                 inserted_row = await cur.fetchone()
@@ -97,9 +151,13 @@ async def _insert(query: str, params: tuple[Any, ...], context: str) -> str:
 
 
 async def reopen(
-    *, user_id: str, analysis_id: str, from_status: Literal["failed", "done"]
+    *,
+    user_id: str,
+    analysis_id: str,
+    from_status: Literal["failed", "done"],
+    allowance: Allowance,
 ) -> bool:
-    """Devuelve a ``pending`` un análisis propio que sigue en ``from_status``; True si cambió."""
+    """Devuelve a ``pending`` un análisis propio que sigue en ``from_status`` si cabe en la Allowance; True si cambió."""
     # created_at se reinicia para el reaper; el resultado anterior se borra para no seguir sumando en agregados.
     query = """
         UPDATE public.analysis_history
@@ -118,17 +176,24 @@ async def reopen(
             completed_at = NULL
         WHERE user_id = %s AND id = %s AND status = %s
     """
-    return await _update(
-        query,
-        (user_id, analysis_id, from_status),
-        "No se pudo reabrir el análisis en la base de datos.",
-    )
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn, conn.transaction():
+            await _claim_allowance(conn, user_id, allowance)
+            async with conn.cursor() as cur:
+                await cur.execute(query, (user_id, analysis_id, from_status))
+                return cur.rowcount > 0
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo reabrir el análisis en la base de datos.")
+        ) from exc
 
 
 async def load_pending_content(analysis_id: str) -> dict[str, Any] | None:
-    """Devuelve la entrada de un análisis ``pending`` (tipo, texto, URL y archivo), o None."""
+    """Devuelve la entrada de un análisis ``pending`` (tipo, texto, URL, archivo y tope de caracteres), o None."""
     query = """
-        SELECT source_type, input_text, input_url, file_data, file_filename
+        SELECT source_type, input_text, input_url, file_data, file_filename,
+               max_input_chars
         FROM public.analysis_history
         WHERE id = %s AND status = 'pending'
     """
@@ -194,7 +259,7 @@ async def complete(
     sources: list[dict],
     pipeline: dict,
 ) -> bool:
-    """Pasa a ``done`` con su veredicto un análisis que sigue ``pending``; True si cambió."""
+    """Pasa a ``done`` con su veredicto un análisis que sigue ``pending`` y anota su Run en la Usage; True si cambió."""
     confidence_value = _normalize_confidence(verdict.confidence)
     coverage_value = _coerce_optional_fraction(verdict.evidence_coverage)
     claims = [
@@ -215,22 +280,34 @@ async def complete(
             error_code = NULL,
             completed_at = NOW()
         WHERE id = %s AND status = 'pending'
+        RETURNING user_id
     """
-    return await _update(
-        query,
-        (
-            verdict.label,
-            verdict.kind,
-            confidence_value,
-            coverage_value,
-            explanation,
-            Jsonb(claims) if claims else None,
-            Jsonb(sources) if sources else None,
-            Jsonb(pipeline) if pipeline else None,
-            analysis_id,
-        ),
-        "No se pudo guardar el analisis en la base de datos.",
+    params = (
+        verdict.label,
+        verdict.kind,
+        confidence_value,
+        coverage_value,
+        explanation,
+        Jsonb(claims) if claims else None,
+        Jsonb(sources) if sources else None,
+        Jsonb(pipeline) if pipeline else None,
+        analysis_id,
     )
+    pool = await get_pool()
+    try:
+        # El Run consume su unidad en la misma transacción: un done sin Usage es imposible.
+        async with pool.connection() as conn, conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+                if row is None:
+                    return False
+                await cur.execute(_RECORD_RUN_USAGE, (row[0], analysis_id, analysis_id))
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo guardar el analisis en la base de datos.")
+        ) from exc
+    return True
 
 
 async def list_stale_pending_ids(*, older_than_seconds: int) -> list[str]:

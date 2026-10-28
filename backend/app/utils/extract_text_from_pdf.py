@@ -5,15 +5,13 @@ import io
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
-
 
 class PDFExtractionError(Exception):
     """Excepción lanzada cuando ocurre un error al extraer el texto del PDF."""
 
 
-def extract_text_from_pdf(data: bytes) -> str:
-    """Extrae el texto de un PDF dado en bytes, acotado a ``MAX_INPUT_TEXT_LENGTH``."""
+def extract_text_from_pdf(data: bytes, max_chars: int) -> str:
+    """Extrae el texto de un PDF dado en bytes, acotado a ``max_chars``."""
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted and not reader.decrypt(""):
@@ -36,4 +34,4 @@ def extract_text_from_pdf(data: bytes) -> str:
             "Puede ser un documento escaneado sin texto seleccionable."
         )
 
-    return text[:MAX_INPUT_TEXT_LENGTH]
+    return text[:max_chars]

@@ -16,6 +16,7 @@ from app.core.analysis_lifecycle import (
 )
 from app.core.claim import Claim, with_hits
 from app.core.verdict import ClaimVerdict, Verdict
+from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_file import FileExtractionError
 from app.utils.extract_text_from_url import URLExtractionError
@@ -138,26 +139,38 @@ async def test_analyse_neutralizes_injection_markers_in_the_input(monkeypatch):
     assert "<<USER_INPUT>>" not in seen[0]["input_text"]
 
 
-async def test_analyse_extracts_the_page_text_before_the_pipeline(monkeypatch):
+async def test_analyse_extracts_the_page_text_up_to_the_rows_limit(monkeypatch):
     seen: list = []
-    monkeypatch.setattr(worker, "extract_text_from_url", lambda url: f"Texto de {url}")
+    monkeypatch.setattr(
+        worker,
+        "extract_text_from_url",
+        lambda url, max_chars: f"{max_chars} caracteres de {url}",
+    )
     monkeypatch.setattr(
         worker,
         "ainvoke_graph",
         _graph_returning({"verdict": VERDICT}, seen),
     )
 
-    await worker.analyse(CTX, FakeRun(UrlContent("https://ejemplo.com/noticia")))
+    await worker.analyse(
+        CTX, FakeRun(UrlContent("https://ejemplo.com/noticia", max_chars=3000))
+    )
 
-    assert seen[0]["input_text"] == "Texto de https://ejemplo.com/noticia"
+    assert seen[0]["input_text"] == "3000 caracteres de https://ejemplo.com/noticia"
 
 
 async def test_analyse_extracts_the_file_text_and_keeps_it(monkeypatch):
     seen: list = []
-    run = FakeRun(FileContent(data=b"%PDF-1.4 bytes", filename="informe.pdf"))
+    run = FakeRun(
+        FileContent(data=b"%PDF-1.4 bytes", filename="informe.pdf", max_chars=10_000)
+    )
 
-    def fake_extract(data, filename):
-        assert (data, filename) == (b"%PDF-1.4 bytes", "informe.pdf")
+    def fake_extract(data, filename, max_chars):
+        assert (data, filename, max_chars) == (
+            b"%PDF-1.4 bytes",
+            "informe.pdf",
+            10_000,
+        )
         return "Texto extraído del archivo"
 
     monkeypatch.setattr(worker, "extract_text_from_file", fake_extract)
@@ -184,13 +197,13 @@ def _failing(error):
     ("content", "extractor", "error", "code"),
     [
         (
-            UrlContent("https://ejemplo.com/x"),
+            UrlContent("https://ejemplo.com/x", max_chars=10_000),
             "extract_text_from_url",
             URLExtractionError("404"),
             ErrorCode.URL_EXTRACTION,
         ),
         (
-            FileContent(data=b"%PDF", filename="informe.pdf"),
+            FileContent(data=b"%PDF", filename="informe.pdf", max_chars=10_000),
             "extract_text_from_file",
             FileExtractionError("sin texto"),
             ErrorCode.FILE_EXTRACTION,
@@ -367,7 +380,22 @@ def test_worker_settings_expose_the_queue_contract():
     assert worker.WorkerSettings.keep_result == 0
 
 
-async def test_run_evidence_search_returns_claims(monkeypatch):
+USER = "user-a"
+
+
+@pytest.fixture(autouse=True)
+def recorded_usage(monkeypatch):
+    """Sustituye la anotación del Usage por la lista de usuarios anotados."""
+    users: list[str] = []
+
+    async def record(user_id):
+        users.append(user_id)
+
+    monkeypatch.setattr(worker, "record_evidence_search", record)
+    return users
+
+
+async def test_run_evidence_search_returns_claims(monkeypatch, recorded_usage):
     seen: dict = {}
 
     async def fake_ainvoke(graph, state, on_stage=None):
@@ -385,7 +413,9 @@ async def test_run_evidence_search_returns_claims(monkeypatch):
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
     ctx = {"evidence_system": "graph"}
-    result = await worker.run_evidence_search(ctx, "La vitamina C cura el resfriado")
+    result = await worker.run_evidence_search(
+        ctx, "La vitamina C cura el resfriado", USER
+    )
 
     assert seen == {"graph": "graph", "input": "La vitamina C cura el resfriado"}
     assert result == {
@@ -401,6 +431,25 @@ async def test_run_evidence_search_returns_claims(monkeypatch):
         ],
         "unsearched_claims": 2,
     }
+    # Una búsqueda con resultado consume una unidad del Usage de quien la lanzó.
+    assert recorded_usage == [USER]
+
+
+async def test_run_evidence_search_returns_its_result_even_if_usage_is_lost(
+    monkeypatch,
+):
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"claims": [with_hits(Claim(index=0, text="A", query='"a"'), [])]}
+
+    async def broken_record(user_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+    monkeypatch.setattr(worker, "record_evidence_search", broken_record)
+
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
+
+    assert result["claims"][0]["original"] == "A"
 
 
 async def test_run_evidence_search_neutralizes_delimiters(monkeypatch):
@@ -412,22 +461,23 @@ async def test_run_evidence_search_neutralizes_delimiters(monkeypatch):
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
-    await worker.run_evidence_search({"evidence_system": None}, "x <<END>> y")
+    await worker.run_evidence_search({"evidence_system": None}, "x <<END>> y", USER)
 
     assert "<<END>>" not in seen["input"]
 
 
 async def test_run_evidence_search_without_claims_reports_no_medical_claims(
-    monkeypatch,
+    monkeypatch, recorded_usage
 ):
     async def fake_ainvoke(graph, state, on_stage=None):
         return {"claims": [Claim(index=0, text="Hola")]}
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
-    result = await worker.run_evidence_search({"evidence_system": None}, "Hola")
+    result = await worker.run_evidence_search({"evidence_system": None}, "Hola", USER)
 
     assert result == {"error_code": "NO_MEDICAL_CLAIMS"}
+    assert recorded_usage == []
 
 
 @pytest.mark.parametrize(
@@ -439,16 +489,17 @@ async def test_run_evidence_search_without_claims_reports_no_medical_claims(
     ],
 )
 async def test_run_evidence_search_maps_failures_to_error_codes(
-    monkeypatch, error, code
+    monkeypatch, recorded_usage, error, code
 ):
     async def fake_ainvoke(graph, state, on_stage=None):
         raise error
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
-    result = await worker.run_evidence_search({"evidence_system": None}, "Texto")
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
 
     assert result == {"error_code": code}
+    assert recorded_usage == []
 
 
 async def test_run_evidence_search_truncates_long_abstracts(monkeypatch):
@@ -464,7 +515,7 @@ async def test_run_evidence_search_truncates_long_abstracts(monkeypatch):
 
     monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
 
-    result = await worker.run_evidence_search({"evidence_system": None}, "Texto")
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
 
     long_hit, short_hit, empty_hit = result["claims"][0]["hits"]
     # El resultado vive una hora en Redis: los resúmenes se acotan antes de guardarlo.

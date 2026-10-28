@@ -10,6 +10,10 @@ from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 
 PlanName = Literal["free", "pro"]
 BillingInterval = Literal["month", "year"]
+# Funciones que un Plan concede o niega: los campos booleanos de PlanLimits
+Feature = Literal[
+    "files", "history_tools", "dashboard", "csv_export", "share", "mcp", "pdf"
+]
 
 # Estados de Stripe que mantienen Pro; past_due lo conserva durante los reintentos de cobro
 PRO_STATUSES = frozenset({"active", "trialing", "past_due"})
@@ -76,15 +80,26 @@ class SubscriptionRow:
     cancel_at: datetime | None
 
 
+@dataclass(frozen=True)
+class Allowance:
+    """Runs done que el Plan permite en un mes de Madrid, con el inicio y el fin de ese mes."""
+
+    runs: int
+    month_start: datetime
+    month_end: datetime
+
+
+def pro_price_ids() -> list[str]:
+    """Los dos precios de Stripe que hacen Pro a una Subscription."""
+    settings = get_settings()
+    return [settings.stripe_price_pro_monthly, settings.stripe_price_pro_yearly]
+
+
 def is_pro(subscription: SubscriptionRow | None) -> bool:
     """Indica si la Subscription está en un estado Pro y sobre uno de los dos precios Pro."""
     if subscription is None or subscription.status not in PRO_STATUSES:
         return False
-    settings = get_settings()
-    return subscription.price_id in {
-        settings.stripe_price_pro_monthly,
-        settings.stripe_price_pro_yearly,
-    }
+    return subscription.price_id in pro_price_ids()
 
 
 def limits_for(subscription: SubscriptionRow | None) -> PlanLimits:
@@ -104,6 +119,12 @@ def month_window(now: datetime) -> tuple[datetime, datetime]:
     if local.month == 12:
         return start, datetime(local.year + 1, 1, 1, tzinfo=MADRID)
     return start, datetime(local.year, local.month + 1, 1, tzinfo=MADRID)
+
+
+def allowance_for(limits: PlanLimits, now: datetime) -> Allowance:
+    """Devuelve la Allowance del Plan en el mes de Madrid que contiene ``now``."""
+    start, end = month_window(now)
+    return Allowance(runs=limits.analyses_per_month, month_start=start, month_end=end)
 
 
 def history_floor(limits: PlanLimits, now: datetime) -> datetime | None:

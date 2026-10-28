@@ -137,10 +137,17 @@ def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
     )
 
 
-def _where(user_id: str, query: HistoryQuery, now: datetime) -> tuple[str, list[Any]]:
-    """Traduce la consulta a un WHERE parametrizado con un predicado por filtro activo."""
+def _where(
+    user_id: str, query: HistoryQuery, now: datetime, visible_since: datetime | None
+) -> tuple[str, list[Any]]:
+    """Traduce la consulta a un WHERE parametrizado con un predicado por filtro activo y la History window."""
     clauses = ["user_id = %s"]
     params: list[Any] = [user_id]
+
+    # La History window es un derecho del Plan, no un filtro: va aparte de HistoryQuery.
+    if visible_since is not None:
+        clauses.append("created_at >= %s")
+        params.append(visible_since)
 
     if query.status != "all":
         clauses.append("status = %s")
@@ -174,15 +181,20 @@ def _where(user_id: str, query: HistoryQuery, now: datetime) -> tuple[str, list[
 
 
 async def search_history(
-    *, user_id: str, query: HistoryQuery, page: int, page_size: int
+    *,
+    user_id: str,
+    query: HistoryQuery,
+    page: int,
+    page_size: int,
+    visible_since: datetime | None,
 ) -> HistoryPage:
-    """Devuelve una página del historial, su total y el facet de veredicto de la consulta."""
+    """Devuelve una página del historial visible, su total y el facet de veredicto de la consulta."""
     pool = await get_pool()
     now = datetime.now(timezone.utc)
 
     # El facet es la consulta sin su propio filtro; el total es una de sus celdas.
     facet_sql, facet_params = _where(
-        user_id, query.model_copy(update={"verdict": "all"}), now
+        user_id, query.model_copy(update={"verdict": "all"}), now, visible_since
     )
     facet_query = f"""
         SELECT {_FACET_SELECT}
@@ -190,7 +202,7 @@ async def search_history(
         WHERE {facet_sql}
     """
 
-    where_sql, where_params = _where(user_id, query, now)
+    where_sql, where_params = _where(user_id, query, now, visible_since)
     page_query = f"""
         SELECT {_HISTORY_LIST_SELECT}
         FROM public.analysis_history
@@ -234,11 +246,13 @@ async def search_history(
 
 
 async def export_history(
-    *, user_id: str, query: HistoryQuery
+    *, user_id: str, query: HistoryQuery, visible_since: datetime | None
 ) -> list[HistoryExportItem]:
-    """Devuelve los análisis done que encuentra la consulta, sin paginar, para el CSV."""
+    """Devuelve los análisis done visibles que encuentra la consulta, sin paginar, para el CSV."""
     pool = await get_pool()
-    where_sql, where_params = _where(user_id, query, datetime.now(timezone.utc))
+    where_sql, where_params = _where(
+        user_id, query, datetime.now(timezone.utc), visible_since
+    )
 
     export_query = f"""
         SELECT {_HISTORY_EXPORT_SELECT}

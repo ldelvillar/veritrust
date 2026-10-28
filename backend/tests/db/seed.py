@@ -1,7 +1,8 @@
 """Siembra de filas para las pruebas de lectura con el SQL de transiciones, sin pasar por el ciclo de vida."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
+from app.core.plans import PRO, allowance_for
 from app.core.verdict import ClaimVerdict, Verdict, kind_of
 from app.db import analysis_transitions as transitions
 from app.db.pool import get_pool
@@ -11,7 +12,7 @@ from app.schemas.analysis import AnalysisRequest, SourceType
 async def seed_pending(
     *, user_id: str, request: AnalysisRequest, origin: str = "web"
 ) -> str:
-    """Inserta un análisis ``pending`` de texto o URL y devuelve su id."""
+    """Inserta un análisis ``pending`` de texto o URL con el Plan Pro y devuelve su id."""
     is_url = request.source_type == SourceType.URL
     return await transitions.insert_pending(
         user_id=user_id,
@@ -19,13 +20,20 @@ async def seed_pending(
         source_type=request.source_type.value,
         input_text=None if is_url else request.text,
         input_url=str(request.url) if is_url else None,
+        max_input_chars=PRO.max_input_chars,
+        allowance=allowance_for(PRO, datetime.now(UTC)),
     )
 
 
 async def seed_pending_file(*, user_id: str, filename: str, data: bytes) -> str:
-    """Inserta un análisis ``pending`` de archivo y devuelve su id."""
+    """Inserta un análisis ``pending`` de archivo con el Plan Pro y devuelve su id."""
     return await transitions.insert_pending_file(
-        user_id=user_id, origin="web", filename=filename, data=data
+        user_id=user_id,
+        origin="web",
+        filename=filename,
+        data=data,
+        max_input_chars=PRO.max_input_chars,
+        allowance=allowance_for(PRO, datetime.now(UTC)),
     )
 
 
@@ -78,7 +86,10 @@ async def seed_stage(*, analysis_id: str, stage: str) -> None:
 async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
     """Devuelve a ``pending`` un análisis ``done``, como hace Reanalyze."""
     return await transitions.reopen(
-        user_id=user_id, analysis_id=analysis_id, from_status="done"
+        user_id=user_id,
+        analysis_id=analysis_id,
+        from_status="done",
+        allowance=allowance_for(PRO, datetime.now(UTC)),
     )
 
 

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.api.routes.account import router as account_router
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.billing import router as billing_router
 from app.api.routes.billing import webhook_router as billing_webhook_router
@@ -11,6 +12,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
 from app.api.routes.history import router as history_router
 from app.api.routes.share import router as share_router
+from app.api.routes.webhooks import router as webhooks_router
 from app.schemas.errors import ErrorResponse
 
 # El handler de main.py da forma estructurada a los 422; sin esto FastAPI documentaría la suya.
@@ -44,6 +46,12 @@ api_router.include_router(
     responses=_AUTHENTICATED_ERROR_RESPONSES,
 )
 api_router.include_router(
+    account_router,
+    prefix="/account",
+    tags=["Account"],
+    responses=_AUTHENTICATED_ERROR_RESPONSES,
+)
+api_router.include_router(
     share_router,
     prefix="/shared",
     tags=["Share"],
@@ -60,6 +68,13 @@ api_router.include_router(
     billing_webhook_router,
     prefix="/billing",
     tags=["Billing"],
+    responses=_VALIDATION_ERROR_RESPONSES,
+)
+# Igual que el de Stripe: Clerk llama servidor a servidor, autenticado solo por la firma Svix.
+api_router.include_router(
+    webhooks_router,
+    prefix="/webhooks",
+    tags=["Webhooks"],
     responses=_VALIDATION_ERROR_RESPONSES,
 )
 api_router.include_router(
