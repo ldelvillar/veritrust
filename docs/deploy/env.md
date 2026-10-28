@@ -55,7 +55,7 @@ CLERK_SECRET_KEY=sk_live_…
 
 The Clerk values come from the **Production** instance (Dashboard → API keys); its
 Frontend API URL is the issuer. The Stripe values come from **live mode** (see
-"Billing (Stripe)" in `ops.md`). Then restrict the files to their owner:
+`stripe.md`). Then restrict the files to their owner:
 
 ```bash
 chmod 600 ~/veritrust/.env ~/veritrust/backend/.env ~/veritrust/frontend/.env

@@ -55,7 +55,7 @@ Use the `domain-modeling` skill.
   - **History window**: how far back a Plan sees its History; 30 days for Free, unlimited for Pro. _Avoid_: retention (nothing is deleted).
 - Write `docs/adr/0005-billing-with-stripe-and-postgres-entitlements.md`: Stripe over Clerk Billing (currency, VAT, 3DS), Postgres as the entitlement source of truth (all auth paths, instant effect), Usage as an append-only ledger written in the same transaction as `complete()` so deleting analyses never refunds units, and the advisory-lock allowance check living inside `analysis_transitions` to keep ADR-0001 intact.
 
-## 4. Stripe setup (manual, document in `docs/deploy/ops.md`)
+## 4. Stripe setup (manual, document in `docs/deploy/stripe.md`)
 
 The coding session can't click through Stripe, so write these steps as a runbook. Consider the `wizard` skill for an interactive script.
 
@@ -243,7 +243,7 @@ Users delete their account through Clerk's `UserButton`. Without handling, a del
 
 - `POST /webhooks/clerk` verifying the Svix signature (`svix` package, new `CLERK_WEBHOOK_SECRET` in `Settings`, `.env.example`, `docs/deploy/env.md` and `validate_runtime`).
 - On `user.deleted`: cancel any active Stripe subscription immediately (`prorate` per your T&C, see 8), and delete that user's `billing_customers`/`subscriptions` rows. Keep `usage_events` only if you need them for disputes; otherwise delete them too, and say which in the privacy policy.
-- Document the Clerk dashboard webhook setup in `docs/deploy/ops.md`.
+- Document the Clerk dashboard webhook setup in `docs/deploy/stripe.md`.
 
 ### 5.10 Regenerate the contract
 
@@ -311,7 +311,7 @@ Every change goes through a squash-merged PR from a branch. Put the checks below
 
 | PR | Scope | Required review |
 | --- | --- | --- |
-| 1. Billing foundations | `CONTEXT.md`, ADR-0005, migration `0003`, `Settings`, `plans.py`, `db/billing.py`, `core/billing.py`, billing routes, webhook, `GET /billing/plan`, Stripe runbook in `docs/deploy/ops.md`, env docs | `/code-review max` (migration, Settings), `/security-review` (webhook, payment input), `/simplify` |
+| 1. Billing foundations | `CONTEXT.md`, ADR-0005, migration `0003`, `Settings`, `plans.py`, `db/billing.py`, `core/billing.py`, billing routes, webhook, `GET /billing/plan`, Stripe runbook in `docs/deploy/stripe.md`, env docs | `/code-review max` (migration, Settings), `/security-review` (webhook, payment input), `/simplify` |
 | 2. Backend enforcement | Allowance in `analysis_transitions`, usage ledger in `complete()`, intake gates, worker truncation, history window and tool gates, dashboard, exports split, share gating, MCP gating, Clerk `user.deleted` webhook, regenerated `api.d.ts` | `/code-review max` (lifecycle, auth), `/security-review` (Clerk webhook), `/simplify` |
 | 3. Frontend | Plan hook, account plan card, checkout and portal flows, gates on every screen, landing and demo copy, help, e2e | `/code-review`, `/simplify` |
 | 4. Legal pages | Terms, privacy, legal notice | the user reads the diff |
