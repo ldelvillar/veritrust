@@ -126,7 +126,7 @@ CREATE INDEX idx_usage_events_user_time ON public.usage_events (user_id, occurre
 ALTER TABLE public.analysis_history ADD COLUMN max_input_chars INTEGER;
 ```
 
-`ON DELETE SET NULL` is deliberate: deleting an analysis (or "delete all") must never give units back. `max_input_chars` is the plan's text limit fixed when the analysis opens, so the worker truncates URL text to it and a later Reanalyze after a downgrade keeps the original limit. `NULL` means the schema default (10,000) for rows from before the migration.
+`ON DELETE SET NULL` is deliberate: deleting an analysis (or "delete all") must never give units back. `max_input_chars` is the plan's text limit fixed when the analysis opens, so the worker truncates URL text to it and a later Reanalyze after a downgrade keeps the original limit. Migration `0004` gives rows from before billing the schema maximum (10,000) and makes the column `NOT NULL`.
 
 ### 5.3 `app/core/plans.py`: the only place plan rules live
 
@@ -148,7 +148,7 @@ ALTER TABLE public.analysis_history ADD COLUMN max_input_chars INTEGER;
 - `upsert_subscription(row)`: full replace of the row's fields.
 - `get_user_subscription(user_id) -> SubscriptionRow | None`: the "best" one (Pro status first, then latest `current_period_end`), in case a user ever ends up with two.
 - `record_event(event_id, type) -> bool`: `INSERT … ON CONFLICT DO NOTHING`; False means already processed.
-- `usage_this_month(user_id, start, end) -> int` and `insert_usage(user_id, kind, analysis_id=None)` for evidence searches.
+- `usage_this_month(user_id, start, end) -> Usage` (done Runs and pending analyses) and `record_evidence_search(user_id)`.
 - Tests against real Postgres in `backend/tests/db/test_billing_sql.py`.
 
 `app/core/billing.py`, the Stripe adapter (the only module importing `stripe`):
@@ -206,13 +206,13 @@ New `ErrorCode`s (extend `app/schemas/errors.py`, Spanish messages in `app/core/
 
 - `current_plan(user = Depends(get_current_user)) -> PlanLimits`: one indexed query per request, no cache (a webhook takes effect on the next request).
 - `require(feature: str)`: a dependency factory that raises 403 `PLAN_REQUIRED` when `getattr(limits, feature)` is False.
-- `web_submitter` gains the plan: `Submitter(user_id, origin, notify_email, limits)`. Add `limits: PlanLimits` to the `Submitter` dataclass; MCP builds it the same way.
+- `web_submitter` gains the plan: `Submitter(user_id, origin, limits, notify_email)`. Add `limits: PlanLimits` to the `Submitter` dataclass; MCP builds it the same way.
 
 ### 5.7 Enforcement in the analysis lifecycle
 
 High-risk area (lifecycle, ADR-0001). The allowance check must be atomic with the row it opens, so it goes in `app/db/analysis_transitions.py`, the only module allowed to write `status`.
 
-- `insert_pending`, `insert_pending_file` and `reopen` take `allowance: int` (the plan's `analyses_per_month`), `month_start`, `month_end` and `max_input_chars` (insert only). In one transaction:
+- `insert_pending`, `insert_pending_file` and `reopen` take `limits: PlanLimits`: the Allowance comes from `analyses_per_month` and the current Madrid month, and the inserts store `max_input_chars`. In one transaction:
   1. `SELECT pg_advisory_xact_lock(hashtext('allowance:' || user_id))`;
   2. `used = count(usage_events in [month_start, month_end))`, `in_flight = count(analysis_history WHERE user_id = … AND status = 'pending')`;
   3. if `used + in_flight >= allowance`, return a sentinel (no row written); the intake raises `AnalysisRefused(ALLOWANCE_EXHAUSTED)`;
@@ -221,7 +221,7 @@ High-risk area (lifecycle, ADR-0001). The allowance check must be atomic with th
 - `AnalysisIntake.submit`: refuse `TEXT_TOO_LONG_FOR_PLAN` when the pasted text is longer than `limits.max_input_chars` (the Pydantic schema still caps at 10,000 for everyone).
 - `AnalysisIntake.submit_file`: refuse `PLAN_REQUIRED` when `not limits.files`, before reading the body.
 - `retry` and `reanalyze` go through the same allowance check in `reopen`. A Retry needs a free unit because its success will consume the analysis's first unit.
-- `load_pending_content` also returns `max_input_chars`; `AnalysisRun`/`UrlContent` carry it, and `extract_text_from_url(url, max_chars)` / `extract_text_from_file(data, filename, max_chars)` / `extract_text_from_pdf` take the limit instead of importing `MAX_INPUT_TEXT_LENGTH` (default to it when `NULL`).
+- `load_pending_content` also returns `max_input_chars`; `UrlContent` and `FileContent` carry it, and the worker cuts the extracted text to it once, so the extractors keep `MAX_INPUT_TEXT_LENGTH` as their own cap and know nothing about Plans.
 - Update `tests/unit/test_analysis_lifecycle_sole_writer.py` only if it needs to know about the new table; `usage_events` writes stay inside `analysis_transitions.py` too.
 - Tests in `tests/db/test_analysis_lifecycle.py` and `tests/support/lifecycle.py`: allowance reached refuses; failed Run consumes nothing; Retry to done consumes one; Reanalyze to done consumes one more; deleting an analysis keeps its usage; two concurrent submissions with one unit left, exactly one wins (use two pool connections with `asyncio.gather`); month boundary.
 
@@ -232,8 +232,8 @@ High-risk area (lifecycle, ADR-0001). The allowance check must be atomic with th
 - **Detail, status, file, feedback** (`app/db/history.py` readers used by `app/api/routes/analysis.py`): for Free, an analysis older than the window answers 403 `PLAN_REQUIRED` (the frontend shows an upsell, not a 404). Pass the floor into the SQL rather than filtering in Python.
 - **Delete one / delete all**: no plan check, and they act on hidden analyses too (erasure right).
 - **Dashboard** (`app/api/routes/dashboard.py`): `require("dashboard")`.
-- **Share**: `POST /analysis/{id}/share` requires `share`; `DELETE …/share` stays open. `get_shared_analysis_by_token` joins the owner's subscription and returns nothing unless it is in `PRO_STATUSES` with a Pro price; the route answers its usual 404. The OG image route in `frontend/src/app/(public)/r/[token]/` uses the same endpoint, so it follows automatically.
-- **MCP** (`app/mcp/server.py`): every tool resolves the caller's plan after `_current_user_id()` and raises `_tool_error(ErrorCode.PLAN_REQUIRED)` when `not limits.mcp`. `verify_claim` passes `limits` in its `Submitter`, so the allowance applies through the intake. `search_evidence` checks `usage_this_month < analyses_per_month` before enqueueing (no in-flight count; the rate limit bounds the overshoot) and passes `user_id` to `run_evidence_search`, which calls `insert_usage(user_id, "evidence_search")` on success. Extend `tests/integration/test_mcp_server.py`.
+- **Share**: `POST /analysis/{id}/share` requires `share`; `DELETE …/share` stays open. `get_shared_analysis_by_token` also returns the owner, and the route answers its usual 404 unless `limits_for(owner's subscription).share`, so the Pro rule stays in `plans.py`. The OG image route in `frontend/src/app/(public)/r/[token]/` uses the same endpoint, so it follows automatically.
+- **MCP** (`app/mcp/server.py`): every tool enters through `_pro_caller()`, which authenticates the caller, reads their plan and raises `_tool_error(ErrorCode.PLAN_REQUIRED)` when `not limits.mcp`. `verify_claim` passes `limits` in its `Submitter`, so the allowance applies through the intake. `search_evidence` checks `remaining(...)` from `usage_this_month` before enqueueing (in-flight searches aren't counted; the rate limit bounds the overshoot) and passes `user_id` to `run_evidence_search`, which calls `record_evidence_search(user_id)` on success. Extend `tests/integration/test_mcp_server.py`.
 - **API keys** (`_user_from_api_key`): nothing to change; the plan is looked up by `sub` like any other caller.
 - **`GET /config`**: unchanged (it stays the public schema maximum). Per-user limits come from `GET /billing/plan`.
 
