@@ -1,8 +1,8 @@
 """Siembra de filas para las pruebas de lectura con el SQL de transiciones, sin pasar por el ciclo de vida."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 
-from app.core.plans import PRO, allowance_for
+from app.core.plans import PRO
 from app.core.verdict import ClaimVerdict, Verdict, kind_of
 from app.db import analysis_transitions as transitions
 from app.db.pool import get_pool
@@ -20,8 +20,7 @@ async def seed_pending(
         source_type=request.source_type.value,
         input_text=None if is_url else request.text,
         input_url=str(request.url) if is_url else None,
-        max_input_chars=PRO.max_input_chars,
-        allowance=allowance_for(PRO, datetime.now(UTC)),
+        limits=PRO,
     )
 
 
@@ -32,8 +31,7 @@ async def seed_pending_file(*, user_id: str, filename: str, data: bytes) -> str:
         origin="web",
         filename=filename,
         data=data,
-        max_input_chars=PRO.max_input_chars,
-        allowance=allowance_for(PRO, datetime.now(UTC)),
+        limits=PRO,
     )
 
 
@@ -89,7 +87,7 @@ async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
         user_id=user_id,
         analysis_id=analysis_id,
         from_status="done",
-        allowance=allowance_for(PRO, datetime.now(UTC)),
+        limits=PRO,
     )
 
 
@@ -100,4 +98,17 @@ async def seed_created_at(*, analysis_id: str, created_at: datetime) -> None:
         await conn.execute(
             "UPDATE public.analysis_history SET created_at = %s WHERE id = %s",
             (created_at, analysis_id),
+        )
+
+
+async def seed_usage(
+    *, user_id: str, occurred_at: datetime, analysis_id: str | None = None
+) -> None:
+    """Anota una unidad de Usage del usuario en el instante dado, sin pasar por una Run."""
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        await conn.execute(
+            "INSERT INTO public.usage_events (user_id, kind, analysis_id, occurred_at) "
+            "VALUES (%s, 'analysis', %s, %s)",
+            (user_id, analysis_id, occurred_at),
         )

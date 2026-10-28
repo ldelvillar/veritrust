@@ -139,13 +139,9 @@ async def test_analyse_neutralizes_injection_markers_in_the_input(monkeypatch):
     assert "<<USER_INPUT>>" not in seen[0]["input_text"]
 
 
-async def test_analyse_extracts_the_page_text_up_to_the_rows_limit(monkeypatch):
+async def test_analyse_cuts_the_page_text_to_the_rows_limit(monkeypatch):
     seen: list = []
-    monkeypatch.setattr(
-        worker,
-        "extract_text_from_url",
-        lambda url, max_chars: f"{max_chars} caracteres de {url}",
-    )
+    monkeypatch.setattr(worker, "extract_text_from_url", lambda url: "a" * 5000)
     monkeypatch.setattr(
         worker,
         "ainvoke_graph",
@@ -156,21 +152,17 @@ async def test_analyse_extracts_the_page_text_up_to_the_rows_limit(monkeypatch):
         CTX, FakeRun(UrlContent("https://ejemplo.com/noticia", max_chars=3000))
     )
 
-    assert seen[0]["input_text"] == "3000 caracteres de https://ejemplo.com/noticia"
+    assert seen[0]["input_text"] == "a" * 3000
 
 
-async def test_analyse_extracts_the_file_text_and_keeps_it(monkeypatch):
+async def test_analyse_keeps_the_file_text_cut_to_the_rows_limit(monkeypatch):
     seen: list = []
     run = FakeRun(
-        FileContent(data=b"%PDF-1.4 bytes", filename="informe.pdf", max_chars=10_000)
+        FileContent(data=b"%PDF-1.4 bytes", filename="informe.pdf", max_chars=10)
     )
 
-    def fake_extract(data, filename, max_chars):
-        assert (data, filename, max_chars) == (
-            b"%PDF-1.4 bytes",
-            "informe.pdf",
-            10_000,
-        )
+    def fake_extract(data, filename):
+        assert (data, filename) == (b"%PDF-1.4 bytes", "informe.pdf")
         return "Texto extraído del archivo"
 
     monkeypatch.setattr(worker, "extract_text_from_file", fake_extract)
@@ -182,8 +174,9 @@ async def test_analyse_extracts_the_file_text_and_keeps_it(monkeypatch):
 
     await worker.analyse(CTX, run)
 
-    assert run.kept_text == ["Texto extraído del archivo"]
-    assert seen[0]["input_text"] == "Texto extraído del archivo"
+    # El historial guarda lo mismo que se analizó.
+    assert run.kept_text == ["Texto extr"]
+    assert seen[0]["input_text"] == "Texto extr"
 
 
 def _failing(error):

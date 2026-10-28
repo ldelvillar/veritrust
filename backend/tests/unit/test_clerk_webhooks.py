@@ -7,18 +7,11 @@ import pytest
 from svix.webhooks import Webhook
 
 from app.core import clerk_webhooks
-from app.core.config import get_settings
 from tests.support.billing import CLERK_WEBHOOK_SECRET
 
+pytestmark = pytest.mark.usefixtures("stripe_settings")
+
 USER = "user_2abc"
-
-
-@pytest.fixture(autouse=True)
-def clerk_secret(monkeypatch):
-    monkeypatch.setenv("CLERK_WEBHOOK_SECRET", CLERK_WEBHOOK_SECRET)
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
 
 
 @pytest.fixture

@@ -215,19 +215,16 @@ async def record_evidence_search(user_id: str) -> None:
 
 async def delete_user_billing(user_id: str) -> None:
     """Borra el cliente, las Subscriptions y el Usage de un usuario que eliminó su cuenta."""
-    pool = await get_pool()
-    try:
-        async with pool.connection() as conn, conn.transaction():
-            await conn.execute(
-                "DELETE FROM public.billing_customers WHERE user_id = %s", (user_id,)
-            )
-            await conn.execute(
-                "DELETE FROM public.subscriptions WHERE user_id = %s", (user_id,)
-            )
-            await conn.execute(
-                "DELETE FROM public.usage_events WHERE user_id = %s", (user_id,)
-            )
-    except psycopg.Error as exc:
-        raise DatabaseError(
-            _build_database_error("No se pudo borrar la facturación del usuario.")
-        ) from exc
+    # Una sola sentencia: los tres borrados se aplican juntos o ninguno.
+    await _fetchone(
+        """
+        WITH deleted_customers AS (
+            DELETE FROM public.billing_customers WHERE user_id = %s
+        ), deleted_subscriptions AS (
+            DELETE FROM public.subscriptions WHERE user_id = %s
+        )
+        DELETE FROM public.usage_events WHERE user_id = %s
+        """,
+        (user_id, user_id, user_id),
+        "No se pudo borrar la facturación del usuario.",
+    )

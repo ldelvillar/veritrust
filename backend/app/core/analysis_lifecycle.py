@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol, get_args
 
-from app.core.plans import Allowance, PlanLimits, allowance_for, history_floor
+from app.core.plans import PlanLimits, history_floor
 from app.core.verdict import Verdict
 from app.db import analysis_transitions as transitions
 from app.db.history import HiddenAnalysis, get_user_analysis_status
@@ -93,10 +93,6 @@ class Submitter:
     limits: PlanLimits
     notify_email: str | None = None
 
-    def allowance(self) -> Allowance:
-        """La Allowance de su Plan en el mes de Madrid en curso."""
-        return allowance_for(self.limits, datetime.now(UTC))
-
 
 class FileUpload(Protocol):
     """Archivo subido para analizar; el ``UploadFile`` de Starlette lo cumple tal cual."""
@@ -127,9 +123,8 @@ class AnalysisIntake:
         """Da de alta un análisis de texto o URL y devuelve su id ya encolado."""
         queue = self._require_queue()
         is_url = request.source_type == SourceType.URL
-        limits = submitter.limits
         # El esquema acota a 10.000 para todos; el Plan puede acotar menos.
-        if not is_url and len(request.text or "") > limits.max_input_chars:
+        if not is_url and len(request.text or "") > submitter.limits.max_input_chars:
             raise AnalysisRefused(ErrorCode.TEXT_TOO_LONG_FOR_PLAN)
         try:
             analysis_id = await transitions.insert_pending(
@@ -138,8 +133,7 @@ class AnalysisIntake:
                 source_type=request.source_type.value,
                 input_text=None if is_url else request.text,
                 input_url=str(request.url) if is_url and request.url else None,
-                max_input_chars=limits.max_input_chars,
-                allowance=submitter.allowance(),
+                limits=submitter.limits,
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
@@ -179,8 +173,7 @@ class AnalysisIntake:
                 origin=submitter.origin,
                 filename=filename,
                 data=data,
-                max_input_chars=submitter.limits.max_input_chars,
-                allowance=submitter.allowance(),
+                limits=submitter.limits,
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
@@ -248,7 +241,7 @@ class AnalysisIntake:
                 user_id=submitter.user_id,
                 analysis_id=analysis_id,
                 from_status=from_status,
-                allowance=submitter.allowance(),
+                limits=submitter.limits,
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc

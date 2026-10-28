@@ -24,14 +24,19 @@ async def current_plan(user: dict = Depends(get_current_user)) -> PlanLimits:
     return limits_for(subscription)
 
 
+def plan_required() -> HTTPException:
+    """El rechazo de una función que el Plan del usuario no incluye."""
+    return HTTPException(
+        status_code=403, detail=make_error_detail(ErrorCode.PLAN_REQUIRED)
+    )
+
+
 def require(feature: Feature) -> Callable[..., Awaitable[PlanLimits]]:
     """Crea una dependencia que responde 403 PLAN_REQUIRED si el Plan no incluye ``feature``."""
 
     async def dependency(limits: PlanLimits = Depends(current_plan)) -> PlanLimits:
         if not getattr(limits, feature):
-            raise HTTPException(
-                status_code=403, detail=make_error_detail(ErrorCode.PLAN_REQUIRED)
-            )
+            raise plan_required()
         return limits
 
     return dependency

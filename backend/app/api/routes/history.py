@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from app.api.dependencies.analysis_intake import analysis_intake
 from app.api.dependencies.get_current_user import get_current_user
-from app.api.dependencies.plan import current_plan, history_window, require
+from app.api.dependencies.plan import (
+    current_plan,
+    history_window,
+    plan_required,
+    require,
+)
 from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.errors import make_error_detail
 from app.core.history_export import build_history_csv
@@ -62,9 +67,7 @@ async def get_history(
     """Endpoint para listar el historial de análisis del usuario autenticado."""
     # Sin búsqueda, filtros ni orden en el Plan, solo vale la consulta por defecto; paginar sí.
     if not limits.history_tools and query != HistoryQuery():
-        raise HTTPException(
-            status_code=403, detail=make_error_detail(ErrorCode.PLAN_REQUIRED)
-        )
+        raise plan_required()
 
     try:
         result = await search_history(
@@ -108,11 +111,14 @@ async def get_pending_analyses(user=Depends(get_current_user)):
         ) from e
 
 
-@router.get("/export", responses=_EXPORT_ERROR_RESPONSES)
+@router.get(
+    "/export",
+    responses=_EXPORT_ERROR_RESPONSES,
+    dependencies=[Depends(require("csv_export"))],
+)
 async def export_history(
     query: HistoryQuery = Depends(),
     user=Depends(get_current_user),
-    _plan=Depends(require("csv_export")),
     visible_since: datetime | None = Depends(history_window),
 ):
     """Exporta como CSV los análisis done que encuentra la consulta del usuario."""

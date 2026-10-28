@@ -18,44 +18,42 @@ from app.utils.extract_text_from_url import (
 # --- _resolve_public_host edge cases ---
 def test_invalid_scheme():
     with pytest.raises(URLExtractionError, match="comenzar con http:// o https://"):
-        extract_text_from_url("ftp://example.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("ftp://example.com")
 
 
 def test_no_hostname():
     with pytest.raises(URLExtractionError, match="no contiene un host válido"):
-        extract_text_from_url("http://", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://")
 
 
 def test_localhost():
     with pytest.raises(URLExtractionError, match="URLs locales"):
-        extract_text_from_url("http://localhost", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://localhost")
 
 
 @patch("socket.getaddrinfo", side_effect=socket.gaierror)
 def test_unresolvable_host(mock_getaddrinfo):
     with pytest.raises(URLExtractionError, match="No se pudo resolver el host"):
-        extract_text_from_url("http://unresolvable.local", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://unresolvable.local")
 
 
 def test_parser_differential_backslash_rejected():
     # urlparse ve cima.aemps.es (público) pero requests conecta a 169.254.169.254;
     # el host debe coincidir en ambos parsers o se rechaza sin tocar la red.
     with pytest.raises(URLExtractionError, match="URLs locales"):
-        extract_text_from_url(
-            "http://169.254.169.254\\@cima.aemps.es/", MAX_INPUT_TEXT_LENGTH
-        )
+        extract_text_from_url("http://169.254.169.254\\@cima.aemps.es/")
 
 
 def test_nfkc_invalid_url_rejected():
     # urlparse lanza ValueError con un solidus fullwidth; debe traducirse a URLExtractionError.
     with pytest.raises(URLExtractionError, match="no contiene un host válido"):
-        extract_text_from_url("http://example.com／10.0.0.1/", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://example.com／10.0.0.1/")
 
 
 @patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("127.0.0.1", 80))])
 def test_private_ip_rejected(mock_getaddrinfo):
     with pytest.raises(URLExtractionError, match="URLs locales"):
-        extract_text_from_url("http://private.local", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://private.local")
 
 
 @patch(
@@ -69,7 +67,7 @@ def test_mixed_public_private_rejected(mock_getaddrinfo):
         (2, 1, 6, "", ("10.0.0.5", 80)),
     ]
     with pytest.raises(URLExtractionError, match="URLs locales"):
-        extract_text_from_url("http://mixed.example.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://mixed.example.com")
 
 
 # --- extract_text_from_url main logic ---
@@ -82,7 +80,7 @@ def test_too_many_redirects(mock_get, mock_resolve):
     mock_get.return_value.status_code = 302
     mock_get.return_value.headers = {"Location": "/redir"}
     with pytest.raises(URLExtractionError, match="Demasiadas redirecciones"):
-        extract_text_from_url("http://redirect.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://redirect.com")
 
 
 @patch(
@@ -93,7 +91,7 @@ def test_too_many_redirects(mock_get, mock_resolve):
 def test_request_exception(mock_get, mock_resolve):
     mock_get.side_effect = requests.exceptions.RequestException("fail")
     with pytest.raises(URLExtractionError, match="Error al conectar"):
-        extract_text_from_url("http://fail.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://fail.com")
 
 
 @patch(
@@ -105,7 +103,7 @@ def test_redirect_without_location_raises(mock_get, mock_resolve):
     mock_get.return_value.status_code = 301
     mock_get.return_value.headers = {}
     with pytest.raises(URLExtractionError, match="redirección inválida"):
-        extract_text_from_url("http://redirect.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://redirect.com")
 
 
 @patch(
@@ -119,7 +117,7 @@ def test_non_200_status_raises(mock_get, mock_resolve):
     mock_resp.raise_for_status.side_effect = requests.exceptions.RequestException("404")
     mock_get.return_value = mock_resp
     with pytest.raises(URLExtractionError):
-        extract_text_from_url("http://notfound.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://notfound.com")
 
 
 @patch(
@@ -134,7 +132,7 @@ def test_no_text_extracted(mock_get, mock_resolve):
     mock_resp.raise_for_status.return_value = None
     mock_get.return_value = mock_resp
     with pytest.raises(URLExtractionError, match="No se pudo extraer texto"):
-        extract_text_from_url("http://empty.com", MAX_INPUT_TEXT_LENGTH)
+        extract_text_from_url("http://empty.com")
 
 
 @patch(
@@ -152,7 +150,7 @@ def test_successful_extraction(mock_get, mock_resolve):
     mock_resp.iter_content.return_value = [html]
     mock_resp.raise_for_status.return_value = None
     mock_get.return_value = mock_resp
-    text = extract_text_from_url("http://ok.com", MAX_INPUT_TEXT_LENGTH)
+    text = extract_text_from_url("http://ok.com")
     assert "Title" in text and "Content" in text and "script" not in text
 
 
@@ -161,7 +159,7 @@ def test_successful_extraction(mock_get, mock_resolve):
     return_value=("big.com", "1.2.3.4"),
 )
 @patch("requests.Session.get")
-def test_extracted_text_is_truncated_to_the_given_limit(mock_get, mock_resolve):
+def test_extracted_text_is_truncated(mock_get, mock_resolve):
     # Una página enorme no puede convertirse en un prompt sin límite.
     body = "a" * (MAX_INPUT_TEXT_LENGTH * 3)
     html = f"<html><body><p>{body}</p></body></html>".encode()
@@ -171,9 +169,9 @@ def test_extracted_text_is_truncated_to_the_given_limit(mock_get, mock_resolve):
     mock_resp.raise_for_status.return_value = None
     mock_get.return_value = mock_resp
 
-    text = extract_text_from_url("http://big.com", 3000)
+    text = extract_text_from_url("http://big.com")
 
-    assert len(text) == 3000
+    assert len(text) == MAX_INPUT_TEXT_LENGTH
 
 
 def test_read_capped_body_stops_at_limit():
@@ -221,9 +219,7 @@ def test_connection_pinned_to_validated_ip():
         "app.utils.extract_text_from_url._resolve_public_host",
         return_value=("example.test", "127.0.0.1"),
     ):
-        text = extract_text_from_url(
-            f"http://example.test:{port}/articulo", MAX_INPUT_TEXT_LENGTH
-        )
+        text = extract_text_from_url(f"http://example.test:{port}/articulo")
 
     server.server_close()
     assert "Contenido fijado" in text

@@ -62,6 +62,12 @@ async def _search(
     )
 
 
+async def _export(visible_since: datetime | None = None, **filters):
+    return await export_history(
+        user_id=USER, query=HistoryQuery(**filters), visible_since=visible_since
+    )
+
+
 async def _seed_mixed_history() -> None:
     """Dos falsas, una parcialmente falsa, una verdadera y una incierta terminadas, más una en curso y una fallida."""
     await _done("Texto uno que resulta falso", "falsa")
@@ -123,25 +129,11 @@ async def test_export_keeps_the_status_filter_and_only_done_rows(db_pool):
     """La exportación es la consulta del historial restringida a análisis done."""
     await _seed_mixed_history()
 
-    assert (
-        await export_history(
-            user_id=USER, query=HistoryQuery(status="failed"), visible_since=None
-        )
-        == []
-    )
-    assert (
-        await export_history(
-            user_id=USER, query=HistoryQuery(status="pending"), visible_since=None
-        )
-        == []
-    )
-    done = await export_history(
-        user_id=USER, query=HistoryQuery(status="done"), visible_since=None
-    )
+    assert await _export(status="failed") == []
+    assert await _export(status="pending") == []
+    done = await _export(status="done")
     assert len(done) == 5
-    fake = await export_history(
-        user_id=USER, query=HistoryQuery(verdict="fake"), visible_since=None
-    )
+    fake = await _export(verdict="fake")
     assert [record.label for record in fake] == ["falsa", "falsa"]
 
 
@@ -235,9 +227,7 @@ async def test_the_date_range_leaves_out_older_analyses(db_pool):
     week = await _search(date_range="7d")
     assert [item.analysis_id for item in week.items] == [recent_id]
     assert week.verdict_counts.fake == 1
-    exported = await export_history(
-        user_id=USER, query=HistoryQuery(date_range="7d"), visible_since=None
-    )
+    exported = await _export(date_range="7d")
     assert [record.analysis_id for record in exported] == [recent_id]
 
     assert (await _search(date_range="30d")).total == 2
@@ -260,9 +250,7 @@ async def test_the_history_window_hides_older_analyses_everywhere(db_pool):
         1,
         0,
     )
-    exported = await export_history(
-        user_id=USER, query=HistoryQuery(), visible_since=floor
-    )
+    exported = await _export(visible_since=floor)
     assert [record.analysis_id for record in exported] == [recent_id]
     assert (await _search(visible_since=floor, verdict="real")).total == 0
 
@@ -295,9 +283,7 @@ async def test_each_sort_orders_the_page_and_the_export(db_pool, sort, expected)
     names = {analysis_id: name for name, analysis_id in ids.items()}
 
     page = await _search(sort=sort)
-    exported = await export_history(
-        user_id=USER, query=HistoryQuery(sort=sort), visible_since=None
-    )
+    exported = await _export(sort=sort)
 
     assert [names[item.analysis_id] for item in page.items] == expected
     # La exportación solo lleva filas done, en el mismo orden.
@@ -330,9 +316,7 @@ async def test_other_users_rows_never_appear(db_pool):
     )
 
     page = await _search()
-    exported = await export_history(
-        user_id=USER, query=HistoryQuery(), visible_since=None
-    )
+    exported = await _export()
 
     assert page.total == page.verdict_counts.total == 1
     assert other_id not in {item.analysis_id for item in page.items}
@@ -383,9 +367,7 @@ async def test_export_keeps_the_whole_input_text(db_pool):
     long_text = "La vitamina C previene el resfriado. " * 200
     await _done(long_text, "falsa", 0.9)
 
-    records = await export_history(
-        user_id=USER, query=HistoryQuery(), visible_since=None
-    )
+    records = await _export()
 
     assert records[0].input_text == long_text.strip()
     assert len(records[0].input_text or "") > HISTORY_LIST_TEXT_CHARS
@@ -406,9 +388,7 @@ async def test_export_carries_the_verdict_but_not_the_report(db_pool):
         evidence_coverage=0.5,
     )
 
-    records = await export_history(
-        user_id=USER, query=HistoryQuery(), visible_since=None
-    )
+    records = await _export()
 
     assert [record.analysis_id for record in records] == [done_id]
     record = records[0]

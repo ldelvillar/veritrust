@@ -305,7 +305,7 @@ export interface paths {
         };
         /**
          * Get Shared Report
-         * @description Devuelve la vista pública de un informe compartido, sin datos de identidad.
+         * @description Devuelve la vista pública de un informe compartido mientras su dueño pueda compartir, sin datos de identidad.
          */
         get: operations["get_shared_report_shared__token__get"];
         put?: never;

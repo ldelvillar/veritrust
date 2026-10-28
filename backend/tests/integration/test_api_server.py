@@ -1824,27 +1824,47 @@ def test_unshare_returns_404_when_not_found(monkeypatch):
     assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
 
 
-def test_shared_report_returns_public_view_without_user_id(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
+_SHARED_REPORT = PublicAnalysisReport(
+    source_type="text",
+    input_text="Bleach cures COVID",
+    label="falsa",
+    confidence=0.9,
+    explanation="Sin respaldo científico.",
+    status="done",
+    created_at="2026-06-01T00:00:00+00:00",
+)
+
+
+def _shared_by(monkeypatch, owner_subscription) -> list[str]:
+    """Sirve el informe compartido de ``owner-1`` con la Subscription dada y anota a quién se consulta."""
+    consulted: list[str] = []
 
     async def fake_get_shared(*, token):
         assert token == "tok_abc123"
-        return PublicAnalysisReport(
-            source_type="text",
-            input_text="Bleach cures COVID",
-            label="falsa",
-            confidence=0.9,
-            explanation="Sin respaldo científico.",
-            status="done",
-            created_at="2026-06-01T00:00:00+00:00",
-        )
+        return "owner-1", _SHARED_REPORT
+
+    async def fake_get_user_subscription(user_id):
+        consulted.append(user_id)
+        if isinstance(owner_subscription, Exception):
+            raise owner_subscription
+        return owner_subscription
 
     monkeypatch.setattr(
         "app.api.routes.share.get_shared_analysis_by_token", fake_get_shared
     )
+    monkeypatch.setattr(
+        "app.api.routes.share.get_user_subscription", fake_get_user_subscription
+    )
+    return consulted
 
-    response = client.get("/shared/tok_abc123")
+
+def test_shared_report_returns_public_view_without_user_id(
+    monkeypatch, stripe_settings
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    consulted = _shared_by(monkeypatch, make_subscription(user_id="owner-1"))
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
 
     assert response.status_code == 200
     body = response.json()
@@ -1853,6 +1873,43 @@ def test_shared_report_returns_public_view_without_user_id(monkeypatch):
     assert body["verdict"] == "fake"
     assert body["confidence_level"] == "high"
     assert body["input_text"] == "Bleach cures COVID"
+    # Decide el Plan del dueño, no el de quien mira.
+    assert consulted == ["owner-1"]
+
+
+@pytest.mark.parametrize(
+    ("owner_subscription", "status"),
+    [
+        (make_subscription(user_id="owner-1", status="past_due"), 200),
+        (make_subscription(user_id="owner-1", status="canceled"), 404),
+        (make_subscription(user_id="owner-1", price_id="price_other"), 404),
+        (None, 404),
+    ],
+    ids=["past-due", "canceled", "other-price", "free"],
+)
+def test_a_shared_report_answers_only_while_its_owner_can_share(
+    monkeypatch, stripe_settings, owner_subscription, status
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    _shared_by(monkeypatch, owner_subscription)
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
+
+    assert response.status_code == status
+    if status == 404:
+        assert response.json()["detail"]["code"] == "SHARED_REPORT_NOT_FOUND"
+
+
+def test_a_shared_report_answers_500_when_the_owners_plan_cannot_be_read(
+    monkeypatch,
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    _shared_by(monkeypatch, DatabaseError("db down"))
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
 
 
 def test_shared_report_returns_404_for_unknown_token(monkeypatch):

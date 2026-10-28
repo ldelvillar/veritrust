@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.db.billing import upsert_subscription
 from app.db.history import (
     HiddenAnalysis,
     clear_analysis_share_token,
@@ -29,7 +28,6 @@ from tests.db.seed import (
     seed_pending_file,
     seed_stage,
 )
-from tests.support.billing import make_subscription
 
 pytestmark = pytest.mark.db
 
@@ -97,9 +95,8 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     ]
 
 
-async def test_share_token_issued_only_for_done_rows(db_pool, stripe_settings):
+async def test_share_token_issued_only_for_done_rows(db_pool):
     """Compartir exige fila done y propia; reintentarlo conserva el mismo token."""
-    await upsert_subscription(make_subscription(user_id=USER))
     analysis_id = await _pending()
     assert await set_analysis_share_token(user_id=USER, analysis_id=analysis_id) is None
 
@@ -118,57 +115,15 @@ async def test_share_token_issued_only_for_done_rows(db_pool, stripe_settings):
         await set_analysis_share_token(user_id=USER, analysis_id=analysis_id) == token
     )
 
-    public = await get_shared_analysis_by_token(token=token)
-    assert public is not None
-    assert public.status == "done"
-    assert public.label == "falsa"
+    shared = await get_shared_analysis_by_token(token=token)
+    assert shared is not None
+    # El dueño viaja aparte para que la ruta decida con su Plan; la vista pública no lo lleva.
+    owner, public = shared
+    assert owner == USER
+    assert (public.status, public.label) == ("done", "falsa")
 
     assert await clear_analysis_share_token(user_id=USER, analysis_id=analysis_id)
     assert await get_shared_analysis_by_token(token=token) is None
-
-
-@pytest.mark.parametrize(
-    ("subscription", "public"),
-    [
-        (make_subscription(status="active"), True),
-        (make_subscription(status="past_due"), True),
-        (make_subscription(status="canceled"), False),
-        (make_subscription(price_id="price_other_product"), False),
-        (make_subscription(user_id="user-b"), False),
-        (None, False),
-    ],
-    ids=["active", "past-due", "canceled", "other-price", "someone-else", "free"],
-)
-async def test_a_shared_report_answers_only_while_its_owner_is_pro(
-    db_pool, stripe_settings, subscription, public
-):
-    analysis_id = await _pending()
-    await seed_done(
-        analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
-    )
-    token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
-    assert token
-    if subscription is not None:
-        await upsert_subscription(subscription)
-
-    assert (await get_shared_analysis_by_token(token=token) is not None) is public
-
-
-async def test_a_shared_report_answers_again_when_its_owner_returns_to_pro(
-    db_pool, stripe_settings
-):
-    analysis_id = await _pending()
-    await seed_done(
-        analysis_id=analysis_id, label="falsa", confidence=0.9, explanation="Informe."
-    )
-    token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
-    assert token
-    await upsert_subscription(make_subscription(status="canceled"))
-    assert await get_shared_analysis_by_token(token=token) is None
-
-    await upsert_subscription(make_subscription(stripe_subscription_id="sub_2"))
-
-    assert await get_shared_analysis_by_token(token=token) is not None
 
 
 async def test_readers_hide_analyses_older_than_the_history_window(db_pool):

@@ -24,6 +24,7 @@ from app.db.history import delete_user_analysis, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.errors import ErrorCode
+from tests.db.seed import seed_created_at, seed_usage
 from tests.support.lifecycle import InMemoryAnalysisQueue, RecordingNotifier
 
 pytestmark = pytest.mark.db
@@ -87,15 +88,10 @@ async def _usage_kinds(pool) -> list[str]:
         return [row[0] for row in await cur.fetchall()]
 
 
-async def _spend(pool, units: int, occurred_at: datetime | None = None) -> None:
-    """Anota ``units`` búsquedas de evidencia del usuario, por defecto ahora mismo."""
-    async with pool.connection() as conn:
-        for _ in range(units):
-            await conn.execute(
-                "INSERT INTO public.usage_events (user_id, kind, occurred_at) "
-                "VALUES (%s, 'evidence_search', %s)",
-                (USER, occurred_at or datetime.now(UTC)),
-            )
+async def _spend(units: int, occurred_at: datetime | None = None) -> None:
+    """Anota ``units`` unidades de Usage del usuario, por defecto ahora mismo."""
+    for _ in range(units):
+        await seed_usage(user_id=USER, occurred_at=occurred_at or datetime.now(UTC))
 
 
 async def _arrange(pool, analysis_id: str, **columns) -> None:
@@ -990,7 +986,7 @@ async def test_submit_file_refuses_a_plan_without_files_before_reading_it(
 
 
 async def test_submit_refuses_once_the_allowance_is_spent(db_pool, intake, queue):
-    await _spend(db_pool, FREE.analyses_per_month)
+    await _spend(FREE.analyses_per_month)
 
     with pytest.raises(AnalysisRefused) as refusal:
         await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
@@ -1003,7 +999,7 @@ async def test_submit_refuses_once_the_allowance_is_spent(db_pool, intake, queue
 
 
 async def test_pending_analyses_count_against_the_allowance(db_pool, intake):
-    await _spend(db_pool, FREE.analyses_per_month - 2)
+    await _spend(FREE.analyses_per_month - 2)
     for _ in range(2):
         await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
 
@@ -1015,12 +1011,10 @@ async def test_pending_analyses_count_against_the_allowance(db_pool, intake):
 
 async def test_usage_counts_only_within_the_madrid_month(db_pool, intake):
     month_start, _ = month_window(datetime.now(UTC))
-    await _spend(
-        db_pool, FREE.analyses_per_month, month_start - timedelta(microseconds=1)
-    )
+    await _spend(FREE.analyses_per_month, month_start - timedelta(microseconds=1))
 
     await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
-    await _spend(db_pool, FREE.analyses_per_month - 1, month_start)
+    await _spend(FREE.analyses_per_month - 1, month_start)
     with pytest.raises(AnalysisRefused) as refusal:
         await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
 
@@ -1030,7 +1024,7 @@ async def test_usage_counts_only_within_the_madrid_month(db_pool, intake):
 async def test_concurrent_submissions_with_one_unit_left_open_one_analysis(
     db_pool, intake
 ):
-    await _spend(db_pool, FREE.analyses_per_month - 1)
+    await _spend(FREE.analyses_per_month - 1)
     request = AnalysisRequest(text="La lejía cura la COVID")
 
     results = await asyncio.gather(
@@ -1086,7 +1080,7 @@ async def test_a_retry_that_ends_done_consumes_a_single_unit(
 async def test_reopening_needs_a_free_unit(db_pool, intake, queue, reopen, arrange):
     analysis_id = await arrange(db_pool, intake, queue)
     status_before = (await _row(db_pool, analysis_id))["status"]
-    await _spend(db_pool, FREE.analyses_per_month)
+    await _spend(FREE.analyses_per_month)
 
     with pytest.raises(AnalysisRefused) as refusal:
         await getattr(intake, reopen)(FREE_WEB, analysis_id)
@@ -1099,12 +1093,9 @@ async def test_reopening_refuses_an_analysis_outside_the_history_window(
     db_pool, intake, queue
 ):
     analysis_id = await _failed(db_pool, intake, queue)
-    async with db_pool.connection() as conn:
-        await conn.execute(
-            "UPDATE public.analysis_history "
-            "SET created_at = NOW() - interval '31 days' WHERE id = %s",
-            (analysis_id,),
-        )
+    await seed_created_at(
+        analysis_id=analysis_id, created_at=datetime.now(UTC) - timedelta(days=31)
+    )
 
     with pytest.raises(AnalysisRefused) as refusal:
         await intake.retry(FREE_WEB, analysis_id)

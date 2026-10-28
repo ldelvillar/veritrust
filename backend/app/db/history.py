@@ -10,7 +10,6 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
-from app.core.plans import PRO_STATUSES, pro_price_ids
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 from app.schemas.analysis import AnalysisStatus, AnalysisStatusResponse
 from app.schemas.history import (
@@ -184,8 +183,10 @@ async def get_analysis_file(
     """Devuelve ``(file_data, file_filename)`` del archivo propio; lanza HiddenAnalysis si es anterior a ``visible_since``."""
     pool = await get_pool()
 
+    # Un archivo oculto no se lee: el binario puede pesar 10 MB y se descartaría.
     query = f"""
-        SELECT file_data, file_filename, {_HIDDEN_SELECT}
+        SELECT CASE WHEN created_at < %s::timestamptz THEN NULL ELSE file_data END,
+               file_filename, {_HIDDEN_SELECT}
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s AND source_type = 'file'
         LIMIT 1
@@ -194,7 +195,9 @@ async def get_analysis_file(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, (visible_since, user_id, analysis_id))
+                await cur.execute(
+                    query, (visible_since, visible_since, user_id, analysis_id)
+                )
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -203,10 +206,12 @@ async def get_analysis_file(
             )
         ) from exc
 
-    if not row or row[0] is None:
+    if not row:
         return None
     if row[2]:
         raise HiddenAnalysis(analysis_id)
+    if row[0] is None:
+        return None
 
     return bytes(row[0]), row[1]
 
@@ -327,13 +332,15 @@ async def clear_analysis_share_token(*, user_id: str, analysis_id: str) -> bool:
         ) from exc
 
 
-async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | None:
-    """Obtiene la vista pública de un informe compartido por su token mientras su dueño sea Pro, o ``None``."""
+async def get_shared_analysis_by_token(
+    *, token: str
+) -> tuple[str, PublicAnalysisReport] | None:
+    """Obtiene el dueño y la vista pública de un informe compartido por su token, o ``None``."""
     pool = await get_pool()
 
-    # El mismo criterio que is_pro; el token se conserva para cuando el dueño vuelva a Pro.
     query = """
         SELECT
+            user_id,
             source_type,
             input_text,
             input_url,
@@ -347,22 +354,15 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
             claims,
             sources,
             file_filename
-        FROM public.analysis_history AS a
-        WHERE a.share_token = %s
-          AND a.status = 'done'
-          AND EXISTS (
-              SELECT 1 FROM public.subscriptions AS s
-              WHERE s.user_id = a.user_id
-                AND s.status = ANY(%s)
-                AND s.price_id = ANY(%s)
-          )
+        FROM public.analysis_history
+        WHERE share_token = %s AND status = 'done'
         LIMIT 1
     """
 
     try:
         async with pool.connection() as conn:
             async with conn.cursor(row_factory=dict_row) as cur:
-                await cur.execute(query, (token, list(PRO_STATUSES), pro_price_ids()))
+                await cur.execute(query, (token,))
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -374,7 +374,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
     if not row:
         return None
 
-    return PublicAnalysisReport(
+    return str(row["user_id"]), PublicAnalysisReport(
         source_type=row["source_type"],
         input_text=row["input_text"],
         input_url=row["input_url"],

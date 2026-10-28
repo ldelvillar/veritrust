@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 from app.utils.ssrf import (
     SSRFValidationError,
     build_pinned_session,
@@ -45,8 +46,8 @@ def _read_capped_body(response: requests.Response) -> bytes:
     return b"".join(chunks)[:MAX_DOWNLOAD_BYTES]
 
 
-def extract_text_from_url(url: str, max_chars: int) -> str:
-    """Extrae el texto de una página web dada su URL, acotado a ``max_chars``."""
+def extract_text_from_url(url: str) -> str:
+    """Extrae el texto de una página web dada su URL."""
     current_url = url
     max_redirects = 5
     raw_body = b""
@@ -103,5 +104,6 @@ def extract_text_from_url(url: str, max_chars: int) -> str:
             "No se pudo extraer texto relevante de la URL proporcionada."
         )
 
-    # Acota al tope del Plan: una página enorme no puede volverse un prompt sin límite.
-    return text[:max_chars]
+    # Acota el texto al mismo presupuesto que la entrada directa: una página
+    # enorme no puede convertirse en un prompt sin límite para el pipeline LLM.
+    return text[:MAX_INPUT_TEXT_LENGTH]

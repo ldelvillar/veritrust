@@ -21,24 +21,13 @@ from app.db.billing import (
 )
 from app.db.history import delete_user_analysis
 from app.schemas.analysis import AnalysisRequest
-from tests.db.seed import seed_pending
+from tests.db.seed import seed_pending, seed_usage
 from tests.support.billing import make_subscription
 
 pytestmark = pytest.mark.db
 
 USER = "user-a"
 OCTOBER = (datetime(2026, 10, 1, tzinfo=UTC), datetime(2026, 11, 1, tzinfo=UTC))
-
-
-async def _insert_usage(
-    pool, occurred_at: datetime, user_id: str = USER, analysis_id=None
-):
-    async with pool.connection() as conn:
-        await conn.execute(
-            "INSERT INTO public.usage_events (user_id, kind, analysis_id, occurred_at) "
-            "VALUES (%s, 'analysis', %s, %s)",
-            (user_id, analysis_id, occurred_at),
-        )
 
 
 async def test_customer_round_trips_both_ways(db_pool):
@@ -104,12 +93,16 @@ async def test_event_is_processed_only_once_recorded(db_pool):
 
 async def test_usage_counts_this_month_and_pending_analyses(db_pool):
     start, end = OCTOBER
-    await _insert_usage(db_pool, start)
-    await _insert_usage(db_pool, datetime(2026, 10, 31, 23, 59, tzinfo=UTC))
+    await seed_usage(user_id=USER, occurred_at=start)
+    await seed_usage(
+        user_id=USER, occurred_at=datetime(2026, 10, 31, 23, 59, tzinfo=UTC)
+    )
     # Fuera de la ventana o de otro usuario: no cuentan.
-    await _insert_usage(db_pool, datetime(2026, 9, 30, 23, 59, tzinfo=UTC))
-    await _insert_usage(db_pool, end)
-    await _insert_usage(db_pool, start, user_id="user-b")
+    await seed_usage(
+        user_id=USER, occurred_at=datetime(2026, 9, 30, 23, 59, tzinfo=UTC)
+    )
+    await seed_usage(user_id=USER, occurred_at=end)
+    await seed_usage(user_id="user-b", occurred_at=start)
     await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
@@ -126,7 +119,7 @@ async def test_deleting_an_analysis_keeps_its_usage(db_pool):
     analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
-    await _insert_usage(db_pool, start, analysis_id=analysis_id)
+    await seed_usage(user_id=USER, occurred_at=start, analysis_id=analysis_id)
 
     await delete_user_analysis(user_id=USER, analysis_id=analysis_id)
 

@@ -47,30 +47,28 @@ _JOB_TIMEOUT_GRACE_SECONDS = 30
 
 
 async def _input_text(run: AnalysisRun) -> str:
-    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo."""
+    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo hasta el tope del Plan."""
     content = run.content
     if isinstance(content, UrlContent):
         try:
-            return await asyncio.to_thread(
-                extract_text_from_url, content.url, content.max_chars
-            )
+            text = await asyncio.to_thread(extract_text_from_url, content.url)
         except URLExtractionError as exc:
             logger.info("[Worker] Extracción de URL fallida para %s", run.analysis_id)
             raise AnalysisFailure(ErrorCode.URL_EXTRACTION) from exc
+        return text[: content.max_chars]
 
     if isinstance(content, FileContent):
         try:
             text = await asyncio.to_thread(
-                extract_text_from_file,
-                content.data,
-                content.filename,
-                content.max_chars,
+                extract_text_from_file, content.data, content.filename
             )
         except FileExtractionError as exc:
             logger.info(
                 "[Worker] Extracción de archivo fallida para %s", run.analysis_id
             )
             raise AnalysisFailure(ErrorCode.FILE_EXTRACTION) from exc
+        # Se guarda lo que de verdad se analiza: el texto ya recortado al tope del Plan.
+        text = text[: content.max_chars]
         await run.keep_input_text(text)
         return text
 

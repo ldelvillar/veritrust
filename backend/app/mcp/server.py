@@ -116,15 +116,16 @@ def _current_user_id() -> str:
     return token.subject
 
 
-async def _require_mcp_plan(user_id: str) -> PlanLimits:
-    """Devuelve el Plan del usuario, leído en cada llamada, y rechaza si no incluye MCP."""
+async def _pro_caller() -> tuple[str, PlanLimits]:
+    """Identifica al usuario del token OAuth y su Plan, leído en cada llamada; rechaza si no incluye MCP."""
+    user_id = _current_user_id()
     try:
         limits = limits_for(await get_user_subscription(user_id))
     except DatabaseError as exc:
         raise _tool_error(ErrorCode.BILLING_FETCH_FAILED) from exc
     if not limits.mcp:
         raise _tool_error(ErrorCode.PLAN_REQUIRED)
-    return limits
+    return user_id, limits
 
 
 async def _require_allowance(user_id: str, limits: PlanLimits) -> None:
@@ -370,8 +371,7 @@ def build_mcp_server(
             messages = "; ".join(str(error["msg"]) for error in exc.errors())
             raise ToolError(f"Invalid input: {messages}") from exc
 
-        user_id = _current_user_id()
-        limits = await _require_mcp_plan(user_id)
+        user_id, limits = await _pro_caller()
         await _consume_rate_limit(redis, user_id)
 
         # Sin email: el cliente MCP recibe el resultado en la propia llamada.
@@ -394,8 +394,7 @@ def build_mcp_server(
         ],
     ) -> VerificationResult:
         """Espera y devuelve el estado de un análisis MCP del usuario."""
-        user_id = _current_user_id()
-        await _require_mcp_plan(user_id)
+        user_id, _ = await _pro_caller()
         try:
             UUID(analysis_id)
         except ValueError as exc:
@@ -418,8 +417,7 @@ def build_mcp_server(
         ],
     ) -> EvidenceSearchResult:
         """Encola la búsqueda de evidencia en el worker y espera su resultado."""
-        user_id = _current_user_id()
-        limits = await _require_mcp_plan(user_id)
+        user_id, limits = await _pro_caller()
         await _consume_rate_limit(redis, user_id)
         await _require_allowance(user_id, limits)
 
@@ -459,8 +457,7 @@ def build_mcp_server(
         ],
     ) -> EvidenceSearchResult:
         """Espera y devuelve el resultado de una búsqueda de evidencia del usuario."""
-        user_id = _current_user_id()
-        await _require_mcp_plan(user_id)
+        user_id, _ = await _pro_caller()
         try:
             owner = await redis.get(_EVIDENCE_OWNER_KEY.format(job_id=job_id))
         except (OSError, RedisError) as exc:

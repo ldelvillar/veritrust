@@ -21,7 +21,6 @@ from app.core.analysis_lifecycle import AnalysisIntake, Submitter
 from app.core.errors import make_error_detail
 from app.db.feedback import create_analysis_feedback, get_analysis_feedback
 from app.db.history import (
-    HiddenAnalysis,
     clear_analysis_share_token,
     delete_user_analysis,
     get_analysis_file,
@@ -128,13 +127,6 @@ _UNSHARE_ERROR_RESPONSES: dict[int | str, dict] = {
 }
 
 
-def _plan_required() -> HTTPException:
-    """Responde 403 a un análisis fuera de la History window, para mostrar el upsell y no un 404."""
-    return HTTPException(
-        status_code=403, detail=make_error_detail(ErrorCode.PLAN_REQUIRED)
-    )
-
-
 @router.post(
     "",
     response_model=AnalysisResponse,
@@ -154,11 +146,11 @@ async def analyze_news(
     "/{analysis_id}/share",
     response_model=ShareResponse,
     responses=_SHARE_ERROR_RESPONSES,
+    dependencies=[Depends(require("share"))],
 )
 async def share_analysis(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
-    _plan=Depends(require("share")),
     visible_since: datetime | None = Depends(history_window),
 ):
     """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
@@ -168,8 +160,6 @@ async def share_analysis(
         record = await get_user_analysis_by_id(
             user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
         )
-    except HiddenAnalysis as e:
-        raise _plan_required() from e
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -270,8 +260,6 @@ async def get_analysis_detail(
         record = await get_user_analysis_by_id(
             user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
         )
-    except HiddenAnalysis as e:
-        raise _plan_required() from e
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -315,8 +303,6 @@ async def get_analysis_status(
         record = await get_user_analysis_status(
             user_id=user["sub"], analysis_id=analysis_id, visible_since=visible_since
         )
-    except HiddenAnalysis as e:
-        raise _plan_required() from e
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -364,8 +350,6 @@ async def get_analysis_file_content(
         stored = await get_analysis_file(
             user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
         )
-    except HiddenAnalysis as e:
-        raise _plan_required() from e
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -455,8 +439,6 @@ async def submit_analysis_feedback(
         record = await get_user_analysis_by_id(
             user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
         )
-    except HiddenAnalysis as e:
-        raise _plan_required() from e
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
