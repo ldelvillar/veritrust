@@ -7,7 +7,9 @@ import pytest
 from svix.webhooks import Webhook
 
 from app.core import clerk_webhooks
+from app.db.history import DeletedHistory
 from tests.support.billing import CLERK_WEBHOOK_SECRET
+from tests.support.lifecycle import StubIntake
 
 pytestmark = pytest.mark.usefixtures("stripe_settings")
 
@@ -16,14 +18,27 @@ USER = "user_2abc"
 
 @pytest.fixture
 def forgotten(monkeypatch):
-    """Sustituye la baja de facturación por la lista de usuarios dados de baja."""
-    users: list[str] = []
+    """Sustituye la baja de facturación y el borrado del historial por la lista de pasos dados."""
+    steps: list[tuple[str, str]] = []
 
     async def forget_user(user_id):
-        users.append(user_id)
+        steps.append(("billing", user_id))
+
+    async def delete_all_user_analyses(*, user_id):
+        steps.append(("analyses", user_id))
+        return DeletedHistory(count=2, pending_ids=["a-pending"])
 
     monkeypatch.setattr(clerk_webhooks.billing, "forget_user", forget_user)
-    return users
+    monkeypatch.setattr(
+        clerk_webhooks, "delete_all_user_analyses", delete_all_user_analyses
+    )
+    return steps
+
+
+@pytest.fixture
+def intake():
+    """Entrada de análisis que registra las Runs abortadas."""
+    return StubIntake()
 
 
 def _signed(
@@ -46,28 +61,31 @@ def _user_deleted(user_id: str | None = USER) -> dict:
     return {"object": "event", "type": "user.deleted", "data": data}
 
 
-async def test_a_deleted_user_loses_their_billing(forgotten):
+async def test_a_deleted_user_loses_their_billing_then_their_analyses(
+    forgotten, intake
+):
     payload, headers = _signed(_user_deleted())
 
-    await clerk_webhooks.handle_webhook(payload, headers)
+    await clerk_webhooks.handle_webhook(payload, headers, intake)
 
-    assert forgotten == [USER]
+    assert forgotten == [("billing", USER), ("analyses", USER)]
+    assert intake.calls == [("cancel_runs", ["a-pending"])]
 
 
-async def test_other_events_are_acknowledged_without_effect(forgotten):
+async def test_other_events_are_acknowledged_without_effect(forgotten, intake):
     payload, headers = _signed(
         {"object": "event", "type": "user.created", "data": {"id": USER}}
     )
 
-    await clerk_webhooks.handle_webhook(payload, headers)
+    await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
 
 
-async def test_a_user_deleted_event_without_an_id_is_skipped(forgotten):
+async def test_a_user_deleted_event_without_an_id_is_skipped(forgotten, intake):
     payload, headers = _signed(_user_deleted(user_id=None))
 
-    await clerk_webhooks.handle_webhook(payload, headers)
+    await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
 
@@ -100,10 +118,12 @@ def _malformed_signature():
     [_tampered, _wrong_secret, _stale, _unsigned, _malformed_signature],
     ids=["tampered", "wrong-secret", "stale", "unsigned", "malformed"],
 )
-async def test_unsigned_or_altered_requests_are_rejected(forgotten, request_parts):
+async def test_unsigned_or_altered_requests_are_rejected(
+    forgotten, intake, request_parts
+):
     payload, headers = request_parts()
 
     with pytest.raises(clerk_webhooks.InvalidClerkWebhook):
-        await clerk_webhooks.handle_webhook(payload, headers)
+        await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
