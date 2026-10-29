@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SITE_CONFIG } from '@/config/site';
-import { EmailLink, legalLinkClass } from '../_components/legal';
+import {
+  EmailLink,
+  legalLinkClass,
+  legalListClass,
+} from '../_components/legal';
 
 export const metadata: Metadata = {
   title: 'Aviso Legal',
@@ -57,7 +61,7 @@ export default function AvisoLegalPage() {
               estos son los datos del titular de este sitio web y del servicio
               VeriTrust:
             </p>
-            <ul className="mt-3 list-disc space-y-2 pl-6 text-base leading-7 text-body">
+            <ul className={legalListClass}>
               <li>Titular: {SITE_CONFIG.legal.holder}</li>
               <li>NIF: {SITE_CONFIG.legal.nif}</li>
               <li>Domicilio: {SITE_CONFIG.legal.address}</li>

@@ -46,7 +46,7 @@ mkdir -p ~/.config/age && echo 'age1…' > ~/.config/age/backup-recipients.txt
 `crontab -e` opens your personal schedule (as `deploy`, not with `sudo`). Add this line:
 
 ```cron
-0 3 * * * f=$HOME/backups/veritrust-$(date +\%Y\%m\%d).dump; docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > $f 2>> ~/backups/backup.log && age -R ~/.config/age/backup-recipients.txt -o $f.age $f 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump*" -mtime +7 -delete; find ~/backups -name "pre-deploy-*.dump" -mtime +30 -delete
+0 3 * * * f=$HOME/backups/veritrust-$(date +\%Y\%m\%d).dump; docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > $f 2>> ~/backups/backup.log && age -R ~/.config/age/backup-recipients.txt -o $f.age $f 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump*" -mtime +7 -delete; find ~/backups -name "pre-deploy-*.dump" -mtime +27 -delete
 ```
 
 The schedule `0 3 * * *` means **every day at 03:00** server time (minute, hour, day-of-month, month, day-of-week).
@@ -56,8 +56,8 @@ Important details in that line:
 - `$(date +\%Y\%m\%d)` names each file by date so backups don't overwrite each other. The `%` signs **must** be escaped as `\%` — cron treats a bare `%` as a newline, the #1 cause of silent backup failure.
 - `2>> ~/backups/backup.log` captures `pg_dump`'s and `age`'s errors. There is no pipe, so a failed dump is logged and `&&` skips the encryption and cleanup; a `| gzip` here would hide both.
 - `age -R ... -o $f.age $f` writes an encrypted `veritrust-YYYYMMDD.dump.age` next to the plain dump. The plain one stays on the VM for the restores in sections 4 and 5; only the `.age` copy leaves it.
-- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days, plain and encrypted. Adjust `+7` for a longer retention window, up to 30 days.
-- `find ~/backups -name "pre-deploy-*.dump" -mtime +30 -delete` removes the deploy workflow's dumps once they are 30 days old. The workflow only keeps the newest 10, so without this rule a rarely deployed server would keep them for months. It runs even when the backup fails (`;`, not `&&`). The privacy policy promises that deleted data leaves every backup within 30 days, so never raise either limit past 30.
+- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days, plain and encrypted. Adjust `+7` for a longer retention window, up to `+27`.
+- `find ~/backups -name "pre-deploy-*.dump" -mtime +27 -delete` removes the deploy workflow's dumps once they are 28 full days old (`find` rounds ages down, and the job runs once a day, so `+27` keeps every copy under 30 days). The workflow only keeps the newest 10, so without this rule a rarely deployed server would keep them for months. It runs even when the backup fails (`;`, not `&&`). The privacy policy promises that deleted data leaves every backup within 30 days, so never raise either limit past `+27`.
 
 ## 3. Verify the cron job
 
@@ -116,10 +116,10 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
 
-Off-site copies are kept for **30 days at most**: the privacy policy promises that deleted data leaves every backup within 30 days, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that. Add this as a second action of the task:
+Off-site copies are kept for **28 days**, which leaves a margin under 30 for a once-a-day task: the privacy policy promises that deleted data leaves every backup within 30 days, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than 28 days. Add this as a second action of the task:
 
 ```powershell
-Get-ChildItem <folder> -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-30) | Remove-Item
+Get-ChildItem <folder> -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
 ```
 
 To restore from an off-site copy, decrypt it on the workstation (it asks for the passphrase), then copy it to the VM and restore it as in section 4:

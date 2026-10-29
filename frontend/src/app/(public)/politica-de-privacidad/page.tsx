@@ -195,11 +195,6 @@ export default function PoliticaDePrivacidadPage() {
                 contacto y de demo.
               </li>
               <li>
-                Google (Estados Unidos): el buzón de correo electrónico en el
-                que recibimos lo que nos escribes y las solicitudes de los
-                formularios de contacto y de demo.
-              </li>
-              <li>
                 Stripe Payments Europe, Ltd. (Irlanda): pagos, suscripciones y
                 facturas del plan Pro. Stripe también trata algunos datos como
                 responsable independiente, por ejemplo para prevenir el fraude,
@@ -212,8 +207,12 @@ export default function PoliticaDePrivacidadPage() {
               Reino Unido y CIMA de la AEMPS en España) términos de búsqueda
               derivados de las afirmaciones del contenido, nunca tus datos de
               cuenta. Cuando analizas un enlace, nuestro servidor descarga esa
-              página, que ve nuestra petición y no la tuya. Solo cederemos datos
-              a autoridades cuando una ley nos obligue.
+              página, que ve nuestra petición y no la tuya. Lo que nos escribes
+              por correo y las solicitudes de los formularios de contacto y de
+              demo llegan a un buzón de Gmail, cuyos mensajes trata Google
+              Ireland Limited como responsable independiente, según sus propias
+              condiciones. Solo cederemos datos a autoridades cuando una ley nos
+              obligue.
             </p>
           </section>
 
