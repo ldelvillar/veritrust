@@ -170,7 +170,7 @@ Events handled by the webhook:
 | Event | Action |
 | --- | --- |
 | `checkout.session.completed` | link `client_reference_id` to the customer if missing, then `sync_subscription(session.subscription)` |
-| `customer.subscription.created` / `updated` / `deleted` | `sync_subscription(sub.id)`; the user comes from `billing_customers` (fall back to `metadata.clerk_user_id`) |
+| `customer.subscription.created` / `updated` / `deleted` | `sync_subscription(sub.id)`; the user comes from `billing_customers` (fall back to `metadata.clerk_user_id`, except for an ended Subscription: with no stored customer it belongs to a deleted user and is skipped) |
 | `invoice.paid` / `invoice.payment_failed` | `sync_subscription(invoice.subscription)` (status moves to `active` / `past_due`) |
 | anything else | 200 and ignore |
 

@@ -410,6 +410,29 @@ async def test_sync_falls_back_to_metadata_for_an_unknown_customer(
     assert fake_db.subscriptions["sub_1"].user_id == USER
 
 
+@pytest.mark.parametrize("status", ["canceled", "incomplete_expired"])
+async def test_sync_keeps_an_ended_subscription_of_a_known_customer(
+    fake_stripe, fake_db, status
+):
+    fake_db.customers[USER] = "cus_1"
+    fake_stripe.subscriptions.result = _subscription(status=status)
+
+    await billing.sync_subscription("sub_1")
+
+    assert fake_db.subscriptions["sub_1"].status == status
+
+
+@pytest.mark.parametrize("status", ["canceled", "incomplete_expired"])
+async def test_sync_does_not_restore_an_ended_subscription_of_a_deleted_user(
+    fake_stripe, fake_db, status
+):
+    fake_stripe.subscriptions.result = _subscription(status=status)
+
+    await billing.sync_subscription("sub_1")
+
+    assert fake_db.subscriptions == {}
+
+
 async def test_sync_skips_a_subscription_with_no_user(fake_stripe, fake_db):
     fake_stripe.subscriptions.result = _subscription(metadata={})
 

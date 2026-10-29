@@ -160,9 +160,13 @@ async def sync_subscription(subscription_id: str) -> None:
             )
         customer = subscription.customer
         customer_id = customer if isinstance(customer, str) else customer.id
-        user_id = await billing_db.user_id_for_customer(
-            customer_id, conn
-        ) or subscription.metadata.to_dict().get("clerk_user_id")
+        user_id = await billing_db.user_id_for_customer(customer_id, conn)
+        if user_id is None and subscription.status in _ENDED_STATUSES:
+            logger.info(
+                "Suscripción %s terminada sin cliente guardado", subscription.id
+            )
+            return
+        user_id = user_id or subscription.metadata.to_dict().get("clerk_user_id")
         item = subscription.items.data[0]
         recurring = item.price.recurring
         if (
