@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import Pricing from './Pricing';
+
+let isSignedIn = false;
+
+vi.mock('@clerk/nextjs', () => ({
+  useAuth: () => ({ isSignedIn }),
+}));
 
 vi.mock('next/link', () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => (
@@ -10,6 +16,10 @@ vi.mock('next/link', () => ({
 }));
 
 describe('Pricing', () => {
+  afterEach(() => {
+    isSignedIn = false;
+  });
+
   it('shows the individual plans with the yearly price in the Pro card', () => {
     render(<Pricing />);
 
@@ -35,5 +45,24 @@ describe('Pricing', () => {
     expect(
       screen.getByRole('link', { name: 'Acceso anticipado' })
     ).toHaveAttribute('href', '/demo?plan=equipo');
+  });
+
+  it('sends a signed-out visitor to sign up and back to the plan card', () => {
+    render(<Pricing />);
+
+    expect(screen.getByRole('link', { name: 'Hazte Pro' })).toHaveAttribute(
+      'href',
+      '/registro?redirect_url=%2Fapp%2Fcuenta%23plan'
+    );
+  });
+
+  it('sends a signed-in user straight to the plan card', () => {
+    isSignedIn = true;
+    render(<Pricing />);
+
+    expect(screen.getByRole('link', { name: 'Hazte Pro' })).toHaveAttribute(
+      'href',
+      '/app/cuenta#plan'
+    );
   });
 });

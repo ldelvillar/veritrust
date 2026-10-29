@@ -5,6 +5,7 @@ import Spinner from '@/assets/Spinner';
 import Check from '@/assets/Check';
 import LinkIcon from '@/assets/Link';
 import Button from '@/components/Button';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 interface ShareDialogProps {
   open: boolean;
@@ -14,6 +15,7 @@ interface ShareDialogProps {
   onCreate: () => void;
   onRemove: () => void;
   onClose: () => void;
+  locked?: boolean;
 }
 
 export default function ShareDialog({
@@ -24,6 +26,7 @@ export default function ShareDialog({
   onCreate,
   onRemove,
   onClose,
+  locked = false,
 }: ShareDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -101,7 +104,20 @@ export default function ShareDialog({
           </div>
         </div>
 
-        {shareUrl ? (
+        {/* Sin Pro el enlace existente responde 404, pero se puede desactivar; uno nuevo no se crea. */}
+        {locked ? (
+          shareUrl ? (
+            <p className="mt-4 rounded-xl bg-warning-soft px-3.5 py-3 text-sm font-semibold text-warning-ink">
+              Este informe tiene un enlace público que no funciona mientras no
+              tengas el plan Pro. Vuelve a funcionar si te pasas a Pro, o puedes
+              desactivarlo.
+            </p>
+          ) : (
+            <UpgradePrompt variant="inline" className="mt-5">
+              Los enlaces públicos son del plan Pro.
+            </UpgradePrompt>
+          )
+        ) : shareUrl ? (
           <div className="mt-5">
             <label
               htmlFor={`${titleId}-url`}
@@ -163,16 +179,18 @@ export default function ShareDialog({
               Desactivar enlace
             </Button>
           ) : (
-            <Button
-              onClick={onCreate}
-              disabled={isSharing}
-              aria-busy={isSharing}
-            >
-              {isSharing ? (
-                <Spinner className="size-4 animate-spin text-white" />
-              ) : null}
-              Crear enlace público
-            </Button>
+            !locked && (
+              <Button
+                onClick={onCreate}
+                disabled={isSharing}
+                aria-busy={isSharing}
+              >
+                {isSharing ? (
+                  <Spinner className="size-4 animate-spin text-white" />
+                ) : null}
+                Crear enlace público
+              </Button>
+            )
           )}
         </div>
       </div>

@@ -17,6 +17,7 @@ interface FilterSelectProps<T extends string> {
   icon: ReactNode;
   ariaLabel: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export default function FilterSelect<T extends string>({
@@ -26,6 +27,7 @@ export default function FilterSelect<T extends string>({
   icon,
   ariaLabel,
   className = '',
+  disabled = false,
 }: FilterSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -111,9 +113,10 @@ export default function FilterSelect<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onButtonKeyDown}
-        className={`group flex h-11.5 w-full cursor-pointer items-center gap-2.25 rounded-xl border bg-white pr-3.25 pl-3.5 text-sm font-semibold whitespace-nowrap transition outline-none hover:border-primary hover:text-primary sm:w-auto ${
+        className={`group flex h-11.5 w-full cursor-pointer items-center gap-2.25 rounded-xl border bg-white pr-3.25 pl-3.5 text-sm font-semibold whitespace-nowrap transition outline-none enabled:hover:border-primary enabled:hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${
           open
             ? 'border-primary text-primary ring-4 ring-primary/10'
             : 'border-line-strong text-body'

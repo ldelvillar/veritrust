@@ -51,6 +51,7 @@ interface HistoryToolbarProps {
   onDateRangeChange: (value: DateRangeFilter) => void;
   sortOrder: SortOrder;
   onSortChange: (value: SortOrder) => void;
+  disabled?: boolean;
 }
 
 // Búsqueda y filtros del historial; el estado vive en useHistoryFilters (la URL).
@@ -65,17 +66,21 @@ export default function HistoryToolbar({
   onDateRangeChange,
   sortOrder,
   onSortChange,
+  disabled = false,
 }: HistoryToolbarProps) {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2.5 md:gap-3">
-      <label className="relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-xl border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1">
+      <label
+        className={`relative flex h-11.5 min-w-0 flex-[1_1_100%] items-center gap-2.75 rounded-xl border border-line-strong bg-white px-3.5 text-faint transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:min-w-55 md:flex-1 ${disabled ? 'opacity-50' : ''}`}
+      >
         <Magnifier className="size-4.5 shrink-0 text-faint" aria-hidden />
         <input
           type="text"
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
+          disabled={disabled}
           placeholder="Buscar por título o fuente…"
-          className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink outline-none placeholder:text-faint disabled:cursor-not-allowed"
         />
         {searchQuery ? (
           <button
@@ -96,6 +101,7 @@ export default function HistoryToolbar({
         icon={<FunnelIcon className="size-4" aria-hidden />}
         ariaLabel="Filtrar por tipo"
         className="flex-[1_1_100%] sm:flex-none"
+        disabled={disabled}
       />
 
       <FilterSelect
@@ -105,6 +111,7 @@ export default function HistoryToolbar({
         icon={<FunnelIcon className="size-4" aria-hidden />}
         ariaLabel="Filtrar por estado"
         className="flex-[1_1_100%] sm:flex-none"
+        disabled={disabled}
       />
 
       <FilterSelect
@@ -114,6 +121,7 @@ export default function HistoryToolbar({
         icon={<CalendarIcon className="size-4" aria-hidden />}
         ariaLabel="Filtrar por rango de fechas"
         className="flex-[1_1_100%] sm:flex-none"
+        disabled={disabled}
       />
 
       <FilterSelect
@@ -123,6 +131,7 @@ export default function HistoryToolbar({
         icon={<SortIcon className="size-4" aria-hidden />}
         ariaLabel="Ordenar"
         className="flex-[1_1_100%] sm:flex-none"
+        disabled={disabled}
       />
     </div>
   );

@@ -6,18 +6,20 @@ import { useAuth } from '@clerk/nextjs';
 import PageHeader from '@/components/PageHeader';
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
 import { useAllAnalysesDeletion } from '@/hooks/useAllAnalysesDeletion';
+import { usePlan } from '@/hooks/usePlan';
 
 import AccountSummaryCard from './_components/AccountSummaryCard';
 import ExportDataCard from './_components/ExportDataCard';
 import DangerZoneCard from './_components/DangerZoneCard';
 import DeleteAllDialog from './_components/DeleteAllDialog';
+import PlanCard from './_components/PlanCard';
 
 interface CuentaClientProps {
   initialCount: number;
 }
 
-const EXPORT_ALL_PATH =
-  '/history/export?source_type=all&verdict=all&sort=recent';
+// Exportación completa de cualquier Plan (RGPD art. 20): incluye los análisis que la History oculta.
+const EXPORT_ALL_PATH = '/account/export';
 
 const EXPORT_FALLBACK_ERROR =
   'No se pudieron exportar tus datos. Inténtalo de nuevo.';
@@ -26,6 +28,8 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
   const { getToken } = useAuth();
 
   const [count, setCount] = useState(initialCount);
+  const { limits } = usePlan();
+  const historyDays = limits?.history_days ?? null;
 
   // --- Exportar ---
   const [isExporting, setIsExporting] = useState(false);
@@ -62,7 +66,11 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
   } = useAllAnalysesDeletion();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deletedCount, setDeletedCount] = useState<number | null>(null);
+  // 'all': se borró todo, pero el total no se conocía.
+  const [deletedCount, setDeletedCount] = useState<number | 'all' | null>(null);
+  // Con ventana de History, /history solo cuenta lo visible: el total real es desconocido hasta borrarlo todo.
+  const knownCount =
+    historyDays === null || deletedCount !== null ? count : null;
 
   const openDeleteDialog = useCallback(() => {
     setDeleteError(null);
@@ -76,13 +84,13 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
   }, [isDeleting, setDeleteError]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    const removed = count;
+    const removed = knownCount;
     const ok = await removeAll();
     if (!ok) return;
     setIsDialogOpen(false);
-    setDeletedCount(removed);
+    setDeletedCount(removed ?? 'all');
     setCount(0);
-  }, [count, removeAll]);
+  }, [knownCount, removeAll]);
 
   return (
     <>
@@ -95,17 +103,19 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
       </div>
 
       <div className="flex flex-col gap-5">
-        <AccountSummaryCard totalCount={count} />
+        <PlanCard />
+
+        <AccountSummaryCard totalCount={count} historyDays={historyDays} />
 
         <ExportDataCard
-          totalCount={count}
+          totalCount={knownCount}
           isExporting={isExporting}
           errorMessage={exportError}
           onExport={handleExport}
         />
 
         <DangerZoneCard
-          totalCount={count}
+          totalCount={knownCount}
           deletedCount={deletedCount}
           onRequestDelete={openDeleteDialog}
         />
@@ -113,7 +123,7 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
 
       <DeleteAllDialog
         open={isDialogOpen}
-        count={count}
+        count={knownCount}
         isConfirming={isDeleting}
         errorMessage={deleteError}
         onConfirm={handleDeleteConfirm}

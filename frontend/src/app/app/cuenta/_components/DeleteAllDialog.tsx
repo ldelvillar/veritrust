@@ -4,10 +4,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Spinner from '@/assets/Spinner';
 import TrashIcon from '@/assets/Trash';
 import WarningIcon from '@/assets/Warning';
+import { formatCount } from '@/lib/plan';
 
 interface DeleteAllDialogProps {
   open: boolean;
-  count: number;
+  // null si el Plan oculta parte de la History y el total no se conoce.
+  count: number | null;
   isConfirming?: boolean;
   errorMessage?: string | null;
   onConfirm: () => void;
@@ -78,9 +80,11 @@ function DeleteAllDialogInner({
               id={descriptionId}
               className="mt-1 text-sm font-medium text-muted"
             >
-              Se borrarán permanentemente tus{' '}
+              Se borrarán permanentemente{' '}
               <strong className="text-body">
-                {new Intl.NumberFormat('es-ES').format(count)} análisis
+                {count === null
+                  ? 'todos tus análisis'
+                  : `tus ${formatCount(count)} análisis`}
               </strong>{' '}
               y todos sus informes. Esta acción no se puede deshacer.
             </p>
