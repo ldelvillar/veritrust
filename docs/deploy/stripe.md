@@ -71,13 +71,13 @@ Test mode only (**Workbench → Webhooks → Test with a local listener** shows 
 
 ## Account deletion
 
-Users delete their account through Clerk, so Clerk tells the backend with a webhook: on `user.deleted`, the backend cancels the user's Stripe Subscription at once, with no proration or refund, and deletes their rows in `billing_customers`, `subscriptions` and `usage_events`. The Stripe customer and its invoices stay in Stripe, since tax law requires keeping invoices. Without the webhook, a deleted user keeps being charged.
+Users delete their account through Clerk, so Clerk tells the backend with a webhook: on `user.deleted`, the backend cancels the user's Stripe Subscription at once, with no proration or refund, deletes their rows in `billing_customers`, `subscriptions` and `usage_events`, then deletes all their analyses (feedback included) and aborts their pending Runs, like `DELETE /history`. The Stripe customer and its invoices stay in Stripe, since tax law requires keeping invoices. Without the webhook, a deleted user keeps being charged and their analyses stay in the database, which the privacy policy promises they don't.
 
 1. Give the fine-grained key of each mode **Subscriptions: Write** (see [API key](#api-key)); with only Read, cancelling fails and the webhook answers 503, so Clerk retries it.
 2. In the Clerk Dashboard of the **Production** instance, open **Configure → Webhooks → Add Endpoint**: URL `https://$API_DOMAIN/webhooks/clerk`, subscribed to the `user.deleted` event only.
 3. Open the new endpoint and copy its **Signing Secret** (`whsec_…`) into `CLERK_WEBHOOK_SECRET` in the server's `backend/.env` (see [env.md](env.md)). A wrong secret makes every delivery answer 400 `INVALID_WEBHOOK`; the endpoint's **Logs** tab in Clerk lists failed deliveries and can resend them.
 
-Locally, the Clerk development instance can't reach `localhost`, so account deletion doesn't cancel anything unless you expose the backend through a tunnel and add a development endpoint the same way. `CLERK_WEBHOOK_SECRET` must still be set for the web process to start: copy the secret of a development endpoint, or use any `whsec_` value with valid base64 after the prefix, such as `whsec_ZGV2ZWxvcG1lbnQ=`.
+Locally, the Clerk development instance can't reach `localhost`, so account deletion doesn't cancel or delete anything unless you expose the backend through a tunnel and add a development endpoint the same way. `CLERK_WEBHOOK_SECRET` must still be set for the web process to start: copy the secret of a development endpoint, or use any `whsec_` value with valid base64 after the prefix, such as `whsec_ZGV2ZWxvcG1lbnQ=`.
 
 ## Operations
 
