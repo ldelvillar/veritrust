@@ -1,7 +1,6 @@
 """Configuración centralizada de la aplicación, cargada y validada desde el entorno."""
 
 from functools import lru_cache
-from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,7 +23,7 @@ class Settings(BaseSettings):
     database_url: str = ""
 
     # Entorno y CORS
-    environment: Literal["development", "production"] = "production"
+    environment: str = "production"
     log_format: str = "text"  # "json" emite una línea JSON por registro (Cloud Logging)
     cors_allowed_origins: str = ""
     cors_allow_credentials: bool = True
@@ -212,7 +211,7 @@ class Settings(BaseSettings):
 
     def is_development(self) -> bool:
         """Indica si el proceso corre con ENVIRONMENT=development."""
-        return self.environment == "development"
+        return self.environment.strip().lower() == "development"
 
     def llm_provider_name(self) -> str:
         """Devuelve el proveedor de LLM normalizado en minúsculas."""
