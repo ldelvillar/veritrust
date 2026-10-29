@@ -153,13 +153,13 @@ class Settings(BaseSettings):
     # Secreto de firma (whsec_…) del webhook con que Clerk avisa de las cuentas eliminadas
     clerk_webhook_secret: str = ""
 
-    # Notificaciones por email (Resend); sin api_key el envío es un no-op silencioso
+    # Notificaciones por email (Resend); obligatorias fuera de desarrollo, donde sin api_key no se envía nada
     resend_api_key: str | None = None
     resend_from_email: str = ""
     resend_base_url: str = "https://api.resend.com"
     # Origen público del frontend, para construir el enlace al informe en el email
     app_base_url: str | None = None
-    # Buzón del equipo al que llegan los formularios de contacto y demo
+    # Buzón del equipo al que llegan los formularios de contacto y demo; obligatorio en la web fuera de desarrollo
     contact_to_email: str = ""
 
     # Stripe (planes de pago): clave secreta, secreto de firma del webhook e ids de los precios Pro
@@ -245,6 +245,14 @@ class Settings(BaseSettings):
             missing.append("CORS_ALLOWED_ORIGINS")
         if not self.app_base_url:
             missing.append("APP_BASE_URL")
+        # Sin Resend, los avisos de análisis y los formularios de contacto fallarían en silencio
+        if self.environment.strip().lower() != "development":
+            if not (self.resend_api_key or "").strip():
+                missing.append("RESEND_API_KEY")
+            if not self.resend_from_email.strip():
+                missing.append("RESEND_FROM_EMAIL")
+            if web and not self.contact_to_email.strip():
+                missing.append("CONTACT_TO_EMAIL")
         if web:
             for name in (
                 "stripe_secret_key",
