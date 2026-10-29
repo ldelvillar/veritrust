@@ -29,6 +29,9 @@ def _make_settings(**overrides) -> Settings:
         "stripe_price_pro_monthly": PRICE_MONTHLY,
         "stripe_price_pro_yearly": PRICE_YEARLY,
         "clerk_webhook_secret": CLERK_WEBHOOK_SECRET,
+        "resend_api_key": "re_test_dummy",
+        "resend_from_email": "no-reply@example.com",
+        "contact_to_email": "equipo@example.com",
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
@@ -145,6 +148,49 @@ def test_validate_runtime_requires_cors_origins_in_production():
         settings.validate_runtime()
 
     assert "CORS_ALLOWED_ORIGINS" in str(exc.value)
+
+
+def test_validate_runtime_requires_the_email_settings_in_production():
+    settings = _make_settings(
+        environment="production",
+        resend_api_key="",
+        resend_from_email="",
+        contact_to_email=" ",
+    )
+
+    with pytest.raises(SettingsValidationError) as exc:
+        settings.validate_runtime()
+
+    message = str(exc.value)
+    assert "RESEND_API_KEY" in message
+    assert "RESEND_FROM_EMAIL" in message
+    assert "CONTACT_TO_EMAIL" in message
+
+
+def test_validate_runtime_requires_resend_but_not_the_contact_inbox_for_the_worker():
+    worker_without_inbox = _make_settings(environment="production", contact_to_email="")
+    worker_without_resend = _make_settings(
+        environment="production", resend_api_key=" ", resend_from_email=""
+    )
+
+    worker_without_inbox.validate_runtime(web=False)
+    with pytest.raises(SettingsValidationError) as exc:
+        worker_without_resend.validate_runtime(web=False)
+
+    message = str(exc.value)
+    assert "RESEND_API_KEY" in message
+    assert "RESEND_FROM_EMAIL" in message
+
+
+def test_validate_runtime_leaves_the_email_settings_optional_in_development():
+    settings = _make_settings(
+        environment="development",
+        resend_api_key="",
+        resend_from_email="",
+        contact_to_email="",
+    )
+
+    settings.validate_runtime()
 
 
 def test_validate_runtime_rejects_wildcard_origin_with_credentials():

@@ -141,7 +141,7 @@ async def test_notifier_sends_the_email_that_matches_the_outcome(
 
 
 async def test_no_send_without_api_key(monkeypatch):
-    _configure(monkeypatch, api_key=None)
+    _configure(monkeypatch, api_key="")
     recorder: list[dict] = []
     _patch_client(monkeypatch, recorder)
 
@@ -236,7 +236,7 @@ async def test_contact_email_posts_to_resend_with_reply_to(monkeypatch):
 
 
 async def test_contact_email_raises_when_unconfigured(monkeypatch):
-    _configure_contact(monkeypatch, api_key=None)
+    _configure_contact(monkeypatch, api_key="")
     recorder: list[dict] = []
     _patch_client(monkeypatch, recorder)
 

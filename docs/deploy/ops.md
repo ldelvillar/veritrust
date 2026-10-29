@@ -108,7 +108,7 @@ Send a URL instead with `{"url": "https://…", "source_type": "url"}`. An analy
 
 ## Billing (Stripe)
 
-Pro is sold through Stripe Billing (ADR-0005). The Stripe Dashboard setup, the test-mode local workflow and the webhook operations live in [stripe.md](stripe.md). The four `STRIPE_*` variables are required by the web process, so a deploy without them answers `/healthz` 503.
+Pro is sold through Stripe Billing (ADR-0005). The Stripe Dashboard setup, the test-mode local workflow and the webhook operations live in [stripe.md](stripe.md). The four `STRIPE_*` variables are required by the web process, so a deploy without them never starts: the backend container keeps restarting and its logs name the missing variables.
 
 ## Capacity & scaling
 
