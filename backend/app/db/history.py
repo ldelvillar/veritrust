@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import psycopg
@@ -39,6 +40,13 @@ _HISTORY_COLUMNS = (
     "share_token",
 )
 _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
+
+# Marca la fila más antigua que la History window; sin window (NULL) nunca lo es.
+_HIDDEN_SELECT = "created_at < %s::timestamptz AS hidden"
+
+
+class HiddenAnalysis(LookupError):
+    """El análisis existe pero queda fuera de la History window del Plan de su dueño."""
 
 
 def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
@@ -104,13 +112,13 @@ async def get_pending_analyses_summary(*, user_id: str) -> PendingAnalysesSummar
 
 
 async def get_user_analysis_by_id(
-    *, user_id: str, analysis_id: str
+    *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> AnalysisHistoryItem | None:
-    """Obtiene un analisis por id para un usuario autenticado."""
+    """Obtiene un análisis propio por id; lanza HiddenAnalysis si es anterior a ``visible_since``."""
     pool = await get_pool()
 
     query = f"""
-        SELECT {_HISTORY_SELECT}, stage
+        SELECT {_HISTORY_SELECT}, stage, {_HIDDEN_SELECT}
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -119,7 +127,7 @@ async def get_user_analysis_by_id(
     try:
         async with pool.connection() as conn:
             async with conn.cursor(row_factory=dict_row) as cur:
-                await cur.execute(query, (user_id, analysis_id))
+                await cur.execute(query, (visible_since, user_id, analysis_id))
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -130,18 +138,20 @@ async def get_user_analysis_by_id(
 
     if not row:
         return None
+    if row["hidden"]:
+        raise HiddenAnalysis(analysis_id)
 
     return _map_history_record(row)
 
 
 async def get_user_analysis_status(
-    *, user_id: str, analysis_id: str
+    *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> AnalysisStatusResponse | None:
-    """Obtiene solo el estado y la etapa de un análisis propio para el sondeo."""
+    """Obtiene el estado y la etapa de un análisis propio; lanza HiddenAnalysis si es anterior a ``visible_since``."""
     pool = await get_pool()
 
-    query = """
-        SELECT status, stage
+    query = f"""
+        SELECT status, stage, {_HIDDEN_SELECT}
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1
@@ -150,7 +160,7 @@ async def get_user_analysis_status(
     try:
         async with pool.connection() as conn:
             async with conn.cursor(row_factory=dict_row) as cur:
-                await cur.execute(query, (user_id, analysis_id))
+                await cur.execute(query, (visible_since, user_id, analysis_id))
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -161,18 +171,22 @@ async def get_user_analysis_status(
 
     if not row:
         return None
+    if row["hidden"]:
+        raise HiddenAnalysis(analysis_id)
 
     return AnalysisStatusResponse(status=row["status"], stage=row["stage"])
 
 
 async def get_analysis_file(
-    *, user_id: str, analysis_id: str
+    *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> tuple[bytes, str | None] | None:
-    """Devuelve ``(file_data, file_filename)`` del archivo propio del usuario, o None."""
+    """Devuelve ``(file_data, file_filename)`` del archivo propio; lanza HiddenAnalysis si es anterior a ``visible_since``."""
     pool = await get_pool()
 
-    query = """
-        SELECT file_data, file_filename
+    # Un archivo oculto no se lee: el binario puede pesar 10 MB y se descartaría.
+    query = f"""
+        SELECT CASE WHEN created_at < %s::timestamptz THEN NULL ELSE file_data END,
+               file_filename, {_HIDDEN_SELECT}
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s AND source_type = 'file'
         LIMIT 1
@@ -181,7 +195,9 @@ async def get_analysis_file(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, (user_id, analysis_id))
+                await cur.execute(
+                    query, (visible_since, visible_since, user_id, analysis_id)
+                )
                 row = await cur.fetchone()
     except psycopg.Error as exc:
         raise DatabaseError(
@@ -190,7 +206,11 @@ async def get_analysis_file(
             )
         ) from exc
 
-    if not row or row[0] is None:
+    if not row:
+        return None
+    if row[2]:
+        raise HiddenAnalysis(analysis_id)
+    if row[0] is None:
         return None
 
     return bytes(row[0]), row[1]
@@ -312,12 +332,15 @@ async def clear_analysis_share_token(*, user_id: str, analysis_id: str) -> bool:
         ) from exc
 
 
-async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | None:
-    """Obtiene la vista pública de un informe compartido por su token, o ``None``."""
+async def get_shared_analysis_by_token(
+    *, token: str
+) -> tuple[str, PublicAnalysisReport] | None:
+    """Obtiene el dueño y la vista pública de un informe compartido por su token, o ``None``."""
     pool = await get_pool()
 
     query = """
         SELECT
+            user_id,
             source_type,
             input_text,
             input_url,
@@ -351,7 +374,7 @@ async def get_shared_analysis_by_token(*, token: str) -> PublicAnalysisReport | 
     if not row:
         return None
 
-    return PublicAnalysisReport(
+    return str(row["user_id"]), PublicAnalysisReport(
         source_type=row["source_type"],
         input_text=row["input_text"],
         input_url=row["input_url"],

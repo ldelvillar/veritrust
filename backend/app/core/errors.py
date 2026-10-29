@@ -63,6 +63,12 @@ _MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CONTACT_SEND_FAILED: (
         "No se pudo enviar tu mensaje. Por favor, inténtalo de nuevo en unos momentos."
     ),
+    ErrorCode.PLAN_REQUIRED: "Esta función está disponible en el plan Pro.",
+    ErrorCode.ALLOWANCE_EXHAUSTED: (
+        "Has usado todos los análisis de este mes. "
+        "Se renuevan el día 1 o puedes pasarte a Pro."
+    ),
+    ErrorCode.TEXT_TOO_LONG_FOR_PLAN: "El texto supera el máximo de tu plan.",
     ErrorCode.ALREADY_SUBSCRIBED: "Ya tienes el plan Pro.",
     ErrorCode.BILLING_ACCOUNT_NOT_FOUND: "Todavía no tienes una suscripción.",
     ErrorCode.BILLING_UNAVAILABLE: (

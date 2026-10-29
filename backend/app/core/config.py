@@ -150,6 +150,8 @@ class Settings(BaseSettings):
     # Clave secreta del Backend API de Clerk, con la que se verifican las claves API (ak_…)
     clerk_secret_key: str = ""
     clerk_api_base_url: str = "https://api.clerk.com/v1"
+    # Secreto de firma (whsec_…) del webhook con que Clerk avisa de las cuentas eliminadas
+    clerk_webhook_secret: str = ""
 
     # Notificaciones por email (Resend); sin api_key el envío es un no-op silencioso
     resend_api_key: str | None = None
@@ -212,7 +214,7 @@ class Settings(BaseSettings):
         return self.llm_provider.strip().lower()
 
     def validate_runtime(self, *, web: bool = True) -> None:
-        """Valida la configuración obligatoria; el worker pasa web=False y omite CORS, MCP y Stripe."""
+        """Valida la configuración obligatoria; el worker pasa web=False y omite lo exclusivo de la web."""
         missing: list[str] = []
 
         provider = self.llm_provider_name()
@@ -249,6 +251,7 @@ class Settings(BaseSettings):
                 "stripe_webhook_secret",
                 "stripe_price_pro_monthly",
                 "stripe_price_pro_yearly",
+                "clerk_webhook_secret",
             ):
                 if not getattr(self, name).strip():
                     missing.append(name.upper())

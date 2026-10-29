@@ -3,7 +3,12 @@
 import pytest
 
 from app.core.config import Settings, SettingsValidationError
-from tests.support.billing import PRICE_MONTHLY, PRICE_YEARLY, WEBHOOK_SECRET
+from tests.support.billing import (
+    CLERK_WEBHOOK_SECRET,
+    PRICE_MONTHLY,
+    PRICE_YEARLY,
+    WEBHOOK_SECRET,
+)
 
 
 def _make_settings(**overrides) -> Settings:
@@ -23,6 +28,7 @@ def _make_settings(**overrides) -> Settings:
         "stripe_webhook_secret": WEBHOOK_SECRET,
         "stripe_price_pro_monthly": PRICE_MONTHLY,
         "stripe_price_pro_yearly": PRICE_YEARLY,
+        "clerk_webhook_secret": CLERK_WEBHOOK_SECRET,
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)  # type: ignore[arg-type]
@@ -93,12 +99,14 @@ def test_validate_runtime_reports_missing_required_vars():
         stripe_webhook_secret="",
         stripe_price_pro_monthly="",
         stripe_price_pro_yearly=" ",
+        clerk_webhook_secret="",
     )
 
     with pytest.raises(SettingsValidationError) as exc:
         settings.validate_runtime()
 
     message = str(exc.value)
+    assert "CLERK_WEBHOOK_SECRET" in message
     assert "DATABASE_URL" in message
     assert "CLERK_AUDIENCE" in message
     assert "CLERK_SECRET_KEY" in message
@@ -124,6 +132,7 @@ def test_validate_runtime_skips_web_only_settings_for_the_worker():
         mcp_resource_url=None,
         stripe_secret_key="",
         stripe_webhook_secret="",
+        clerk_webhook_secret="",
     )
 
     settings.validate_runtime(web=False)

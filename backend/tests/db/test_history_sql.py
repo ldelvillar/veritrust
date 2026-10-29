@@ -1,8 +1,11 @@
 """Pruebas del SQL real de ``app/db/history.py``: los contratos que las rutas dan por hechos."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from app.db.history import (
+    HiddenAnalysis,
     clear_analysis_share_token,
     delete_all_user_analyses,
     delete_user_analysis,
@@ -18,6 +21,7 @@ from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.history import HistoryQuery
 from tests.db.seed import (
+    seed_created_at,
     seed_done,
     seed_failed,
     seed_pending,
@@ -67,7 +71,9 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
         evidence_coverage=0.5,
     )
 
-    record = await get_user_analysis_by_id(user_id=USER, analysis_id=analysis_id)
+    record = await get_user_analysis_by_id(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
     assert record is not None
     assert record.status == "done"
     assert record.label == "falsa"
@@ -109,13 +115,35 @@ async def test_share_token_issued_only_for_done_rows(db_pool):
         await set_analysis_share_token(user_id=USER, analysis_id=analysis_id) == token
     )
 
-    public = await get_shared_analysis_by_token(token=token)
-    assert public is not None
-    assert public.status == "done"
-    assert public.label == "falsa"
+    shared = await get_shared_analysis_by_token(token=token)
+    assert shared is not None
+    # El dueño viaja aparte para que la ruta decida con su Plan; la vista pública no lo lleva.
+    owner, public = shared
+    assert owner == USER
+    assert (public.status, public.label) == ("done", "falsa")
 
     assert await clear_analysis_share_token(user_id=USER, analysis_id=analysis_id)
     assert await get_shared_analysis_by_token(token=token) is None
+
+
+async def test_readers_hide_analyses_older_than_the_history_window(db_pool):
+    """Una fila anterior a la window existe pero es Pro: lanza HiddenAnalysis, no devuelve None."""
+    now = datetime.now(UTC)
+    old_id = await seed_pending_file(
+        user_id=USER, filename="informe.pdf", data=b"%PDF-1.4 contenido"
+    )
+    await seed_created_at(analysis_id=old_id, created_at=now - timedelta(days=31))
+    floor = now - timedelta(days=30)
+
+    for read in (get_user_analysis_by_id, get_user_analysis_status, get_analysis_file):
+        with pytest.raises(HiddenAnalysis):
+            await read(user_id=USER, analysis_id=old_id, visible_since=floor)
+        assert await read(user_id=USER, analysis_id=old_id, visible_since=None)
+        # Una fila ajena sigue sin existir, haya window o no.
+        assert (
+            await read(user_id="user-b", analysis_id=old_id, visible_since=floor)
+            is None
+        )
 
 
 async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
@@ -123,15 +151,21 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
     analysis_id = await _pending()
     await seed_stage(analysis_id=analysis_id, stage="translator")
 
-    status = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
+    status = await get_user_analysis_status(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
     assert (status.status, status.stage) == ("pending", "translator")
 
     await seed_failed(analysis_id=analysis_id, error_code="CONNECTION")
-    failed = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
+    failed = await get_user_analysis_status(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
     assert failed.status == "failed"
 
     assert (
-        await get_user_analysis_status(user_id="user-b", analysis_id=analysis_id)
+        await get_user_analysis_status(
+            user_id="user-b", analysis_id=analysis_id, visible_since=None
+        )
         is None
     )
 
@@ -143,11 +177,18 @@ async def test_rows_are_isolated_per_user(db_pool):
     )
 
     assert (
-        await get_user_analysis_by_id(user_id="user-b", analysis_id=analysis_id) is None
+        await get_user_analysis_by_id(
+            user_id="user-b", analysis_id=analysis_id, visible_since=None
+        )
+        is None
     )
     assert await delete_user_analysis(user_id="user-b", analysis_id=analysis_id) is None
     page = await search_history(
-        user_id="user-b", query=HistoryQuery(), page=1, page_size=20
+        user_id="user-b",
+        query=HistoryQuery(),
+        page=1,
+        page_size=20,
+        visible_since=None,
     )
     assert (page.items, page.total) == ([], 0)
 
@@ -166,10 +207,12 @@ async def test_delete_all_removes_only_own_rows(db_pool):
     assert deleted.count == 2
 
     page = await search_history(
-        user_id=USER, query=HistoryQuery(), page=1, page_size=20
+        user_id=USER, query=HistoryQuery(), page=1, page_size=20, visible_since=None
     )
     assert (page.items, page.total) == ([], 0)
-    assert await get_user_analysis_by_id(user_id="user-b", analysis_id=other_id)
+    assert await get_user_analysis_by_id(
+        user_id="user-b", analysis_id=other_id, visible_since=None
+    )
 
 
 async def test_delete_all_returns_zero_when_history_empty(db_pool):
@@ -202,9 +245,14 @@ async def test_file_bytes_round_trip_exactly(db_pool):
 
     # La descarga autenticada exige que el archivo sea del propio usuario.
     assert (
-        await get_analysis_file(user_id="otro-usuario", analysis_id=analysis_id) is None
+        await get_analysis_file(
+            user_id="otro-usuario", analysis_id=analysis_id, visible_since=None
+        )
+        is None
     )
-    mine = await get_analysis_file(user_id=USER, analysis_id=analysis_id)
+    mine = await get_analysis_file(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
     assert mine == (data, "informe.pdf")
 
 

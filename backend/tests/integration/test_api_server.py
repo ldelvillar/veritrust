@@ -6,6 +6,7 @@ import importlib
 import io
 import sys
 import types
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import fakeredis
@@ -15,10 +16,12 @@ from redis.exceptions import RedisError
 
 from app.api.dependencies.analysis_intake import REFUSAL_HTTP_STATUS
 from app.api.dependencies.get_current_user import get_current_user
+from app.api.dependencies.plan import current_plan
 from app.core.analysis_lifecycle import REFUSAL_CODES, AnalysisIntake, Submitter
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
-from app.db.history import DeletedHistory
+from app.core.plans import FREE, PRO
+from app.db.history import DeletedHistory, HiddenAnalysis
 from app.db.history_query import HistoryPage
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
@@ -35,6 +38,7 @@ from app.schemas.history import (
     PublicAnalysisReport,
 )
 from app.utils.extract_text_from_file import ALLOWED_FILE_SUFFIXES
+from tests.support.billing import make_subscription
 from tests.support.lifecycle import ANALYSIS_ID, StubIntake
 
 
@@ -79,8 +83,15 @@ def _load_server_module(monkeypatch):
         "sub": "test-user",
         "email": "test-user@example.com",
     }
+    # Pro por defecto: cada prueba de una restricción de Free cambia el Plan con _as_free.
+    server_module.app.dependency_overrides[current_plan] = lambda: PRO
 
     return server_module, fake_pool
+
+
+def _as_free(server_module) -> None:
+    """Hace que el usuario de prueba tenga el Plan Free."""
+    server_module.app.dependency_overrides[current_plan] = lambda: FREE
 
 
 async def _ok_database():
@@ -222,7 +233,7 @@ def test_analisis_detail_returns_analysis_for_authenticated_user(monkeypatch):
         stage=None,
     )
 
-    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id, visible_since):
         assert user_id == "test-user"
         assert analysis_id == "11111111-1111-1111-1111-111111111111"
         return record
@@ -286,7 +297,7 @@ def test_analisis_detail_returns_pending_status(monkeypatch):
         stage=None,
     )
 
-    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id, visible_since):
         return record
 
     monkeypatch.setattr(
@@ -330,7 +341,7 @@ def test_analisis_detail_returns_failed_status_with_error_code(monkeypatch):
         stage=None,
     )
 
-    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id, visible_since):
         return record
 
     monkeypatch.setattr(
@@ -390,7 +401,7 @@ def test_analisis_detail_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_user_analysis_by_id(*, user_id, analysis_id):
+    async def fake_get_user_analysis_by_id(*, user_id, analysis_id, visible_since):
         raise DatabaseError("db down")
 
     monkeypatch.setattr(
@@ -408,7 +419,7 @@ def test_analisis_status_returns_only_status_and_stage(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_user_analysis_status(*, user_id, analysis_id):
+    async def fake_get_user_analysis_status(*, user_id, analysis_id, visible_since):
         assert user_id == "test-user"
         assert analysis_id == "11111111-1111-1111-1111-111111111111"
         return AnalysisStatusResponse(status="pending", stage="investigator")
@@ -456,7 +467,7 @@ def test_analisis_status_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_user_analysis_status(*, user_id, analysis_id):
+    async def fake_get_user_analysis_status(*, user_id, analysis_id, visible_since):
         raise DatabaseError("db down")
 
     monkeypatch.setattr(
@@ -699,7 +710,7 @@ def test_feedback_saves_verdict_confirmation(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         assert user_id == "test-user"
         return _done_record()
 
@@ -734,7 +745,7 @@ def test_feedback_saves_correction_with_verdict_and_comment(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     created = []
@@ -768,7 +779,7 @@ def test_feedback_drops_correction_fields_when_confirming(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     created = []
@@ -817,7 +828,7 @@ def test_feedback_returns_404_when_not_found(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return None
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -832,7 +843,7 @@ def test_feedback_returns_409_when_not_done(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _failed_record(status="pending")
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -847,7 +858,7 @@ def test_feedback_returns_409_when_already_submitted(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     async def fake_create(**kwargs):
@@ -866,7 +877,7 @@ def test_feedback_returns_500_when_fetch_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         raise DatabaseError("db down")
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -881,7 +892,7 @@ def test_feedback_returns_500_when_save_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     async def fake_create(**kwargs):
@@ -899,7 +910,7 @@ def test_feedback_returns_500_when_save_fails(monkeypatch):
 def _stub_saved_feedback(monkeypatch) -> None:
     """Hace que cualquier valoración sobre un análisis ``done`` propio se guarde."""
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     async def fake_create(**kwargs):
@@ -941,7 +952,7 @@ def test_analisis_detail_includes_active_feedback_when_done(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
 
     async def fake_get_feedback(*, user_id, analysis_id):
@@ -970,7 +981,7 @@ def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _failed_record(status="pending")
 
     lookups = []
@@ -1078,6 +1089,7 @@ _PUBLIC_OPERATIONS = {
     "GET /shared/{token}",
     "POST /contact",
     "POST /billing/webhook",
+    "POST /webhooks/clerk",
     "GET /config",
     "GET /healthz",
 }
@@ -1187,9 +1199,11 @@ def test_historial_returns_user_history(monkeypatch):
         }
     ]
 
-    async def fake_search_history(*, user_id, query, page, page_size):
+    async def fake_search_history(*, user_id, query, page, page_size, visible_since):
         assert user_id == "test-user"
         assert (page, page_size) == (1, 10)
+        # Pro ve toda su History.
+        assert visible_since is None
         # Sin parámetro 'status' explícito el filtro de estado queda en "all".
         assert query == HistoryQuery(
             search="vacuna",
@@ -1408,7 +1422,7 @@ def test_historial_export_returns_csv(monkeypatch):
         ),
     ]
 
-    async def fake_export_history(*, user_id, query):
+    async def fake_export_history(*, user_id, query, visible_since):
         assert user_id == "test-user"
         # La exportación recibe la misma consulta que el listado, estado incluido.
         assert query == HistoryQuery(
@@ -1626,7 +1640,7 @@ def test_get_file_returns_file(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_file(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id, visible_since):
         assert user_id == "test-user"
         return (b"%PDF-1.4 data", "informe.pdf")
 
@@ -1646,7 +1660,7 @@ def test_get_file_handles_non_latin1_filename(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_file(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id, visible_since):
         # Em dash y emoji no caben en latin-1: antes reventaban la respuesta.
         return (b"%PDF-1.4 data", "informe—salud☕.pdf")
 
@@ -1668,7 +1682,7 @@ def test_get_file_returns_404_when_missing(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_file(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id, visible_since):
         return None
 
     monkeypatch.setattr(
@@ -1698,7 +1712,7 @@ def test_share_creates_link_and_returns_token(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         assert user_id == "test-user"
         return _failed_record(status="done")
 
@@ -1720,7 +1734,7 @@ def test_share_returns_409_when_not_done(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _failed_record(status="pending")
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -1735,7 +1749,7 @@ def test_share_returns_404_when_not_found(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return None
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -1750,7 +1764,7 @@ def test_share_returns_409_when_set_loses_race(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _failed_record(status="done")
 
     async def fake_set(*, user_id, analysis_id):
@@ -1810,27 +1824,47 @@ def test_unshare_returns_404_when_not_found(monkeypatch):
     assert response.json()["detail"]["code"] == "ANALYSIS_NOT_FOUND"
 
 
-def test_shared_report_returns_public_view_without_user_id(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
+_SHARED_REPORT = PublicAnalysisReport(
+    source_type="text",
+    input_text="Bleach cures COVID",
+    label="falsa",
+    confidence=0.9,
+    explanation="Sin respaldo científico.",
+    status="done",
+    created_at="2026-06-01T00:00:00+00:00",
+)
+
+
+def _shared_by(monkeypatch, owner_subscription) -> list[str]:
+    """Sirve el informe compartido de ``owner-1`` con la Subscription dada y anota a quién se consulta."""
+    consulted: list[str] = []
 
     async def fake_get_shared(*, token):
         assert token == "tok_abc123"
-        return PublicAnalysisReport(
-            source_type="text",
-            input_text="Bleach cures COVID",
-            label="falsa",
-            confidence=0.9,
-            explanation="Sin respaldo científico.",
-            status="done",
-            created_at="2026-06-01T00:00:00+00:00",
-        )
+        return "owner-1", _SHARED_REPORT
+
+    async def fake_get_user_subscription(user_id):
+        consulted.append(user_id)
+        if isinstance(owner_subscription, Exception):
+            raise owner_subscription
+        return owner_subscription
 
     monkeypatch.setattr(
         "app.api.routes.share.get_shared_analysis_by_token", fake_get_shared
     )
+    monkeypatch.setattr(
+        "app.api.routes.share.get_user_subscription", fake_get_user_subscription
+    )
+    return consulted
 
-    response = client.get("/shared/tok_abc123")
+
+def test_shared_report_returns_public_view_without_user_id(
+    monkeypatch, stripe_settings
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    consulted = _shared_by(monkeypatch, make_subscription(user_id="owner-1"))
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
 
     assert response.status_code == 200
     body = response.json()
@@ -1839,6 +1873,43 @@ def test_shared_report_returns_public_view_without_user_id(monkeypatch):
     assert body["verdict"] == "fake"
     assert body["confidence_level"] == "high"
     assert body["input_text"] == "Bleach cures COVID"
+    # Decide el Plan del dueño, no el de quien mira.
+    assert consulted == ["owner-1"]
+
+
+@pytest.mark.parametrize(
+    ("owner_subscription", "status"),
+    [
+        (make_subscription(user_id="owner-1", status="past_due"), 200),
+        (make_subscription(user_id="owner-1", status="canceled"), 404),
+        (make_subscription(user_id="owner-1", price_id="price_other"), 404),
+        (None, 404),
+    ],
+    ids=["past-due", "canceled", "other-price", "free"],
+)
+def test_a_shared_report_answers_only_while_its_owner_can_share(
+    monkeypatch, stripe_settings, owner_subscription, status
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    _shared_by(monkeypatch, owner_subscription)
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
+
+    assert response.status_code == status
+    if status == 404:
+        assert response.json()["detail"]["code"] == "SHARED_REPORT_NOT_FOUND"
+
+
+def test_a_shared_report_answers_500_when_the_owners_plan_cannot_be_read(
+    monkeypatch,
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    _shared_by(monkeypatch, DatabaseError("db down"))
+
+    response = TestClient(server_module.app).get("/shared/tok_abc123")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
 
 
 def test_shared_report_returns_404_for_unknown_token(monkeypatch):
@@ -1862,7 +1933,7 @@ def test_share_returns_500_when_fetch_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         raise DatabaseError("db down")
 
     monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
@@ -1877,7 +1948,7 @@ def test_share_returns_500_when_set_token_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get(*, user_id, analysis_id):
+    async def fake_get(*, user_id, analysis_id, visible_since):
         return _failed_record(status="done")
 
     async def fake_set(*, user_id, analysis_id):
@@ -1923,7 +1994,7 @@ def test_get_file_returns_500_when_database_fails(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    async def fake_get_analysis_file(*, user_id, analysis_id):
+    async def fake_get_analysis_file(*, user_id, analysis_id, visible_since):
         raise DatabaseError("db down")
 
     monkeypatch.setattr(
@@ -2059,7 +2130,10 @@ def test_analysis_rejects_text_shorter_than_the_published_minimum(monkeypatch):
 
 
 _WEB_SUBMITTER = Submitter(
-    user_id="test-user", origin="web", notify_email="test-user@example.com"
+    user_id="test-user",
+    origin="web",
+    limits=PRO,
+    notify_email="test-user@example.com",
 )
 
 # Cada ruta que abre un análisis, con una petición que supera la validación del cuerpo.
@@ -2148,10 +2222,13 @@ def test_reopening_routes_reject_an_invalid_id_before_the_intake(monkeypatch, op
 @pytest.mark.parametrize(
     ("code", "status"),
     [
+        (ErrorCode.ALLOWANCE_EXHAUSTED, 402),
+        (ErrorCode.PLAN_REQUIRED, 403),
         (ErrorCode.ANALYSIS_NOT_FOUND, 404),
         (ErrorCode.ANALYSIS_NOT_RETRYABLE, 409),
         (ErrorCode.ANALYSIS_NOT_REANALYZABLE, 409),
         (ErrorCode.FILE_TOO_LARGE, 413),
+        (ErrorCode.TEXT_TOO_LONG_FOR_PLAN, 413),
         (ErrorCode.INVALID_FILE, 415),
         (ErrorCode.ANALYSIS_SAVE_FAILED, 500),
         (ErrorCode.ANALYSIS_FETCH_FAILED, 500),
@@ -2199,3 +2276,212 @@ def test_body_validation_still_wins_over_a_missing_intake(monkeypatch):
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "VALIDATION"
+
+
+_EMPTY_FACET = HistoryVerdictCounts(total=0, real=0, fake=0, mixed=0, uncertain=0)
+
+
+def _within_thirty_days(visible_since) -> bool:
+    age = datetime.now(UTC) - visible_since
+    return timedelta(days=30) <= age < timedelta(days=30, minutes=1)
+
+
+def test_free_history_pages_the_default_query_within_thirty_days(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+    seen = []
+
+    async def fake_search_history(*, query, visible_since, page, **kwargs):
+        seen.append((query, visible_since, page))
+        return HistoryPage(items=[], total=0, verdict_counts=_EMPTY_FACET)
+
+    monkeypatch.setattr("app.api.routes.history.search_history", fake_search_history)
+
+    response = TestClient(server_module.app).get("/history?page=2&page_size=10")
+
+    assert response.status_code == 200
+    [(query, visible_since, page)] = seen
+    assert (query, page) == (HistoryQuery(), 2)
+    assert _within_thirty_days(visible_since)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        "search=vacuna",
+        "source_type=url",
+        "verdict=fake",
+        "status=done",
+        "date_range=7d",
+        "sort=oldest",
+    ],
+)
+def test_free_history_refuses_search_filters_and_sort(monkeypatch, params):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+
+    response = TestClient(server_module.app).get(f"/history?{params}")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": make_error_detail(ErrorCode.PLAN_REQUIRED)}
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/history/export"),
+        ("get", "/dashboard/summary"),
+        ("post", f"/analysis/{ANALYSIS_ID}/share"),
+    ],
+)
+def test_pro_features_answer_403_to_free(monkeypatch, method, path):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+
+    response = getattr(TestClient(server_module.app), method)(path)
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "PLAN_REQUIRED"
+
+
+def test_free_can_still_turn_a_share_link_off(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+
+    async def fake_clear(*, user_id, analysis_id):
+        return True
+
+    monkeypatch.setattr(
+        "app.api.routes.analysis.clear_analysis_share_token", fake_clear
+    )
+
+    response = TestClient(server_module.app).delete(f"/analysis/{ANALYSIS_ID}/share")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "reader", "kwargs"),
+    [
+        ("get", f"/analysis/{ANALYSIS_ID}", "get_user_analysis_by_id", {}),
+        ("get", f"/analysis/{ANALYSIS_ID}/status", "get_user_analysis_status", {}),
+        ("get", f"/analysis/{ANALYSIS_ID}/file", "get_analysis_file", {}),
+        (
+            "post",
+            f"/analysis/{ANALYSIS_ID}/feedback",
+            "get_user_analysis_by_id",
+            {"json": {"is_correct": True}},
+        ),
+    ],
+    ids=["detail", "status", "file", "feedback"],
+)
+def test_an_analysis_outside_the_window_answers_403_for_the_upsell(
+    monkeypatch, method, path, reader, kwargs
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+    floors = []
+
+    async def hidden(*, user_id, analysis_id, visible_since):
+        floors.append(visible_since)
+        raise HiddenAnalysis(analysis_id)
+
+    monkeypatch.setattr(f"app.api.routes.analysis.{reader}", hidden)
+
+    response = getattr(TestClient(server_module.app), method)(path, **kwargs)
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "PLAN_REQUIRED"
+    # El suelo de la window viaja a la consulta: no se filtra en Python.
+    assert _within_thirty_days(floors[0])
+
+
+def test_free_openings_carry_the_free_plan_to_the_intake(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+    intake = server_module.app.state.analysis_intake
+
+    TestClient(server_module.app).post("/analysis", json={"text": "Bleach cures COVID"})
+
+    [(_, submitter, _)] = intake.calls
+    assert submitter.limits == FREE
+
+
+def test_account_export_covers_every_done_analysis_on_any_plan(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    _as_free(server_module)
+    seen = []
+
+    async def fake_export_history(*, user_id, query, visible_since):
+        seen.append((user_id, query, visible_since))
+        return []
+
+    monkeypatch.setattr("app.api.routes.account.export_history", fake_export_history)
+
+    response = TestClient(server_module.app).get("/account/export")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "veritrust-mis-datos.csv" in response.headers["content-disposition"]
+    assert response.content.decode("utf-8-sig").startswith("Fecha,Tipo,Entrada")
+    # Sin History query ni window: también lleva los análisis ocultos (RGPD art. 20).
+    assert seen == [("test-user", HistoryQuery(), None)]
+
+
+def test_account_export_answers_500_when_the_database_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+
+    async def fake_export_history(**kwargs):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.account.export_history", fake_export_history)
+
+    response = TestClient(server_module.app).get("/account/export")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "HISTORY_FETCH_FAILED"
+
+
+def test_the_plan_is_read_from_the_subscription_on_each_request(
+    monkeypatch, stripe_settings
+):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.dependency_overrides.pop(current_plan)
+    subscription = {"row": None}
+
+    async def fake_get_user_subscription(user_id):
+        assert user_id == "test-user"
+        return subscription["row"]
+
+    async def fake_summary(*, user_id, trend_days=14):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(
+        "app.api.dependencies.plan.get_user_subscription", fake_get_user_subscription
+    )
+    monkeypatch.setattr(
+        "app.api.routes.dashboard.get_user_dashboard_summary", fake_summary
+    )
+    client = TestClient(server_module.app)
+
+    assert client.get("/dashboard/summary").status_code == 403
+    subscription["row"] = make_subscription(user_id="test-user")
+    # Pro pasa la restricción y llega a la consulta del dashboard.
+    assert client.get("/dashboard/summary").json()["detail"]["code"] == (
+        "DASHBOARD_FETCH_FAILED"
+    )
+
+
+def test_a_plan_that_cannot_be_read_answers_500(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    server_module.app.dependency_overrides.pop(current_plan)
+
+    async def fail(user_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.dependencies.plan.get_user_subscription", fail)
+
+    response = TestClient(server_module.app).get("/dashboard/summary")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "BILLING_FETCH_FAILED"

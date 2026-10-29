@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.get_current_user import get_current_user
-from app.core import billing
+from app.core import billing, clerk_webhooks
 from app.core.plans import MADRID
 from app.db.billing import Usage
 from app.db.pool import DatabaseError
@@ -249,6 +249,51 @@ def test_webhook_failures_answer_non_2xx_so_stripe_retries(
     monkeypatch.setattr(billing, "handle_webhook", handle_webhook)
 
     response = client.post("/billing/webhook", content=b"{}")
+
+    assert response.status_code == status
+    assert response.json()["detail"]["code"] == code
+
+
+def test_clerk_webhook_passes_the_raw_body_and_headers_without_a_user(
+    client, monkeypatch
+):
+    client.app.dependency_overrides.clear()
+    received = []
+
+    async def handle_webhook(payload, headers):
+        received.append((payload, headers["svix-id"]))
+
+    monkeypatch.setattr(clerk_webhooks, "handle_webhook", handle_webhook)
+    raw = b'{"type": "user.deleted",  "data": {"id": "user_1"}}'
+
+    response = client.post(
+        "/webhooks/clerk",
+        content=raw,
+        headers={"svix-id": "msg_1", "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"received": True}
+    assert received == [(raw, "msg_1")]
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "code"),
+    [
+        (clerk_webhooks.InvalidClerkWebhook("firma"), 400, "INVALID_WEBHOOK"),
+        (billing.BillingUnavailable("sin red"), 503, "BILLING_UNAVAILABLE"),
+        (DatabaseError("db down"), 500, "BILLING_FETCH_FAILED"),
+    ],
+)
+def test_clerk_webhook_failures_answer_non_2xx_so_clerk_retries(
+    client, monkeypatch, error, status, code
+):
+    async def handle_webhook(payload, headers):
+        raise error
+
+    monkeypatch.setattr(clerk_webhooks, "handle_webhook", handle_webhook)
+
+    response = client.post("/webhooks/clerk", content=b"{}")
 
     assert response.status_code == status
     assert response.json()["detail"]["code"] == code

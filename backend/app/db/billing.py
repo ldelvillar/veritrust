@@ -180,7 +180,12 @@ async def record_event(event_id: str, event_type: str) -> None:
     )
 
 
-async def usage_this_month(user_id: str, start: datetime, end: datetime) -> Usage:
+async def usage_this_month(
+    user_id: str,
+    start: datetime,
+    end: datetime,
+    conn: psycopg.AsyncConnection | None = None,
+) -> Usage:
     """Cuenta el Usage del usuario en [start, end) y sus análisis aún pendientes."""
     row = await _fetchone(
         """
@@ -192,6 +197,34 @@ async def usage_this_month(user_id: str, start: datetime, end: datetime) -> Usag
         """,
         (user_id, start, end, user_id),
         "No se pudo consultar el uso del plan.",
+        conn,
     )
     assert row is not None
     return Usage(used=row[0], pending=row[1])
+
+
+async def record_evidence_search(user_id: str) -> None:
+    """Anota en el Usage una búsqueda de evidencia que terminó con resultado."""
+    await _fetchone(
+        "INSERT INTO public.usage_events (user_id, kind) "
+        "VALUES (%s, 'evidence_search')",
+        (user_id,),
+        "No se pudo registrar el uso del plan.",
+    )
+
+
+async def delete_user_billing(user_id: str) -> None:
+    """Borra el cliente, las Subscriptions y el Usage de un usuario que eliminó su cuenta."""
+    # Una sola sentencia: los tres borrados se aplican juntos o ninguno.
+    await _fetchone(
+        """
+        WITH deleted_customers AS (
+            DELETE FROM public.billing_customers WHERE user_id = %s
+        ), deleted_subscriptions AS (
+            DELETE FROM public.subscriptions WHERE user_id = %s
+        )
+        DELETE FROM public.usage_events WHERE user_id = %s
+        """,
+        (user_id, user_id, user_id),
+        "No se pudo borrar la facturación del usuario.",
+    )

@@ -1,15 +1,61 @@
-"""Escrituras de estado y etapa de un análisis; solo las usa ``app.core.analysis_lifecycle``."""
+"""Escrituras de estado y etapa de un análisis y de la Usage de sus Runs; solo las usa ``app.core.analysis_lifecycle``."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any, Literal, Sequence
 
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from app.core.plans import PlanLimits, month_window, remaining
 from app.core.verdict import Verdict
+from app.db.billing import usage_this_month
 from app.db.pool import DatabaseError, _build_database_error, get_pool
+
+# Serializa las aperturas de un mismo usuario hasta que su transacción termina.
+_LOCK_ALLOWANCE = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
+
+# La primera Run done de un análisis cuenta como analysis y cada una posterior como reanalysis.
+_RECORD_RUN_USAGE = """
+    INSERT INTO public.usage_events (user_id, kind, analysis_id)
+    VALUES (
+        %s,
+        CASE WHEN EXISTS (SELECT 1 FROM public.usage_events WHERE analysis_id = %s)
+             THEN 'reanalysis' ELSE 'analysis' END,
+        %s
+    )
+"""
+
+
+class AllowanceExhausted(Exception):
+    """El usuario no tiene Runs libres en la Allowance de este mes; no se escribió nada."""
+
+
+@asynccontextmanager
+async def _transaction(context: str) -> AsyncIterator[psycopg.AsyncConnection]:
+    """Abre una transacción del pool y traduce cualquier error de psycopg a DatabaseError."""
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn, conn.transaction():
+            yield conn
+    except psycopg.Error as exc:
+        raise DatabaseError(_build_database_error(context)) from exc
+
+
+async def _claim_allowance(
+    conn: psycopg.AsyncConnection, user_id: str, limits: PlanLimits
+) -> None:
+    """Bloquea las aperturas del usuario y lanza AllowanceExhausted si su Allowance del mes está agotada."""
+    async with conn.cursor() as cur:
+        await cur.execute(_LOCK_ALLOWANCE, (user_id,))
+    start, end = month_window(datetime.now(UTC))
+    usage = await usage_this_month(user_id, start, end, conn)
+    if remaining(limits, usage.used, usage.pending) == 0:
+        raise AllowanceExhausted(user_id)
 
 
 def _normalize_confidence(confidence: Any) -> float:
@@ -47,48 +93,57 @@ async def insert_pending(
     source_type: str,
     input_text: str | None,
     input_url: str | None,
+    limits: PlanLimits,
 ) -> str:
-    """Inserta un análisis de texto o URL en estado ``pending`` y devuelve su id."""
+    """Inserta un análisis de texto o URL en estado ``pending`` si cabe en la Allowance del Plan y devuelve su id."""
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, origin, input_text, input_url, status)
-        VALUES (%s, %s, %s, %s, %s, 'pending')
+        (user_id, source_type, origin, input_text, input_url, max_input_chars, status)
+        VALUES (%s, %s, %s, %s, %s, %s, 'pending')
         RETURNING id
     """
     return await _insert(
         query,
-        (user_id, source_type, origin, input_text, input_url),
+        (user_id, source_type, origin, input_text, input_url, limits.max_input_chars),
         "No se pudo guardar el analisis en la base de datos.",
+        user_id=user_id,
+        limits=limits,
     )
 
 
 async def insert_pending_file(
-    *, user_id: str, origin: str, filename: str, data: bytes
+    *, user_id: str, origin: str, filename: str, data: bytes, limits: PlanLimits
 ) -> str:
-    """Inserta un análisis de archivo en estado ``pending`` con su binario y devuelve su id."""
+    """Inserta un análisis de archivo en estado ``pending`` con su binario si cabe en la Allowance del Plan y devuelve su id."""
     query = """
         INSERT INTO public.analysis_history
-        (user_id, source_type, origin, file_data, file_filename, status)
-        VALUES (%s, 'file', %s, %s, %s, 'pending')
+        (user_id, source_type, origin, file_data, file_filename, max_input_chars, status)
+        VALUES (%s, 'file', %s, %s, %s, %s, 'pending')
         RETURNING id
     """
     return await _insert(
         query,
-        (user_id, origin, data, filename),
+        (user_id, origin, data, filename, limits.max_input_chars),
         "No se pudo guardar el archivo en la base de datos.",
+        user_id=user_id,
+        limits=limits,
     )
 
 
-async def _insert(query: str, params: tuple[Any, ...], context: str) -> str:
-    """Ejecuta un INSERT … RETURNING id y devuelve el id creado."""
-    pool = await get_pool()
-    try:
-        async with pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(query, params)
-                inserted_row = await cur.fetchone()
-    except psycopg.Error as exc:
-        raise DatabaseError(_build_database_error(context)) from exc
+async def _insert(
+    query: str,
+    params: tuple[Any, ...],
+    context: str,
+    *,
+    user_id: str,
+    limits: PlanLimits,
+) -> str:
+    """Comprueba la Allowance y ejecuta un INSERT … RETURNING id en la misma transacción."""
+    async with _transaction(context) as conn:
+        await _claim_allowance(conn, user_id, limits)
+        async with conn.cursor() as cur:
+            await cur.execute(query, params)
+            inserted_row = await cur.fetchone()
 
     if not inserted_row:
         raise DatabaseError("No se pudo obtener el id del análisis guardado.")
@@ -97,9 +152,13 @@ async def _insert(query: str, params: tuple[Any, ...], context: str) -> str:
 
 
 async def reopen(
-    *, user_id: str, analysis_id: str, from_status: Literal["failed", "done"]
+    *,
+    user_id: str,
+    analysis_id: str,
+    from_status: Literal["failed", "done"],
+    limits: PlanLimits,
 ) -> bool:
-    """Devuelve a ``pending`` un análisis propio que sigue en ``from_status``; True si cambió."""
+    """Devuelve a ``pending`` un análisis propio que sigue en ``from_status`` si cabe en la Allowance del Plan; True si cambió."""
     # created_at se reinicia para el reaper; el resultado anterior se borra para no seguir sumando en agregados.
     query = """
         UPDATE public.analysis_history
@@ -118,17 +177,20 @@ async def reopen(
             completed_at = NULL
         WHERE user_id = %s AND id = %s AND status = %s
     """
-    return await _update(
-        query,
-        (user_id, analysis_id, from_status),
-        "No se pudo reabrir el análisis en la base de datos.",
-    )
+    async with _transaction(
+        "No se pudo reabrir el análisis en la base de datos."
+    ) as conn:
+        await _claim_allowance(conn, user_id, limits)
+        async with conn.cursor() as cur:
+            await cur.execute(query, (user_id, analysis_id, from_status))
+            return cur.rowcount > 0
 
 
 async def load_pending_content(analysis_id: str) -> dict[str, Any] | None:
-    """Devuelve la entrada de un análisis ``pending`` (tipo, texto, URL y archivo), o None."""
+    """Devuelve la entrada de un análisis ``pending`` (tipo, texto, URL, archivo y tope de caracteres), o None."""
     query = """
-        SELECT source_type, input_text, input_url, file_data, file_filename
+        SELECT source_type, input_text, input_url, file_data, file_filename,
+               max_input_chars
         FROM public.analysis_history
         WHERE id = %s AND status = 'pending'
     """
@@ -194,7 +256,7 @@ async def complete(
     sources: list[dict],
     pipeline: dict,
 ) -> bool:
-    """Pasa a ``done`` con su veredicto un análisis que sigue ``pending``; True si cambió."""
+    """Pasa a ``done`` con su veredicto un análisis que sigue ``pending`` y anota su Run en la Usage; True si cambió."""
     confidence_value = _normalize_confidence(verdict.confidence)
     coverage_value = _coerce_optional_fraction(verdict.evidence_coverage)
     claims = [
@@ -215,22 +277,30 @@ async def complete(
             error_code = NULL,
             completed_at = NOW()
         WHERE id = %s AND status = 'pending'
+        RETURNING user_id
     """
-    return await _update(
-        query,
-        (
-            verdict.label,
-            verdict.kind,
-            confidence_value,
-            coverage_value,
-            explanation,
-            Jsonb(claims) if claims else None,
-            Jsonb(sources) if sources else None,
-            Jsonb(pipeline) if pipeline else None,
-            analysis_id,
-        ),
-        "No se pudo guardar el analisis en la base de datos.",
+    params = (
+        verdict.label,
+        verdict.kind,
+        confidence_value,
+        coverage_value,
+        explanation,
+        Jsonb(claims) if claims else None,
+        Jsonb(sources) if sources else None,
+        Jsonb(pipeline) if pipeline else None,
+        analysis_id,
     )
+    # El Run consume su unidad en la misma transacción: un done sin Usage es imposible.
+    async with _transaction(
+        "No se pudo guardar el analisis en la base de datos."
+    ) as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(query, params)
+            row = await cur.fetchone()
+            if row is None:
+                return False
+            await cur.execute(_RECORD_RUN_USAGE, (row[0], analysis_id, analysis_id))
+    return True
 
 
 async def list_stale_pending_ids(*, older_than_seconds: int) -> list[str]:

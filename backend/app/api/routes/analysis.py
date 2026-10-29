@@ -1,5 +1,6 @@
 """Este módulo contiene los endpoints relacionados con los análisis de noticas."""
 
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -14,6 +15,7 @@ from fastapi import (
 
 from app.api.dependencies.analysis_intake import analysis_intake, web_submitter
 from app.api.dependencies.get_current_user import get_current_user
+from app.api.dependencies.plan import history_window, require
 from app.api.dependencies.valid_analysis_id import valid_analysis_id
 from app.core.analysis_lifecycle import AnalysisIntake, Submitter
 from app.core.errors import make_error_detail
@@ -42,6 +44,8 @@ router = APIRouter()
 
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
+    402: {"model": ErrorResponse},
+    413: {"model": ErrorResponse},
     429: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
@@ -49,6 +53,8 @@ _POST_ERROR_RESPONSES: dict[int | str, dict] = {
 
 _POST_FILE_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
+    402: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     413: {"model": ErrorResponse},
     415: {"model": ErrorResponse},
     429: {"model": ErrorResponse},
@@ -63,6 +69,7 @@ _GET_FILE_ERROR_RESPONSES: dict[int | str, dict] = {
     },
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
@@ -70,6 +77,7 @@ _GET_FILE_ERROR_RESPONSES: dict[int | str, dict] = {
 _GET_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
@@ -84,6 +92,8 @@ _DELETE_ERROR_RESPONSES: dict[int | str, dict] = {
 _RETRY_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
+    402: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
     429: {"model": ErrorResponse},
@@ -94,6 +104,7 @@ _RETRY_ERROR_RESPONSES: dict[int | str, dict] = {
 _FEEDBACK_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
@@ -102,6 +113,7 @@ _FEEDBACK_ERROR_RESPONSES: dict[int | str, dict] = {
 _SHARE_ERROR_RESPONSES: dict[int | str, dict] = {
     400: {"model": ErrorResponse},
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
     409: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
@@ -134,16 +146,20 @@ async def analyze_news(
     "/{analysis_id}/share",
     response_model=ShareResponse,
     responses=_SHARE_ERROR_RESPONSES,
+    dependencies=[Depends(require("share"))],
 )
 async def share_analysis(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
     user_id = user["sub"]
 
     try:
-        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+        record = await get_user_analysis_by_id(
+            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -235,12 +251,15 @@ async def analyze_file(
 async def get_analysis_detail(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
 
     try:
-        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+        record = await get_user_analysis_by_id(
+            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -277,11 +296,12 @@ async def get_analysis_detail(
 async def get_analysis_status(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Endpoint ligero que devuelve solo el estado y la etapa para el sondeo del detalle."""
     try:
         record = await get_user_analysis_status(
-            user_id=user["sub"], analysis_id=analysis_id
+            user_id=user["sub"], analysis_id=analysis_id, visible_since=visible_since
         )
     except DatabaseError as e:
         raise HTTPException(
@@ -321,12 +341,15 @@ def _content_disposition_inline(filename: str) -> str:
 async def get_analysis_file_content(
     user=Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Devuelve el archivo original de un análisis para mostrarlo en el informe."""
     user_id = user["sub"]
 
     try:
-        stored = await get_analysis_file(user_id=user_id, analysis_id=analysis_id)
+        stored = await get_analysis_file(
+            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
@@ -407,12 +430,15 @@ async def submit_analysis_feedback(
     body: FeedbackRequest,
     user: dict = Depends(get_current_user),
     analysis_id: str = Depends(valid_analysis_id),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Guarda la valoración del veredicto de un análisis ``done`` propio."""
     user_id = user["sub"]
 
     try:
-        record = await get_user_analysis_by_id(user_id=user_id, analysis_id=analysis_id)
+        record = await get_user_analysis_by_id(
+            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,

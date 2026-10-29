@@ -14,10 +14,13 @@ import app.mcp.server as server_module
 from app.core.analysis_lifecycle import Submitter
 from app.core.config import Settings
 from app.core.errors import make_error_detail
+from app.core.plans import PRO
+from app.db.billing import Usage
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisStatusResponse
 from app.schemas.errors import ErrorCode
 from app.schemas.history import AnalysisHistoryItem
+from tests.support.billing import make_subscription
 from tests.support.lifecycle import StubIntake
 
 ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
@@ -117,7 +120,30 @@ def _record(status="done", **overrides) -> AnalysisHistoryItem:
 
 
 @pytest.fixture
-def env(monkeypatch):
+def plan(monkeypatch, stripe_settings):
+    """Subscription y Usage que lee el servidor: Pro y sin uso salvo que la prueba los cambie."""
+    state: dict = {
+        "subscription": make_subscription(user_id=USER_ID),
+        "usage": Usage(used=0, pending=0),
+    }
+
+    async def fake_subscription(user_id):
+        assert user_id == USER_ID
+        if isinstance(state["subscription"], Exception):
+            raise state["subscription"]
+        return state["subscription"]
+
+    async def fake_usage(user_id, start, end):
+        assert user_id == USER_ID
+        return state["usage"]
+
+    monkeypatch.setattr(server_module, "get_user_subscription", fake_subscription)
+    monkeypatch.setattr(server_module, "usage_this_month", fake_usage)
+    return state
+
+
+@pytest.fixture
+def env(monkeypatch, plan):
     """Configura settings, identidad OAuth y sondeo rápido para las herramientas."""
     settings = _settings()
     monkeypatch.setattr(server_module, "get_settings", lambda: settings)
@@ -136,17 +162,17 @@ def _patch_db(monkeypatch, records) -> list[str]:
     cursor = -1
     report_reads: list[str] = []
 
-    async def fake_status(*, user_id, analysis_id):
+    async def fake_status(*, user_id, analysis_id, visible_since):
         nonlocal cursor
-        assert user_id == USER_ID
+        assert (user_id, visible_since) == (USER_ID, None)
         cursor = min(cursor + 1, len(rows) - 1)
         row = rows[cursor]
         if row is None:
             return None
         return AnalysisStatusResponse(status=row.status, stage=row.stage)
 
-    async def fake_get(*, user_id, analysis_id):
-        assert user_id == USER_ID
+    async def fake_get(*, user_id, analysis_id, visible_since):
+        assert (user_id, visible_since) == (USER_ID, None)
         report_reads.append(analysis_id)
         return rows[max(cursor, 0)]
 
@@ -199,7 +225,10 @@ async def test_verify_claim_opens_the_analysis_and_waits_until_done(env, monkeyp
     assert body["report_url"] == f"https://veritrust.es/app/analisis/{ANALYSIS_ID}"
     # Misma entrada que la ruta web, con Origin mcp y sin email para el cliente MCP.
     [(kind, submitter, request)] = intake.calls
-    assert (kind, submitter) == ("submit", Submitter(user_id=USER_ID, origin="mcp"))
+    assert (kind, submitter) == (
+        "submit",
+        Submitter(user_id=USER_ID, origin="mcp", limits=PRO),
+    )
     assert request.text == "La lejía cura la COVID"
 
 
@@ -428,9 +457,10 @@ async def test_search_evidence_waits_for_the_result(env, monkeypatch):
     assert progress == ["Queued", "Searching the literature"]
 
     ((name, args, kwargs),) = pool.enqueued
+    # El worker anota la búsqueda en el Usage de quien la lanzó.
     assert (name, args) == (
         "run_evidence_search",
-        ("La vitamina C previene el resfriado",),
+        ("La vitamina C previene el resfriado", USER_ID),
     )
     # El job se reabre por su id y queda ligado al usuario que lo lanzó.
     assert created == [kwargs["_job_id"]] == [body["job_id"]]
@@ -522,6 +552,67 @@ async def test_search_evidence_reports_enqueue_failures(env, monkeypatch):
         )
 
     assert "SERVICE_UNAVAILABLE" in result.content[0].text
+
+
+_EVERY_TOOL = [
+    ("verify_claim", {"text": "La lejía cura la COVID"}),
+    ("get_verification", {"analysis_id": ANALYSIS_ID}),
+    ("search_evidence", {"claim": "La vitamina C previene el resfriado"}),
+    ("get_evidence", {"job_id": JOB_ID}),
+]
+
+
+@pytest.mark.parametrize(("tool", "arguments"), _EVERY_TOOL)
+@pytest.mark.parametrize(
+    "subscription",
+    [None, make_subscription(user_id=USER_ID, status="canceled")],
+    ids=["free", "canceled"],
+)
+async def test_every_tool_needs_pro(
+    env, monkeypatch, plan, tool, arguments, subscription
+):
+    plan["subscription"] = subscription
+    _patch_db(monkeypatch, [_record()])
+    pool, intake = _ArqPool(), StubIntake()
+
+    async with Client(_server(pool, intake=intake)) as client:
+        result = await client.call_tool(tool, arguments)
+
+    assert result.is_error
+    assert "PLAN_REQUIRED" in result.content[0].text
+    assert (intake.calls, pool.enqueued) == ([], [])
+
+
+async def test_a_plan_that_cannot_be_read_fails_the_tool(env, monkeypatch, plan):
+    plan["subscription"] = DatabaseError("db down")
+    intake = StubIntake()
+
+    async with Client(_server(intake=intake)) as client:
+        result = await client.call_tool(
+            "verify_claim", {"text": "La lejía cura la COVID"}
+        )
+
+    assert "BILLING_FETCH_FAILED" in result.content[0].text
+    assert intake.calls == []
+
+
+@pytest.mark.parametrize(
+    "usage", [Usage(used=300, pending=0), Usage(used=299, pending=1)]
+)
+async def test_search_evidence_refuses_once_the_allowance_is_spent(
+    env, monkeypatch, plan, usage
+):
+    plan["usage"] = usage
+    pool = _ArqPool()
+
+    async with Client(_server(pool)) as client:
+        result = await client.call_tool(
+            "search_evidence", {"claim": "La vitamina C previene el resfriado"}
+        )
+
+    assert result.is_error
+    assert "ALLOWANCE_EXHAUSTED" in result.content[0].text
+    assert pool.enqueued == []
 
 
 def test_http_app_requires_a_bearer_token_and_publishes_metadata(env):

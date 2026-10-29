@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.core.cors import get_cors_config
 from app.core.errors import make_error_detail
 from app.core.logging import configure_logging
+from app.db.history import HiddenAnalysis
 from app.db.pool import close_pool, get_pool
 from app.mcp.server import (
     MCP_METADATA_PATH,
@@ -106,6 +107,15 @@ async def _validation_error(
 async def _analysis_refused(request: Request, exc: AnalysisRefused) -> JSONResponse:
     """Responde un rechazo del ciclo de vida con su estado HTTP y el detail del contrato."""
     return refusal_response(exc)
+
+
+@app.exception_handler(HiddenAnalysis)
+async def _hidden_analysis(request: Request, exc: HiddenAnalysis) -> JSONResponse:
+    """Responde un análisis fuera de la History window con 403, para que el frontend muestre el upsell y no un 404."""
+    return JSONResponse(
+        status_code=403,
+        content={"detail": make_error_detail(ErrorCode.PLAN_REQUIRED)},
+    )
 
 
 app.add_middleware(

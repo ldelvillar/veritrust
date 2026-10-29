@@ -29,7 +29,8 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.pool import close_pool, get_pool
+from app.db.billing import record_evidence_search
+from app.db.pool import DatabaseError, close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
 from app.schemas.mcp import EVIDENCE_RESULT_TTL_SECONDS, MAX_ABSTRACT_CHARS
@@ -46,14 +47,15 @@ _JOB_TIMEOUT_GRACE_SECONDS = 30
 
 
 async def _input_text(run: AnalysisRun) -> str:
-    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo."""
+    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo hasta el tope del Plan."""
     content = run.content
     if isinstance(content, UrlContent):
         try:
-            return await asyncio.to_thread(extract_text_from_url, content.url)
+            text = await asyncio.to_thread(extract_text_from_url, content.url)
         except URLExtractionError as exc:
             logger.info("[Worker] Extracción de URL fallida para %s", run.analysis_id)
             raise AnalysisFailure(ErrorCode.URL_EXTRACTION) from exc
+        return text[: content.max_chars]
 
     if isinstance(content, FileContent):
         try:
@@ -65,6 +67,8 @@ async def _input_text(run: AnalysisRun) -> str:
                 "[Worker] Extracción de archivo fallida para %s", run.analysis_id
             )
             raise AnalysisFailure(ErrorCode.FILE_EXTRACTION) from exc
+        # Se guarda lo que de verdad se analiza: el texto ya recortado al tope del Plan.
+        text = text[: content.max_chars]
         await run.keep_input_text(text)
         return text
 
@@ -127,7 +131,7 @@ def _truncate_abstract(text: str | None) -> str | None:
     return text[:MAX_ABSTRACT_CHARS].rstrip() + "…"
 
 
-async def run_evidence_search(ctx: dict, claim: str) -> dict:
+async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
     """
     Busca y juzga la evidencia de una afirmación sin
     emitir veredicto; devuelve un dict serializable.
@@ -161,6 +165,13 @@ async def run_evidence_search(ctx: dict, claim: str) -> dict:
         for hit in entry["hits"] or []:
             hit["abstract"] = _truncate_abstract(hit["abstract"])
 
+    # Solo una búsqueda con resultado consume Allowance; si anotarla falla, el resultado se entrega igual.
+    try:
+        await record_evidence_search(user_id)
+    except DatabaseError:
+        logger.exception(
+            "[Worker] No se pudo anotar la búsqueda de evidencia en el Usage"
+        )
     return report
 
 

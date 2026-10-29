@@ -8,6 +8,8 @@ from app.core.plans import SubscriptionRow
 PRICE_MONTHLY = "price_test_monthly"
 PRICE_YEARLY = "price_test_yearly"
 WEBHOOK_SECRET = "whsec_test_dummy"
+# Los secretos de Svix son base64 tras el prefijo; este decodifica a b"clerk-test-dummy".
+CLERK_WEBHOOK_SECRET = "whsec_Y2xlcmstdGVzdC1kdW1teQ=="
 
 _SUBSCRIPTION = SubscriptionRow(
     stripe_subscription_id="sub_1",

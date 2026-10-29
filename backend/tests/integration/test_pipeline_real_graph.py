@@ -727,11 +727,19 @@ async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
 ):
     """Fija el resultado del job de evidencia para cada desenlace de afirmación."""
     _stub_outcome_scenario(monkeypatch)
+    recorded: list[str] = []
+
+    async def record_evidence_search(user_id):
+        recorded.append(user_id)
+
+    monkeypatch.setattr(worker_module, "record_evidence_search", record_evidence_search)
 
     result = await worker_module.run_evidence_search(
         {"evidence_system": create_evidence_graph(prompts)},
         "Texto con once afirmaciones",
+        "user-a",
     )
+    assert recorded == ["user-a"]
 
     def entry(index, query, hits, judged):
         return {
