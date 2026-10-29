@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 
 import { ApiError, fetchBlobWithAuth } from '@/lib/apiClient';
+import { refreshPlanOnPlanError } from '@/lib/planCache';
 
 const EXPORT_FILENAME = 'historial-veritrust.csv';
 
@@ -29,6 +30,7 @@ export function useHistoryExport(path: string) {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
+      refreshPlanOnPlanError(err);
       setError(err instanceof ApiError ? err.message : EXPORT_FALLBACK_ERROR);
     } finally {
       setIsExporting(false);

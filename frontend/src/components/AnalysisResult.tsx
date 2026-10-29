@@ -6,6 +6,7 @@ import DownloadIcon from '@/assets/Download';
 import Button from './Button';
 import PageHeader from './PageHeader';
 import PendingAnalysis from './PendingAnalysis';
+import { ProLockedButton } from './UpgradePrompt';
 import AnalyzedContent from './analysis-result/AnalyzedContent';
 import ClaimsEvidence from './analysis-result/ClaimsEvidence';
 import Disclaimer from './analysis-result/Disclaimer';
@@ -27,6 +28,7 @@ interface ResultProps {
   pollError?: string | null;
   onRetryPoll?: () => void;
   isPublic?: boolean;
+  pdfLocked?: boolean;
 }
 
 export default function AnalysisResult({
@@ -38,6 +40,7 @@ export default function AnalysisResult({
   pollError,
   onRetryPoll,
   isPublic = false,
+  pdfLocked = false,
 }: ResultProps) {
   if (result.status === 'pending') {
     return (
@@ -111,10 +114,16 @@ export default function AnalysisResult({
         actionsClassName="print:hidden"
         actions={
           <>
-            <Button variant="soft" onClick={handleExport}>
-              <DownloadIcon className="size-4" />
-              Exportar PDF
-            </Button>
+            {pdfLocked ? (
+              <ProLockedButton title="Exportar el informe en PDF es una función del plan Pro">
+                Exportar PDF
+              </ProLockedButton>
+            ) : (
+              <Button variant="soft" onClick={handleExport}>
+                <DownloadIcon className="size-4" />
+                Exportar PDF
+              </Button>
+            )}
             {headerActions}
           </>
         }

@@ -66,10 +66,10 @@ const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
 interface HistoryStatCardsProps {
   verdictFilter: VerdictFilter;
   verdictCounts: VerdictCounts | null;
-  onSelect: (verdict: VerdictFilter) => void;
+  onSelect?: (verdict: VerdictFilter) => void;
 }
 
-// Tarjetas de conteo por veredicto; cada una filtra la tabla al pulsarla.
+// Tarjetas de conteo por veredicto; cada una filtra la tabla al pulsarla, si el Plan incluye filtros.
 export default function HistoryStatCards({
   verdictFilter,
   verdictCounts,
@@ -89,9 +89,10 @@ export default function HistoryStatCards({
           <button
             key={card.toneKey}
             type="button"
-            onClick={() => onSelect(card.verdictValue)}
+            onClick={() => onSelect?.(card.verdictValue)}
+            disabled={!onSelect}
             aria-pressed={isActive}
-            className={`relative overflow-hidden rounded-2xl border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+            className={`relative overflow-hidden rounded-2xl border bg-white p-[18px_20px_20px] text-left shadow-sm transition-all enabled:hover:-translate-y-0.5 enabled:hover:shadow-md disabled:cursor-default ${
               isActive ? 'border-transparent' : 'border-line'
             } ${card.verdictValue === 'all' ? 'col-span-2 lg:col-span-1' : ''}`}
             style={

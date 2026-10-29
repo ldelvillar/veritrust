@@ -27,3 +27,22 @@ test('a shared report opens for a visitor without an account', async ({
   ).toHaveCount(0);
   await visitor.close();
 });
+
+test.describe('on the Free plan', () => {
+  test.use({ mockPlan: { plan: 'free', used: 0 } });
+
+  test('sharing offers the upgrade instead of a public link', async ({
+    page,
+  }) => {
+    await page.goto('/app/analisis/done-fake');
+    await page.getByRole('button', { name: 'Compartir' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Compartir informe' });
+
+    await expect(
+      dialog.getByText('Los enlaces públicos son del plan Pro.')
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Crear enlace público' })
+    ).toHaveCount(0);
+  });
+});
