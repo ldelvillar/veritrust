@@ -202,17 +202,19 @@ export default function PoliticaDePrivacidadPage() {
               </li>
             </ul>
             <p className="mt-3 text-base leading-7 text-body">
+              Lo que nos escribes por correo y las solicitudes de los
+              formularios de contacto y de demo llegan a un buzón de Gmail.
+              Google Ireland Limited trata esos mensajes como responsable
+              independiente, según su propia política de privacidad.
+            </p>
+            <p className="mt-3 text-base leading-7 text-body">
               Para buscar evidencia, enviamos a bases de datos científicas
               públicas (PubMed y openFDA en Estados Unidos, Europe PMC en el
               Reino Unido y CIMA de la AEMPS en España) términos de búsqueda
               derivados de las afirmaciones del contenido, nunca tus datos de
               cuenta. Cuando analizas un enlace, nuestro servidor descarga esa
-              página, que ve nuestra petición y no la tuya. Lo que nos escribes
-              por correo y las solicitudes de los formularios de contacto y de
-              demo llegan a un buzón de Gmail, cuyos mensajes trata Google
-              Ireland Limited como responsable independiente, según sus propias
-              condiciones. Solo cederemos datos a autoridades cuando una ley nos
-              obligue.
+              página, que ve nuestra petición y no la tuya. Solo cederemos datos
+              a autoridades cuando una ley nos obligue.
             </p>
           </section>
 
@@ -221,11 +223,13 @@ export default function PoliticaDePrivacidadPage() {
               6. Transferencias internacionales
             </h2>
             <p className="mt-3 text-base leading-7 text-body">
-              Clerk, Resend, Stripe y Google pueden tratar datos en Estados
-              Unidos. Esas transferencias se amparan en el Marco de Privacidad
-              de Datos UE-EE. UU. cuando el proveedor está adherido o, si no, en
-              las cláusulas contractuales tipo de la Comisión Europea. El Reino
-              Unido cuenta con una decisión de adecuación de la Comisión.
+              Clerk, Resend y Stripe pueden tratar datos en Estados Unidos. Esas
+              transferencias se amparan en el Marco de Privacidad de Datos
+              UE-EE. UU. cuando el proveedor está adherido o, si no, en las
+              cláusulas contractuales tipo de la Comisión Europea. El Reino
+              Unido cuenta con una decisión de adecuación de la Comisión. Google
+              aplica sus propias garantías a las transferencias de los mensajes
+              de Gmail fuera de la Unión Europea.
             </p>
           </section>
 
@@ -254,9 +258,12 @@ export default function PoliticaDePrivacidadPage() {
                 para atender tu solicitud y la relación que surja de ella.
               </li>
               <li>
-                Los registros técnicos se sobrescriben automáticamente al rotar,
-                y las copias de seguridad se renuevan de forma que lo que borras
-                desaparece de ellas en un máximo de 30 días.
+                Los registros técnicos se sobrescriben automáticamente al rotar.
+                Las copias de seguridad se renuevan en un ciclo de
+                aproximadamente un mes y solo se usan para recuperar el servicio
+                tras un incidente; si alguna vez restauramos una, volvemos a
+                aplicar las supresiones que hayas hecho después de que se
+                tomara.
               </li>
             </ul>
           </section>
