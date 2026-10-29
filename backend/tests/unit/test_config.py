@@ -153,7 +153,7 @@ def test_validate_runtime_requires_cors_origins_in_production():
 def test_validate_runtime_requires_the_email_settings_in_production():
     settings = _make_settings(
         environment="production",
-        resend_api_key=None,
+        resend_api_key="",
         resend_from_email="",
         contact_to_email=" ",
     )
@@ -169,17 +169,23 @@ def test_validate_runtime_requires_the_email_settings_in_production():
 
 def test_validate_runtime_requires_resend_but_not_the_contact_inbox_for_the_worker():
     worker_without_inbox = _make_settings(environment="production", contact_to_email="")
-    worker_without_resend = _make_settings(environment="production", resend_api_key="")
+    worker_without_resend = _make_settings(
+        environment="production", resend_api_key=" ", resend_from_email=""
+    )
 
     worker_without_inbox.validate_runtime(web=False)
-    with pytest.raises(SettingsValidationError, match="RESEND_API_KEY"):
+    with pytest.raises(SettingsValidationError) as exc:
         worker_without_resend.validate_runtime(web=False)
+
+    message = str(exc.value)
+    assert "RESEND_API_KEY" in message
+    assert "RESEND_FROM_EMAIL" in message
 
 
 def test_validate_runtime_leaves_the_email_settings_optional_in_development():
     settings = _make_settings(
         environment="development",
-        resend_api_key=None,
+        resend_api_key="",
         resend_from_email="",
         contact_to_email="",
     )

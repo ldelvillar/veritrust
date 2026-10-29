@@ -46,7 +46,7 @@ RESEND_FROM_EMAIL=…
 CONTACT_TO_EMAIL=<inbox for the contact and demo forms>
 ```
 
-The three email values are required in production: without them the backend refuses to start (the worker only needs the two `RESEND_*` ones), so a missing value shows up as a `/healthz` 503 rather than a contact form that fails when a visitor uses it. `RESEND_FROM_EMAIL` must be on a domain verified in Resend, and `CONTACT_TO_EMAIL` is the inbox the privacy policy names (the Gmail address in `SITE_CONFIG.email`).
+The three email values are required in production (the worker only needs the two `RESEND_*` ones): without them the backend refuses to start, its container keeps restarting and its logs name the missing variables, rather than a contact form failing when a visitor uses it. `RESEND_FROM_EMAIL` must be on a domain verified in Resend, and `CONTACT_TO_EMAIL` is the inbox the privacy policy names (the Gmail address in `SITE_CONFIG.email`).
 
 `frontend/.env`:
 

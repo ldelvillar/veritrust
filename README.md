@@ -139,7 +139,7 @@ pnpm --dir frontend install
 pnpm --dir frontend dev                            # → http://localhost:3000
 ```
 
-Required backend env: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` (and `CORS_ALLOWED_ORIGINS` outside `ENVIRONMENT=development`). Missing config surfaces at startup and as a `/healthz` 503, not as per-request 500s. See `backend/.env.example` for every knob (Ollama models/timeouts, evidence-source URLs, queue tuning, rate limits).
+Required backend env: `DATABASE_URL`, `CLERK_JWKS_URL`, `CLERK_AUDIENCE`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`, `CLERK_WEBHOOK_SECRET`, `APP_BASE_URL`, `MCP_RESOURCE_URL` (and `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `CONTACT_TO_EMAIL` outside `ENVIRONMENT=development`). Missing config stops the process at startup, with the missing variables in its logs, not as per-request 500s. See `backend/.env.example` for every knob (Ollama models/timeouts, evidence-source URLs, queue tuning, rate limits).
 
 ### Production (VPS + Caddy TLS)
 
