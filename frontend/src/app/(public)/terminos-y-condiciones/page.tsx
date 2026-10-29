@@ -2,6 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FREE_FEATURES, PRO_FEATURES, PRO_PRICE } from '@/config/plans';
 import { SITE_CONFIG } from '@/config/site';
+import {
+  EmailLink,
+  legalLinkClass,
+  legalListClass,
+} from '../_components/legal';
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones',
@@ -26,17 +31,6 @@ const jsonLd = {
   },
 };
 
-const linkClass = 'text-primary transition duration-300 hover:text-primary/90';
-const listClass = 'mt-3 list-disc space-y-2 pl-6 text-base leading-7 text-body';
-
-function EmailLink() {
-  return (
-    <a href={`mailto:${SITE_CONFIG.email}`} className={linkClass}>
-      {SITE_CONFIG.email}
-    </a>
-  );
-}
-
 export default function TerminosYCondicionesPage() {
   return (
     <>
@@ -52,7 +46,7 @@ export default function TerminosYCondicionesPage() {
           Estos términos regulan el uso de VeriTrust y la contratación de su
           plan Pro. El servicio lo presta {SITE_CONFIG.legal.holder}, cuyos
           datos figuran en el{' '}
-          <Link href="/aviso-legal" className={linkClass}>
+          <Link href="/aviso-legal" className={legalLinkClass}>
             aviso legal
           </Link>
           . Los aceptas al crear tu cuenta y, para el plan Pro, de nuevo al
@@ -118,7 +112,7 @@ export default function TerminosYCondicionesPage() {
             <p className="mt-3 text-base leading-7 text-body">
               El plan Gratis incluye:
             </p>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               {FREE_FEATURES.map(feature => (
                 <li key={feature}>{feature}</li>
               ))}
@@ -126,7 +120,7 @@ export default function TerminosYCondicionesPage() {
             <p className="mt-3 text-base leading-7 text-body">
               El plan Pro incluye:
             </p>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               {PRO_FEATURES.map(feature => (
                 <li key={feature}>{feature}</li>
               ))}
@@ -166,7 +160,7 @@ export default function TerminosYCondicionesPage() {
             <h2 className="text-2xl font-bold text-ink">
               6. Renovación, cambios y cancelación
             </h2>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 La suscripción se renueva automáticamente al final de cada
                 periodo, mensual o anual, y se cobra a la tarjeta que tengas
@@ -266,7 +260,7 @@ export default function TerminosYCondicionesPage() {
             <p className="mt-3 text-base leading-7 text-body">
               No está permitido:
             </p>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 Utilizar la plataforma para actividades ilícitas, para difundir
                 contenido ofensivo o para vulnerar derechos de propiedad
@@ -275,7 +269,7 @@ export default function TerminosYCondicionesPage() {
               <li>
                 Enviar datos personales de terceros ni datos de salud de
                 personas identificables (consulta la{' '}
-                <Link href="/politica-de-privacidad" className={linkClass}>
+                <Link href="/politica-de-privacidad" className={legalLinkClass}>
                   política de privacidad
                 </Link>
                 ).
@@ -340,7 +334,7 @@ export default function TerminosYCondicionesPage() {
               Puedes eliminar tu cuenta en cualquier momento desde la gestión de
               cuenta del menú de tu perfil; al hacerlo se borran tus análisis
               como explica la{' '}
-              <Link href="/politica-de-privacidad" className={linkClass}>
+              <Link href="/politica-de-privacidad" className={legalLinkClass}>
                 política de privacidad
               </Link>
               . Podemos suspender o cerrar una cuenta que incumpla gravemente

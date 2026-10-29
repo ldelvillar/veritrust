@@ -61,14 +61,14 @@ def _user_deleted(user_id: str | None = USER) -> dict:
     return {"object": "event", "type": "user.deleted", "data": data}
 
 
-async def test_a_deleted_user_loses_their_billing_then_their_analyses(
+async def test_a_deleted_user_loses_their_analyses_then_their_billing(
     forgotten, intake
 ):
     payload, headers = _signed(_user_deleted())
 
     await clerk_webhooks.handle_webhook(payload, headers, intake)
 
-    assert forgotten == [("billing", USER), ("analyses", USER)]
+    assert forgotten == [("analyses", USER), ("billing", USER)]
     assert intake.calls == [("cancel_runs", ["a-pending"])]
 
 
@@ -80,6 +80,7 @@ async def test_other_events_are_acknowledged_without_effect(forgotten, intake):
     await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
+    assert intake.calls == []
 
 
 async def test_a_user_deleted_event_without_an_id_is_skipped(forgotten, intake):
@@ -88,6 +89,7 @@ async def test_a_user_deleted_event_without_an_id_is_skipped(forgotten, intake):
     await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
+    assert intake.calls == []
 
 
 def _tampered():
@@ -127,3 +129,4 @@ async def test_unsigned_or_altered_requests_are_rejected(
         await clerk_webhooks.handle_webhook(payload, headers, intake)
 
     assert forgotten == []
+    assert intake.calls == []

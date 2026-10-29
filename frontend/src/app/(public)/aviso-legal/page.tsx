@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SITE_CONFIG } from '@/config/site';
+import { EmailLink, legalLinkClass } from '../_components/legal';
 
 export const metadata: Metadata = {
   title: 'Aviso Legal',
@@ -24,8 +25,6 @@ const jsonLd = {
     '@id': `${SITE_CONFIG.domain}/#organization`,
   },
 };
-
-const linkClass = 'text-primary transition duration-300 hover:text-primary/90';
 
 export default function AvisoLegalPage() {
   return (
@@ -63,10 +62,7 @@ export default function AvisoLegalPage() {
               <li>NIF: {SITE_CONFIG.legal.nif}</li>
               <li>Domicilio: {SITE_CONFIG.legal.address}</li>
               <li>
-                Correo electrónico:{' '}
-                <a href={`mailto:${SITE_CONFIG.email}`} className={linkClass}>
-                  {SITE_CONFIG.email}
-                </a>
+                Correo electrónico: <EmailLink />
               </li>
               <li>Teléfono: {SITE_CONFIG.phone}</li>
               <li>
@@ -85,11 +81,11 @@ export default function AvisoLegalPage() {
               público. Queda prohibido utilizar la web con fines ilícitos,
               fraudulentos o que perjudiquen derechos de terceros. El uso de la
               plataforma y la contratación del plan Pro se rigen además por los{' '}
-              <Link href="/terminos-y-condiciones" className={linkClass}>
+              <Link href="/terminos-y-condiciones" className={legalLinkClass}>
                 términos y condiciones
               </Link>
               , y el tratamiento de tus datos por la{' '}
-              <Link href="/politica-de-privacidad" className={linkClass}>
+              <Link href="/politica-de-privacidad" className={legalLinkClass}>
                 política de privacidad
               </Link>
               .

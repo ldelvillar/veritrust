@@ -33,10 +33,10 @@ async def handle_webhook(
     if event_type == "user.deleted":
         user_id = (event.get("data") or {}).get("id")
         if user_id:
-            await billing.forget_user(user_id)
-            # Borrar la cuenta borra sus análisis, como «Eliminar toda la actividad» (RGPD art. 17)
+            # Los análisis van antes: una Run que cierre después ya no tiene fila y no apunta Usage
             deleted = await delete_all_user_analyses(user_id=user_id)
             await intake.cancel_runs(deleted.pending_ids)
+            await billing.forget_user(user_id)
         else:
             logger.warning("Evento user.deleted de Clerk sin id de usuario")
     logger.info("Evento de Clerk %s (%s) procesado", headers.get("svix-id"), event_type)

@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SITE_CONFIG } from '@/config/site';
+import {
+  EmailLink,
+  legalLinkClass,
+  legalListClass,
+} from '../_components/legal';
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad',
@@ -29,17 +34,6 @@ const jsonLd = {
   },
 };
 
-const linkClass = 'text-primary transition duration-300 hover:text-primary/90';
-const listClass = 'mt-3 list-disc space-y-2 pl-6 text-base leading-7 text-body';
-
-function EmailLink() {
-  return (
-    <a href={`mailto:${SITE_CONFIG.email}`} className={linkClass}>
-      {SITE_CONFIG.email}
-    </a>
-  );
-}
-
 export default function PoliticaDePrivacidadPage() {
   return (
     <>
@@ -66,7 +60,7 @@ export default function PoliticaDePrivacidadPage() {
             <h2 className="text-2xl font-bold text-ink">
               1. Responsable del tratamiento
             </h2>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>Responsable: {SITE_CONFIG.legal.holder}</li>
               <li>NIF: {SITE_CONFIG.legal.nif}</li>
               <li>Domicilio: {SITE_CONFIG.legal.address}</li>
@@ -80,7 +74,7 @@ export default function PoliticaDePrivacidadPage() {
             <h2 className="text-2xl font-bold text-ink">
               2. Datos que tratamos
             </h2>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 Datos de cuenta: tu nombre, tu correo electrónico, tu
                 identificador de usuario y los datos de inicio de sesión, que
@@ -136,7 +130,7 @@ export default function PoliticaDePrivacidadPage() {
             <h2 className="text-2xl font-bold text-ink">
               4. Finalidades y base jurídica
             </h2>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 Prestarte el servicio: tu cuenta, los análisis, tu historial,
                 los enlaces públicos y el correo que te avisa cuando termina un
@@ -180,7 +174,7 @@ export default function PoliticaDePrivacidadPage() {
               Estos proveedores tratan datos por nuestra cuenta, con un contrato
               de encargo del tratamiento:
             </p>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 Contabo GmbH (Alemania): alojamiento del servidor y de la base
                 de datos, en la Unión Europea.
@@ -199,6 +193,11 @@ export default function PoliticaDePrivacidadPage() {
                 Resend (Estados Unidos): envío de los correos que te avisan de
                 un análisis terminado y de los mensajes de los formularios de
                 contacto y de demo.
+              </li>
+              <li>
+                Google (Estados Unidos): el buzón de correo electrónico en el
+                que recibimos lo que nos escribes y las solicitudes de los
+                formularios de contacto y de demo.
               </li>
               <li>
                 Stripe Payments Europe, Ltd. (Irlanda): pagos, suscripciones y
@@ -223,10 +222,10 @@ export default function PoliticaDePrivacidadPage() {
               6. Transferencias internacionales
             </h2>
             <p className="mt-3 text-base leading-7 text-body">
-              Clerk, Resend y Stripe pueden tratar datos en Estados Unidos. Esas
-              transferencias se amparan en el Marco de Privacidad de Datos
-              UE-EE. UU. cuando el proveedor está adherido o, si no, en las
-              cláusulas contractuales tipo de la Comisión Europea. El Reino
+              Clerk, Resend, Stripe y Google pueden tratar datos en Estados
+              Unidos. Esas transferencias se amparan en el Marco de Privacidad
+              de Datos UE-EE. UU. cuando el proveedor está adherido o, si no, en
+              las cláusulas contractuales tipo de la Comisión Europea. El Reino
               Unido cuenta con una decisión de adecuación de la Comisión.
             </p>
           </section>
@@ -235,7 +234,7 @@ export default function PoliticaDePrivacidadPage() {
             <h2 className="text-2xl font-bold text-ink">
               7. Conservación de datos
             </h2>
-            <ul className={listClass}>
+            <ul className={legalListClass}>
               <li>
                 Tus análisis, archivos y valoraciones se conservan hasta que los
                 borres o elimines tu cuenta. Con el plan Gratis, los de más de
@@ -257,8 +256,8 @@ export default function PoliticaDePrivacidadPage() {
               </li>
               <li>
                 Los registros técnicos se sobrescriben automáticamente al rotar,
-                y las copias de seguridad cifradas se renuevan de forma que lo
-                que borras desaparece de ellas en un máximo de 30 días.
+                y las copias de seguridad se renuevan de forma que lo que borras
+                desaparece de ellas en un máximo de 30 días.
               </li>
             </ul>
           </section>
@@ -271,7 +270,7 @@ export default function PoliticaDePrivacidadPage() {
               Puedes ejercer tus derechos de acceso, rectificación, supresión,
               oposición, limitación y portabilidad, y retirar tu consentimiento
               en cualquier momento. Muchos los puedes ejercer tú mismo desde{' '}
-              <Link href="/app/cuenta" className={linkClass}>
+              <Link href="/app/cuenta" className={legalLinkClass}>
                 tu cuenta
               </Link>
               : descargar todos tus análisis con «Exportar todos mis datos»,
@@ -282,7 +281,7 @@ export default function PoliticaDePrivacidadPage() {
               Agencia Española de Protección de Datos (
               <a
                 href="https://www.aepd.es"
-                className={linkClass}
+                className={legalLinkClass}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -311,7 +310,8 @@ export default function PoliticaDePrivacidadPage() {
               Aplicamos medidas técnicas y organizativas para proteger la
               confidencialidad, integridad y disponibilidad de la información:
               conexiones cifradas, acceso restringido al servidor, copias de
-              seguridad cifradas y aislamiento de los datos de cada usuario.
+              seguridad cifradas fuera del servidor y aislamiento de los datos
+              de cada usuario.
             </p>
           </section>
 
