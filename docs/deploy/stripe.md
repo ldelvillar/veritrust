@@ -81,7 +81,7 @@ Locally, the Clerk development instance can't reach `localhost`, so account dele
 
 ## Operations
 
-The four `STRIPE_*` variables and `CLERK_WEBHOOK_SECRET` are required by the web process: without them the backend refuses to start and `/healthz` answers 503. The worker doesn't need them.
+The four `STRIPE_*` variables and `CLERK_WEBHOOK_SECRET` are required by the web process: without them the backend refuses to start, its container keeps restarting and its logs name the missing variables. The worker doesn't need them.
 
 The webhook answers 400 to a request with a bad signature, and 5xx when handling fails, so Stripe retries it (**Developers → Workbench → Webhooks → the endpoint** lists failed deliveries and can resend them). The backend logs each event's id and type, never its payload.
 

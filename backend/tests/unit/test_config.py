@@ -1,6 +1,7 @@
 """Tests unitarios para la configuración central (app.core.config)."""
 
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings, SettingsValidationError
 from tests.support.billing import (
@@ -191,6 +192,12 @@ def test_validate_runtime_leaves_the_email_settings_optional_in_development():
     )
 
     settings.validate_runtime()
+
+
+@pytest.mark.parametrize("value", ["dev", "Production", "development | production"])
+def test_an_unknown_environment_is_rejected_instead_of_meaning_production(value):
+    with pytest.raises(ValidationError, match="environment"):
+        _make_settings(environment=value)
 
 
 def test_validate_runtime_rejects_wildcard_origin_with_credentials():
