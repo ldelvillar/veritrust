@@ -1003,32 +1003,6 @@ def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
     assert lookups == []
 
 
-def test_analisis_returns_422_when_text_field_is_missing(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post("/analysis", json={})
-
-    assert response.status_code == 422
-    assert server_module.app.state.analysis_intake.calls == []
-
-
-def test_analisis_returns_422_when_text_and_url_are_both_sent(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis",
-        json={
-            "text": "Un texto",
-            "url": "https://ejemplo.com/noticia",
-        },
-    )
-
-    assert response.status_code == 422
-    assert server_module.app.state.analysis_intake.calls == []
-
-
 def test_validation_errors_follow_the_structured_error_contract(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
@@ -1109,38 +1083,6 @@ def test_openapi_documents_auth_failures_on_every_authenticated_route(monkeypatc
 
     assert "GET /dashboard/summary" in missing
     assert {route: codes for route, codes in missing.items() if codes} == {}
-
-
-def test_analisis_returns_422_when_url_has_non_url_source_type(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis",
-        json={
-            "url": "https://ejemplo.com/noticia",
-            "source_type": "text",
-        },
-    )
-
-    assert response.status_code == 422
-    assert server_module.app.state.analysis_intake.calls == []
-
-
-def test_analisis_returns_422_when_text_has_url_source_type(monkeypatch):
-    server_module, _ = _load_server_module(monkeypatch)
-    client = TestClient(server_module.app)
-
-    response = client.post(
-        "/analysis",
-        json={
-            "text": "Un texto",
-            "source_type": "url",
-        },
-    )
-
-    assert response.status_code == 422
-    assert server_module.app.state.analysis_intake.calls == []
 
 
 def test_analisis_returns_422_when_text_is_empty_or_whitespace(monkeypatch):

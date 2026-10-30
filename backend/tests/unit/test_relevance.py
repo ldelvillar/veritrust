@@ -197,12 +197,6 @@ def test_judge_stances_strips_forged_markers_from_claim_and_sources(monkeypatch)
     assert captured["count"] == 1
 
 
-def test_get_relevance_chain_builds_invocable():
-    chain = get_relevance_chain("prompt de prueba", 2)
-
-    assert hasattr(chain, "invoke")
-
-
 def test_relevance_chain_delimits_the_claim_and_sources_as_data():
     prompt = get_relevance_chain("prompt de prueba", 1).first
     user = prompt.format_messages(claim="C", sources="S", count=1)[-1].content

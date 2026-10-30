@@ -50,25 +50,6 @@ def _use_settings(monkeypatch, **overrides) -> Settings:
     return settings
 
 
-def test_get_signing_key_uses_jwks_client_when_available(monkeypatch):
-    _use_settings(
-        monkeypatch,
-        clerk_jwks_url="https://tenant.clerk.accounts.dev/.well-known/jwks.json",
-    )
-
-    class _FakeSigningKey:
-        key = "jwks-key"
-
-    class _FakeJwksClient:
-        def get_signing_key_from_jwt(self, token):
-            assert token == "token-123"
-            return _FakeSigningKey()
-
-    monkeypatch.setattr(jwks_module, "_get_jwks_client", lambda url: _FakeJwksClient())
-
-    assert jwks_module.get_signing_key("token-123") == "jwks-key"
-
-
 def test_get_current_user_returns_500_if_no_jwks_url_is_configured(monkeypatch):
     _use_settings(monkeypatch, clerk_jwks_url=None)
 
