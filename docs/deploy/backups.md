@@ -17,7 +17,7 @@ docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \
 ls -lh ~/backups/
 ```
 
-A `test-backup.dump` of at least several KB means backups work. No password is needed because the dump runs inside the container, where local connections are trusted.
+A `test-backup.dump` of at least several KB means backups work. No password is needed because the dump runs inside the container, where local connections are trusted. Then delete it with `rm ~/backups/test-backup.dump`: no cleanup rule matches its name, so it would keep a full plaintext copy of the database forever.
 
 What each piece does:
 
@@ -46,7 +46,7 @@ mkdir -p ~/.config/age && echo 'age1…' > ~/.config/age/backup-recipients.txt
 `crontab -e` opens your personal schedule (as `deploy`, not with `sudo`). Add this line:
 
 ```cron
-0 3 * * * f=$HOME/backups/veritrust-$(date +\%Y\%m\%d).dump; docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > $f 2>> ~/backups/backup.log && age -R ~/.config/age/backup-recipients.txt -o $f.age $f 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump*" -mtime +7 -delete
+0 3 * * * f=$HOME/backups/veritrust-$(date +\%Y\%m\%d).dump; docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) pg_dump -Fc -U veritrust veritrust > $f 2>> ~/backups/backup.log && age -R ~/.config/age/backup-recipients.txt -o $f.age $f 2>> ~/backups/backup.log && find ~/backups -name "veritrust-*.dump*" -mtime +7 -delete; find ~/backups -name "pre-deploy-*.dump" -mtime +27 -delete
 ```
 
 The schedule `0 3 * * *` means **every day at 03:00** server time (minute, hour, day-of-month, month, day-of-week).
@@ -54,9 +54,10 @@ The schedule `0 3 * * *` means **every day at 03:00** server time (minute, hour,
 Important details in that line:
 
 - `$(date +\%Y\%m\%d)` names each file by date so backups don't overwrite each other. The `%` signs **must** be escaped as `\%` — cron treats a bare `%` as a newline, the #1 cause of silent backup failure.
-- `2>> ~/backups/backup.log` captures `pg_dump`'s and `age`'s errors. There is no pipe, so a failed dump is logged and `&&` skips the encryption and cleanup; a `| gzip` here would hide both.
+- `2>> ~/backups/backup.log` captures `pg_dump`'s and `age`'s errors. There is no pipe, so a failed dump is logged and `&&` skips the encryption and cleanup; a `| gzip` here would hide both. Skipping the cleanup is deliberate: a dump that keeps failing must not also delete the last good backups.
 - `age -R ... -o $f.age $f` writes an encrypted `veritrust-YYYYMMDD.dump.age` next to the plain dump. The plain one stays on the VM for the restores in sections 4 and 5; only the `.age` copy leaves it.
-- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days, plain and encrypted. Adjust `+7` for a longer retention window. The deploy workflow's `pre-deploy-*.dump` files have their own retention.
+- `find ~/backups ... -mtime +7 -delete` removes dumps older than 7 days, plain and encrypted. Adjust `+7` for a longer retention window, up to `+27` (see the next point).
+- `find ~/backups -name "pre-deploy-*.dump" -mtime +27 -delete` removes the deploy workflow's dumps once they are 28 full days old. The workflow only keeps the newest 10, so without this rule a rarely deployed server would keep them for months. It runs even when the backup fails (`;`, not `&&`). The privacy policy says backups rotate on a cycle of about a month, so keep both limits at `+27` or below.
 
 ## 3. Verify the cron job
 
@@ -84,7 +85,7 @@ docker exec $cid dropdb -U veritrust restore_test
 
 It restores the newest nightly dump. `pg_restore` must finish without errors, and the two lines (migrations, analyses, feedback) must match, or production's be slightly higher if analyses finished after the dump. `-i` keeps stdin open so the file pipes in.
 
-To actually restore production from a nightly dump, follow the steps in section 5 with that dump instead of a `pre-deploy-*` one: stop the writers, `pg_restore --clean --if-exists --create`, then start them again with `docker compose -f ~/veritrust/docker-compose.yml start backend worker`. Everything written since the dump is lost.
+To actually restore production from a nightly dump, follow the steps in section 5 with that dump instead of a `pre-deploy-*` one: stop the writers, `pg_restore --clean --if-exists --create`, re-apply the erasures (section 5, step 3), then start them again with `docker compose -f ~/veritrust/docker-compose.yml start backend worker`. Everything written since the dump is lost.
 
 ## 5. Undo a bad migration
 
@@ -107,13 +108,30 @@ If a migration **succeeds but damages data or schema**, restore the dump taken j
      pg_restore -U veritrust -d postgres --clean --if-exists --create < ~/backups/pre-deploy-20261025-120000.dump
    ```
 
-3. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
+3. Re-apply the erasures. The dump can hold users who deleted their account after it was taken, and the privacy policy promises that a restore applies their erasures again. List the restored user IDs, check each in the Clerk Dashboard (**Users**; a deleted user is gone), and delete the rows of every one Clerk no longer has, with the same tables the `user.deleted` webhook clears:
+
+   ```bash
+   vt() { docker exec -i $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) psql -U veritrust -d veritrust "$@"; }
+   vt -c "SELECT user_id FROM analysis_history UNION SELECT user_id FROM billing_customers"
+   ids='{user_a,user_b}'  # the IDs Clerk no longer has
+   for t in analysis_history billing_customers subscriptions usage_events; do vt -c "DELETE FROM $t WHERE user_id = ANY('$ids')"; done
+   ```
+
+   Their Stripe subscriptions were already cancelled when they deleted their account. [#82](https://github.com/ldelvillar/veritrust/issues/82) would replace this manual step with a record of deleted users.
+
+4. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
 
 The dump is in `pg_dump`'s custom format (compressed, includes `schema_migrations`), so restore it with `pg_restore`, not `psql`.
 
 ## Off-site copies
 
-A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily with `scp -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>`; it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+
+Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that. Add this as a second action of the task:
+
+```powershell
+Get-ChildItem <folder> -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
+```
 
 To restore from an off-site copy, decrypt it on the workstation (it asks for the passphrase), then copy it to the VM and restore it as in section 4:
 
@@ -121,3 +139,5 @@ To restore from an off-site copy, decrypt it on the workstation (it asks for the
 age -d -i $env:USERPROFILE\.age\veritrust-backup.key.age -o veritrust.dump veritrust-YYYYMMDD.dump.age
 scp veritrust.dump veritrust:/tmp/veritrust.dump
 ```
+
+Once the restore is done, delete both decrypted copies (`Remove-Item veritrust.dump`, then `ssh veritrust rm /tmp/veritrust.dump`): no cleanup rule matches them.

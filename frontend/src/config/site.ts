@@ -4,6 +4,13 @@ export const SITE_CONFIG = {
   email: 'lucasvillarv@gmail.com',
   phone: '+34 604 11 26 28',
 
+  // Titular del servicio (LSSI art. 10); lo citan el aviso legal, los términos y la privacidad.
+  legal: {
+    holder: 'Lucas del Villar Vázquez',
+    nif: '54714499Y',
+    address: 'Avenida Real de Pinto 87, Módulo 2, Nave Ñ, 28021 Madrid',
+  },
+
   seo: {
     defaultTitle: 'Detector de Desinformación Médica con IA | VeriTrust',
     defaultDescription:

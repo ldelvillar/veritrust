@@ -14,10 +14,12 @@ import HistoryToolbar from './_components/HistoryToolbar';
 import Button from '@/components/Button';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PageHeader from '@/components/PageHeader';
+import UpgradePrompt, { ProLockedButton } from '@/components/UpgradePrompt';
 import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAnalysisDeletion } from '@/hooks/useAnalysisDeletion';
 import { useHistoryExport } from '@/hooks/useHistoryExport';
 import { useHistoryFilters } from '@/hooks/useHistoryFilters';
+import { usePlan } from '@/hooks/usePlan';
 import {
   PAGE_SIZE,
   isExportable,
@@ -30,6 +32,11 @@ interface HistorialClientProps {
 }
 
 export default function HistorialClient({ initialData }: HistorialClientProps) {
+  const { limits } = usePlan();
+  const toolsLocked = limits?.history_tools === false;
+  const exportLocked = limits?.csv_export === false;
+  const historyDays = limits?.history_days ?? null;
+
   const {
     searchQuery,
     sourceTypeFilter,
@@ -50,7 +57,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     setSort,
     setPage,
     clearFilters,
-  } = useHistoryFilters();
+  } = useHistoryFilters(toolsLocked);
 
   const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null);
 
@@ -116,6 +123,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
   const verdictFacets = data?.verdict_counts ?? null;
   const canExport = isExportable(statusFilter);
 
+  // Los análisis anteriores a la ventana del Plan siguen guardados: se avisa también con la lista vacía.
+  const windowNote =
+    historyDays !== null ? (
+      <UpgradePrompt variant="inline" className="mb-4">
+        Mostrando los últimos {historyDays} días. El historial completo, la
+        búsqueda, los filtros y la exportación a CSV son del plan Pro.
+      </UpgradePrompt>
+    ) : null;
+
   // Primera vez (sin análisis ni filtros): panel de bienvenida en vez de tabla vacía.
   const isFirstTimeEmpty =
     totalCount === 0 && !hasActiveFilters && !fetchError && !isLoading;
@@ -161,6 +177,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
             </>
           }
         />
+        {windowNote && <div className="mt-5">{windowNote}</div>}
       </>
     );
   }
@@ -176,20 +193,29 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
           actions={
             <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
               <div className="flex flex-1 flex-col items-end gap-1 sm:flex-none">
-                <Button
-                  variant="soft"
-                  onClick={runExport}
-                  disabled={isExporting || totalCount === 0 || !canExport}
-                  aria-busy={isExporting}
-                  className="w-full sm:w-auto"
-                >
-                  {isExporting ? (
-                    <Spinner className="size-4 animate-spin" />
-                  ) : (
-                    <DownloadIcon className="size-4" aria-hidden />
-                  )}
-                  {isExporting ? 'Exportando…' : 'Exportar todo'}
-                </Button>
+                {exportLocked ? (
+                  <ProLockedButton
+                    title="Exportar a CSV es una función del plan Pro"
+                    className="w-full sm:w-auto"
+                  >
+                    Exportar todo
+                  </ProLockedButton>
+                ) : (
+                  <Button
+                    variant="soft"
+                    onClick={runExport}
+                    disabled={isExporting || totalCount === 0 || !canExport}
+                    aria-busy={isExporting}
+                    className="w-full sm:w-auto"
+                  >
+                    {isExporting ? (
+                      <Spinner className="size-4 animate-spin" />
+                    ) : (
+                      <DownloadIcon className="size-4" aria-hidden />
+                    )}
+                    {isExporting ? 'Exportando…' : 'Exportar todo'}
+                  </Button>
+                )}
                 {exportError ? (
                   <p
                     role="alert"
@@ -212,10 +238,12 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         />
       </div>
 
+      {windowNote}
+
       <HistoryStatCards
         verdictFilter={verdictFilter}
         verdictCounts={verdictFacets}
-        onSelect={setVerdict}
+        onSelect={toolsLocked ? undefined : setVerdict}
       />
 
       <HistoryToolbar
@@ -229,6 +257,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         onDateRangeChange={setDateRange}
         sortOrder={sortOrder}
         onSortChange={setSort}
+        disabled={toolsLocked}
       />
 
       {/* Result summary line */}

@@ -476,7 +476,7 @@ def build_mcp_http_app(server: MCPServer) -> Starlette:
     """Devuelve la app Streamable HTTP del servidor, limitada a los hosts configurados."""
     settings = get_settings()
     allowed_hosts = [urlparse(str(settings.mcp_resource_url)).netloc]
-    if settings.environment.strip().lower() == "development":
+    if settings.is_development():
         allowed_hosts += ["localhost:*", "127.0.0.1:*"]
     return server.streamable_http_app(
         streamable_http_path=MCP_PATH,

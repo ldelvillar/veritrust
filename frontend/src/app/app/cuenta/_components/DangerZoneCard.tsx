@@ -3,14 +3,15 @@
 import CheckIcon from '@/assets/Check';
 import TrashIcon from '@/assets/Trash';
 import WarningIcon from '@/assets/Warning';
+import { formatCount } from '@/lib/plan';
 
 interface DangerZoneCardProps {
-  totalCount: number;
-  deletedCount: number | null;
+  // null si el Plan oculta parte de la History y el total no se conoce.
+  totalCount: number | null;
+  // 'all': se borró todo sin conocer el total.
+  deletedCount: number | 'all' | null;
   onRequestDelete: () => void;
 }
-
-const numberFormatter = new Intl.NumberFormat('es-ES');
 
 export default function DangerZoneCard({
   totalCount,
@@ -18,7 +19,6 @@ export default function DangerZoneCard({
   onRequestDelete,
 }: DangerZoneCardProps) {
   const isEmpty = totalCount === 0;
-  const justDeleted = deletedCount !== null;
 
   return (
     <section
@@ -48,14 +48,16 @@ export default function DangerZoneCard({
       </div>
 
       <div className="mt-5 border-t border-danger/20 pt-5">
-        {justDeleted ? (
+        {deletedCount !== null ? (
           <p
             role="status"
             className="mb-4 flex items-start gap-2 rounded-xl bg-success-soft px-3.5 py-3 text-sm font-semibold text-success-ink"
           >
             <CheckIcon className="mt-px size-4 shrink-0" aria-hidden />
-            Se han eliminado {numberFormatter.format(deletedCount)} análisis. Tu
-            actividad está ahora vacía.
+            {deletedCount === 'all'
+              ? 'Se han eliminado todos tus análisis.'
+              : `Se han eliminado ${formatCount(deletedCount)} análisis.`}{' '}
+            Tu actividad está ahora vacía.
           </p>
         ) : null}
 
@@ -67,7 +69,9 @@ export default function DangerZoneCard({
             />
             {isEmpty
               ? 'No tienes actividad que eliminar.'
-              : `Se eliminarán ${numberFormatter.format(totalCount)} análisis de forma permanente.`}
+              : totalCount === null
+                ? 'Se eliminarán todos tus análisis de forma permanente, también los que tu plan no muestra en el historial.'
+                : `Se eliminarán ${formatCount(totalCount)} análisis de forma permanente.`}
           </p>
           <button
             type="button"
@@ -78,9 +82,9 @@ export default function DangerZoneCard({
           >
             <TrashIcon className="size-4" aria-hidden />
             Eliminar toda mi actividad
-            {!isEmpty ? (
+            {totalCount !== null && !isEmpty ? (
               <span className="ml-0.5 rounded-full bg-white/20 px-2 py-px text-2xs font-extrabold">
-                {numberFormatter.format(totalCount)}
+                {formatCount(totalCount)}
               </span>
             ) : null}
           </button>

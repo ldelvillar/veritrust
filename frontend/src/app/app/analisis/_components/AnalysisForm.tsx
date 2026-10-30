@@ -9,8 +9,12 @@ import Spinner from '@/assets/Spinner';
 import TypeIcon from '@/assets/Type';
 import UploadIcon from '@/assets/Upload';
 import WarningIcon from '@/assets/Warning';
+import LockIcon from '@/assets/Lock';
 import PdfViewer from '@/components/PdfViewer';
+import UpgradePrompt from '@/components/UpgradePrompt';
 import { useAnalysisSubmission } from '@/hooks/useAnalysisSubmission';
+import { usePlan } from '@/hooks/usePlan';
+import { formatCount, formatPlanDate } from '@/lib/plan';
 import type { components, paths } from '@/types/api';
 
 type ClientConfig =
@@ -53,6 +57,12 @@ export default function AnalysisForm({
 }) {
   const { submit, submitFile, isLoading, error, setError } =
     useAnalysisSubmission();
+  const { plan, limits: planLimits, usage } = usePlan();
+  const isFree = plan?.plan === 'free';
+  const filesLocked = planLimits?.files === false;
+  const isExhausted = usage?.remaining === 0;
+  // El máximo de texto es el del Plan; /config solo aporta el máximo del esquema si el Plan no cargó.
+  const maxChars = planLimits?.max_input_chars ?? limits?.max_input_text_length;
 
   const [inputMethod, setInputMethod] =
     useState<components['schemas']['SourceType']>('text');
@@ -116,6 +126,8 @@ export default function AnalysisForm({
     if (isTextArea && e.shiftKey) return;
     if (inputMethod === 'file') return;
     e.preventDefault();
+    // requestSubmit ignora el botón deshabilitado: Enter sigue la misma regla que el botón.
+    if (!canRun) return;
     e.currentTarget.requestSubmit();
   };
 
@@ -164,17 +176,19 @@ export default function AnalysisForm({
   const isUrlValid = isLikelyUrl(trimmedUrl);
   const showUrlHint = trimmedUrl.length > 0 && !isUrlValid;
 
+  const isTextTooLong = maxChars !== undefined && trimmedTextLength > maxChars;
+
   // Sin límites conocidos solo se exige texto no vacío; la API tiene la última palabra.
   const isTextLengthValid =
     trimmedTextLength > 0 &&
-    (!limits ||
-      (trimmedTextLength >= limits.min_input_text_length &&
-        trimmedTextLength <= limits.max_input_text_length));
+    (!limits || trimmedTextLength >= limits.min_input_text_length) &&
+    !isTextTooLong;
 
   const canRun =
-    (inputMethod === 'text' && isTextLengthValid) ||
-    (inputMethod === 'url' && isUrlValid) ||
-    (inputMethod === 'file' && !!selectedFile);
+    !isExhausted &&
+    ((inputMethod === 'text' && isTextLengthValid) ||
+      (inputMethod === 'url' && isUrlValid) ||
+      (inputMethod === 'file' && !!selectedFile && !filesLocked));
 
   const tabs = [
     { id: 'text' as const, label: 'Texto', Icon: TypeIcon },
@@ -226,6 +240,9 @@ export default function AnalysisForm({
           >
             <Icon className="size-3.75" />
             <span>{label}</span>
+            {id === 'file' && filesLocked && (
+              <LockIcon className="size-3 text-faint" aria-label="Plan Pro" />
+            )}
           </button>
         ))}
       </div>
@@ -270,6 +287,12 @@ export default function AnalysisForm({
                 value={formData.text}
                 onChange={handleChange}
               />
+              {isTextTooLong && maxChars !== undefined && (
+                <p className="px-4 pb-2 text-xs font-semibold text-danger-ink">
+                  El texto supera el máximo de {formatCount(maxChars)}{' '}
+                  caracteres{isFree ? ' del plan Gratis' : ''}.
+                </p>
+              )}
               {controls}
             </div>
           </div>
@@ -307,6 +330,13 @@ export default function AnalysisForm({
                   Escribe un dominio completo, p. ej. medio.es
                 </p>
               )}
+              {isFree && planLimits && (
+                <p className="px-4 pb-2 text-xs font-semibold text-faint">
+                  Con el plan Gratis se analizan los primeros{' '}
+                  {formatCount(planLimits.max_input_chars)} caracteres de la
+                  página.
+                </p>
+              )}
               {controls}
             </div>
           </div>
@@ -316,60 +346,70 @@ export default function AnalysisForm({
         {inputMethod === 'file' && (
           <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
             <div className="relative pb-17">
-              <label
-                htmlFor="file-upload"
-                className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 text-center transition-all ${
-                  isDragging
-                    ? 'border-primary bg-surface'
-                    : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
-                } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="mb-3 grid size-13 place-items-center rounded-2xl bg-primary-soft text-primary">
-                  <UploadIcon className="size-5.5" />
-                </div>
-                {selectedFile ? (
-                  <p className="text-base font-semibold text-ink">
-                    <span className="text-primary">{selectedFile.name}</span> ·
-                    listo para analizar
-                  </p>
-                ) : (
-                  <p className="text-base font-semibold text-ink">
-                    Arrastra un archivo aquí o{' '}
-                    <span className="text-primary">búscalo</span>
-                  </p>
-                )}
-                <p className="mt-1.5 text-sm text-muted">
-                  Documentos PDF o texto plano (.txt o .md).
-                </p>
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  {(limits?.allowed_file_suffixes ?? [])
-                    .map(suffixLabel)
-                    .map(t => (
-                      <span
-                        key={t}
-                        className="rounded-lg border border-line bg-white px-2.5 py-1 text-2xs font-bold tracking-wide text-muted"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  {limits && (
-                    <span className="text-2xs font-bold text-faint">
-                      máx. {megabytes(limits.max_file_bytes)}
-                    </span>
+              {filesLocked ? (
+                <UpgradePrompt
+                  title="Analiza archivos con Pro"
+                  className="min-h-45 justify-center"
+                >
+                  Sube documentos PDF, TXT o MD y verifícalos igual que un
+                  texto. Disponible en el plan Pro.
+                </UpgradePrompt>
+              ) : (
+                <label
+                  htmlFor="file-upload"
+                  className={`flex min-h-45 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 text-center transition-all ${
+                    isDragging
+                      ? 'border-primary bg-surface'
+                      : 'border-line-strong bg-surface-subtle hover:border-primary hover:bg-surface'
+                  } ${isLoading ? 'pointer-events-none opacity-60' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="mb-3 grid size-13 place-items-center rounded-2xl bg-primary-soft text-primary">
+                    <UploadIcon className="size-5.5" />
+                  </div>
+                  {selectedFile ? (
+                    <p className="text-base font-semibold text-ink">
+                      <span className="text-primary">{selectedFile.name}</span>{' '}
+                      · listo para analizar
+                    </p>
+                  ) : (
+                    <p className="text-base font-semibold text-ink">
+                      Arrastra un archivo aquí o{' '}
+                      <span className="text-primary">búscalo</span>
+                    </p>
                   )}
-                </div>
-                <input
-                  id="file-upload"
-                  type="file"
-                  className="hidden"
-                  accept={limits?.allowed_file_suffixes.join(',')}
-                  disabled={isLoading}
-                  onChange={handleFileChange}
-                />
-              </label>
+                  <p className="mt-1.5 text-sm text-muted">
+                    Documentos PDF o texto plano (.txt o .md).
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {(limits?.allowed_file_suffixes ?? [])
+                      .map(suffixLabel)
+                      .map(t => (
+                        <span
+                          key={t}
+                          className="rounded-lg border border-line bg-white px-2.5 py-1 text-2xs font-bold tracking-wide text-muted"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    {limits && (
+                      <span className="text-2xs font-bold text-faint">
+                        máx. {megabytes(limits.max_file_bytes)}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    className="hidden"
+                    accept={limits?.allowed_file_suffixes.join(',')}
+                    disabled={isLoading}
+                    onChange={handleFileChange}
+                  />
+                </label>
+              )}
               {controls}
             </div>
 
@@ -381,6 +421,26 @@ export default function AnalysisForm({
                 </div>
                 <PdfViewer file={selectedFile} />
               </div>
+            )}
+          </div>
+        )}
+
+        {isExhausted && usage && (
+          <div className="mt-4">
+            {isFree ? (
+              <UpgradePrompt title="Has usado tus análisis de este mes">
+                Se renuevan el {formatPlanDate(usage.resets_at)}, o pásate a Pro
+                para seguir analizando ahora.
+              </UpgradePrompt>
+            ) : (
+              <p
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft p-4 text-sm font-semibold text-warning-ink"
+              >
+                <WarningIcon className="size-5 shrink-0" />
+                Has usado todos los análisis de este mes. Se renuevan el{' '}
+                {formatPlanDate(usage.resets_at)}.
+              </p>
             )}
           </div>
         )}

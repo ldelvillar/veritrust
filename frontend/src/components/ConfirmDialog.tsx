@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   isConfirming?: boolean;
+  confirmDisabled?: boolean;
   errorMessage?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
@@ -23,6 +24,7 @@ export default function ConfirmDialog({
   confirmLabel = 'Eliminar',
   cancelLabel = 'Cancelar',
   isConfirming = false,
+  confirmDisabled = false,
   errorMessage = null,
   onConfirm,
   onCancel,
@@ -105,7 +107,7 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isConfirming}
+            disabled={isConfirming || confirmDisabled}
             aria-busy={isConfirming}
             className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-bold text-white transition hover:bg-danger-ink focus:ring-2 focus:ring-danger/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >

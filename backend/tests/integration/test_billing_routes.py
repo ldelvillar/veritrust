@@ -260,7 +260,7 @@ def test_clerk_webhook_passes_the_raw_body_and_headers_without_a_user(
     client.app.dependency_overrides.clear()
     received = []
 
-    async def handle_webhook(payload, headers):
+    async def handle_webhook(payload, headers, intake):
         received.append((payload, headers["svix-id"]))
 
     monkeypatch.setattr(clerk_webhooks, "handle_webhook", handle_webhook)
@@ -288,7 +288,7 @@ def test_clerk_webhook_passes_the_raw_body_and_headers_without_a_user(
 def test_clerk_webhook_failures_answer_non_2xx_so_clerk_retries(
     client, monkeypatch, error, status, code
 ):
-    async def handle_webhook(payload, headers):
+    async def handle_webhook(payload, headers, intake):
         raise error
 
     monkeypatch.setattr(clerk_webhooks, "handle_webhook", handle_webhook)

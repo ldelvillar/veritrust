@@ -6,13 +6,13 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SidebarIcon from '@/assets/Sidebar';
 import Logo from '@/assets/Logo';
-import Button from '@/components/Button';
 import DashboardIcon from '@/assets/Dashboard';
 import NewIcon from '@/assets/New';
 import HistoryIcon from '@/assets/History';
 import QuestionIcon from '@/assets/Question';
 import UserIcon from '@/assets/User';
 import PendingIndicator from '@/components/layout/PendingIndicator';
+import PlanMeter from '@/components/layout/PlanMeter';
 import RecentAnalyses from '@/components/layout/RecentAnalyses';
 import Wordmark from '@/components/Wordmark';
 import { useRecentAnalyses } from '@/hooks/useRecentAnalyses';
@@ -151,19 +151,7 @@ function SidebarContent({
       {!collapsed && <RecentAnalyses items={recent} onNavigate={onNavigate} />}
 
       <div className="mt-auto pt-4">
-        {!collapsed && (
-          <div className="mb-3.5 rounded-2xl border border-line bg-surface p-4">
-            <h4 className="text-sm font-bold text-ink">
-              ¿Necesitas más análisis?
-            </h4>
-            <p className="mt-1 mb-3 text-xs leading-snug text-muted">
-              Mejora tu plan para verificar sin límites.
-            </p>
-            <Button href="/#precios" onClick={onNavigate} className="w-full">
-              Ver planes
-            </Button>
-          </div>
-        )}
+        {!collapsed && <PlanMeter onNavigate={onNavigate} />}
 
         <Show when="signed-in">
           <div

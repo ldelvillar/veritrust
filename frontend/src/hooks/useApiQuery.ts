@@ -2,11 +2,13 @@ import { useAuth } from '@clerk/nextjs';
 import { useCallback } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { ApiError, fetchJsonWithAuth } from '@/lib/apiClient';
+import { refreshPlanOnPlanError } from '@/lib/planCache';
 
 interface UseApiQueryOptions<T> {
   fallbackData?: T;
   refreshInterval?: number | ((latestData: T | undefined) => number);
   onSuccess?: (latestData: T) => void;
+  revalidateIfStale?: boolean;
 }
 
 export function useApiQuery<T>(
@@ -29,6 +31,11 @@ export function useApiQuery<T>(
       fallbackData: options.fallbackData,
       revalidateOnMount: skipMountRefetch ? false : undefined,
       refreshInterval: options.refreshInterval,
+      // SWR mezcla la configuración con spread: un undefined explícito anularía su valor por defecto.
+      ...(options.revalidateIfStale !== undefined
+        ? { revalidateIfStale: options.revalidateIfStale }
+        : {}),
+      onError: refreshPlanOnPlanError,
       ...(options.onSuccess ? { onSuccess: options.onSuccess } : {}),
     }
   );
