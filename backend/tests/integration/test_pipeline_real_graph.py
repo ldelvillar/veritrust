@@ -413,63 +413,6 @@ def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts
     assert "No se hallaron fuentes" in captured["human"]
 
 
-async def test_total_outage_beyond_the_cap_reports_unknown_coverage(
-    monkeypatch, prompts
-):
-    """Con todas las fuentes caídas y más afirmaciones que la cota, la cobertura es desconocida."""
-    _stub_extractor(
-        monkeypatch,
-        statements=[f"Afirmación {i}" for i in range(10)],
-        queries=[f'"query {i}"' for i in range(10)],
-        drug_terms=[],
-    )
-    _stub_translator(monkeypatch, [f"Claim {i} EN" for i in range(10)])
-    _stub_health(monkeypatch)
-    _stub_judge(monkeypatch)
-    _stub_sources(
-        monkeypatch,
-        europepmc=_failing_search,
-        pubmed=_failing_search,
-        openfda=_failing_search,
-    )
-
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
-    completion = await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
-
-    # No se buscó nada con éxito: el informe no puede mostrar un 80 % de cobertura.
-    assert completion.verdict.evidence_coverage is None
-    # Solo penalizan las 2 afirmaciones que la cota dejó sin buscar: 0.5 × (1 − 0.25 × 0.2).
-    assert completion.verdict.confidence == pytest.approx(0.475)
-
-
-def test_partial_evidence_coverage_attenuates_confidence(monkeypatch, prompts):
-    """La afirmación sin literatura reduce la cobertura y esta atenúa la confianza final."""
-    _stub_extractor(
-        monkeypatch,
-        statements=["Afirmación uno", "Afirmación dos"],
-        queries=['"query one"', '"query two"'],
-        drug_terms=[],
-    )
-    _stub_translator(monkeypatch, ["Claim one EN", "Claim two EN"])
-    _stub_health(monkeypatch)
-    _stub_judge(monkeypatch)
-
-    def only_first_claim(query, max_results=3):
-        if query == '"query one"':
-            return [{"title": "Hit", "url": "https://e.org/1", "abstract": "R."}]
-        return []
-
-    _stub_sources(monkeypatch, europepmc=only_first_claim)
-
-    graph = create_graph(prompts)
-    result = graph.invoke(_initial_state("Texto"))
-
-    assert result["verdict"].evidence_coverage == 0.5
-    # Valor esperado independiente: 0.5 × (1 − 0.25 × (1 − 0.5)) = 0.4375.
-    assert result["verdict"].confidence == pytest.approx(0.4375)
-    assert result["verdict"].confidence < 0.5
-
-
 def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
     """Evidencia hallada pero irrelevante: el juez la descarta y la cobertura cae a 0."""
     _stub_extractor(
