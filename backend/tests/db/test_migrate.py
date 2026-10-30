@@ -159,8 +159,8 @@ def test_migrations_let_a_pre_mixed_database_store_mixed_verdicts(empty_dsn, tmp
 
     with psycopg.connect(empty_dsn) as conn:
         analysis_id = conn.execute(
-            "INSERT INTO analysis_history (user_id, source_type, verdict) "
-            "VALUES ('u', 'text', 'mixed') RETURNING id"
+            "INSERT INTO analysis_history (user_id, source_type, verdict, max_input_chars) "
+            "VALUES ('u', 'text', 'mixed', 10000) RETURNING id"
         ).fetchone()[0]
         conn.execute(
             "INSERT INTO analysis_feedback "
@@ -168,6 +168,30 @@ def test_migrations_let_a_pre_mixed_database_store_mixed_verdicts(empty_dsn, tmp
             "VALUES (%s, 'u', false, 'mixed', 'mixed')",
             (analysis_id,),
         )
+
+
+def test_billing_enforcement_gives_older_analyses_the_schema_maximum(
+    empty_dsn, tmp_path
+):
+    before = [m for m in load_migrations() if m.version < "0004"]
+    for migration in before:
+        _write(tmp_path, f"{migration.version}.sql", migration.sql)
+    apply_migrations(empty_dsn, tmp_path)
+    with psycopg.connect(empty_dsn) as conn:
+        conn.execute(
+            "INSERT INTO analysis_history (user_id, source_type) VALUES ('u', 'text')"
+        )
+
+    apply_migrations(empty_dsn)
+
+    with psycopg.connect(empty_dsn) as conn:
+        assert conn.execute(
+            "SELECT max_input_chars FROM analysis_history"
+        ).fetchall() == [(10000,)]
+        with pytest.raises(psycopg.errors.NotNullViolation):
+            conn.execute(
+                "INSERT INTO analysis_history (user_id, source_type) VALUES ('u', 'text')"
+            )
 
 
 @pytest.fixture

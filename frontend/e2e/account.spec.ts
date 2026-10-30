@@ -28,3 +28,22 @@ test('deleting all activity empties the history and clears the pending indicator
   await page.goto('/app/historial');
   await expect(page.getByText('Aún no has analizado nada')).toBeVisible();
 });
+
+test.describe('on the Free plan', () => {
+  test.use({ mockPlan: { plan: 'free', used: 0 } });
+
+  test('exporting my data downloads every analysis, hidden ones included', async ({
+    page,
+  }) => {
+    await page.goto('/app/cuenta');
+    const download = page.waitForEvent('download');
+    await page
+      .getByRole('button', { name: 'Exportar todos mis datos' })
+      .click();
+
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('veritrust-mis-datos.csv');
+    const csv = await (await file.createReadStream()).toArray();
+    expect(Buffer.concat(csv).toString('utf8')).toContain('done-old');
+  });
+});

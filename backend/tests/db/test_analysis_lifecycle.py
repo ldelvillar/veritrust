@@ -1,6 +1,7 @@
 """Pruebas del ciclo de vida de un análisis contra PostgreSQL real, a través de su interfaz."""
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from psycopg.rows import dict_row
@@ -17,18 +18,21 @@ from app.core.analysis_lifecycle import (
     TextContent,
     UrlContent,
 )
+from app.core.plans import FREE, PRO, month_window
 from app.core.verdict import ClaimVerdict, Verdict
-from app.db.history import get_user_analysis_status
+from app.db.history import delete_user_analysis, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, SourceType
 from app.schemas.errors import ErrorCode
+from tests.db.seed import seed_created_at, seed_usage
 from tests.support.lifecycle import InMemoryAnalysisQueue, RecordingNotifier
 
 pytestmark = pytest.mark.db
 
 USER = "user-a"
 EMAIL = "user-a@example.com"
-WEB = Submitter(user_id=USER, origin="web", notify_email=EMAIL)
+WEB = Submitter(user_id=USER, origin="web", limits=PRO, notify_email=EMAIL)
+FREE_WEB = Submitter(user_id=USER, origin="web", limits=FREE, notify_email=EMAIL)
 MAX_FILE_BYTES = 1024
 PDF = b"%PDF-1.4 contenido minimo"
 
@@ -75,6 +79,19 @@ async def _count(pool) -> int:
         cur = await conn.execute("SELECT COUNT(*) FROM public.analysis_history")
         row = await cur.fetchone()
     return row[0]
+
+
+async def _usage_kinds(pool) -> list[str]:
+    """El Usage de todos los usuarios, en el orden en que se anotó."""
+    async with pool.connection() as conn:
+        cur = await conn.execute("SELECT kind FROM public.usage_events ORDER BY id")
+        return [row[0] for row in await cur.fetchall()]
+
+
+async def _spend(units: int, occurred_at: datetime | None = None) -> None:
+    """Anota ``units`` unidades de Usage del usuario, por defecto ahora mismo."""
+    for _ in range(units):
+        await seed_usage(user_id=USER, occurred_at=occurred_at or datetime.now(UTC))
 
 
 async def _arrange(pool, analysis_id: str, **columns) -> None:
@@ -143,7 +160,7 @@ async def test_submit_opens_a_pending_text_analysis_and_enqueues_it(
 async def test_submit_stores_the_link_of_an_mcp_url_without_an_email(
     db_pool, intake, queue
 ):
-    mcp = Submitter(user_id=USER, origin="mcp")
+    mcp = Submitter(user_id=USER, origin="mcp", limits=PRO)
     request = AnalysisRequest(
         url="https://ejemplo.com/noticia", source_type=SourceType.URL
     )
@@ -330,7 +347,7 @@ async def test_reopen_hides_other_users_analyses(
     db_pool, intake, queue, reopen, arrange
 ):
     analysis_id = await arrange(db_pool, intake, queue)
-    stranger = Submitter(user_id="user-b", origin="web")
+    stranger = Submitter(user_id="user-b", origin="web", limits=PRO)
 
     with pytest.raises(AnalysisRefused) as refusal:
         await getattr(intake, reopen)(stranger, analysis_id)
@@ -501,7 +518,9 @@ async def _submit(intake, request=None) -> str:
 
 
 async def _stage(analysis_id: str) -> str | None:
-    status = await get_user_analysis_status(user_id=USER, analysis_id=analysis_id)
+    status = await get_user_analysis_status(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
     assert status is not None
     return status.stage
 
@@ -572,11 +591,15 @@ async def test_run_stores_a_verdict_without_report_and_keeps_its_coverage_apart(
                     url="https://ejemplo.com/noticia", source_type=SourceType.URL
                 ),
             ),
-            UrlContent(url="https://ejemplo.com/noticia"),
+            UrlContent(
+                url="https://ejemplo.com/noticia", max_chars=PRO.max_input_chars
+            ),
         ),
         (
             lambda intake: intake.submit_file(WEB, _Upload("informe.pdf", PDF)),
-            FileContent(data=PDF, filename="informe.pdf"),
+            FileContent(
+                data=PDF, filename="informe.pdf", max_chars=PRO.max_input_chars
+            ),
         ),
     ],
     ids=["text", "url", "file"],
@@ -786,6 +809,7 @@ async def test_a_late_close_is_discarded_without_notifying(
     assert (row["status"], row["error_code"]) == ("failed", "SERVICE_UNAVAILABLE")
     assert row["label"] is None
     assert notifier.sent == []
+    assert await _usage_kinds(db_pool) == []
 
 
 async def test_run_without_an_email_notifies_nobody(db_pool, intake, runner, notifier):
@@ -919,3 +943,186 @@ async def test_retry_restarts_the_grace_period_of_the_reaper(
 
     assert await runner.reap_orphans() == 0
     assert (await _row(db_pool, analysis_id))["status"] == "pending"
+
+
+async def test_submit_fixes_the_plans_text_limit_on_the_row_for_the_worker(
+    db_pool, intake, runner
+):
+    request = AnalysisRequest(
+        url="https://ejemplo.com/noticia", source_type=SourceType.URL
+    )
+    analysis_id = await intake.submit(FREE_WEB, request)
+    seen: list = []
+
+    await runner.run(analysis_id, _returning(_completion(), seen))
+
+    assert (await _row(db_pool, analysis_id))["max_input_chars"] == FREE.max_input_chars
+    assert seen[0].content.max_chars == FREE.max_input_chars
+
+
+async def test_submit_refuses_text_longer_than_the_plan_allows(db_pool, intake, queue):
+    longest = "a" * FREE.max_input_chars
+
+    await intake.submit(FREE_WEB, AnalysisRequest(text=longest))
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.submit(FREE_WEB, AnalysisRequest(text=longest + "a"))
+
+    assert refusal.value.code == ErrorCode.TEXT_TOO_LONG_FOR_PLAN
+    assert await _count(db_pool) == 1
+
+
+async def test_submit_file_refuses_a_plan_without_files_before_reading_it(
+    db_pool, intake, queue
+):
+    upload = _Upload("informe.pdf", PDF)
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.submit_file(FREE_WEB, upload)
+
+    assert refusal.value.code == ErrorCode.PLAN_REQUIRED
+    assert upload.reads == 0
+    assert await _count(db_pool) == 0
+    assert queue.enqueued == []
+
+
+async def test_submit_refuses_once_the_allowance_is_spent(db_pool, intake, queue):
+    await _spend(FREE.analyses_per_month)
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
+
+    assert refusal.value.code == ErrorCode.ALLOWANCE_EXHAUSTED
+    assert await _count(db_pool) == 0
+    assert queue.enqueued == []
+    # El mismo usuario con Pro aún tiene Runs libres.
+    assert await intake.submit(WEB, AnalysisRequest(text="La lejía cura la COVID"))
+
+
+async def test_pending_analyses_count_against_the_allowance(db_pool, intake):
+    await _spend(FREE.analyses_per_month - 2)
+    for _ in range(2):
+        await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
+
+    assert refusal.value.code == ErrorCode.ALLOWANCE_EXHAUSTED
+
+
+async def test_usage_counts_only_within_the_madrid_month(db_pool, intake):
+    month_start, _ = month_window(datetime.now(UTC))
+    await _spend(FREE.analyses_per_month, month_start - timedelta(microseconds=1))
+
+    await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
+    await _spend(FREE.analyses_per_month - 1, month_start)
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.submit(FREE_WEB, AnalysisRequest(text="La lejía cura la COVID"))
+
+    assert refusal.value.code == ErrorCode.ALLOWANCE_EXHAUSTED
+
+
+async def test_concurrent_submissions_with_one_unit_left_open_one_analysis(
+    db_pool, intake
+):
+    await _spend(FREE.analyses_per_month - 1)
+    request = AnalysisRequest(text="La lejía cura la COVID")
+
+    results = await asyncio.gather(
+        intake.submit(FREE_WEB, request),
+        intake.submit(FREE_WEB, request),
+        return_exceptions=True,
+    )
+
+    refusals = [r for r in results if isinstance(r, AnalysisRefused)]
+    assert [r.code for r in refusals] == [ErrorCode.ALLOWANCE_EXHAUSTED]
+    assert await _count(db_pool) == 1
+
+
+async def test_a_failed_run_consumes_nothing(db_pool, intake, runner):
+    analysis_id = await _submit(intake)
+
+    await runner.run(analysis_id, _returning(AnalysisFailure(ErrorCode.CONNECTION)))
+
+    assert await _usage_kinds(db_pool) == []
+
+
+async def test_the_first_done_run_counts_as_analysis_and_each_reanalyze_as_another(
+    db_pool, intake, queue, runner
+):
+    analysis_id = await _submit(intake)
+    await runner.run(analysis_id, _returning(_completion()))
+    assert await _usage_kinds(db_pool) == ["analysis"]
+
+    for _ in range(2):
+        queue.finish(analysis_id)
+        await intake.reanalyze(WEB, analysis_id)
+        await runner.run(analysis_id, _returning(_completion()))
+
+    assert await _usage_kinds(db_pool) == ["analysis", "reanalysis", "reanalysis"]
+
+
+async def test_a_retry_that_ends_done_consumes_a_single_unit(
+    db_pool, intake, queue, runner
+):
+    analysis_id = await _submit(intake)
+    await runner.run(analysis_id, _returning(AnalysisFailure(ErrorCode.CONNECTION)))
+    queue.finish(analysis_id)
+
+    await intake.retry(WEB, analysis_id)
+    await runner.run(analysis_id, _returning(_completion()))
+
+    assert await _usage_kinds(db_pool) == ["analysis"]
+
+
+@pytest.mark.parametrize(
+    ("reopen", "arrange"), [("retry", _failed), ("reanalyze", _done)]
+)
+async def test_reopening_needs_a_free_unit(db_pool, intake, queue, reopen, arrange):
+    analysis_id = await arrange(db_pool, intake, queue)
+    status_before = (await _row(db_pool, analysis_id))["status"]
+    await _spend(FREE.analyses_per_month)
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await getattr(intake, reopen)(FREE_WEB, analysis_id)
+
+    assert refusal.value.code == ErrorCode.ALLOWANCE_EXHAUSTED
+    assert (await _row(db_pool, analysis_id))["status"] == status_before
+
+
+async def test_reopening_refuses_an_analysis_outside_the_history_window(
+    db_pool, intake, queue
+):
+    analysis_id = await _failed(db_pool, intake, queue)
+    await seed_created_at(
+        analysis_id=analysis_id, created_at=datetime.now(UTC) - timedelta(days=31)
+    )
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.retry(FREE_WEB, analysis_id)
+
+    assert refusal.value.code == ErrorCode.PLAN_REQUIRED
+    # Pro ve toda su History y puede reintentarlo.
+    assert await intake.retry(WEB, analysis_id) == analysis_id
+
+
+async def test_deleting_an_analysis_keeps_its_usage(db_pool, intake, runner):
+    analysis_id = await _submit(intake)
+    await runner.run(analysis_id, _returning(_completion()))
+
+    await delete_user_analysis(user_id=USER, analysis_id=analysis_id)
+
+    assert await _usage_kinds(db_pool) == ["analysis"]
+
+
+async def test_a_done_run_whose_usage_cannot_be_written_is_never_done(
+    db_pool, db_faults, intake, runner
+):
+    analysis_id = await _submit(intake)
+    db_faults.fail_on("INSERT INTO public.usage_events")
+
+    outcome = await runner.run(analysis_id, _returning(_completion()))
+
+    assert outcome == "failed"
+    row = await _row(db_pool, analysis_id)
+    assert (row["status"], row["label"]) == ("failed", None)
+    assert await _usage_kinds(db_pool) == []

@@ -2,7 +2,9 @@ import { useAuth } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApiQuery } from '@/hooks/useApiQuery';
+
 import { refreshHistoryLists } from '@/lib/historyCache';
+import { refreshPlan } from '@/lib/planCache';
 import { PENDING_HISTORY_PATH } from '@/lib/historyQuery';
 import type { paths } from '@/types/api';
 
@@ -33,13 +35,15 @@ export function usePendingAnalyses() {
     setHasPending(latest.count > 0);
     const before = lastSummary.current;
     lastSummary.current = latest;
-    // Un análisis empezó o terminó: los listados abiertos lo reflejan en el mismo sondeo.
+    // Un análisis empezó o terminó: los listados abiertos y el Usage lo reflejan en el mismo sondeo.
     if (
       before &&
       (before.count !== latest.count ||
         before.newest_analysis_id !== latest.newest_analysis_id)
-    )
+    ) {
       void refreshHistoryLists();
+      void refreshPlan();
+    }
     const previous = lastSeen.current;
     lastSeen.current = {
       count: latest.count,

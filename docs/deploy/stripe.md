@@ -19,7 +19,7 @@ Test-mode and live-mode keys are never mixed: test keys go in local `.env` files
 | Customers | Write | creating the Stripe customer on the first checkout |
 | Checkout Sessions | Write | creating a session, and listing and expiring the customer's other open ones |
 | Customer portal | Write | opening portal sessions |
-| Subscriptions | Read | re-reading the Subscription on every webhook |
+| Subscriptions | Write | re-reading the Subscription on every webhook, and cancelling it when the user deletes their account (see [Account deletion](#account-deletion)) |
 
 The webhook signature is checked locally with `STRIPE_WEBHOOK_SECRET`, and prices and tax need no permission, since the backend only passes the price IDs and turns automatic tax on. A missing permission makes the call fail with 503 `BILLING_UNAVAILABLE` and logs `PermissionError`, so check the test-mode key through the local flow before creating the live one.
 
@@ -58,19 +58,30 @@ The webhook signature is checked locally with `STRIPE_WEBHOOK_SECRET`, and price
 Test mode only (**Workbench → Webhooks → Test with a local listener** shows the same steps):
 
 1. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli) (1.51 or later) and run `stripe login`, approving it in the browser for the activated VeriTrust account in **test mode**, not a sandbox.
-2. Fill the four values in `backend/.env`; the web process refuses to start until all are set:
+2. Fill these values in `backend/.env`; the web process refuses to start until all are set:
    - `STRIPE_SECRET_KEY`: the test-mode fine-grained key (see [API key](#api-key)), never a live one.
    - `STRIPE_WEBHOOK_SECRET`: the `whsec_…` printed by `stripe listen --print-secret`, which doesn't need the backend running and stays the same on this machine.
    - `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`: the test-mode price IDs from step 3.
+   - `CLERK_WEBHOOK_SECRET`: a placeholder is enough locally (see [Account deletion](#account-deletion)).
 
    Also check that `APP_BASE_URL` is `http://localhost:3000`: Checkout and the portal send the customer back there, so a production value lands them on the live site.
 3. Start the stack with `docker compose up -d --build`; the backend needs Postgres, Redis and the migrations, and compose publishes it on port 8000. After changing `backend/.env`, run `docker compose up -d` again so the backend is recreated with the new values.
 4. In a second terminal, keep `stripe listen --all-snapshot --forward-to localhost:8000/billing/webhook` running. It forwards test-mode events as snapshot events, the format the webhook verifies, and the webhook ignores the types it doesn't handle. Events that arrive while the backend is down fail, and Stripe doesn't redeliver them to the CLI; `docker compose logs -f backend` shows how each one was handled.
 5. Test a subscription by going through Checkout with the card `4242 4242 4242 4242`. Until the app's plan card exists (PR 3 of [the billing plan](../plans/billing-free-pro.md)), open Checkout by calling `POST /billing/checkout` with `{"interval": "month"}` and a signed-in user's token, then open the `url` it returns. `stripe trigger` creates customers that belong to no VeriTrust user, so the webhook logs and skips their subscriptions.
 
+## Account deletion
+
+Users delete their account through Clerk, so Clerk tells the backend with a webhook: on `user.deleted`, the backend cancels the user's Stripe Subscription at once, with no proration or refund, deletes their rows in `billing_customers`, `subscriptions` and `usage_events`, then deletes all their analyses (feedback included) and aborts their pending Runs, like `DELETE /history`. The Stripe customer and its invoices stay in Stripe, since tax law requires keeping invoices. Without the webhook, a deleted user keeps being charged and their analyses stay in the database, which the privacy policy promises they don't.
+
+1. Give the fine-grained key of each mode **Subscriptions: Write** (see [API key](#api-key)); with only Read, cancelling fails and the webhook answers 503, so Clerk retries it.
+2. In the Clerk Dashboard of the **Production** instance, open **Configure → Webhooks → Add Endpoint**: URL `https://$API_DOMAIN/webhooks/clerk`, subscribed to the `user.deleted` event only.
+3. Open the new endpoint and copy its **Signing Secret** (`whsec_…`) into `CLERK_WEBHOOK_SECRET` in the server's `backend/.env` (see [env.md](env.md)). A wrong secret makes every delivery answer 400 `INVALID_WEBHOOK`; the endpoint's **Logs** tab in Clerk lists failed deliveries and can resend them.
+
+Locally, the Clerk development instance can't reach `localhost`, so account deletion doesn't cancel or delete anything unless you expose the backend through a tunnel and add a development endpoint the same way. `CLERK_WEBHOOK_SECRET` must still be set for the web process to start: copy the secret of a development endpoint, or use any `whsec_` value with valid base64 after the prefix, such as `whsec_ZGV2ZWxvcG1lbnQ=`.
+
 ## Operations
 
-The four `STRIPE_*` variables are required by the web process: without them the backend refuses to start and `/healthz` answers 503. The worker doesn't need them.
+The four `STRIPE_*` variables and `CLERK_WEBHOOK_SECRET` are required by the web process: without them the backend refuses to start, its container keeps restarting and its logs name the missing variables. The worker doesn't need them.
 
 The webhook answers 400 to a request with a bad signature, and 5xx when handling fails, so Stripe retries it (**Developers → Workbench → Webhooks → the endpoint** lists failed deliveries and can resend them). The backend logs each event's id and type, never its payload.
 

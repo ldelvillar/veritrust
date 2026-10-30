@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from app.core.plans import PRO
 from app.core.verdict import ClaimVerdict, Verdict, kind_of
 from app.db import analysis_transitions as transitions
 from app.db.pool import get_pool
@@ -11,7 +12,7 @@ from app.schemas.analysis import AnalysisRequest, SourceType
 async def seed_pending(
     *, user_id: str, request: AnalysisRequest, origin: str = "web"
 ) -> str:
-    """Inserta un análisis ``pending`` de texto o URL y devuelve su id."""
+    """Inserta un análisis ``pending`` de texto o URL con el Plan Pro y devuelve su id."""
     is_url = request.source_type == SourceType.URL
     return await transitions.insert_pending(
         user_id=user_id,
@@ -19,13 +20,18 @@ async def seed_pending(
         source_type=request.source_type.value,
         input_text=None if is_url else request.text,
         input_url=str(request.url) if is_url else None,
+        limits=PRO,
     )
 
 
 async def seed_pending_file(*, user_id: str, filename: str, data: bytes) -> str:
-    """Inserta un análisis ``pending`` de archivo y devuelve su id."""
+    """Inserta un análisis ``pending`` de archivo con el Plan Pro y devuelve su id."""
     return await transitions.insert_pending_file(
-        user_id=user_id, origin="web", filename=filename, data=data
+        user_id=user_id,
+        origin="web",
+        filename=filename,
+        data=data,
+        limits=PRO,
     )
 
 
@@ -78,7 +84,10 @@ async def seed_stage(*, analysis_id: str, stage: str) -> None:
 async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
     """Devuelve a ``pending`` un análisis ``done``, como hace Reanalyze."""
     return await transitions.reopen(
-        user_id=user_id, analysis_id=analysis_id, from_status="done"
+        user_id=user_id,
+        analysis_id=analysis_id,
+        from_status="done",
+        limits=PRO,
     )
 
 
@@ -89,4 +98,17 @@ async def seed_created_at(*, analysis_id: str, created_at: datetime) -> None:
         await conn.execute(
             "UPDATE public.analysis_history SET created_at = %s WHERE id = %s",
             (created_at, analysis_id),
+        )
+
+
+async def seed_usage(
+    *, user_id: str, occurred_at: datetime, analysis_id: str | None = None
+) -> None:
+    """Anota una unidad de Usage del usuario en el instante dado, sin pasar por una Run."""
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        await conn.execute(
+            "INSERT INTO public.usage_events (user_id, kind, analysis_id, occurred_at) "
+            "VALUES (%s, 'analysis', %s, %s)",
+            (user_id, analysis_id, occurred_at),
         )

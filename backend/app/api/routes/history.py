@@ -1,12 +1,21 @@
 """Este módulo contiene los endpoints relacionados con el historial de análisis del usuario."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from app.api.dependencies.analysis_intake import analysis_intake
 from app.api.dependencies.get_current_user import get_current_user
+from app.api.dependencies.plan import (
+    current_plan,
+    history_window,
+    plan_required,
+    require,
+)
 from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.errors import make_error_detail
 from app.core.history_export import build_history_csv
+from app.core.plans import PlanLimits
 from app.db.history import delete_all_user_analyses, get_pending_analyses_summary
 from app.db.history_query import export_history as export_user_history
 from app.db.history_query import search_history
@@ -24,6 +33,7 @@ router = APIRouter()
 
 _GET_HISTORY_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
 
@@ -35,6 +45,7 @@ _GET_PENDING_ERROR_RESPONSES: dict[int | str, dict] = {
 _EXPORT_ERROR_RESPONSES: dict[int | str, dict] = {
     200: {"content": {"text/csv": {}}, "description": "Historial en formato CSV."},
     401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse},
     500: {"model": ErrorResponse},
 }
 
@@ -50,11 +61,21 @@ async def get_history(
     page_size: int = Query(default=20, ge=1, le=100),
     query: HistoryQuery = Depends(),
     user=Depends(get_current_user),
+    limits: PlanLimits = Depends(current_plan),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Endpoint para listar el historial de análisis del usuario autenticado."""
+    # Sin búsqueda, filtros ni orden en el Plan, solo vale la consulta por defecto; paginar sí.
+    if not limits.history_tools and query != HistoryQuery():
+        raise plan_required()
+
     try:
         result = await search_history(
-            user_id=user["sub"], query=query, page=page, page_size=page_size
+            user_id=user["sub"],
+            query=query,
+            page=page,
+            page_size=page_size,
+            visible_since=visible_since,
         )
     except DatabaseError as e:
         raise HTTPException(
@@ -90,14 +111,21 @@ async def get_pending_analyses(user=Depends(get_current_user)):
         ) from e
 
 
-@router.get("/export", responses=_EXPORT_ERROR_RESPONSES)
+@router.get(
+    "/export",
+    responses=_EXPORT_ERROR_RESPONSES,
+    dependencies=[Depends(require("csv_export"))],
+)
 async def export_history(
     query: HistoryQuery = Depends(),
     user=Depends(get_current_user),
+    visible_since: datetime | None = Depends(history_window),
 ):
     """Exporta como CSV los análisis done que encuentra la consulta del usuario."""
     try:
-        records = await export_user_history(user_id=user["sub"], query=query)
+        records = await export_user_history(
+            user_id=user["sub"], query=query, visible_since=visible_since
+        )
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,

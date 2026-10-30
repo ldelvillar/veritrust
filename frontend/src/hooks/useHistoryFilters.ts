@@ -19,14 +19,16 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function useHistoryFilters() {
+// Sin herramientas de History en el Plan, la URL no cuenta: solo la consulta por defecto, paginada.
+export function useHistoryFilters(toolsLocked = false) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
   const filters = useMemo(
-    () => parseHistoryFilters(searchParams),
-    [searchParams]
+    () =>
+      toolsLocked ? DEFAULT_HISTORY_FILTERS : parseHistoryFilters(searchParams),
+    [searchParams, toolsLocked]
   );
   const currentPage = parseHistoryPage(searchParams);
   const urlSearch = filters.search;

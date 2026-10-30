@@ -36,14 +36,17 @@ CLERK_JWKS_URL=https://<Clerk Frontend API host>/.well-known/jwks.json
 CLERK_ISSUER=https://<Clerk Frontend API host>
 CLERK_AUDIENCE=<the aud claim of the Production instance's session tokens>
 CLERK_SECRET_KEY=sk_live_…
+CLERK_WEBHOOK_SECRET=whsec_…
 STRIPE_SECRET_KEY=<live fine-grained key, see stripe.md>
 STRIPE_WEBHOOK_SECRET=whsec_…
 STRIPE_PRICE_PRO_MONTHLY=price_…
 STRIPE_PRICE_PRO_YEARLY=price_…
 RESEND_API_KEY=…
 RESEND_FROM_EMAIL=…
-CONTACT_TO_EMAIL=<inbox for the demo form>
+CONTACT_TO_EMAIL=<inbox for the contact and demo forms>
 ```
+
+The three email values are required in production (the worker only needs the two `RESEND_*` ones): without them the backend refuses to start, its container keeps restarting and its logs name the missing variables, rather than a contact form failing when a visitor uses it. `RESEND_FROM_EMAIL` must be on a domain verified in Resend, and `CONTACT_TO_EMAIL` is the inbox the privacy policy names (the Gmail address in `SITE_CONFIG.email`).
 
 `frontend/.env`:
 
@@ -54,8 +57,9 @@ CLERK_SECRET_KEY=sk_live_…
 ```
 
 The Clerk values come from the **Production** instance (Dashboard → API keys); its
-Frontend API URL is the issuer. The Stripe values come from **live mode** (see
-`stripe.md`). Then restrict the files to their owner:
+Frontend API URL is the issuer, and `CLERK_WEBHOOK_SECRET` is the signing secret of its
+`user.deleted` webhook endpoint. The Stripe values come from **live mode**. Both are set up in
+`stripe.md`. Then restrict the files to their owner:
 
 ```bash
 chmod 600 ~/veritrust/.env ~/veritrust/backend/.env ~/veritrust/frontend/.env

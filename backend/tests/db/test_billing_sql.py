@@ -1,17 +1,19 @@
 """Pruebas del SQL real de ``app/db/billing.py``: clientes, Subscriptions, eventos y Usage."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.db.billing import (
     Usage,
+    delete_user_billing,
     get_customer_id,
     get_user_subscription,
     insert_customer,
     is_event_processed,
     record_event,
+    record_evidence_search,
     subscription_lock,
     upsert_subscription,
     usage_this_month,
@@ -19,24 +21,13 @@ from app.db.billing import (
 )
 from app.db.history import delete_user_analysis
 from app.schemas.analysis import AnalysisRequest
-from tests.db.seed import seed_pending
+from tests.db.seed import seed_pending, seed_usage
 from tests.support.billing import make_subscription
 
 pytestmark = pytest.mark.db
 
 USER = "user-a"
 OCTOBER = (datetime(2026, 10, 1, tzinfo=UTC), datetime(2026, 11, 1, tzinfo=UTC))
-
-
-async def _insert_usage(
-    pool, occurred_at: datetime, user_id: str = USER, analysis_id=None
-):
-    async with pool.connection() as conn:
-        await conn.execute(
-            "INSERT INTO public.usage_events (user_id, kind, analysis_id, occurred_at) "
-            "VALUES (%s, 'analysis', %s, %s)",
-            (user_id, analysis_id, occurred_at),
-        )
 
 
 async def test_customer_round_trips_both_ways(db_pool):
@@ -102,12 +93,16 @@ async def test_event_is_processed_only_once_recorded(db_pool):
 
 async def test_usage_counts_this_month_and_pending_analyses(db_pool):
     start, end = OCTOBER
-    await _insert_usage(db_pool, start)
-    await _insert_usage(db_pool, datetime(2026, 10, 31, 23, 59, tzinfo=UTC))
+    await seed_usage(user_id=USER, occurred_at=start)
+    await seed_usage(
+        user_id=USER, occurred_at=datetime(2026, 10, 31, 23, 59, tzinfo=UTC)
+    )
     # Fuera de la ventana o de otro usuario: no cuentan.
-    await _insert_usage(db_pool, datetime(2026, 9, 30, 23, 59, tzinfo=UTC))
-    await _insert_usage(db_pool, end)
-    await _insert_usage(db_pool, start, user_id="user-b")
+    await seed_usage(
+        user_id=USER, occurred_at=datetime(2026, 9, 30, 23, 59, tzinfo=UTC)
+    )
+    await seed_usage(user_id=USER, occurred_at=end)
+    await seed_usage(user_id="user-b", occurred_at=start)
     await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
@@ -124,11 +119,41 @@ async def test_deleting_an_analysis_keeps_its_usage(db_pool):
     analysis_id = await seed_pending(
         user_id=USER, request=AnalysisRequest(text="La vitamina C cura el resfriado")
     )
-    await _insert_usage(db_pool, start, analysis_id=analysis_id)
+    await seed_usage(user_id=USER, occurred_at=start, analysis_id=analysis_id)
 
     await delete_user_analysis(user_id=USER, analysis_id=analysis_id)
 
     assert await usage_this_month(USER, start, end) == Usage(used=1, pending=0)
+
+
+async def test_an_evidence_search_counts_as_usage_now(db_pool):
+    await record_evidence_search(USER)
+
+    start = datetime.now(UTC) - timedelta(minutes=1)
+    end = datetime.now(UTC) + timedelta(minutes=1)
+    assert await usage_this_month(USER, start, end) == Usage(used=1, pending=0)
+    async with db_pool.connection() as conn:
+        cur = await conn.execute("SELECT kind, analysis_id FROM public.usage_events")
+        assert await cur.fetchall() == [("evidence_search", None)]
+
+
+async def test_deleting_a_users_billing_leaves_other_users_alone(db_pool):
+    for user_id in (USER, "user-b"):
+        await insert_customer(user_id, f"cus_{user_id}")
+        await upsert_subscription(
+            make_subscription(stripe_subscription_id=f"sub_{user_id}", user_id=user_id)
+        )
+        await record_evidence_search(user_id)
+
+    await delete_user_billing(USER)
+
+    start, end = datetime(2000, 1, 1, tzinfo=UTC), datetime(3000, 1, 1, tzinfo=UTC)
+    assert await get_customer_id(USER) is None
+    assert await get_user_subscription(USER) is None
+    assert await usage_this_month(USER, start, end) == Usage(used=0, pending=0)
+    assert await get_customer_id("user-b") == "cus_user-b"
+    assert await get_user_subscription("user-b") is not None
+    assert await usage_this_month("user-b", start, end) == Usage(used=1, pending=0)
 
 
 async def test_subscription_lock_serializes_the_samemake_subscription(db_pool):

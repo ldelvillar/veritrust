@@ -10,6 +10,10 @@ from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 
 PlanName = Literal["free", "pro"]
 BillingInterval = Literal["month", "year"]
+# Funciones que un Plan concede o niega: los campos booleanos de PlanLimits
+Feature = Literal[
+    "files", "history_tools", "dashboard", "csv_export", "share", "mcp", "pdf"
+]
 
 # Estados de Stripe que mantienen Pro; past_due lo conserva durante los reintentos de cobro
 PRO_STATUSES = frozenset({"active", "trialing", "past_due"})
