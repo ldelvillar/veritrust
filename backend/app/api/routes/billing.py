@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
+from app.api.dependencies.analysis_intake import analysis_intake
 from app.api.dependencies.get_current_user import get_current_user
 from app.core import billing, clerk_webhooks
+from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.errors import make_error_detail
 from app.core.plans import is_pro, limits_for, month_window, remaining
 from app.db.billing import get_user_subscription, usage_this_month
@@ -159,10 +161,14 @@ async def stripe_webhook(
         503: {"model": ErrorResponse},
     },
 )
-async def clerk_webhook(request: Request) -> WebhookResponse:
+async def clerk_webhook(
+    request: Request, intake: AnalysisIntake = Depends(analysis_intake)
+) -> WebhookResponse:
     """Recibe los eventos de Clerk; sin auth de usuario, solo la firma Svix del cuerpo crudo."""
     try:
-        await clerk_webhooks.handle_webhook(await request.body(), request.headers)
+        await clerk_webhooks.handle_webhook(
+            await request.body(), request.headers, intake
+        )
     except clerk_webhooks.InvalidClerkWebhook as exc:
         raise HTTPException(
             status_code=400, detail=make_error_detail(ErrorCode.INVALID_WEBHOOK)

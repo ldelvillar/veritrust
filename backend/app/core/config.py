@@ -153,13 +153,13 @@ class Settings(BaseSettings):
     # Secreto de firma (whsec_…) del webhook con que Clerk avisa de las cuentas eliminadas
     clerk_webhook_secret: str = ""
 
-    # Notificaciones por email (Resend); sin api_key el envío es un no-op silencioso
-    resend_api_key: str | None = None
+    # Notificaciones por email (Resend); obligatorias fuera de desarrollo, donde sin api_key no se envía nada
+    resend_api_key: str = ""
     resend_from_email: str = ""
     resend_base_url: str = "https://api.resend.com"
     # Origen público del frontend, para construir el enlace al informe en el email
     app_base_url: str | None = None
-    # Buzón del equipo al que llegan los formularios de contacto y demo
+    # Buzón del equipo al que llegan los formularios de contacto y demo; obligatorio en la web fuera de desarrollo
     contact_to_email: str = ""
 
     # Stripe (planes de pago): clave secreta, secreto de firma del webhook e ids de los precios Pro
@@ -176,7 +176,7 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         """Lista de orígenes permitidos; cae a localhost solo en desarrollo."""
         raw = self.cors_allowed_origins
-        if not raw.strip() and self.environment.strip().lower() == "development":
+        if not raw.strip() and self.is_development():
             raw = "http://localhost:3000"
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
@@ -209,6 +209,10 @@ class Settings(BaseSettings):
             m.strip() for m in self.groq_judge_model_rotation.split(",") if m.strip()
         ]
 
+    def is_development(self) -> bool:
+        """Indica si el proceso corre con ENVIRONMENT=development."""
+        return self.environment.strip().lower() == "development"
+
     def llm_provider_name(self) -> str:
         """Devuelve el proveedor de LLM normalizado en minúsculas."""
         return self.llm_provider.strip().lower()
@@ -237,14 +241,18 @@ class Settings(BaseSettings):
             missing.append("CLERK_AUDIENCE")
         if not self.clerk_secret_key.strip():
             missing.append("CLERK_SECRET_KEY")
-        if (
-            web
-            and self.environment.strip().lower() != "development"
-            and not self.cors_origins()
-        ):
+        if web and not self.is_development() and not self.cors_origins():
             missing.append("CORS_ALLOWED_ORIGINS")
         if not self.app_base_url:
             missing.append("APP_BASE_URL")
+        # Sin Resend, los avisos de análisis se perderían en silencio y los formularios responderían 503
+        if not self.is_development():
+            if not self.resend_api_key.strip():
+                missing.append("RESEND_API_KEY")
+            if not self.resend_from_email.strip():
+                missing.append("RESEND_FROM_EMAIL")
+            if web and not self.contact_to_email.strip():
+                missing.append("CONTACT_TO_EMAIL")
         if web:
             for name in (
                 "stripe_secret_key",

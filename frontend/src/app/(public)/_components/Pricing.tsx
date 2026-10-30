@@ -1,8 +1,12 @@
 'use client';
 
+import { useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
 import CheckIcon from '@/assets/Check';
 import PublicButton from '@/components/PublicButton';
+import { SIGN_UP_URL } from '@/config/auth';
+import { FREE_FEATURES, PRO_FEATURES, PRO_PRICE } from '@/config/plans';
+import { UPGRADE_HREF } from '@/lib/plan';
 import { container } from './container';
 
 type Audience = 'individual' | 'teams';
@@ -16,7 +20,8 @@ type Plan = {
   badge?: string;
   intro?: string;
   items: string[];
-  cta: { label: string; href: string; soft: boolean };
+  // signedOutHref: a dónde va un visitante sin sesión, si no es href.
+  cta: { label: string; href: string; signedOutHref?: string; soft: boolean };
   featured: boolean;
 };
 
@@ -32,34 +37,25 @@ const PLANS: Record<Audience, Plan[]> = {
       desc: 'Para curiosos y primeras verificaciones.',
       price: '0€',
       unit: '/ mes',
-      items: [
-        '10 análisis al mes',
-        'Textos de hasta 3.000 caracteres',
-        'Verifica contenidos de texto y enlaces',
-        'Historial de los últimos 30 días',
-        'Los mismos modelos y fuentes que Pro',
-      ],
+      items: FREE_FEATURES,
       cta: { label: 'Empezar con gratis', href: '/app', soft: true },
       featured: false,
     },
     {
       name: 'Pro',
       desc: 'Para periodistas y verificadores profesionales.',
-      price: '29€',
+      price: PRO_PRICE.month,
       unit: '/ mes',
-      yearly: 'o 290€ al año (2 meses gratis)',
+      yearly: `o ${PRO_PRICE.year} al año (2 meses gratis)`,
       intro: 'Todo lo de Gratis, y además:',
-      items: [
-        '300 análisis al mes',
-        'Textos de hasta 10.000 caracteres',
-        'Verifica contenido de archivos',
-        'Historial completo con búsqueda, filtros y dashboard',
-        'Descarga de informes en PDF',
-        'Exportación a CSV',
-        'Enlaces públicos para compartir informes',
-        'Úsalo desde asistentes de IA (MCP)',
-      ],
-      cta: { label: 'Acceso anticipado', href: '/demo?plan=pro', soft: false },
+      items: PRO_FEATURES,
+      cta: {
+        label: 'Hazte Pro',
+        href: UPGRADE_HREF,
+        // Sin sesión, Pro pasa por el registro y vuelve a la tarjeta del Plan para suscribirse.
+        signedOutHref: `${SIGN_UP_URL}?redirect_url=${encodeURIComponent(UPGRADE_HREF)}`,
+        soft: false,
+      },
       featured: true,
     },
   ],
@@ -107,6 +103,7 @@ const PLANS: Record<Audience, Plan[]> = {
 
 export default function Pricing() {
   const [audience, setAudience] = useState<Audience>('individual');
+  const { isSignedIn } = useAuth();
 
   return (
     <section id="precios" className="py-24 max-md:py-18">
@@ -119,8 +116,8 @@ export default function Pricing() {
             Empieza gratis, crece cuando lo necesites
           </h2>
           <p className="text-lg leading-relaxed text-muted">
-            Sin tarjeta para probar. Los planes de pago están en acceso
-            anticipado: apúntate y te avisamos en cuanto abran.
+            Sin tarjeta para probar y precios con IVA incluido. El plan Equipo
+            está en acceso anticipado: apúntate y te avisamos en cuanto abra.
           </p>
         </div>
         <div
@@ -202,7 +199,11 @@ export default function Pricing() {
                   ))}
                 </ul>
                 <PublicButton
-                  href={plan.cta.href}
+                  href={
+                    isSignedIn
+                      ? plan.cta.href
+                      : (plan.cta.signedOutHref ?? plan.cta.href)
+                  }
                   variant={plan.cta.soft ? 'soft' : 'primary'}
                   className="w-full"
                 >

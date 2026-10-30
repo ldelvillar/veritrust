@@ -36,18 +36,6 @@ describe('DemoForm', () => {
     window.history.pushState({}, '', '/demo');
   });
 
-  it('marks a lead that came from the Pro early access button', async () => {
-    window.history.pushState({}, '', '/demo?plan=pro');
-    render(<DemoForm />);
-
-    fillAndSubmit();
-
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].metadata).toMatchObject({
-      Interés: 'Plan Pro (acceso anticipado)',
-    });
-  });
-
   it('marks a lead that came from the Equipo early access button', async () => {
     window.history.pushState({}, '', '/demo?plan=equipo');
     render(<DemoForm />);
@@ -60,13 +48,16 @@ describe('DemoForm', () => {
     });
   });
 
-  it.each(['/demo', '/demo?plan=toString'])('leaves %s unmarked', async url => {
-    window.history.pushState({}, '', url);
-    render(<DemoForm />);
+  it.each(['/demo', '/demo?plan=pro', '/demo?plan=toString'])(
+    'leaves %s unmarked',
+    async url => {
+      window.history.pushState({}, '', url);
+      render(<DemoForm />);
 
-    fillAndSubmit();
+      fillAndSubmit();
 
-    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0].metadata).not.toHaveProperty('Interés');
-  });
+      await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+      expect(submit.mock.calls[0][0].metadata).not.toHaveProperty('Interés');
+    }
+  );
 });

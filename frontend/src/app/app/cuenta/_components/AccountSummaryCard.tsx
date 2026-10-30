@@ -4,12 +4,12 @@ import { useUser } from '@clerk/nextjs';
 import CalendarIcon from '@/assets/Calendar';
 import ListIcon from '@/assets/List';
 import LockIcon from '@/assets/Lock';
+import { formatCount } from '@/lib/plan';
 
 interface AccountSummaryCardProps {
   totalCount: number;
+  historyDays: number | null;
 }
-
-const numberFormatter = new Intl.NumberFormat('es-ES');
 
 function formatMemberSince(date: Date | null): string {
   if (!date) return '—';
@@ -32,6 +32,7 @@ function getInitials(name: string | null | undefined, email: string): string {
 
 export default function AccountSummaryCard({
   totalCount,
+  historyDays,
 }: AccountSummaryCardProps) {
   const { user, isLoaded } = useUser();
 
@@ -125,10 +126,12 @@ export default function AccountSummaryCard({
               </span>
               <div className="min-w-0">
                 <dt className="text-2xs font-extrabold tracking-[0.08em] text-faint uppercase">
-                  Análisis totales
+                  {historyDays === null
+                    ? 'Análisis totales'
+                    : `Análisis (últimos ${historyDays} días)`}
                 </dt>
                 <dd className="mt-0.5 text-base font-bold text-body">
-                  {numberFormatter.format(totalCount)}
+                  {formatCount(totalCount)}
                 </dd>
               </div>
             </div>

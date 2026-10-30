@@ -270,7 +270,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Límites de uso',
     summary:
-      'Puedes lanzar hasta 5 análisis por minuto; si superas el límite, espera un momento y vuelve a intentarlo. Los textos pegados admiten hasta 10.000 caracteres y los archivos, hasta 10 MB.',
+      'Puedes lanzar hasta 5 análisis por minuto; si superas el límite, espera un momento y vuelve a intentarlo. Los textos pegados admiten hasta 3.000 caracteres en el plan Gratis y 10.000 en Pro, y de un enlace se analizan esos mismos primeros caracteres. Los archivos, solo en Pro, admiten hasta 10 MB.',
     tags: ['Límites', 'Uso', 'Tamaño'],
   },
   {
@@ -278,8 +278,32 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Planes de pago',
     summary:
-      'Los planes Pro y Equipo están en acceso anticipado: apúntate desde la página de precios y te avisaremos cuando abran.',
+      'El plan Gratis incluye 10 análisis al mes de texto y enlaces y un historial de 30 días. Pro cuesta 29 € al mes o 290 € al año, IVA incluido, y añade 300 análisis al mes, archivos, historial completo con dashboard, PDF, CSV, enlaces públicos y MCP. Suscríbete desde «Datos personales». El plan Equipo sigue en acceso anticipado.',
     tags: ['Plan', 'Pro', 'Equipo'],
+  },
+  {
+    id: 'analisis-del-mes',
+    category: 'Cuenta y planes',
+    title: 'Análisis del mes',
+    summary:
+      'Cuenta cada análisis que termina bien, también cada «Volver a analizar». Los fallidos no cuentan, y reintentar uno fallido solo cuenta si termina bien. El contador se renueva el día 1 de cada mes a las 00:00, hora de Madrid, y lo ves en el menú lateral.',
+    tags: ['Plan', 'Límites', 'Renovación'],
+  },
+  {
+    id: 'cambiar-cancelar-suscripcion',
+    category: 'Cuenta y planes',
+    title: 'Cambiar o cancelar la suscripción',
+    summary:
+      'En «Datos personales», pulsa «Gestionar suscripción» para abrir el portal de pagos: cambia entre pago mensual y anual, actualiza tu tarjeta o cancela. Si cancelas, mantienes Pro hasta el final del periodo pagado y después pasas al plan Gratis sin perder ningún análisis.',
+    tags: ['Suscripción', 'Cancelar', 'Pago'],
+  },
+  {
+    id: 'facturas',
+    category: 'Cuenta y planes',
+    title: 'Facturas',
+    summary:
+      'Cada pago genera una factura con el IVA desglosado. Descárgalas desde el portal de pagos («Datos personales» › «Gestionar suscripción»). Si indicaste tu NIF al suscribirte, aparece en la factura.',
+    tags: ['Facturas', 'IVA', 'NIF'],
   },
   {
     id: 'cerrar-cuenta',

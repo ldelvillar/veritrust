@@ -23,6 +23,8 @@ interface Row {
 interface Reply {
   status: number;
   body?: unknown;
+  // Cuerpo de texto (CSV) en vez de JSON.
+  text?: string;
 }
 
 interface Route {
@@ -53,6 +55,48 @@ const STAGES: Stage[] = [
   'health_expert',
 ];
 const DAYS_BY_RANGE: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
+// Lo que tarda el webhook simulado de Stripe en activar Pro tras el Checkout.
+const CHECKOUT_ACTIVATION_MS = 2500;
+
+type PlanName = Schemas['PlanLimits']['name'];
+
+// La matriz de app/core/plans.py, la que devuelve GET /billing/plan.
+const LIMITS: Record<PlanName, Schemas['PlanLimits']> = {
+  free: {
+    name: 'free',
+    analyses_per_month: 10,
+    max_input_chars: 3000,
+    history_days: 30,
+    files: false,
+    history_tools: false,
+    dashboard: false,
+    csv_export: false,
+    share: false,
+    mcp: false,
+    pdf: false,
+  },
+  pro: {
+    name: 'pro',
+    analyses_per_month: 300,
+    max_input_chars: 10_000,
+    history_days: null,
+    files: true,
+    history_tools: true,
+    dashboard: true,
+    csv_export: true,
+    share: true,
+    mcp: true,
+    pdf: true,
+  },
+};
+
+interface Billing {
+  plan: PlanName;
+  // Análisis done ya contados este mes.
+  used: number;
+  // Instante en que el Checkout simulado activa Pro; null sin Checkout en curso.
+  upgradesAt: number | null;
+}
 
 const hoursAgo = (hours: number) =>
   new Date(Date.now() - hours * 3_600_000).toISOString();
@@ -204,11 +248,98 @@ function seed(): Map<string, Row> {
         sources: [],
       }),
     },
+    {
+      finishesAt: null,
+      analysis: analysis({
+        analysis_id: 'done-old',
+        source_type: 'text',
+        status: 'done',
+        created_at: hoursAgo(24 * 45),
+        completed_at: hoursAgo(24 * 45 - 0.1),
+        input_text: 'Caminar a diario reduce el riesgo cardiovascular.',
+        label: 'verdadera',
+        confidence: 0.88,
+        evidence_coverage: 1,
+        verdict: 'real',
+        credibility: 88,
+        confidence_level: 'high',
+        explanation:
+          'La evidencia revisada asocia caminar a diario con menos eventos cardiovasculares.',
+        claims: [
+          {
+            text: 'Caminar a diario reduce el riesgo cardiovascular.',
+            label: 'verdadera',
+            confidence: 0.88,
+            verdict: 'real',
+          },
+        ],
+        sources: [],
+      }),
+    },
   ];
   return new Map(rows.map(row => [row.analysis.analysis_id, row]));
 }
 
 let store = seed();
+let billing: Billing = { plan: 'pro', used: 0, upgradesAt: null };
+
+// Pro por defecto, para que las pruebas que no tratan de Planes vean toda la app.
+function seedBilling(query: URLSearchParams): Billing {
+  return {
+    plan: query.get('plan') === 'free' ? 'free' : 'pro',
+    used: Number(query.get('used') ?? 0),
+    upgradesAt: null,
+  };
+}
+
+function limits(): Schemas['PlanLimits'] {
+  if (billing.upgradesAt !== null && Date.now() >= billing.upgradesAt) {
+    billing = { ...billing, plan: 'pro', upgradesAt: null };
+  }
+  return LIMITS[billing.plan];
+}
+
+const pendingCount = () => all().filter(a => a.status === 'pending').length;
+
+function remaining(): number {
+  return Math.max(
+    0,
+    limits().analyses_per_month - billing.used - pendingCount()
+  );
+}
+
+// Misma ventana que history_window: Gratis no ve lo anterior a sus últimos días.
+const withinDays = (a: Analysis, days: number) =>
+  Date.parse(a.created_at) >= Date.now() - days * 86_400_000;
+
+function isVisible(a: Analysis): boolean {
+  const days = limits().history_days;
+  return days === null || withinDays(a, days);
+}
+
+// Gratis solo puede pedir la consulta por defecto del historial; paginar sí.
+function usesHistoryTools(query: URLSearchParams): boolean {
+  const defaults: Record<string, string> = {
+    source_type: 'all',
+    verdict: 'all',
+    status: 'all',
+    date_range: 'all',
+    sort: 'recent',
+  };
+  return (
+    !!query.get('search') ||
+    Object.entries(defaults).some(
+      ([name, value]) => (query.get(name) ?? value) !== value
+    )
+  );
+}
+
+function toCsv(rows: Analysis[]): string {
+  const lines = rows
+    .filter(a => a.status === 'done')
+    .map(a => `${a.analysis_id},${a.verdict},${a.created_at}`);
+  return ['analysis_id,verdict,created_at', ...lines].join('\n');
+}
 
 // Encola como el backend: created_at se reinicia y el resultado anterior se borra.
 function enqueue(previous: Analysis): Row {
@@ -234,6 +365,7 @@ function settle(row: Row): Analysis {
   }
   const remaining = row.finishesAt - Date.now();
   if (remaining <= 0) {
+    billing.used += 1;
     row.analysis = {
       ...row.analysis,
       ...FAKE_REPORT,
@@ -309,6 +441,7 @@ function searchHistory(query: URLSearchParams): Ok<'/history', 'get'> {
   const days = DAYS_BY_RANGE[filter('date_range')];
   const base = all().filter(
     a =>
+      isVisible(a) &&
       (filter('status') === 'all' || a.status === filter('status')) &&
       (filter('source_type') === 'all' ||
         a.source_type === filter('source_type')) &&
@@ -316,7 +449,7 @@ function searchHistory(query: URLSearchParams): Ok<'/history', 'get'> {
         [a.input_text, a.input_url, a.file_filename].some(value =>
           value?.toLowerCase().includes(search)
         )) &&
-      (!days || Date.parse(a.created_at) >= Date.now() - days * 86_400_000)
+      (!days || withinDays(a, days))
   );
   // Las filas pending y failed no tienen veredicto en la base de datos.
   const verdictOf = (a: Analysis) => (a.status === 'done' ? a.verdict : null);
@@ -381,8 +514,9 @@ const ROUTES: Route[] = [
     method: 'POST',
     pattern: /^\/__reset$/,
     public: true,
-    handle: () => {
+    handle: (_id, _req, url) => {
       store = seed();
+      billing = seedBilling(url.searchParams);
       return { status: 204 };
     },
   },
@@ -403,6 +537,7 @@ const ROUTES: Route[] = [
     pattern: /^\/analysis$/,
     handle: async (_id, req) => {
       const request = await readJson<Schemas['AnalysisRequest']>(req);
+      if (remaining() === 0) return fail(402, 'ALLOWANCE_EXHAUSTED');
       const id = randomUUID();
       store.set(
         id,
@@ -426,6 +561,7 @@ const ROUTES: Route[] = [
     handle: id => {
       const found = find(id);
       if (!found) return fail(404, 'ANALYSIS_NOT_FOUND');
+      if (!isVisible(found)) return fail(403, 'PLAN_REQUIRED');
       return ok<'/analysis/{analysis_id}', 'get'>(found);
     },
   },
@@ -472,6 +608,7 @@ const ROUTES: Route[] = [
     handle: id => {
       const found = find(id);
       if (!found) return fail(404, 'ANALYSIS_NOT_FOUND');
+      if (!limits().share) return fail(403, 'PLAN_REQUIRED');
       if (found.status !== 'done') return fail(409, 'ANALYSIS_NOT_SHAREABLE');
       found.share_token ??= randomBytes(32).toString('base64url');
       return ok<'/analysis/{analysis_id}/share', 'post'>({
@@ -496,8 +633,96 @@ const ROUTES: Route[] = [
   {
     method: 'GET',
     pattern: /^\/history$/,
-    handle: (_id, _req, url) =>
-      ok<'/history', 'get'>(searchHistory(url.searchParams)),
+    handle: (_id, _req, url) => {
+      if (!limits().history_tools && usesHistoryTools(url.searchParams))
+        return fail(403, 'PLAN_REQUIRED');
+      return ok<'/history', 'get'>(searchHistory(url.searchParams));
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/history\/export$/,
+    handle: () => {
+      if (!limits().csv_export) return fail(403, 'PLAN_REQUIRED');
+      return { status: 200, text: toCsv(all().filter(isVisible)) };
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/account\/export$/,
+    handle: () => ({ status: 200, text: toCsv(all()) }),
+  },
+  {
+    method: 'GET',
+    pattern: /^\/dashboard\/summary$/,
+    handle: () => {
+      if (!limits().dashboard) return fail(403, 'PLAN_REQUIRED');
+      return ok<'/dashboard/summary', 'get'>({
+        status: 'success',
+        kpis: {
+          total_analyses: 0,
+          reliable_rate: 0,
+          average_credibility: null,
+          week_over_week_delta: 0,
+          active_alerts: 0,
+          average_evidence_coverage: 0,
+        },
+        verdict_distribution: { real: 0, uncertain: 0, mixed: 0, fake: 0 },
+        trend: [],
+        source_breakdown: [],
+        domain_breakdown: [],
+        alerts: [],
+      });
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/billing\/plan$/,
+    handle: () => {
+      const current = limits();
+      const isPro = current.name === 'pro';
+      const now = new Date();
+      return ok<'/billing/plan', 'get'>({
+        plan: current.name,
+        status: isPro ? 'active' : null,
+        interval: isPro ? 'month' : null,
+        current_period_end: isPro
+          ? new Date(Date.now() + 20 * 86_400_000).toISOString()
+          : null,
+        cancel_at: null,
+        limits: current,
+        usage: {
+          used: billing.used,
+          pending: pendingCount(),
+          remaining: remaining(),
+          resets_at: new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+          ).toISOString(),
+        },
+      });
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/billing\/checkout$/,
+    handle: () => {
+      if (limits().name === 'pro') return fail(409, 'ALREADY_SUBSCRIBED');
+      billing.upgradesAt = Date.now() + CHECKOUT_ACTIVATION_MS;
+      return ok<'/billing/checkout', 'post'>({
+        url: `${WEB_ORIGIN}/app/cuenta?checkout=success`,
+      });
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/billing\/portal$/,
+    handle: () => {
+      if (limits().name !== 'pro')
+        return fail(404, 'BILLING_ACCOUNT_NOT_FOUND');
+      return ok<'/billing/portal', 'post'>({
+        url: `${WEB_ORIGIN}/app/cuenta?portal=mock`,
+      });
+    },
   },
   {
     method: 'DELETE',
@@ -569,6 +794,12 @@ createServer(async (req, res) => {
     req,
     new URL(req.url ?? '/', `http://localhost:${PORT}`)
   );
+  if (reply.text !== undefined) {
+    res
+      .writeHead(reply.status, { 'Content-Type': 'text/csv; charset=utf-8' })
+      .end(reply.text);
+    return;
+  }
   if (reply.body === undefined) {
     res.writeHead(reply.status).end();
     return;

@@ -17,6 +17,9 @@ import { useAnalysisReanalysis } from '@/hooks/useAnalysisReanalysis';
 import { useAnalysisRetry } from '@/hooks/useAnalysisRetry';
 import { useAnalysisShare } from '@/hooks/useAnalysisShare';
 import { useCompletionNotification } from '@/hooks/useCompletionNotification';
+import { usePlan } from '@/hooks/usePlan';
+import UpgradePrompt from '@/components/UpgradePrompt';
+import { formatPlanDate, type PlanUsage } from '@/lib/plan';
 import type { paths } from '@/types/api';
 
 type AnalysisDetail =
@@ -29,11 +32,42 @@ interface AnalisisClientProps {
   initialData: AnalysisDetail;
 }
 
+// Un análisis anterior a la ventana de History del Plan: sigue guardado, pero oculto.
+export function HiddenAnalysis() {
+  const days = usePlan().limits?.history_days ?? null;
+  return (
+    <UpgradePrompt
+      title={
+        days === null
+          ? 'Este análisis no está en tu historial visible'
+          : `Este análisis tiene más de ${days} días`
+      }
+      className="mx-auto w-full max-w-2xl py-12"
+    >
+      {days !== null &&
+        `Con el plan Gratis ves los análisis de los últimos ${days} días. `}
+      No se ha borrado nada: con Pro recuperas todo tu historial.
+    </UpgradePrompt>
+  );
+}
+
+const REANALYZE_DESCRIPTION =
+  'Se generará un informe nuevo con la evidencia médica más reciente. El resultado actual se reemplazará y esta acción no se puede deshacer.';
+
+// Volver a analizar consume una unidad del Allowance si termina bien: el diálogo lo avisa.
+function reanalyzeDescription(usage: PlanUsage | null): string {
+  if (!usage) return REANALYZE_DESCRIPTION;
+  if (usage.remaining === 0)
+    return `${REANALYZE_DESCRIPTION} No te quedan análisis este mes; se renuevan el ${formatPlanDate(usage.resets_at)}.`;
+  return `${REANALYZE_DESCRIPTION} Usará uno de los ${usage.remaining} análisis que te quedan este mes.`;
+}
+
 export default function AnalisisClient({
   id,
   initialData,
 }: AnalisisClientProps) {
   const router = useRouter();
+  const { limits, usage } = usePlan();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reanalyzeOpen, setReanalyzeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -209,10 +243,15 @@ export default function AnalisisClient({
     </>
   );
 
+  // El Plan bajó a Gratis con el informe abierto y el análisis quedó fuera de su ventana.
+  if (detailError instanceof ApiError && detailError.code === 'PLAN_REQUIRED')
+    return <HiddenAnalysis />;
+
   return (
     <>
       <AnalysisResult
         result={current}
+        pdfLocked={limits?.pdf === false}
         headerActions={headerActions}
         onRetry={handleRetry}
         isRetrying={isRetrying}
@@ -235,7 +274,8 @@ export default function AnalisisClient({
       <ConfirmDialog
         open={reanalyzeOpen}
         title="¿Volver a analizar este contenido?"
-        description="Se generará un informe nuevo con la evidencia médica más reciente. El resultado actual se reemplazará y esta acción no se puede deshacer."
+        description={reanalyzeDescription(usage)}
+        confirmDisabled={usage?.remaining === 0}
         confirmLabel="Volver a analizar"
         isConfirming={isReanalyzing}
         errorMessage={reanalyzeError}
@@ -251,6 +291,7 @@ export default function AnalisisClient({
         onCreate={handleShareCreate}
         onRemove={handleShareRemove}
         onClose={handleShareClose}
+        locked={limits?.share === false}
       />
     </>
   );
