@@ -38,6 +38,7 @@ jobs:
           filters: |
             backend_app:
               - 'backend/app/**'
+              - 'backend/tests/**'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
               - '.github/workflows/ci.yml'
