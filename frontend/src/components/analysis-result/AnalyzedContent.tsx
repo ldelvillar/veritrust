@@ -130,7 +130,7 @@ export default function AnalyzedContent({
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
-  // The PDF binary requires auth, so the public view falls through to the text branch below, as .txt and .md files do.
+  // The PDF binary requires auth, so the public view and any report without an analysis_id fall through to the text branch below, as .txt and .md files do.
   const isPdf =
     result.source_type === 'file' && isPdfFilename(result.file_filename);
   if (isPdf && !isPublic && result.analysis_id) {

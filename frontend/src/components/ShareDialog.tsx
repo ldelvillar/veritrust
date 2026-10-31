@@ -102,7 +102,7 @@ export default function ShareDialog({
           </div>
         </div>
 
-        {/* Without Pro the existing link answers 404 but can be turned off, and no new one is created. */}
+        {/* Without Pro the existing link answers 404 but can still be turned off, and a new one cannot be created. */}
         {locked ? (
           shareUrl ? (
             <p className="mt-4 rounded-xl bg-warning-soft px-3.5 py-3 text-sm font-semibold text-warning-ink">

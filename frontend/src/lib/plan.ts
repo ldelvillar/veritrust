@@ -55,7 +55,7 @@ const countFormatter = new Intl.NumberFormat('es-ES', {
 export const formatCount = (value: number): string =>
   countFormatter.format(value);
 
-// Units already committed this month, the consumed ones plus those reserved by pending analyses.
+// Allowance units already committed this month, the Usage plus those reserved by pending analyses.
 export function usedThisMonth(limits: PlanLimits, usage: PlanUsage): number {
   return limits.analyses_per_month - usage.remaining;
 }

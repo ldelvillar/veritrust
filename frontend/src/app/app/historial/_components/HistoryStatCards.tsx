@@ -54,7 +54,7 @@ const STAT_TONE_STYLES = {
   },
 } as const;
 
-// Each card maps to its global count per Verdict in the History response.
+// Each card maps to its cell of the verdict Facet in the History response.
 const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
   all: 'total',
   real: 'real',

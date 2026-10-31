@@ -87,6 +87,7 @@ export default function AnalysisResult({
   });
   const duration = formatDuration(result.created_at, result.completed_at);
 
+  // Export opens the browser's print dialog, where the user saves the report as a PDF.
   const handleExport = () => {
     const formattedDate = new Date(result.created_at).toLocaleDateString(
       'es-ES'

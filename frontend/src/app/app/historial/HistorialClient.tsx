@@ -119,7 +119,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     if (wasLastOnPage && currentPage > 1) setPage(currentPage - 1);
   }, [pendingDelete, history.length, deleteAnalysis, currentPage, setPage]);
 
-  // Global counts from the backend, independent of the page and of the filter itself.
+  // The backend's verdict Facet, independent of the page and of the Verdict filter itself.
   const verdictFacets = data?.verdict_counts ?? null;
   const canExport = isExportable(statusFilter);
 

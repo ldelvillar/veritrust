@@ -126,7 +126,7 @@ function formatSentAt(createdAt: string): string | null {
 
 type NotifyPermission = NotificationPermission | 'unsupported';
 
-// Notification.permission has no native event, so a minimal store reads it safely during SSR and refreshes the UI when the user grants permission.
+// Notification.permission has no native event, so a minimal store reads it safely during SSR and refreshes the UI once the permission prompt resolves, whatever the answer.
 const notifyListeners = new Set<() => void>();
 
 function subscribeNotifyPermission(callback: () => void): () => void {

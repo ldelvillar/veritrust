@@ -34,7 +34,7 @@ const CARET =
 
 const TYPE_TICK = 34;
 
-/** Restart the mockup every `total` ms while in view, where `null` means no animation (no JS or reduced motion) and the final state renders directly. */
+/** Restart the mockup every `total` ms while in view, where `null` (not yet in view, or never with no JS or reduced motion) renders the final state. */
 function useLoop(total: number) {
   const ref = useRef<HTMLDivElement>(null);
   const [cycle, setCycle] = useState<number | null>(null);
