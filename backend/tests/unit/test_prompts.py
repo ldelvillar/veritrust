@@ -1,4 +1,4 @@
-"""Tests del cargador de prompts que consume el startup del worker."""
+"""Tests of the prompt loader the worker's startup consumes."""
 
 from types import SimpleNamespace
 
@@ -9,7 +9,7 @@ from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 
 
 def test_load_prompts_reads_packaged_yaml_with_all_agents():
-    """El YAML del paquete debe traer los cuatro prompts; sin ellos el worker no arranca."""
+    """The packaged YAML must bring the four prompts, without which the worker does not start."""
     prompts = prompts_module.load_prompts()
 
     for item in (
@@ -21,7 +21,7 @@ def test_load_prompts_reads_packaged_yaml_with_all_agents():
         assert item.version.strip()
         assert item.text.strip()
 
-    # El mensaje de usuario del experto también vive en el YAML, no inline en Python.
+    # The expert's user message also lives in the YAML, not inline in Python.
     expert = prompts.health_expert
     for template in (
         expert.user_message,
@@ -37,7 +37,7 @@ def test_load_prompts_reads_packaged_yaml_with_all_agents():
 
 
 def test_agents_reading_user_derived_text_are_told_it_is_delimited_data():
-    """El texto que viene del usuario llega entre marcadores y el prompt debe nombrarlos."""
+    """Text that comes from the user arrives between markers and the prompt must name them."""
     prompts = prompts_module.load_prompts()
 
     for item in (prompts.extractor, prompts.translator, prompts.judge):

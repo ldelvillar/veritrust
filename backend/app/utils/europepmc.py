@@ -1,4 +1,4 @@
-"""Cliente del API REST de Europe PMC para recuperar literatura biomédica."""
+"""Europe PMC REST API client that retrieves biomedical literature."""
 
 import logging
 
@@ -13,7 +13,7 @@ _SEARCH_PATH = "/search"
 
 
 def _build_article_url(result: dict) -> str:
-    """Construye una URL estable al artículo: DOI si existe, si no Europe PMC."""
+    """Build a stable article URL, the DOI if any and otherwise Europe PMC."""
     doi = (result.get("doi") or "").strip()
     if doi:
         return f"https://doi.org/{doi}"
@@ -27,11 +27,7 @@ def _build_article_url(result: dict) -> str:
 
 
 def _map_result(result: dict) -> dict:
-    """Mapea un resultado de Europe PMC a los metadatos que persistimos.
-
-    El ``abstract`` es transitorio: solo se usa para juzgar la relevancia y se
-    descarta antes de persistir la fuente.
-    """
+    """Map a Europe PMC result to the metadata we persist, where the ``abstract`` is transient and dropped before persisting the Source."""
     journal = (result.get("journalTitle") or "").strip()
     year = str(result.get("pubYear")).strip() if result.get("pubYear") else None
     return {
@@ -44,11 +40,7 @@ def _map_result(result: dict) -> dict:
 
 
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
-    """Busca artículos en Europe PMC para ``query`` y devuelve metadatos saneados.
-
-    Lanza ``EvidenceRetrievalError`` ante fallos de red o respuestas no parseables;
-    el nodo investigador la captura y degrada con elegancia.
-    """
+    """Search Europe PMC articles for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()
     if not cleaned:
         return []
@@ -58,7 +50,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         "query": cleaned,
         "format": "json",
         "pageSize": max_results,
-        # "core" incluye el abstract, necesario para juzgar la relevancia.
+        # "core" includes the abstract, needed to judge relevance.
         "resultType": "core",
     }
 

@@ -1,4 +1,4 @@
-"""Tests del registro de afirmación: construcción, búsqueda, juicio y lo que se guarda de ella."""
+"""Tests of the claim record: construction, search, judgment and what gets stored of it."""
 
 from dataclasses import replace
 
@@ -20,12 +20,12 @@ from app.core.claim import (
 @pytest.mark.parametrize(
     ("query", "text_en", "expected"),
     [
-        # La consulta enfocada del extractor manda sobre la traducción.
+        # The extractor's focused query wins over the translation.
         ('"vitamin C" AND "cold"', "Vitamin C cures colds", '"vitamin C" AND "cold"'),
-        # Sin consulta, o con una sin letras ni cifras, se busca con la traducción.
+        # Without a query, or with one without letters or digits, the translation is searched.
         ("", "Vitamin C cures colds", "Vitamin C cures colds"),
         ('"" ()', "Vitamin C cures colds", "Vitamin C cures colds"),
-        # Sin ninguna de las dos no hay nada que buscar.
+        # Without either there is nothing to search.
         ("", "", ""),
         ("  ", "  ", ""),
     ],
@@ -49,13 +49,13 @@ def _hit(key: str, url: str | None = None) -> dict:
 
 
 def _found(index: int, *keys: str, text: str | None = None) -> Claim:
-    """Afirmación buscada cuyas fuentes devolvieron los resultados indicados, aún sin juzgar."""
+    """Searched claim whose sources returned the given results, still unjudged."""
     claim = Claim(index=index, text=text or f"Afirmación {index}", query=f'"q{index}"')
     return with_hits(claim, [_hit(key) for key in keys])
 
 
 def _judged(index: int, *pairs: tuple[str, str], text: str | None = None) -> Claim:
-    """Afirmación buscada y juzgada con una postura por fuente."""
+    """Searched and judged claim with one Stance per Source."""
     claim = _found(index, *(key for key, _ in pairs), text=text)
     return with_stances(claim, [stance for _, stance in pairs])
 
@@ -64,7 +64,7 @@ def test_a_claim_without_a_search_query_is_unsearchable_until_translated():
     claim = Claim(index=0, text="A")
 
     assert claim.outcome == "unsearchable"
-    # La traducción le da consulta: pasa a estar pendiente de buscar.
+    # The translation gives it a query, so it becomes pending search.
     assert replace(claim, text_en="A-en").outcome == "unsearched"
 
 
@@ -114,9 +114,9 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
 @pytest.mark.parametrize(
     ("claims", "expected"),
     [
-        # Sin afirmaciones no hay nada que medir ni corte que declarar.
+        # Without claims there is nothing to measure and no outage to declare.
         ([], EvidenceSearch(total=0, searched=0, covered=0, outage=False)),
-        # La que no tiene consulta no cuenta; la que la cota dejó fuera sí.
+        # The one without a query does not count, while the one the cap left out does.
         (
             [
                 Claim(index=0, text="A"),
@@ -125,17 +125,17 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
             ],
             EvidenceSearch(total=2, searched=1, covered=1, outage=False),
         ),
-        # Cubre quien tiene evidencia, juzgada o no; no quien no halló nada.
+        # Whoever has Evidence, judged or not, covers, and whoever found nothing does not.
         (
             [_found(0, "X"), _judged(1, ("Y", "supports")), _found(2)],
             EvidenceSearch(total=3, searched=3, covered=2, outage=False),
         ),
-        # El juez descartó todas sus fuentes: buscada pero sin cubrir.
+        # The judge discarded all its Sources, so it was searched but not covered.
         (
             [_judged(0, ("Y", "unrelated"))],
             EvidenceSearch(total=1, searched=1, covered=0, outage=False),
         ),
-        # Corte solo si todas las buscadas toparon con fuentes caídas.
+        # An outage only if every searched claim hit down sources.
         (
             [
                 with_hits(Claim(index=0, text="A", query='"a"'), None),
@@ -162,13 +162,13 @@ def test_keep_shown_sources_keeps_the_first_distinct_sources_in_claim_order():
 
     shown = keep_shown_sources(claims, 3)
 
-    # A, S y B llenan el cupo; S cuenta una vez aunque la citen dos afirmaciones.
+    # A, S and B fill the quota, and S counts once even though two claims cite it.
     assert [[item.url[-1] for item in claim.evidence] for claim in shown] == [
         ["A", "S"],
         ["S", "B"],
         [],
     ]
-    # Recortar la evidencia no cambia hasta dónde llegó la búsqueda.
+    # Trimming the Evidence does not change how far the search got.
     assert [claim.outcome for claim in shown] == ["judged"] * 3
 
 
@@ -185,7 +185,7 @@ def test_source_records_merge_a_shared_url_and_link_each_claim_by_index():
         _found(2, "U"),
     ]
 
-    # Casar por texto fundiría las dos primeras; por índice quedan ambas, cada una con su postura.
+    # Matching by text would merge the first two, while by index both remain, each with its Stance.
     assert source_records(claims) == [
         {
             "title": "Estudio A",
@@ -225,7 +225,7 @@ def test_evidence_report_lists_each_searched_claim_with_its_sources():
         Claim(index=4, text="E", query='"q4"'),
     ]
 
-    # La fuente sin juzgar no lleva postura; la afirmación sin fuentes alcanzables no lleva lista.
+    # The unjudged Source carries no Stance and the claim without reachable sources carries no list.
     assert evidence_report(claims) == {
         "claims": [
             {

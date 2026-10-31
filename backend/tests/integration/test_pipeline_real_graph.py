@@ -1,4 +1,4 @@
-"""Tests del grafo real de cuatro agentes con solo los servicios externos simulados."""
+"""Tests of the real four-agent graph with only the external services mocked."""
 
 from types import SimpleNamespace
 
@@ -29,13 +29,13 @@ def prompts():
         extractor=PromptItem(version="v1", text="extractor"),
         translator=PromptItem(version="v1", text="translator"),
         judge=PromptItem(version="v1", text="judge"),
-        # El experto renderiza las plantillas del YAML, así que aquí va el prompt real.
+        # The expert renders the YAML templates, so the real prompt goes here.
         health_expert=load_prompts().health_expert,
     )
 
 
 def _initial_state(text: str) -> dict:
-    """Replica el estado inicial exacto que el worker envía al grafo."""
+    """Replicate the exact initial state the worker sends to the graph."""
     return {
         "input_text": text,
         "claims": [],
@@ -45,7 +45,7 @@ def _initial_state(text: str) -> dict:
 
 
 def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
-    """Simula solo la llamada al LLM del extractor; el resto del agente es real."""
+    """Mock only the extractor's LLM call, keeping the rest of the agent real."""
 
     class _Chain:
         def invoke(self, payload):
@@ -71,7 +71,7 @@ def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
 
 
 def _stub_translator(monkeypatch, translations):
-    """Simula solo la llamada al LLM del traductor, validada contra el esquema que pide."""
+    """Mock only the translator's LLM call, validated against the schema it requests."""
 
     class _Chain:
         def __init__(self, statements):
@@ -90,7 +90,7 @@ def _stub_translator(monkeypatch, translations):
 
 
 def _guard_translator(monkeypatch):
-    """Falla el test si el traductor llega a invocar su LLM."""
+    """Fail the test if the translator ever invokes its LLM."""
 
     def _should_not_be_called(prompt_text, statements):
         raise AssertionError("El traductor no debe invocar su LLM sin afirmaciones")
@@ -101,7 +101,7 @@ def _guard_translator(monkeypatch):
 
 
 def _stub_health(monkeypatch, llm_error=None):
-    """Simula el LLM del experto; devuelve lo que este recibe."""
+    """Mock the expert's LLM, returning what it receives."""
     captured: dict = {"human": None}
 
     class _FakeLLM:
@@ -116,7 +116,7 @@ def _stub_health(monkeypatch, llm_error=None):
 
 
 def _guard_health(monkeypatch):
-    """Falla el test si el experto llega a instanciar su LLM."""
+    """Fail the test if the expert ever instantiates its LLM."""
 
     def _fail(*args, **kwargs):
         raise AssertionError("No debe usarse el LLM sin afirmaciones")
@@ -125,7 +125,7 @@ def _guard_health(monkeypatch):
 
 
 def _stub_sources(monkeypatch, europepmc=None, pubmed=None, openfda=None, cima=None):
-    """Sustituye las cuatro fuentes de evidencia; None equivale a no devolver nada."""
+    """Replace the four evidence sources, where None means returning nothing."""
 
     def _as_search(impl):
         if impl is None:
@@ -143,7 +143,7 @@ def _failing_search(query, max_results=3):
 
 
 def _stub_judge(monkeypatch, stance="inconclusive", record=None):
-    """Simula solo el LLM del juez; el filtrado real sigue activo."""
+    """Mock only the judge's LLM, keeping the real filtering active."""
 
     class _Chain:
         def __init__(self, sources):
@@ -162,7 +162,7 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
 
 
 def _judgments(stances: list[str], sources: int):
-    """Respuesta del juez validada, como en producción, contra el esquema de ``sources`` fuentes."""
+    """Judge answer validated, as in production, against the schema of ``sources`` Sources."""
     schema = relevance_module.EVIDENCE_JUDGMENTS.schema(sources)
     return schema.model_validate(
         {
@@ -173,7 +173,7 @@ def _judgments(stances: list[str], sources: int):
 
 
 def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, prompts):
-    """Las afirmaciones fluyen extractor→traductor→investigador→experto sin perderse."""
+    """Claims flow extractor, translator, investigator and expert without getting lost."""
     _stub_extractor(
         monkeypatch,
         statements=[
@@ -210,7 +210,7 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
             }
         ]
 
-    # PubMed y openFDA caídos: el pipeline debe seguir con las fuentes vivas.
+    # PubMed and openFDA are down, so the pipeline must go on with the live sources.
     _stub_sources(
         monkeypatch,
         europepmc=fake_europepmc,
@@ -224,24 +224,24 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("El ibuprofeno cura la gripe..."))
 
-    # El juez evalúa las traducciones, nunca el texto original en español.
+    # The judge evaluates the translations, never the original Spanish text.
     assert judged == [
         "Ibuprofen cures the flu",
         "Vitamin C prevents the common cold",
     ]
     verdict = result["verdict"]
-    # Los veredictos por afirmación conservan el texto original en español.
+    # Per-claim Verdicts keep the original Spanish text.
     assert [c.text for c in verdict.claims] == [
         "El ibuprofeno cura la gripe",
         "La vitamina C previene el resfriado",
     ]
     assert verdict.label == "verdadera"
-    # Evidencia a favor (2 y 1 fuentes): falsedad media = (1/4 + 1/3) / 2 = 7/24.
+    # Supporting Evidence (2 and 1 Sources) gives a mean falsehood of (1/4 + 1/3) / 2 = 7/24.
     assert verdict.confidence == pytest.approx(17 / 24)
     assert verdict.evidence_coverage == 1.0
     assert result["medical_explanation"] == "Informe médico integrado"
 
-    # Las fuentes fusionadas enlazan cada afirmación original que respaldan.
+    # The merged Sources link each original claim they support.
     urls = {s["url"] for s in result["sources"]}
     assert "https://cima.aemps.es/ibuprofeno" in urls
     linked = {st["text"] for s in result["sources"] for st in s["statements"]}
@@ -249,14 +249,14 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         "El ibuprofeno cura la gripe",
         "La vitamina C previene el resfriado",
     }
-    # El informe del experto se fundamenta en las fuentes recuperadas.
+    # The expert's report is grounded in the retrieved Sources.
     assert "Estudio sobre" in captured["human"]
 
 
 async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
     monkeypatch, prompts
 ):
-    """Texto sin afirmaciones: nada de LLMs aguas abajo y fila failed NO_MEDICAL_CLAIMS."""
+    """Text without claims runs no downstream LLMs and leaves a failed NO_MEDICAL_CLAIMS row."""
     _stub_extractor(monkeypatch, statements=[], queries=[], drug_terms=[])
     _guard_translator(monkeypatch)
     _guard_health(monkeypatch)
@@ -282,7 +282,7 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
 
 
 async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, prompts):
-    """Sin informe del experto el veredicto se guarda igual; nunca es NO_MEDICAL_CLAIMS."""
+    """Without the expert's report the Verdict is stored all the same and is never NO_MEDICAL_CLAIMS."""
     _stub_extractor(
         monkeypatch,
         statements=["La vitamina C previene el resfriado"],
@@ -318,7 +318,7 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
 
 
 def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prompts):
-    """Si el extractor deja vacía la consulta de una afirmación, se busca con la traducción."""
+    """If the extractor leaves a claim's query empty, it is searched with the translation."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno", "Afirmación dos"],
@@ -346,14 +346,13 @@ def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prom
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("Texto"))
 
-    # La afirmación sin consulta enfocada se investiga con su traducción al inglés.
-    # Las búsquedas corren en un pool de hilos, así que el orden no está garantizado.
+    # The claim without a focused query is investigated with its English translation, in no guaranteed order since searches run in a thread pool.
     assert set(europepmc_queries) == {'"query one"', "Claim two EN"}
     assert result["verdict"].evidence_coverage == 1.0
 
 
 def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
-    """Un traductor que deja vacías las traducciones no debe romper los agentes siguientes."""
+    """A translator that leaves translations empty must not break the following agents."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno", "Afirmación dos"],
@@ -375,16 +374,16 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("Texto"))
 
-    # Las afirmaciones quedan sin traducción y el pipeline sigue en pie.
+    # The claims stay untranslated and the pipeline keeps going.
     assert [claim.text_en for claim in result["claims"]] == ["", ""]
-    # Sin traducción, el juez de relevancia recibe la consulta como respaldo.
+    # Without a translation the relevance judge gets the query as a fallback.
     assert judged_claims == ['"query one"', '"query two"']
     assert result["verdict"].label == "verdadera"
     assert len(result["verdict"].claims) == 2
 
 
 def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts):
-    """Con todas las fuentes caídas la cobertura es desconocida: fallo nuestro, no del contenido."""
+    """With every source down the coverage is unknown, our failure rather than the content's."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno"],
@@ -406,15 +405,15 @@ def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts
 
     assert result["sources"] == []
     assert result["verdict"].evidence_coverage is None
-    # Sin fuentes no hay postura: incierta, y el corte no atenúa.
+    # Without Sources there is no Stance, so it is uncertain and the outage does not attenuate.
     assert result["verdict"].label == "incierta"
     assert result["verdict"].confidence == pytest.approx(0.5)
-    # El experto recibe la instrucción de no inventar referencias.
+    # The expert is told not to invent references.
     assert "No se hallaron fuentes" in captured["human"]
 
 
 def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
-    """Evidencia hallada pero irrelevante: el juez la descarta y la cobertura cae a 0."""
+    """Evidence found but irrelevant is discarded by the judge and coverage drops to 0."""
     _stub_extractor(
         monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
     )
@@ -430,7 +429,7 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
     graph = create_graph(prompts)
     result = graph.invoke(_initial_state("Texto"))
 
-    # El filtrado real del juez vacía las fuentes y penaliza al máximo la confianza.
+    # The judge's real filtering empties the Sources and penalises the Confidence to the maximum.
     assert result["sources"] == []
     assert result["verdict"].evidence_coverage == 0.0
     assert result["verdict"].confidence == pytest.approx(0.5 * 0.75)
@@ -439,7 +438,7 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
 async def test_midgraph_transport_failure_surfaces_with_partial_stages(
     monkeypatch, prompts
 ):
-    """Ollama caído en el experto: error tipado y solo las etapas previas completadas."""
+    """Ollama down in the expert gives a typed error with only the previous stages completed."""
     _stub_extractor(
         monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
     )
@@ -457,14 +456,14 @@ async def test_midgraph_transport_failure_surfaces_with_partial_stages(
     with pytest.raises(OllamaConnectionError):
         await ainvoke_graph(graph, _initial_state("Texto"), on_stage=on_stage)
 
-    # El experto nunca terminó: las etapas reflejan el progreso parcial real.
+    # The expert never finished, so the stages reflect the real partial progress.
     assert stages == ["extractor", "translator", "investigator"]
 
 
 async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     monkeypatch, prompts
 ):
-    """La caída de Ollama dentro del grafo real acaba como fila failed CONNECTION."""
+    """An Ollama outage inside the real graph ends as a failed CONNECTION row."""
     _stub_extractor(
         monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
     )
@@ -480,7 +479,7 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     assert failure.value.code == ErrorCode.CONNECTION
 
 
-# Un escenario que recorre todos los desenlaces de una afirmación a la vez.
+# One scenario that walks through every claim outcome at once.
 _CLAIM_QUERIES = [
     '"q0"',
     "",
@@ -539,7 +538,7 @@ def _hit(key: str) -> dict:
 
 
 def _search_by_query(name: str):
-    """Fuente simulada que responde por consulta; la consulta de la afirmación 2 la tumba."""
+    """Mock source that answers by query, where claim 2's query brings it down."""
 
     def search(query, max_results=3):
         if query == '"q2"':
@@ -550,7 +549,7 @@ def _search_by_query(name: str):
 
 
 def _stub_outcome_scenario(monkeypatch):
-    """Simula LLMs y fuentes para las 11 afirmaciones del escenario de desenlaces."""
+    """Mock LLMs and sources for the 11 claims of the outcomes scenario."""
     _stub_extractor(
         monkeypatch,
         statements=[f"Afirmación {i}" for i in range(11)],
@@ -605,14 +604,14 @@ def _judged_hit(key: str, stance: str) -> dict:
 
 
 async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, prompts):
-    """Fija fuentes, cobertura y veredicto de un análisis que recorre cada desenlace de afirmación."""
+    """Pin the Sources, coverage and Verdict of an Analysis that walks through every claim outcome."""
     _stub_outcome_scenario(monkeypatch)
 
     result = await ainvoke_graph(
         create_graph(prompts), {"input_text": "Texto con once afirmaciones"}
     )
 
-    # Solo se guardan 12 fuentes: G7 y las dos de la afirmación 8 quedan fuera.
+    # Only 12 Sources are stored, so G7 and claim 8's two are left out.
     assert result["sources"] == [
         _stored_source("A0", (0, "supports")),
         _stored_source("A1", (0, "supports"), (5, "contradicts")),
@@ -627,7 +626,7 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         _stored_source("G5", (6, "supports")),
         _stored_source("G6", (6, "supports")),
     ]
-    # 10 buscables y 8 buscadas; cubren 0, 3, 5, 6 y 8, esta aunque la cota esconda sus fuentes.
+    # 10 searchable and 8 searched, covering 0, 3, 5, 6 and 8, the last even though the cap hides its Sources.
     evidence_search = result["evidence_search"]
     assert (
         evidence_search.total,
@@ -636,7 +635,7 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         evidence_search.outage,
     ) == (10, 8, 5, False)
     assert result["judge_failures"] == 1
-    # Cada afirmación conserva toda su evidencia; el veredicto solo ve la que muestra el informe.
+    # Each claim keeps all its Evidence, while the Verdict only sees what the report shows.
     found, shown = result["claims"], result["shown_claims"]
     assert [item.url[-2:] for item in found[8].evidence] == ["H0", "H1"]
     assert shown[8].evidence == ()
@@ -658,7 +657,7 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         ("Afirmación 10", "incierta", pytest.approx(0.5)),
     ]
     falsehood = (1 / 4 + 4 / 5 + 2 / 7) / 3
-    # Las verdaderas 0 y 6 no compensan la falsa 5: parcialmente falsa, con su confianza.
+    # The true claims 0 and 6 do not offset the false claim 5, so it is partly false with its Confidence.
     assert verdict.label == "parcialmente falsa"
     assert verdict.falsehood == pytest.approx(falsehood)
     assert verdict.evidence_coverage == 0.5
@@ -668,7 +667,7 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
 async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
     monkeypatch, prompts
 ):
-    """Fija el resultado del job de evidencia para cada desenlace de afirmación."""
+    """Pin the evidence job's result for each claim outcome."""
     _stub_outcome_scenario(monkeypatch)
     recorded: list[str] = []
 
@@ -694,7 +693,7 @@ async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
             "judged": judged,
         }
 
-    # La 1 no tiene consulta y la cota de 8 deja fuera la 9 y la 10.
+    # Claim 1 has no query and the cap of 8 leaves out 9 and 10.
     assert result == {
         "claims": [
             entry(

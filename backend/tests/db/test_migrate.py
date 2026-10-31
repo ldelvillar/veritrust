@@ -1,4 +1,4 @@
-"""Pruebas de ``app/db/migrate.py`` contra un PostgreSQL real, en una base vacía por prueba."""
+"""Tests of ``app/db/migrate.py`` against a real PostgreSQL, on an empty database per test."""
 
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -15,7 +15,7 @@ pytestmark = pytest.mark.db
 
 @pytest.fixture
 def empty_dsn(postgres_dsn):
-    """Crea una base de datos vacía para la prueba y la borra al terminar."""
+    """Create an empty database for the test and drop it at the end."""
     name = f"migrate_{uuid.uuid4().hex}"
     with psycopg.connect(postgres_dsn, autocommit=True) as admin:
         admin.execute(f'CREATE DATABASE "{name}"')
@@ -103,7 +103,7 @@ def test_refuses_when_an_applied_migration_was_deleted(empty_dsn, tmp_path):
 
 
 def test_concurrent_runs_apply_each_migration_once(empty_dsn, tmp_path):
-    # Sin IF NOT EXISTS: una segunda aplicación fallaría por tabla duplicada.
+    # Without IF NOT EXISTS, a second application would fail on a duplicate table.
     _write(
         tmp_path, "0001_slow.sql", "SELECT pg_sleep(0.5); CREATE TABLE once (id INT);"
     )
@@ -123,7 +123,7 @@ def test_real_migrations_build_the_schema_the_app_queries(empty_dsn):
     assert {"analysis_history", "analysis_feedback"} <= _tables(empty_dsn)
 
 
-# Restricciones de verdict previas a 'mixed': (tabla, nombre, condición).
+# Verdict constraints from before 'mixed', as (table, name, condition).
 _PRE_MIXED_CHECKS = [
     (
         "analysis_history",
@@ -147,7 +147,7 @@ def test_migrations_let_a_pre_mixed_database_store_mixed_verdicts(empty_dsn, tmp
     baseline = load_migrations()[0]
     _write(tmp_path, f"{baseline.version}.sql", baseline.sql)
     apply_migrations(empty_dsn, tmp_path)
-    # El baseline no toca tablas existentes, así que una base antigua conserva estas restricciones.
+    # The baseline does not touch existing tables, so an old database keeps these constraints.
     with psycopg.connect(empty_dsn) as conn:
         for table, name, condition in _PRE_MIXED_CHECKS:
             conn.execute(
@@ -196,7 +196,7 @@ def test_billing_enforcement_gives_older_analyses_the_schema_maximum(
 
 @pytest.fixture
 def database_url(monkeypatch):
-    """Fija DATABASE_URL para ``main`` y descarta la configuración cacheada."""
+    """Set DATABASE_URL for ``main`` and drop the cached configuration."""
 
     def configure(value):
         monkeypatch.setenv("DATABASE_URL", value)

@@ -1,4 +1,4 @@
-"""Tests del módulo del veredicto: posturas y recuento de la búsqueda en, veredicto tipado fuera."""
+"""Tests of the verdict module, with Stances and search counts in and a typed Verdict out."""
 
 import pytest
 
@@ -13,7 +13,7 @@ from app.core.verdict import (
 
 
 def _full(claims: int) -> EvidenceSearch:
-    """Búsqueda en la que la literatura trató todas las afirmaciones."""
+    """Search in which the literature covered every claim."""
     return EvidenceSearch(total=claims, searched=claims, covered=claims, outage=False)
 
 
@@ -25,7 +25,7 @@ def _claim(
     text: str = "S1",
     others: tuple = (),
 ) -> Claim:
-    """Afirmación juzgada con tantas fuentes a favor y en contra como se pidan, como la deja el investigador."""
+    """Judged claim with as many supporting and contradicting Sources as asked, as the investigator leaves it."""
     stances = ["supports"] * supports + ["contradicts"] * contradicts + list(others)
     return Claim(
         index=index,
@@ -46,21 +46,21 @@ def _claim(
 @pytest.mark.parametrize(
     ("supports", "contradicts", "kind", "confidence"),
     [
-        # Ninguna fuente se pronuncia: incierta por ausencia de evidencia, nunca falsa.
+        # No Source rules, so it is uncertain for lack of Evidence, never false.
         (0, 0, "uncertain", 0.5),
-        # Suavizado de Laplace: una sola fuente no da certeza plena, tres dan más.
+        # Laplace smoothing, so one Source does not give full certainty and three give more.
         (1, 0, "real", 2 / 3),
         (3, 0, "real", 0.8),
         (0, 1, "fake", 2 / 3),
         (0, 3, "fake", 0.8),
-        # Dos a favor y una en contra: falsedad 0.4, sigue verdadera con menos confianza.
+        # Two supporting and one contradicting give falsehood 0.4, still true with less Confidence.
         (2, 1, "real", 0.6),
-        # Evidencia equilibrada: falsedad 0.5, el punto neutro es incierto.
+        # Balanced Evidence gives falsehood 0.5, and the neutral point is uncertain.
         (1, 1, "uncertain", 0.5),
-        # Los bordes de la banda neutra (0.45 y 0.55) siguen siendo inciertos.
+        # The edges of the neutral band (0.45 and 0.55) are still uncertain.
         (10, 8, "uncertain", 0.55),
         (8, 10, "uncertain", 0.45),
-        # Justo fuera de la banda ya hay veredicto firme.
+        # Just outside the band there is a firm Verdict.
         (11, 8, "real", 12 / 21),
         (8, 11, "fake", 12 / 21),
     ],
@@ -91,7 +91,7 @@ def test_each_claim_is_decided_from_its_own_evidence() -> None:
 
     verdict = decide(claims, _full(2))
 
-    # Casando por texto ambas compartirían las 5 fuentes; cada una con la suya, 4/5 y 1/4.
+    # Matching by text both would share the 5 Sources, while each with its own gives 4/5 and 1/4.
     assert [(c.kind, c.confidence) for c in verdict.claims] == [
         ("fake", pytest.approx(0.8)),
         ("real", pytest.approx(0.75)),
@@ -107,7 +107,7 @@ def test_minority_contradiction_only_lowers_the_confidence() -> None:
 
     verdict = decide(claims, _full(3))
 
-    # Falsedad media = (0.4 + 0.25 + 0.25) / 3 = 0.3: verdadera, por debajo de 0.75.
+    # Mean falsehood = (0.4 + 0.25 + 0.25) / 3 = 0.3, true and below 0.75.
     assert verdict.kind == "real"
     assert verdict.falsehood == pytest.approx(0.3)
     assert verdict.confidence == pytest.approx(0.7)
@@ -118,18 +118,18 @@ def test_claims_the_literature_ignores_do_not_dilute_the_verdict() -> None:
 
     verdict = decide([_claim(contradicts=3), _claim(index=1, text="S2")], search)
 
-    # Solo promedia S1 (falsedad 0.8); S2, sin postura, queda incierta por su cuenta.
+    # Only S1 (falsehood 0.8) is averaged, and S2, without a Stance, is uncertain on its own.
     assert (verdict.kind, verdict.falsehood) == ("fake", pytest.approx(0.8))
     assert verdict.claims[1].kind == "uncertain"
 
 
 def test_a_true_claim_never_offsets_a_false_one() -> None:
-    # Un bulo envuelto en una verdad: lejía refutada por una fuente, paracetamol respaldado por cuatro.
+    # A hoax wrapped in a truth, bleach refuted by one Source and paracetamol backed by four.
     claims = [_claim(contradicts=1, index=0), _claim(supports=4, index=1)]
 
     verdict = decide(claims, _full(2))
 
-    # La media (0.67 + 0.17) / 2 = 0.42 lo daría por verdadero; es parcialmente falso.
+    # The mean (0.67 + 0.17) / 2 = 0.42 would call it true, but it is partly false.
     assert verdict.kind == "mixed"
     assert verdict.falsehood == pytest.approx(5 / 12)
     assert [c.kind for c in verdict.claims] == ["fake", "real"]
@@ -148,7 +148,7 @@ def test_partly_false_confidence_is_the_strongest_false_claim() -> None:
 
 
 def test_an_uncertain_claim_does_not_soften_a_false_one() -> None:
-    # Falsa (12/21) junto a una incierta (0.45): la media 0.51 caería en la banda neutra.
+    # False (12/21) next to an uncertain one (0.45), where the mean 0.51 would fall in the neutral band.
     claims = [_claim(8, 11), _claim(10, 8, index=1, text="S2")]
 
     verdict = decide(claims, _full(2))
@@ -159,9 +159,9 @@ def test_an_uncertain_claim_does_not_soften_a_false_one() -> None:
 @pytest.mark.parametrize(
     ("neutral", "confidence"),
     [
-        # Lejía sin ninguna fuente que se pronuncie junto al paracetamol respaldado.
+        # Bleach with no Source ruling next to backed paracetamol.
         ((0, 0), 0.5),
-        # Una incierta con evidencia equilibrada (falsedad 0.55) aporta su confianza.
+        # An uncertain one with balanced Evidence (falsehood 0.55) brings its Confidence.
         ((8, 10), 0.45),
     ],
 )
@@ -182,20 +182,20 @@ def test_only_uncertain_claims_keep_the_analysis_uncertain() -> None:
 
     verdict = decide(claims, _full(2))
 
-    # Falsedades 0.5 y 0.45: su media 0.475 sigue en la banda neutra.
+    # Falsehoods 0.5 and 0.45 have a mean of 0.475, still in the neutral band.
     assert (verdict.kind, verdict.confidence) == ("uncertain", pytest.approx(0.525))
 
 
 @pytest.mark.parametrize(
     ("search", "coverage", "confidence"),
     [
-        # Toda la literatura hallada: sin atenuación.
+        # All the literature found, so no attenuation.
         (EvidenceSearch(total=2, searched=2, covered=2, outage=False), 1.0, 0.75),
-        # Media cobertura: 0.75 × (1 − 0.25 × 0.5).
+        # Half coverage gives 0.75 × (1 − 0.25 × 0.5).
         (EvidenceSearch(total=2, searched=2, covered=1, outage=False), 0.5, 0.65625),
-        # Nada que buscar: cobertura 0 y atenuación máxima.
+        # Nothing to search, so coverage 0 and maximum attenuation.
         (EvidenceSearch(total=0, searched=0, covered=0, outage=False), 0.0, 0.5625),
-        # La cota deja 2 de 10 sin buscar: cuentan como no cubiertas.
+        # The cap leaves 2 of 10 unsearched, which count as uncovered.
         (EvidenceSearch(total=10, searched=8, covered=8, outage=False), 0.8, 0.7125),
     ],
 )
@@ -206,18 +206,18 @@ def test_confidence_is_attenuated_by_evidence_coverage(
 
     assert verdict.evidence_coverage == pytest.approx(coverage)
     assert verdict.confidence == pytest.approx(confidence)
-    # La atenuación es del veredicto global; el de cada afirmación no cambia.
+    # The attenuation is of the overall Verdict, and each claim's does not change.
     assert verdict.claims[0].confidence == pytest.approx(0.75)
-    # La falsedad es la que vio la banda, antes de atenuar.
+    # The falsehood is the one the band saw, before attenuation.
     assert verdict.falsehood == pytest.approx(0.25)
 
 
 @pytest.mark.parametrize(
     ("search", "confidence"),
     [
-        # Todas las buscadas topan con fuentes caídas: fallo nuestro, sin penalizar.
+        # Every searched claim hits down sources, our failure, so no penalty.
         (EvidenceSearch(total=3, searched=3, covered=0, outage=True), 0.5),
-        # Por encima de la cota solo penalizan las 2 que quedaron sin buscar.
+        # Above the cap only the 2 left unsearched penalise.
         (EvidenceSearch(total=10, searched=8, covered=0, outage=True), 0.475),
     ],
 )
@@ -237,7 +237,7 @@ def test_the_spanish_label_follows_the_verdict(contradicts, supports, label) -> 
     verdict = decide([_claim(supports, contradicts)], _full(1))
 
     assert verdict.label == verdict.claims[0].label == label
-    # Leer la etiqueta guardada devuelve el mismo veredicto.
+    # Reading the stored label returns the same Verdict.
     assert kind_of(label) == verdict.kind
 
 
@@ -257,14 +257,14 @@ def test_an_unknown_stored_label_reads_as_uncertain(label) -> None:
     ("kind", "confidence", "credibility"),
     [
         ("real", 0.9, 90),
-        # Un veredicto falso invierte la confianza: muy falso es poco creíble.
+        # A false Verdict inverts the Confidence, so very false is barely credible.
         ("fake", 0.85, 15),
-        # Un veredicto incierto no tiene credibilidad bien definida aunque haya confianza.
+        # An uncertain Verdict has no well-defined Credibility even with Confidence.
         ("uncertain", 0.6, None),
-        # Un contenido parcialmente falso tampoco: un único número no describe la mezcla.
+        # Partly false content has none either, since one number does not describe the mix.
         ("mixed", 0.8, None),
         ("real", None, None),
-        # Fuera de rango se acota a [0, 100].
+        # Out of range is clamped to [0, 100].
         ("fake", -0.2, 100),
         ("real", -0.5, 0),
     ],

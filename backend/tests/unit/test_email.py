@@ -1,4 +1,4 @@
-"""Tests del envío de notificaciones por email vía Resend con la red mockeada."""
+"""Tests of email notifications through Resend with the network mocked."""
 
 import types
 
@@ -182,7 +182,7 @@ async def test_send_swallows_http_errors(monkeypatch):
     recorder: list[dict] = []
     _patch_client(monkeypatch, recorder, post_exc=httpx.ConnectError("boom"))
 
-    # No debe propagar: el envío es best-effort y nunca rompe el análisis.
+    # Must not propagate, since sending is best-effort and never breaks the Analysis.
     await email.send_analysis_ready_email(
         to="user@example.com", analysis_id=ANALYSIS_ID
     )
@@ -231,7 +231,7 @@ async def test_contact_email_posts_to_resend_with_reply_to(monkeypatch):
     html = req["json"]["html"]
     assert "Medio S.L." in html
     assert "Nos interesa la API." in html
-    # El nombre se escapa para no inyectar HTML del usuario en el email.
+    # The name is escaped so the user's HTML is not injected into the email.
     assert "Ana &lt;b&gt;" in html
 
 

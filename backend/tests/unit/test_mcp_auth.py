@@ -1,4 +1,4 @@
-"""Tests del verificador de access tokens OAuth de Clerk para el servidor MCP."""
+"""Tests of the Clerk OAuth access token verifier for the MCP server."""
 
 import time
 
@@ -16,12 +16,12 @@ _OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
 def _sign(claims: dict, key=_PRIVATE_KEY) -> str:
-    """Firma un token de prueba con la clave RSA indicada."""
+    """Sign a test token with the given RSA key."""
     return jwt.encode(claims, key, algorithm="RS256")
 
 
 def _claims(**overrides) -> dict:
-    """Claims de un access token OAuth válido, con sobrescrituras."""
+    """Claims of a valid OAuth access token, with overrides."""
     base: dict = {
         "iss": _ISSUER,
         "sub": "user_123",
@@ -35,7 +35,7 @@ def _claims(**overrides) -> dict:
 
 @pytest.fixture(autouse=True)
 def _configure(monkeypatch):
-    """Fija el issuer de Clerk y resuelve la clave pública sin red."""
+    """Pin Clerk's issuer and resolve the public key without network."""
     settings = Settings(
         _env_file=None,  # type: ignore[call-arg]
         clerk_issuer=_ISSUER,
@@ -73,7 +73,7 @@ async def test_accepts_scopes_as_a_list_claim():
     [
         _claims(exp=int(time.time()) - 60),
         _claims(iss="https://other.clerk.accounts.dev"),
-        # Un token de sesión del navegador no lleva client_id: no vale para MCP.
+        # A browser session token carries no client_id, so it is not valid for MCP.
         _claims(client_id=None),
         _claims(sub=None),
     ],

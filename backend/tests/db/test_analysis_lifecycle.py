@@ -1,4 +1,4 @@
-"""Pruebas del ciclo de vida de un análisis contra PostgreSQL real, a través de su interfaz."""
+"""Tests of the Analysis lifecycle against real PostgreSQL, through its interface."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
@@ -38,7 +38,7 @@ PDF = b"%PDF-1.4 contenido minimo"
 
 
 class _Upload:
-    """Archivo subido de prueba que cuenta cuántas veces se lee."""
+    """Test uploaded file that counts how many times it is read."""
 
     def __init__(self, filename, data, size=None):
         self.filename = filename
@@ -82,20 +82,20 @@ async def _count(pool) -> int:
 
 
 async def _usage_kinds(pool) -> list[str]:
-    """El Usage de todos los usuarios, en el orden en que se anotó."""
+    """Every user's Usage, in the order it was recorded."""
     async with pool.connection() as conn:
         cur = await conn.execute("SELECT kind FROM public.usage_events ORDER BY id")
         return [row[0] for row in await cur.fetchall()]
 
 
 async def _spend(units: int, occurred_at: datetime | None = None) -> None:
-    """Anota ``units`` unidades de Usage del usuario, por defecto ahora mismo."""
+    """Record ``units`` units of the user's Usage, now by default."""
     for _ in range(units):
         await seed_usage(user_id=USER, occurred_at=occurred_at or datetime.now(UTC))
 
 
 async def _arrange(pool, analysis_id: str, **columns) -> None:
-    """Fuerza columnas de una fila y la envejece, como si una Run anterior ya hubiera acabado."""
+    """Force a row's columns and age it, as if a previous Run had already finished."""
     assignments = ", ".join(f"{column} = %s" for column in columns)
     async with pool.connection() as conn:
         await conn.execute(
@@ -287,7 +287,7 @@ async def test_retry_reopens_a_failed_analysis_and_enqueues_it(db_pool, intake, 
     row = await _row(db_pool, analysis_id)
     assert row["status"] == "pending"
     assert (row["error_code"], row["stage"], row["completed_at"]) == (None, None, None)
-    # created_at vuelve a NOW(): el reaper concede un periodo de gracia nuevo.
+    # created_at goes back to NOW(), so the reaper grants a fresh grace period.
     assert row["fresh"] is True
     assert row["input_text"] == "La lejía cura la COVID"
     assert queue.enqueued[-1] == (analysis_id, EMAIL)
@@ -366,7 +366,7 @@ async def test_reopen_waits_until_the_previous_run_releases_its_job(
     db_pool, intake, queue, reopen, arrange, code
 ):
     analysis_id = await arrange(db_pool, intake, queue)
-    # La Run anterior escribió su estado final pero aún envía el email con el job vivo.
+    # The previous Run wrote its final status but still sends the email with the job alive.
     queue.live.add(analysis_id)
     status_before = (await _row(db_pool, analysis_id))["status"]
 
@@ -484,7 +484,7 @@ def _completion(
 
 
 def _returning(result, seen=None):
-    """Trabajo de la Run que anota la Run recibida y devuelve o lanza ``result``."""
+    """Run work that records the Run it receives and returns or raises ``result``."""
 
     async def work(run):
         if seen is not None:
@@ -553,7 +553,7 @@ async def test_run_completes_the_analysis_and_notifies_the_submitter(
         {"text": "La lejía cura", "label": "falsa", "confidence": 0.9}
     ]
     assert row["sources"] == [{"title": "Estudio", "url": "https://doi.org/10.1/x"}]
-    # El resultado queda atribuido a la configuración con la que arrancó el worker.
+    # The result is attributed to the configuration the worker started with.
     assert row["pipeline"] == PIPELINE
     assert row["completed_at"] is not None
     assert notifier.sent == [(EMAIL, analysis_id, None)]
@@ -572,7 +572,7 @@ async def test_run_stores_a_verdict_without_report_and_keeps_its_coverage_apart(
 
     row = await _row(db_pool, analysis_id)
     assert (row["status"], row["explanation"]) == ("done", None)
-    # None (sin medir) y 0.0 (medida sin respaldo) no deben confundirse.
+    # None (unmeasured) and 0.0 (measured without support) must not be confused.
     assert row["evidence_coverage"] == coverage
     assert row["completed_at"] >= row["created_at"]
 
@@ -651,7 +651,7 @@ async def test_run_keeps_the_extracted_file_text_even_when_it_fails(
 
     row = await _row(db_pool, analysis_id)
     assert row["status"] == "failed"
-    # El historial puede buscar el archivo por su texto aunque la Run fallase.
+    # The History can find the file by its text even though the Run failed.
     assert row["input_text"] == "Texto extraído del archivo"
 
 
@@ -737,7 +737,7 @@ async def test_a_run_whose_analysis_is_deleted_stops_at_the_next_stage(
     reached: list[str] = []
 
     async def deleted_meanwhile(run):
-        # Borrada mientras su job sigue en arq sin aborto, como con una cola atascada.
+        # Deleted while its job is still in arq without an abort, as with a stuck queue.
         async with db_pool.connection() as conn:
             await conn.execute(
                 "DELETE FROM public.analysis_history WHERE id = %s", (analysis_id,)
@@ -793,7 +793,7 @@ async def test_a_late_close_is_discarded_without_notifying(
     analysis_id = await _submit(intake)
 
     async def reaped_meanwhile(run):
-        # El reaper la dio por huérfana mientras el worker seguía trabajando.
+        # The reaper declared it orphaned while the worker was still working.
         async with db_pool.connection() as conn:
             await conn.execute(
                 "UPDATE public.analysis_history "
@@ -928,7 +928,7 @@ async def test_reaper_leaves_the_queue_alone_when_nothing_is_stale(
     db_pool, intake, queue, runner
 ):
     await _submit(intake)
-    # Una consulta a la cola fallaría: sin candidatas no debe hacerse.
+    # A queue query would fail, so it must not run without candidates.
     queue.down = True
 
     assert await runner.reap_orphans() == 0
@@ -994,7 +994,7 @@ async def test_submit_refuses_once_the_allowance_is_spent(db_pool, intake, queue
     assert refusal.value.code == ErrorCode.ALLOWANCE_EXHAUSTED
     assert await _count(db_pool) == 0
     assert queue.enqueued == []
-    # El mismo usuario con Pro aún tiene Runs libres.
+    # The same user on Pro still has free Runs.
     assert await intake.submit(WEB, AnalysisRequest(text="La lejía cura la COVID"))
 
 
@@ -1101,7 +1101,7 @@ async def test_reopening_refuses_an_analysis_outside_the_history_window(
         await intake.retry(FREE_WEB, analysis_id)
 
     assert refusal.value.code == ErrorCode.PLAN_REQUIRED
-    # Pro ve toda su History y puede reintentarlo.
+    # Pro sees its whole History and can retry it.
     assert await intake.retry(WEB, analysis_id) == analysis_id
 
 

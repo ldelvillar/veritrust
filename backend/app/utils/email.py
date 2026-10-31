@@ -1,4 +1,4 @@
-"""Envío de notificaciones por email vía la API de Resend (best-effort)."""
+"""Best-effort email notifications through the Resend API."""
 
 import logging
 from html import escape
@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 _EMAILS_PATH = "/emails"
 _REQUEST_TIMEOUT_SECONDS = 10
-# Logo de marca sobre fondo transparente, servido por el frontend.
+# Brand logo on a transparent background, served by the frontend.
 _LOGO_PATH = "/images/logo-1316x1316-no-bg.png"
-# Prefijo del asunto según el tipo de formulario que originó el mensaje.
+# Subject prefix by the type of form the message came from.
 _CONTACT_SUBJECT_PREFIX = {
     "contact": "Nuevo mensaje de contacto",
     "demo": "Nueva solicitud de demo",
@@ -22,22 +22,22 @@ _CONTACT_SUBJECT_PREFIX = {
 
 
 class ContactEmailNotConfigured(RuntimeError):
-    """El envío de mensajes de contacto no está configurado (falta Resend o el buzón)."""
+    """Sending contact messages is not configured (Resend or the inbox is missing)."""
 
 
 class ContactEmailError(RuntimeError):
-    """El mensaje de contacto no se pudo entregar a través de Resend."""
+    """The contact message could not be delivered through Resend."""
 
 
 def _build_report_url(base_url: str, analysis_id: str) -> str:
-    """Construye el enlace al informe del análisis en el frontend."""
+    """Build the link to the Analysis report in the frontend."""
     return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
 
 
 def _render_email_html(
     *, base_url: str, report_url: str, heading: str, body_text: str, cta_label: str
 ) -> str:
-    """Compone el HTML del email con tablas y estilos inline compatibles con clientes de correo."""
+    """Compose the email HTML with tables and inline styles that mail clients support."""
     logo_url = f"{base_url.rstrip('/')}{_LOGO_PATH}"
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
@@ -74,7 +74,7 @@ def _render_email_html(
 async def _send_email(
     *, to: str | None, subject: str, html: str, text: str | None = None
 ) -> None:
-    """Envía un email por Resend; un fallo aquí nunca debe romper el análisis."""
+    """Send an email through Resend, where a failure must never break the Analysis."""
     settings = get_settings()
     if not (settings.resend_api_key and settings.resend_from_email and to):
         return
@@ -101,7 +101,7 @@ async def _send_email(
 
 
 async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None:
-    """Notifica que un análisis terminó y enlaza a su informe."""
+    """Notify that an Analysis finished and link to its report."""
     settings = get_settings()
     if not settings.app_base_url:
         return
@@ -127,7 +127,7 @@ async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None
 
 
 async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> None:
-    """Notifica, en tono neutro, que el texto no contenía afirmaciones médicas verificables."""
+    """Notify, in a neutral tone, that the text had no verifiable medical claims."""
     settings = get_settings()
     if not settings.app_base_url:
         return
@@ -156,7 +156,7 @@ async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> 
 
 
 async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> None:
-    """Notifica que un análisis no pudo completarse y enlaza a su estado."""
+    """Notify that an Analysis could not complete and link to its status."""
     settings = get_settings()
     if not settings.app_base_url:
         return
@@ -182,12 +182,12 @@ async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> Non
 
 
 class ResendNotifier:
-    """Avisa por email del final de un análisis con la plantilla que toca a su resultado."""
+    """Email the end of an Analysis with the template that fits its result."""
 
     async def finished(
         self, *, to: str, analysis_id: str, error_code: ErrorCode | None
     ) -> None:
-        """Envía el aviso de listo, de sin afirmaciones o de fallo."""
+        """Send the ready, no-claims or failure notice."""
         if error_code is None:
             await send_analysis_ready_email(to=to, analysis_id=analysis_id)
         elif error_code == ErrorCode.NO_MEDICAL_CLAIMS:
@@ -204,7 +204,7 @@ def _render_contact_html(
     message: str | None,
     metadata: dict[str, str] | None,
 ) -> str:
-    """Compone un email plano con los datos del formulario, para lectura del equipo."""
+    """Compose a plain email with the form data, for the team to read."""
     rows = [("Nombre", name), ("Email", email), ("Asunto", subject)]
     if metadata:
         rows.extend(metadata.items())
@@ -237,7 +237,7 @@ async def send_contact_email(
     metadata: dict[str, str] | None,
     contact_type: str,
 ) -> None:
-    """Envía un mensaje de formulario al buzón del equipo; propaga fallos para poder reintentar."""
+    """Send a form message to the team inbox, propagating failures so it can be retried."""
     settings = get_settings()
     if not (
         settings.resend_api_key

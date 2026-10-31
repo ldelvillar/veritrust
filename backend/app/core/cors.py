@@ -1,4 +1,4 @@
-"""Configuración de CORS para la API, derivada de la configuración central."""
+"""CORS configuration for the API, derived from the central configuration."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from app.core.config import Settings
 
 
 class CORSConfig(TypedDict):
-    """Configuración tipada para CORSMiddleware."""
+    """Typed configuration for CORSMiddleware."""
 
     allow_origins: list[str]
     allow_credentials: bool
@@ -17,7 +17,7 @@ class CORSConfig(TypedDict):
 
 
 def get_cors_config(settings: Settings) -> CORSConfig:
-    """Construye la configuración CORS a partir de la configuración central."""
+    """Build the CORS configuration from the central configuration."""
     return {
         "allow_origins": settings.cors_origins(),
         "allow_credentials": settings.cors_allow_credentials,

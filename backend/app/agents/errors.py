@@ -1,4 +1,4 @@
-"""Errores tipados del pipeline de agentes y traducción desde la capa de transporte."""
+"""Typed errors of the agent pipeline and their translation from the transport layer."""
 
 from collections.abc import Awaitable, Callable
 from contextlib import aclosing
@@ -10,11 +10,11 @@ import httpx
 
 
 class AgentError(Exception):
-    """Error base del pipeline de agentes."""
+    """Base error of the agent pipeline."""
 
 
 class OllamaConnectionError(AgentError):
-    """No se pudo conectar al servidor de Ollama."""
+    """Could not connect to the Ollama server."""
 
 
 async def ainvoke_graph(
@@ -22,10 +22,10 @@ async def ainvoke_graph(
     state: dict,
     on_stage: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> dict:
-    """Ejecuta el grafo por streaming, notifica cada agente terminado y traduce errores de conexión."""
+    """Stream the graph, report each finished agent and translate connection errors."""
     final_state = state
     try:
-        # aclosing cierra el stream al momento si on_stage corta la Run.
+        # aclosing closes the stream at once when on_stage cuts the Run short.
         async with aclosing(
             graph.astream(state, stream_mode=["updates", "values"])
         ) as stream:

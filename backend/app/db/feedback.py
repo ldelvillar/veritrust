@@ -1,4 +1,4 @@
-"""Persistencia de las valoraciones de veredicto: alta y consulta de la activa."""
+"""Persistence of Verdict feedback: creating it and reading the active one."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.schemas.feedback import AnalysisFeedback
 
 
 def _map_feedback_row(row: Sequence[Any]) -> AnalysisFeedback:
-    """Mapea una fila SQL a una valoración tipada."""
+    """Map an SQL row to typed feedback."""
     return AnalysisFeedback(
         is_correct=bool(row[0]),
         suggested_verdict=row[1],
@@ -28,12 +28,7 @@ async def create_analysis_feedback(
     suggested_verdict: Optional[str],
     comment: Optional[str],
 ) -> AnalysisFeedback | None:
-    """Guarda la valoración de un análisis ``done`` propio y la devuelve.
-
-    Toma un snapshot del veredicto/label valorados desde la propia fila. Devuelve
-    ``None`` si el análisis no está ``done`` o ya tiene una valoración activa
-    (posterior al ``created_at`` de la fila, que un re-análisis reinicia).
-    """
+    """Store and return the feedback of an own ``done`` Analysis, or ``None`` if it is not ``done`` or already has feedback newer than the row's ``created_at``, which a Reanalyze resets."""
     pool = await get_pool()
 
     query = """
@@ -74,11 +69,7 @@ async def create_analysis_feedback(
 async def get_analysis_feedback(
     *, user_id: str, analysis_id: str
 ) -> AnalysisFeedback | None:
-    """Devuelve la valoración activa de un análisis propio, o ``None``.
-
-    Solo cuenta la valoración posterior al ``created_at`` de la fila: un
-    re-análisis lo reinicia y deja las valoraciones previas como dato histórico.
-    """
+    """Return the active feedback of an own Analysis, or ``None``, counting only feedback newer than the row's ``created_at``, which a Reanalyze resets so earlier feedback stays as history."""
     pool = await get_pool()
 
     query = """

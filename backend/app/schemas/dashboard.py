@@ -1,4 +1,4 @@
-"""Este módulo define los esquemas de datos relacionados con el dashboard del usuario."""
+"""Data schemas for the user's dashboard."""
 
 from typing import Optional
 
@@ -30,7 +30,7 @@ class DashboardTrendPoint(BaseModel):
 class DashboardSourceBreakdownItem(BaseModel):
     """Modelo de datos para un ítem de desglose por fuente en el dashboard."""
 
-    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    # Enums validate the contract but are stored as str.
     model_config = ConfigDict(use_enum_values=True)
 
     source_type: SourceType
@@ -49,7 +49,7 @@ class DashboardDomainBreakdownItem(BaseModel):
 class DashboardAlertItem(BaseModel):
     """Modelo de datos para un ítem de alerta en el dashboard."""
 
-    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    # Enums validate the contract but are stored as str.
     model_config = ConfigDict(use_enum_values=True)
 
     id: str

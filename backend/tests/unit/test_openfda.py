@@ -1,4 +1,4 @@
-"""Tests del cliente de openFDA (fichas de medicamentos) con la red mockeada."""
+"""Tests of the openFDA (drug labels) client with the network mocked."""
 
 import pytest
 import requests
@@ -72,7 +72,7 @@ def test_search_evidence_keeps_the_overdose_section_after_long_ones(monkeypatch)
 
     (source,) = search_evidence("metformin", max_results=3)
 
-    # Cada sección se recorta por separado: la primera no se come a las demás.
+    # Each section is trimmed separately, so the first does not eat the others.
     assert "5 WARNINGS AND PRECAUTIONS Lactic acidosis." in source["abstract"]
     assert source["abstract"].endswith("10 OVERDOSAGE Liver damage may occur.")
     assert len(source["abstract"]) < 1000
@@ -88,7 +88,7 @@ def test_search_evidence_falls_back_to_generic_name(monkeypatch):
 
 
 def test_search_evidence_treats_404_as_no_results(monkeypatch):
-    # openFDA responde 404 cuando no hay coincidencias: no es un fallo.
+    # openFDA answers 404 when nothing matches, which is not a failure.
     _patch_get(monkeypatch, _FakeResponse(status_code=404))
 
     assert search_evidence("nonexistent drug", max_results=3) == []

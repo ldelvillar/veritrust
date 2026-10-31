@@ -1,17 +1,17 @@
-"""Contrato compartido por los clientes de fuentes de evidencia biomédica."""
+"""Contract shared by the biomedical evidence source clients."""
 
 from collections.abc import Iterable
 
-# Cota de cada sección de una ficha de medicamento: ninguna desplaza a las siguientes.
+# Cap on each section of a drug label, so none crowds out the following ones.
 LABEL_SECTION_MAX_CHARS = 500
 
 
 class EvidenceRetrievalError(Exception):
-    """Excepción lanzada cuando falla la consulta a una fuente de evidencia."""
+    """Raised when a query to an evidence source fails."""
 
 
 def join_label_sections(sections: Iterable[str]) -> str | None:
-    """Une las secciones de una ficha recortando cada una, para que el juez las vea todas."""
+    """Join the sections of a label, trimming each so the judge sees them all."""
     text = " ".join(
         section.strip()[:LABEL_SECTION_MAX_CHARS]
         for section in sections

@@ -1,4 +1,4 @@
-"""Reglas de cada Plan: sus límites, cuándo una Subscription hace Pro a un usuario y el mes de su Allowance."""
+"""Rules of each Plan: its limits, when a Subscription makes a user Pro and the month of its Allowance."""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -10,12 +10,12 @@ from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 
 PlanName = Literal["free", "pro"]
 BillingInterval = Literal["month", "year"]
-# Funciones que un Plan concede o niega: los campos booleanos de PlanLimits
+# Features a Plan grants or denies, the boolean fields of PlanLimits.
 Feature = Literal[
     "files", "history_tools", "dashboard", "csv_export", "share", "mcp", "pdf"
 ]
 
-# Estados de Stripe que mantienen Pro; past_due lo conserva durante los reintentos de cobro
+# Stripe statuses that keep Pro, where past_due keeps it during payment retries.
 PRO_STATUSES = frozenset({"active", "trialing", "past_due"})
 
 MADRID = ZoneInfo("Europe/Madrid")
@@ -69,7 +69,7 @@ PRO = PlanLimits(
 
 @dataclass(frozen=True)
 class SubscriptionRow:
-    """Una Subscription de Stripe tal como se guarda en la tabla subscriptions."""
+    """A Stripe Subscription as stored in the subscriptions table."""
 
     stripe_subscription_id: str
     user_id: str
@@ -81,7 +81,7 @@ class SubscriptionRow:
 
 
 def is_pro(subscription: SubscriptionRow | None) -> bool:
-    """Indica si la Subscription está en un estado Pro y sobre uno de los dos precios Pro."""
+    """Tell whether the Subscription is in a Pro status and on one of the two Pro prices."""
     if subscription is None or subscription.status not in PRO_STATUSES:
         return False
     settings = get_settings()
@@ -92,17 +92,17 @@ def is_pro(subscription: SubscriptionRow | None) -> bool:
 
 
 def limits_for(subscription: SubscriptionRow | None) -> PlanLimits:
-    """Devuelve los límites del Plan que da la Subscription del usuario, o Free sin ella."""
+    """Return the limits of the Plan the user's Subscription gives, or Free without one."""
     return PRO if is_pro(subscription) else FREE
 
 
 def remaining(limits: PlanLimits, used: int, pending: int) -> int:
-    """Análisis que aún caben en la Allowance del mes, contando los pendientes como consumidos."""
+    """Analyses that still fit in the month's Allowance, counting pending ones as consumed."""
     return max(0, limits.analyses_per_month - used - pending)
 
 
 def month_window(now: datetime) -> tuple[datetime, datetime]:
-    """Devuelve el inicio del mes de Madrid que contiene ``now`` y el del siguiente."""
+    """Return the start of the Madrid month containing ``now`` and of the next one."""
     local = now.astimezone(MADRID)
     start = datetime(local.year, local.month, 1, tzinfo=MADRID)
     if local.month == 12:
@@ -111,7 +111,7 @@ def month_window(now: datetime) -> tuple[datetime, datetime]:
 
 
 def history_floor(limits: PlanLimits, now: datetime) -> datetime | None:
-    """Devuelve el instante más antiguo que el Plan ve de su History, o None si lo ve todo."""
+    """Return the oldest instant of its History the Plan sees, or None when it sees all of it."""
     if limits.history_days is None:
         return None
     return now - timedelta(days=limits.history_days)

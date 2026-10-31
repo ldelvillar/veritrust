@@ -1,96 +1,94 @@
-"""Afirmaciones de un análisis: el registro que el pipeline construye una vez y lleva hasta el veredicto."""
+"""Claims of an Analysis, the record the pipeline builds once and carries to the Verdict."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
-# Postura de una fuente sobre una afirmación.
 Stance = Literal["supports", "contradicts", "inconclusive"]
-# Respuesta del juez por fuente: una postura, o "unrelated" si trata de otro tema.
+# Judge answer per Source, a Stance or "unrelated" when it is about another topic.
 JudgeStance = Literal["supports", "contradicts", "inconclusive", "unrelated"]
-# Hasta dónde llegó la búsqueda de evidencia de una afirmación.
+# How far a claim's Evidence search got.
 ClaimOutcome = Literal[
     "unsearchable", "unsearched", "unavailable", "unjudged", "judged"
 ]
 
-# Desenlaces de una afirmación que llegó a buscarse.
 _SEARCHED: tuple[ClaimOutcome, ...] = ("unavailable", "unjudged", "judged")
 
 
 @dataclass(frozen=True)
 class EvidenceSearch:
-    """Recuento de la búsqueda de literatura con el que se mide la cobertura de evidencia."""
+    """Literature search counts that measure Evidence coverage."""
 
-    # Afirmaciones con una consulta utilizable: el denominador de la cobertura.
+    # Claims with a usable query, the coverage denominator.
     total: int
-    # Las que se llegaron a buscar; la cota deja fuera el resto.
+    # The ones that got searched, since the cap leaves the rest out.
     searched: int
-    # Las que la literatura llegó a tratar.
+    # The ones the literature spoke to.
     covered: int
-    # Todas las buscadas toparon con fuentes inalcanzables.
+    # Every searched claim hit unreachable sources.
     outage: bool
 
 
 @dataclass(frozen=True)
 class Evidence:
-    """Una fuente hallada para una afirmación, con la postura que le dio el juez."""
+    """A Source found for a claim, with the Stance the judge gave it."""
 
     title: str
     url: str
     source: str | None = None
     year: str | None = None
-    # Solo sirve para juzgar; el informe no lo guarda.
+    # Only used for judging, the report does not store it.
     abstract: str | None = None
-    # None mientras el juez no se haya pronunciado.
+    # None until the judge has ruled.
     stance: Stance | None = None
 
 
 @dataclass(frozen=True)
 class Claim:
-    """Una afirmación médica del contenido, con lo necesario para buscar su evidencia y lo que se halló."""
+    """A medical claim of the content, with what its Evidence search needs and what it found."""
 
-    # Posición en el análisis: la clave con la que fuentes y veredicto enlazan la afirmación.
+    # Position in the Analysis, the key that links Sources and Verdict to the claim.
     index: int
-    # Tal como se extrajo, en el idioma del contenido.
+    # As extracted, in the content's language.
     text: str
-    # Traducción al inglés clínico; vacía si el traductor la omitió.
+    # Clinical English translation, empty if the translator dropped it.
     text_en: str = ""
-    # Consulta booleana del extractor; vacía si no la dio.
+    # Boolean query from the extractor, empty if it gave none.
     query: str = ""
-    # Fármaco que nombra, o vacío si no trata de uno concreto.
+    # Drug it names, or empty if it is not about a specific one.
     drug_term: str = ""
-    # Hasta dónde llegó su búsqueda; antes de buscarla solo depende de si hay consulta.
+    # How far its search got, which before searching only depends on having a query.
     outcome: ClaimOutcome = "unsearched"
-    # Fuentes halladas que el juez no descartó, en el orden en que llegaron.
+    # Found Sources the judge did not discard, in arrival order.
     evidence: tuple[Evidence, ...] = ()
 
     def __post_init__(self) -> None:
-        """Deja una afirmación aún sin buscar como no buscable si no tiene consulta, y viceversa."""
+        """Mark a still unsearched claim as unsearchable if it has no query, and vice versa."""
         if self.outcome in ("unsearched", "unsearchable"):
             outcome = "unsearched" if self.search_query else "unsearchable"
             object.__setattr__(self, "outcome", outcome)
 
     @property
     def search_query(self) -> str:
-        """Consulta de búsqueda: la del extractor si sirve, si no la traducción, o vacía si no hay ninguna."""
+        """Search query, the extractor's if usable, otherwise the translation, or empty if neither."""
         if _usable(self.query):
             return self.query
         return self.text_en if self.text_en.strip() else ""
 
 
 def with_hits(claim: Claim, hits: Sequence[dict] | None) -> Claim:
-    """Anota lo que devolvieron las fuentes buscadas: ``None`` si cayeron todas, o sus resultados."""
+    """Record what the searched sources returned, ``None`` if they all failed, or their results."""
     if hits is None:
         return replace(claim, outcome="unavailable")
     evidence = _unique_evidence(hits)
-    # Sin evidencia no hay nada que el juez pueda dejar sin juzgar.
+    # Without Evidence there is nothing the judge could leave unjudged.
     return replace(
         claim, outcome="unjudged" if evidence else "judged", evidence=evidence
     )
 
 
 def with_stances(claim: Claim, stances: Sequence[JudgeStance] | None) -> Claim:
-    """Aplica la respuesta del juez, una postura por fuente; sin respuesta la evidencia queda sin juzgar."""
+    """Apply the judge's answer, one Stance per Source, leaving the Evidence unjudged without an answer."""
     if stances is None:
         return claim
     return replace(
@@ -105,7 +103,7 @@ def with_stances(claim: Claim, stances: Sequence[JudgeStance] | None) -> Claim:
 
 
 def evidence_search(claims: Sequence[Claim]) -> EvidenceSearch:
-    """Cuenta, por el desenlace de cada afirmación, cuántas se podían buscar, se buscaron y halló la literatura."""
+    """Count, by each claim's outcome, how many could be searched, were searched and were found by the literature."""
     searched = [claim for claim in claims if claim.outcome in _SEARCHED]
     return EvidenceSearch(
         total=sum(claim.outcome != "unsearchable" for claim in claims),
@@ -117,7 +115,7 @@ def evidence_search(claims: Sequence[Claim]) -> EvidenceSearch:
 
 
 def keep_shown_sources(claims: Sequence[Claim], limit: int) -> list[Claim]:
-    """Recorta la evidencia de cada afirmación a las ``limit`` primeras fuentes distintas, las que muestra el informe."""
+    """Trim each claim's Evidence to the first ``limit`` distinct Sources, the ones the report shows."""
     shown: set[str] = set()
     for item in (item for claim in claims for item in claim.evidence):
         if len(shown) == limit:
@@ -132,7 +130,7 @@ def keep_shown_sources(claims: Sequence[Claim], limit: int) -> list[Claim]:
 
 
 def source_records(claims: Sequence[Claim]) -> list[dict]:
-    """Fuentes tal y como se guardan: una por URL, enlazada a cada afirmación que la cita con su postura."""
+    """Sources as stored, one per URL, linked to each claim that cites it with its Stance."""
     by_url: dict[str, dict] = {}
     for claim in claims:
         for item in claim.evidence:
@@ -158,7 +156,7 @@ def source_records(claims: Sequence[Claim]) -> list[dict]:
 
 
 def evidence_report(claims: Sequence[Claim]) -> dict:
-    """Resultado serializable de una búsqueda de evidencia: cada afirmación buscada con sus fuentes juzgadas."""
+    """Serialisable result of an Evidence search, each searched claim with its judged Sources."""
     return {
         "claims": [
             {
@@ -181,7 +179,7 @@ def evidence_report(claims: Sequence[Claim]) -> dict:
 
 
 def _hit(item: Evidence) -> dict:
-    """Una fuente del resultado de búsqueda; sin clave de postura si el juez no se pronunció."""
+    """One Source of the search result, without a Stance key if the judge did not rule."""
     hit = {
         "title": item.title,
         "url": item.url,
@@ -193,7 +191,7 @@ def _hit(item: Evidence) -> dict:
 
 
 def _unique_evidence(hits: Sequence[dict]) -> tuple[Evidence, ...]:
-    """Convierte los resultados de las fuentes en evidencia, conservando el primero de cada URL."""
+    """Turn the source results into Evidence, keeping the first of each URL."""
     seen: set[str] = set()
     unique: list[Evidence] = []
     for hit in hits:
@@ -214,5 +212,5 @@ def _unique_evidence(hits: Sequence[dict]) -> tuple[Evidence, ...]:
 
 
 def _usable(query: str) -> bool:
-    """Una consulta sin caracteres alfanuméricos no recupera nada."""
+    """A query without alphanumeric characters retrieves nothing."""
     return any(char.isalnum() for char in query)

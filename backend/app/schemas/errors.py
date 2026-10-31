@@ -1,4 +1,4 @@
-"""Tipos del contrato de errores estructurados de la API."""
+"""Types of the API's structured error contract."""
 
 from enum import Enum
 

@@ -1,4 +1,4 @@
-"""Webhook de Clerk: verifica la firma Svix y borra la facturación y los análisis de las cuentas eliminadas."""
+"""Clerk webhook that verifies the Svix signature and erases the billing and analyses of deleted accounts."""
 
 import json
 import logging
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class InvalidClerkWebhook(ValueError):
-    """La petición al webhook no trae un evento firmado por Clerk."""
+    """The webhook request does not carry an event signed by Clerk."""
 
 
 async def handle_webhook(
     payload: bytes, headers: Mapping[str, str], intake: AnalysisIntake
 ) -> None:
-    """Verifica la firma sobre el cuerpo crudo y aplica el evento; repetirlo no tiene efecto."""
+    """Verify the signature over the raw body and apply the event, where repeating it has no effect."""
     webhook = Webhook(get_settings().clerk_webhook_secret)
     try:
         webhook.verify(payload, dict(headers))
@@ -33,7 +33,7 @@ async def handle_webhook(
     if event_type == "user.deleted":
         user_id = (event.get("data") or {}).get("id")
         if user_id:
-            # Los análisis van antes: una Run que cierre después ya no tiene fila y no apunta Usage
+            # Analyses go first, so a Run that closes later has no row and records no Usage.
             deleted = await delete_all_user_analyses(user_id=user_id)
             await intake.cancel_runs(deleted.pending_ids)
             await billing.forget_user(user_id)

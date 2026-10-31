@@ -1,7 +1,4 @@
-"""
-Este módulo contiene la función para cargar los datos de las distintas
-particiones (train, test, validation) de HealthVer desde archivos Parquet.
-"""
+"""Load the HealthVer partitions (train, test, validation) from Parquet files."""
 
 import logging
 import os
@@ -10,23 +7,21 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Definir la ruta relativa al proyecto
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Definir la ruta a los archivos de datos con las distintas particiones
 TRAIN_PATH = os.path.join(BASE_DIR, "data", "healthver_train.parquet")
 TEST_PATH = os.path.join(BASE_DIR, "data", "healthver_test.parquet")
 VALIDATION_PATH = os.path.join(BASE_DIR, "data", "healthver_validation.parquet")
 
-# Conjunto oro escrito a mano: JSONL para poder revisar cada etiqueta en un diff
+# Hand-written gold set, JSONL so each label can be reviewed in a diff.
 GOLD_PATH = os.path.join(BASE_DIR, "data", "gold_es.jsonl")
 
-# Pares afirmación/negación sobre la misma literatura: aíslan la polaridad del juez
+# Claim and negation pairs over the same literature, which isolate the judge's polarity.
 NEGATIONS_PATH = os.path.join(BASE_DIR, "data", "negations_es.jsonl")
 
 
 def load_dataset(partition: str = "train") -> pd.DataFrame:
-    """Función para cargar una partición del dataset."""
+    """Load one partition of the dataset."""
 
     if partition == "train":
         data_path = TRAIN_PATH
@@ -55,7 +50,7 @@ def load_dataset(partition: str = "train") -> pd.DataFrame:
 
 
 def load_jsonl(path: str) -> pd.DataFrame:
-    """Carga un conjunto etiquetado en JSONL de cualquier ruta, como el reservado que no vive en el repo."""
+    """Load a labelled JSONL set from any path, like the held-out one that does not live in the repo."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"No se encontró el archivo en: {path}.")
 

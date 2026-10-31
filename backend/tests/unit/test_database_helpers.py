@@ -1,4 +1,4 @@
-"""Tests unitarios para helpers internos de la capa de persistencia (db/)."""
+"""Unit tests for the internal helpers of the persistence layer (db/)."""
 
 from datetime import date, datetime, timezone
 
@@ -20,7 +20,7 @@ from app.schemas.history import AnalysisHistoryItem, HistoryListItem
 
 
 def _use_database_url(monkeypatch, database_url: str) -> None:
-    """Hace que _build_connection_string lea una configuración controlada."""
+    """Make _build_connection_string read a controlled configuration."""
     settings = Settings(_env_file=None, database_url=database_url)  # type: ignore[call-arg]
     monkeypatch.setattr(pool_module, "get_settings", lambda: settings)
 
@@ -126,9 +126,9 @@ def test_map_history_record_handles_pending_row_with_null_results() -> None:
     assert record.explanation is None
     assert record.claims is None
     assert record.sources is None
-    # Una fila pendiente aún no ha terminado: sin instante de finalización.
+    # A pending row has not finished yet, so it has no completion instant.
     assert record.completed_at is None
-    # El listado no selecciona stage: sin esa clave, el mapeo lo deja en None.
+    # The list does not select stage, so without that key the mapping leaves it None.
     assert record.stage is None
 
 
@@ -163,7 +163,7 @@ def test_map_history_record_reads_stage_when_present() -> None:
 
 
 def test_map_history_record_reads_only_columns_the_queries_select() -> None:
-    """Si el mapeo lee una columna que las consultas no traen, esto revienta."""
+    """If the mapping reads a column the queries do not bring, this blows up."""
     row = {column: None for column in history_module._HISTORY_COLUMNS}
     row["id"] = 123
     row["user_id"] = "user-1"
@@ -175,7 +175,7 @@ def test_map_history_record_reads_only_columns_the_queries_select() -> None:
     record = history_module._map_history_record(row)
 
     assert record.analysis_id == "123"
-    # stage es la unica columna extra: solo la consulta por id la selecciona.
+    # stage is the only extra column, selected only by the by-id query.
     assert record.stage is None
 
 
@@ -203,20 +203,20 @@ def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
     assert record.analysis_id == "123"
     assert record.created_at.startswith("2026-04-10")
     assert record.evidence_coverage == 0.5
-    # El listado sí reporta la etapa: la fila 'en curso' muestra por dónde va el pipeline.
+    # The list does report the stage, since the pending row shows how far the pipeline has got.
     assert record.stage == "investigator"
     assert record.share_token == "tok_xyz"
-    # Credibilidad y veredicto se derivan de label/confidence, no viajan como columnas.
+    # Credibility and Verdict are derived from label and confidence and do not travel as columns.
     assert record.verdict == "fake"
     assert record.credibility == 19
 
 
 def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> None:
-    """Si el mapeo del listado lee una columna que la consulta no trae, esto revienta."""
+    """If the list mapping reads a column the query does not bring, this blows up."""
     row: dict[str, object] = {
         column: None for column in history_query_module._HISTORY_LIST_COLUMNS
     }
-    # La consulta aliasa LEFT(input_text, N) como input_text; el resto son columnas.
+    # The query aliases LEFT(input_text, N) as input_text and the rest are columns.
     row["input_text"] = None
     row["id"] = 123
     row["source_type"] = "text"
@@ -230,12 +230,12 @@ def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> 
 
 
 def test_history_list_query_omits_the_report_body() -> None:
-    """El listado no debe traer el informe: es carga que la tabla nunca pinta."""
+    """The list must not bring the report, a payload the table never draws."""
     projection = history_query_module._HISTORY_LIST_SELECT
 
     for column in ("explanation", "claims", "sources", "user_id", "file_data"):
         assert column not in projection
-    # El texto pegado llega recortado; buscar sigue mirando la columna completa.
+    # Pasted text arrives trimmed while search still looks at the full column.
     assert (
         f"LEFT(input_text, {history_query_module.HISTORY_LIST_TEXT_CHARS})"
         in projection
@@ -243,15 +243,15 @@ def test_history_list_query_omits_the_report_body() -> None:
 
 
 def test_history_export_query_omits_the_report_but_keeps_the_full_text() -> None:
-    """El CSV tampoco necesita el informe, pero sí el texto íntegro y la fecha de fin."""
+    """The CSV does not need the report either, but does need the full text and the end date."""
     projection = history_query_module._HISTORY_EXPORT_SELECT
 
     for column in ("explanation", "claims", "sources", "user_id", "file_data"):
         assert column not in projection
-    # Sin LEFT(): a diferencia del listado, la exportación no recorta el texto.
+    # No LEFT(), since unlike the list the Export does not trim the text.
     assert "LEFT(" not in projection
     assert "input_text" in projection
-    # completed_at alimenta la columna «Duración (s)» del CSV.
+    # completed_at feeds the CSV's «Duración (s)» column.
     assert "completed_at" in projection
 
 
@@ -413,7 +413,7 @@ def test_build_domain_breakdown_aggregates_domains_and_applies_limit() -> None:
 
 
 def test_build_domain_breakdown_excludes_uncertain_from_credibility() -> None:
-    # La fila incierta (credibilidad NULL) cuenta como frecuencia pero no en la media.
+    # The uncertain row (NULL Credibility) counts towards frequency but not the mean.
     domain_rows = [
         ("https://a.com/one", 0.8),
         ("https://a.com/two", None),

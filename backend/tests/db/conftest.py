@@ -1,10 +1,4 @@
-"""Infraestructura de las pruebas 'db': un PostgreSQL real, desechable y aislado.
-
-Resolución del servidor, en orden: la variable ``TEST_DATABASE_URL`` si está
-definida; si no, un contenedor efímero ``postgres:16-alpine`` en un puerto
-aleatorio de localhost vía Docker. Sin ninguna de las dos opciones, la suite
-se omite con un aviso claro en lugar de fallar.
-"""
+"""Disposable PostgreSQL for the 'db' tests, from ``TEST_DATABASE_URL`` or Docker, skipping the suite when neither is available."""
 
 import asyncio
 import os
@@ -20,7 +14,7 @@ from app.db.migrate import apply_migrations
 
 
 def pytest_asyncio_loop_factories(config, item):
-    """psycopg async no funciona sobre ProactorEventLoop; forzamos un selector loop."""
+    """Async psycopg does not work on ProactorEventLoop, so a selector loop is forced."""
     return {"selector": asyncio.SelectorEventLoop}
 
 
@@ -32,7 +26,7 @@ _SKIP_REASON = (
 
 
 def _wait_for_postgres(dsn: str, timeout_seconds: float) -> None:
-    """Espera a que el servidor acepte conexiones dentro del plazo dado."""
+    """Wait for the server to accept connections within the given time."""
     deadline = time.monotonic() + timeout_seconds
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -49,13 +43,13 @@ def _docker(*args: str) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(["docker", *args], capture_output=True, text=True)
     except OSError as exc:
-        # Sin CLI de docker instalada: se trata igual que un daemon apagado.
+        # Without the docker CLI installed, treat it like a stopped daemon.
         return subprocess.CompletedProcess(["docker", *args], 1, "", str(exc))
 
 
 @pytest.fixture(scope="session")
 def postgres_dsn():
-    """Devuelve el DSN de un PostgreSQL de pruebas, arrancándolo si hace falta."""
+    """Return the DSN of a test PostgreSQL, starting one if needed."""
     configured = os.environ.get("TEST_DATABASE_URL")
     if configured:
         _wait_for_postgres(configured, timeout_seconds=10)
@@ -98,23 +92,23 @@ def postgres_dsn():
 
 @pytest.fixture(scope="session")
 def database_schema(postgres_dsn):
-    """Aplica las migraciones reales de despliegue una vez por sesión."""
+    """Apply the real deployment migrations once per session."""
     apply_migrations(postgres_dsn)
     return postgres_dsn
 
 
 @pytest.fixture
 async def db_pool(database_schema, monkeypatch):
-    """Abre el pool real de la app contra el PostgreSQL de pruebas, con tabla limpia."""
+    """Open the app's real pool against the test PostgreSQL, with a clean table."""
     monkeypatch.setattr(
         pool_module, "_build_connection_string", lambda: database_schema
     )
-    # Cada test corre en su propio event loop: el pool debe nacer y morir con él.
+    # Each test runs in its own event loop, so the pool must be born and die with it.
     assert pool_module._pool is None, "Otro test dejó el pool global abierto"
     pool = await pool_module.get_pool()
     try:
         async with pool.connection() as conn:
-            # CASCADE arrastra analysis_feedback y usage_events, que referencian al historial.
+            # CASCADE takes analysis_feedback and usage_events along, which reference the History.
             await conn.execute(
                 "TRUNCATE public.analysis_history, public.billing_customers, "
                 "public.subscriptions, public.stripe_events CASCADE"
@@ -125,7 +119,7 @@ async def db_pool(database_schema, monkeypatch):
 
 
 class _FaultyCursor:
-    """Cursor real que lanza un error de psycopg en las sentencias marcadas."""
+    """Real cursor that raises a psycopg error on the marked statements."""
 
     def __init__(self, cursor, faults):
         self._cursor = cursor
@@ -148,7 +142,7 @@ class _FaultyCursor:
 
 
 class _FaultyConnection:
-    """Conexión real cuyos cursores fallan en las sentencias marcadas."""
+    """Real connection whose cursors fail on the marked statements."""
 
     def __init__(self, conn, faults):
         self._conn = conn
@@ -162,14 +156,14 @@ class _FaultyConnection:
 
 
 class DatabaseFaults:
-    """Pool real que hace fallar solo las sentencias que contienen un marcador."""
+    """Real pool that only fails the statements containing a marker."""
 
     def __init__(self, pool):
         self._pool = pool
         self.markers: list[str] = []
 
     def fail_on(self, marker: str) -> None:
-        """Hace fallar desde ahora cada sentencia SQL que contenga ``marker``."""
+        """Fail from now on every SQL statement containing ``marker``."""
         self.markers.append(marker)
 
     @asynccontextmanager
@@ -180,11 +174,11 @@ class DatabaseFaults:
 
 @pytest.fixture
 async def db_faults(db_pool):
-    """Sustituye el pool de la app por uno que falla en las sentencias marcadas."""
+    """Replace the app's pool with one that fails on the marked statements."""
     faults = DatabaseFaults(db_pool)
     pool_module._pool = faults
     try:
         yield faults
     finally:
-        # Se restaura antes de que db_pool cierre el pool real.
+        # Restored before db_pool closes the real pool.
         pool_module._pool = db_pool

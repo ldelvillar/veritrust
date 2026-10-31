@@ -1,4 +1,4 @@
-"""Escrituras de estado y etapa de un análisis y de la Usage de sus Runs; solo las usa ``app.core.analysis_lifecycle``."""
+"""Status and stage writes of an Analysis and the Usage of its Runs, used only by ``app.core.analysis_lifecycle``."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ from app.core.verdict import Verdict
 from app.db.billing import usage_this_month
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 
-# Serializa las aperturas de un mismo usuario hasta que su transacción termina.
+# Serialises one user's openings until their transaction ends.
 _LOCK_ALLOWANCE = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
 
-# La primera Run done de un análisis cuenta como analysis y cada una posterior como reanalysis.
+# An Analysis's first done Run counts as an analysis and each later one as a reanalysis.
 _RECORD_RUN_USAGE = """
     INSERT INTO public.usage_events (user_id, kind, analysis_id)
     VALUES (
@@ -32,12 +32,12 @@ _RECORD_RUN_USAGE = """
 
 
 class AllowanceExhausted(Exception):
-    """El usuario no tiene Runs libres en la Allowance de este mes; no se escribió nada."""
+    """The user has no free Runs left in this month's Allowance, and nothing was written."""
 
 
 @asynccontextmanager
 async def _transaction(context: str) -> AsyncIterator[psycopg.AsyncConnection]:
-    """Abre una transacción del pool y traduce cualquier error de psycopg a DatabaseError."""
+    """Open a pool transaction and translate any psycopg error to DatabaseError."""
     pool = await get_pool()
     try:
         async with pool.connection() as conn, conn.transaction():
@@ -49,7 +49,7 @@ async def _transaction(context: str) -> AsyncIterator[psycopg.AsyncConnection]:
 async def _claim_allowance(
     conn: psycopg.AsyncConnection, user_id: str, limits: PlanLimits
 ) -> None:
-    """Bloquea las aperturas del usuario y lanza AllowanceExhausted si su Allowance del mes está agotada."""
+    """Lock the user's openings and raise AllowanceExhausted if their month's Allowance is used up."""
     async with conn.cursor() as cur:
         await cur.execute(_LOCK_ALLOWANCE, (user_id,))
     start, end = month_window(datetime.now(UTC))
@@ -59,7 +59,7 @@ async def _claim_allowance(
 
 
 def _normalize_confidence(confidence: Any) -> float:
-    """Convierte confidence a float y valida el rango [0, 1]."""
+    """Convert confidence to float and validate the [0, 1] range."""
     try:
         value = float(confidence)
     except (TypeError, ValueError) as exc:
@@ -72,7 +72,7 @@ def _normalize_confidence(confidence: Any) -> float:
 
 
 def _coerce_optional_fraction(value: Any) -> float | None:
-    """Convierte una fracción opcional a float validando [0, 1]; ``None`` pasa tal cual."""
+    """Convert an optional fraction to float validating [0, 1], passing ``None`` through."""
     if value is None:
         return None
     try:
@@ -95,7 +95,7 @@ async def insert_pending(
     input_url: str | None,
     limits: PlanLimits,
 ) -> str:
-    """Inserta un análisis de texto o URL en estado ``pending`` si cabe en la Allowance del Plan y devuelve su id."""
+    """Insert a ``pending`` text or URL Analysis if it fits the Plan's Allowance and return its id."""
     query = """
         INSERT INTO public.analysis_history
         (user_id, source_type, origin, input_text, input_url, max_input_chars, status)
@@ -114,7 +114,7 @@ async def insert_pending(
 async def insert_pending_file(
     *, user_id: str, origin: str, filename: str, data: bytes, limits: PlanLimits
 ) -> str:
-    """Inserta un análisis de archivo en estado ``pending`` con su binario si cabe en la Allowance del Plan y devuelve su id."""
+    """Insert a ``pending`` file Analysis with its binary if it fits the Plan's Allowance and return its id."""
     query = """
         INSERT INTO public.analysis_history
         (user_id, source_type, origin, file_data, file_filename, max_input_chars, status)
@@ -138,7 +138,7 @@ async def _insert(
     user_id: str,
     limits: PlanLimits,
 ) -> str:
-    """Comprueba la Allowance y ejecuta un INSERT … RETURNING id en la misma transacción."""
+    """Check the Allowance and run an INSERT … RETURNING id in the same transaction."""
     async with _transaction(context) as conn:
         await _claim_allowance(conn, user_id, limits)
         async with conn.cursor() as cur:
@@ -158,8 +158,8 @@ async def reopen(
     from_status: Literal["failed", "done"],
     limits: PlanLimits,
 ) -> bool:
-    """Devuelve a ``pending`` un análisis propio que sigue en ``from_status`` si cabe en la Allowance del Plan; True si cambió."""
-    # created_at se reinicia para el reaper; el resultado anterior se borra para no seguir sumando en agregados.
+    """Return an own Analysis still in ``from_status`` to ``pending`` if it fits the Plan's Allowance, True if it changed."""
+    # created_at restarts for the reaper and the previous result is erased so aggregates stop counting it.
     query = """
         UPDATE public.analysis_history
         SET status = 'pending',
@@ -187,7 +187,7 @@ async def reopen(
 
 
 async def load_pending_content(analysis_id: str) -> dict[str, Any] | None:
-    """Devuelve la entrada de un análisis ``pending`` (tipo, texto, URL, archivo y tope de caracteres), o None."""
+    """Return the input of a ``pending`` Analysis (type, text, URL, file and character cap), or None."""
     query = """
         SELECT source_type, input_text, input_url, file_data, file_filename,
                max_input_chars
@@ -209,7 +209,7 @@ async def load_pending_content(analysis_id: str) -> dict[str, Any] | None:
 
 
 async def fail(*, analysis_id: str, error_code: str) -> bool:
-    """Pasa a ``failed`` un análisis que sigue ``pending``; True si cambió."""
+    """Fail an Analysis that is still ``pending``, True if it changed."""
     query = """
         UPDATE public.analysis_history
         SET status = 'failed', error_code = %s, completed_at = NOW()
@@ -223,7 +223,7 @@ async def fail(*, analysis_id: str, error_code: str) -> bool:
 
 
 async def set_stage(*, analysis_id: str, stage: str) -> bool:
-    """Registra la etapa activa de un análisis y devuelve False si ya no sigue ``pending``."""
+    """Record the active stage of an Analysis and return False if it is no longer ``pending``."""
     query = (
         "UPDATE public.analysis_history SET stage = %s "
         "WHERE id = %s AND status = 'pending'"
@@ -236,7 +236,7 @@ async def set_stage(*, analysis_id: str, stage: str) -> bool:
 
 
 async def set_input_text(*, analysis_id: str, input_text: str) -> None:
-    """Guarda el texto extraído de un archivo mientras el análisis sigue ``pending``."""
+    """Store the text extracted from a file while the Analysis is still ``pending``."""
     query = (
         "UPDATE public.analysis_history SET input_text = %s "
         "WHERE id = %s AND status = 'pending'"
@@ -256,7 +256,7 @@ async def complete(
     sources: list[dict],
     pipeline: dict,
 ) -> bool:
-    """Pasa a ``done`` con su veredicto un análisis que sigue ``pending`` y anota su Run en la Usage; True si cambió."""
+    """Move a still ``pending`` Analysis to ``done`` with its Verdict and record its Run in the Usage, True if it changed."""
     confidence_value = _normalize_confidence(verdict.confidence)
     coverage_value = _coerce_optional_fraction(verdict.evidence_coverage)
     claims = [
@@ -290,7 +290,7 @@ async def complete(
         Jsonb(pipeline) if pipeline else None,
         analysis_id,
     )
-    # El Run consume su unidad en la misma transacción: un done sin Usage es imposible.
+    # The Run consumes its unit in the same transaction, so a done without Usage is impossible.
     async with _transaction(
         "No se pudo guardar el analisis en la base de datos."
     ) as conn:
@@ -304,7 +304,7 @@ async def complete(
 
 
 async def list_stale_pending_ids(*, older_than_seconds: int) -> list[str]:
-    """Lista los ids ``pending`` más antiguos que el umbral, candidatos a huérfanos."""
+    """List the ``pending`` ids older than the threshold, the orphan candidates."""
     query = """
         SELECT id::text
         FROM public.analysis_history
@@ -330,8 +330,8 @@ async def list_stale_pending_ids(*, older_than_seconds: int) -> list[str]:
 async def fail_stale(
     *, analysis_ids: Sequence[str], older_than_seconds: int, error_code: str
 ) -> int:
-    """Pasa a ``failed`` los ids indicados si siguen ``pending`` y estancados; devuelve cuántos."""
-    # Re-verifica estado y antigüedad: un Retry entre la lectura y esta escritura reinicia created_at.
+    """Fail the given ids if they are still ``pending`` and past the age threshold, returning how many."""
+    # Recheck status and age, since a Retry between the read and this write restarts created_at.
     query = """
         UPDATE public.analysis_history
         SET status = 'failed', error_code = %s, completed_at = NOW()
@@ -356,7 +356,7 @@ async def fail_stale(
 
 
 async def _update(query: str, params: tuple[Any, ...], context: str) -> bool:
-    """Ejecuta un UPDATE y devuelve si cambió alguna fila."""
+    """Run an UPDATE and return whether any row changed."""
     pool = await get_pool()
     try:
         async with pool.connection() as conn:

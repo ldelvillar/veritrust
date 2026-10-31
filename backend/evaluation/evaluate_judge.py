@@ -1,11 +1,4 @@
-"""
-Este módulo evalúa solo el juez de evidencia: vuelve a juzgar las afirmaciones y fuentes
-candidatas grabadas en un checkpoint del pipeline, para comparar modelos de juez sobre
-la misma entrada sin ejecutar el resto del pipeline.
-
-El proveedor y el modelo del juez se eligen como en el pipeline, por entorno; p. ej.
-``LLM_PROVIDER=mistral`` o ``OLLAMA_JUDGE_MODEL=gemma4:12b``.
-"""
+"""Rejudge the claims and candidate Sources recorded in a pipeline checkpoint, without running the rest of the pipeline, to compare judge models chosen by env as in the pipeline (e.g. ``LLM_PROVIDER=mistral`` or ``OLLAMA_JUDGE_MODEL=gemma4:12b``)."""
 
 import argparse
 import json
@@ -31,7 +24,7 @@ from evaluation.evaluate_pipeline import (
 
 logger = logging.getLogger(__name__)
 
-# Orden en que el investigador reúne los resultados de las fuentes de una afirmación.
+# Order in which the investigator gathers a claim's source results.
 _SOURCE_ORDER = ("europepmc", "pubmed", "openfda", "cima")
 
 _LABELS = ("verdadera", "falsa")
@@ -41,7 +34,7 @@ _FIRM = ("supports", "contradicts")
 
 @dataclass(frozen=True)
 class JudgeCase:
-    """Una muestra grabada: su etiqueta y su afirmación con las fuentes candidatas que vio el juez."""
+    """A recorded sample, its label and its claim with the candidate Sources the judge saw."""
 
     text: str
     expected: str
@@ -49,14 +42,14 @@ class JudgeCase:
 
 
 class JudgedSource(TypedDict):
-    """Postura que dio el juez a una fuente candidata."""
+    """Stance the judge gave a candidate Source."""
 
     url: str
     stance: str
 
 
 class JudgeRow(TypedDict):
-    """Respuesta del juez para un caso y el veredicto que decide con ella."""
+    """The judge's answer for a case and the Verdict it decides with it."""
 
     text: str
     claim: str
@@ -67,7 +60,7 @@ class JudgeRow(TypedDict):
 
 @dataclass(frozen=True)
 class StanceLabel:
-    """Postura correcta de una fuente para una afirmación, etiquetada a mano."""
+    """Correct Stance of a Source for a claim, labelled by hand."""
 
     claim: str
     url: str
@@ -77,12 +70,12 @@ class StanceLabel:
 
 
 def load_cases(path: Path) -> list[JudgeCase]:
-    """Casos de un checkpoint del pipeline: las muestras de una afirmación traducida con alguna fuente candidata."""
+    """Cases of a pipeline checkpoint, the samples of one translated claim with some candidate Source."""
     cases: list[JudgeCase] = []
     rows = list(load_checkpoint(path).values())
     for row in rows:
         translated = row.get("translated") or []
-        # Con varias afirmaciones la fila no dice qué búsquedas son de cuál.
+        # With several claims the row does not say which searches belong to which.
         if len(translated) != 1 or not translated[0] or "evidence" not in row:
             continue
         calls = sorted(
@@ -107,13 +100,13 @@ def judge_cases(
     checkpoint_path: Path,
     minutes: float | None = None,
 ) -> list[JudgeRow]:
-    """Juzga los casos sin fila en el checkpoint; uno sin respuesta no se guarda y se reintenta al reanudar."""
+    """Judge the cases without a checkpoint row, where an unanswered one is not saved and is retried on resume."""
     done = cast(dict[str, JudgeRow], load_checkpoint(checkpoint_path))
     pending = [case for case in cases if case.text not in done]
     deadline = time() + minutes * 60 if minutes else None
     with checkpoint_path.open("a", encoding="utf-8") as handle:
         for i, case in enumerate(pending, start=1):
-            # Un presupuesto de tiempo deja la corrida en un punto del que se reanuda.
+            # A time budget leaves the run at a point it resumes from.
             if deadline is not None and time() > deadline:
                 logger.info(
                     "Presupuesto agotado con %d casos pendientes", len(pending) - i + 1
@@ -122,7 +115,7 @@ def judge_cases(
             stances = judge_stances(
                 prompt_text, case.claim.text_en, case.claim.evidence
             )
-            # Sin respuesta puede ser el modelo o la conexión: no se guarda como juicio.
+            # No answer may be the model or the connection, so it is not saved as a judgment.
             if stances is None:
                 logger.warning(
                     "[%d/%d] el juez no respondió; se reintentará", i, len(pending)
@@ -154,7 +147,7 @@ def judge_cases(
 
 
 def compute_judge_metrics(rows: list[JudgeRow]) -> dict:
-    """Aciertos sobre veredictos firmes y reparto de posturas según la etiqueta real."""
+    """Hits on firm Verdicts and the spread of Stances by the real label."""
     firm = [row for row in rows if kind_of(row["predicted"]) != "uncertain"]
     correct = sum(row["predicted"] == row["expected"] for row in firm)
     return {
@@ -183,7 +176,7 @@ def compute_judge_metrics(rows: list[JudgeRow]) -> dict:
 
 
 def load_stance_labels(path: Path) -> list[StanceLabel]:
-    """Lee las posturas etiquetadas a mano de un JSONL, una por par afirmación-fuente."""
+    """Read the hand-labelled Stances from a JSONL, one per claim and Source pair."""
     with path.open(encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [
@@ -199,7 +192,7 @@ def load_stance_labels(path: Path) -> list[StanceLabel]:
 
 
 def score_stances(rows: list[JudgeRow], labels: list[StanceLabel]) -> dict:
-    """Compara las posturas del juez con las etiquetadas: firmes sin base, descartes de más y polaridad invertida."""
+    """Compare the judge's Stances with the labelled ones: unfounded firm ones, extra discards and inverted polarity."""
     judged = {
         (row["claim"], source["url"]): source["stance"]
         for row in rows
@@ -220,7 +213,7 @@ def score_stances(rows: list[JudgeRow], labels: list[StanceLabel]) -> dict:
         "scored": len(scored),
         "judge_firm": sum(stance in _FIRM for _, stance in scored),
         "loose": len(loose),
-        # Las que empujan hacia el veredicto equivocado de su afirmación.
+        # The ones that push their claim towards the wrong Verdict.
         "loose_wrong_way": sum(
             (label.label, stance)
             in (("verdadera", "contradicts"), ("falsa", "supports"))
@@ -239,7 +232,7 @@ def score_stances(rows: list[JudgeRow], labels: list[StanceLabel]) -> dict:
 
 
 def format_stance_report(scores: dict) -> str:
-    """Compone el informe de posturas frente a las etiquetadas a mano."""
+    """Compose the report of Stances against the hand-labelled ones."""
 
     def share(part: int, whole: int) -> str:
         return f"{part}/{whole} ({part / whole:.1%})" if whole else f"{part}/0"
@@ -261,7 +254,7 @@ def format_stance_report(scores: dict) -> str:
 
 
 def format_judge_report(metrics: dict, run: dict, cases: int) -> str:
-    """Compone el informe del juez: la configuración, los veredictos y el reparto de posturas."""
+    """Compose the judge report: the configuration, the Verdicts and the spread of Stances."""
     lines = [
         "",
         "===== Evaluación del juez =====",
@@ -288,7 +281,7 @@ def format_judge_report(metrics: dict, run: dict, cases: int) -> str:
 
 
 def main() -> dict:
-    """Punto de entrada de script: juzga los casos grabados e imprime el informe."""
+    """Script entry point that judges the recorded cases and prints the report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--cases",
@@ -339,7 +332,7 @@ def main() -> dict:
     ensure_llm_available()
 
     prompts = load_prompts()
-    # Lo que decide las posturas: reanudar con otro juez mezclaría resultados.
+    # Run identity, since resuming with another judge would mix results.
     run = {
         "provider": get_settings().llm_provider_name(),
         "models": {"judge": configured_models()["judge"]},

@@ -1,4 +1,4 @@
-"""Persistencia de cada análisis del historial: lectura, archivo, enlace público y borrados; el estado lo escribe el ciclo de vida."""
+"""Persistence of each History Analysis: reads, file, public link and deletions, while the lifecycle writes the status."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from app.schemas.history import (
     PublicAnalysisReport,
 )
 
-# Columnas que alimenta _map_history_record: solo la consulta por id trae el informe entero.
+# Columns _map_history_record feeds on, where only the by-id query brings the whole report.
 _HISTORY_COLUMNS = (
     "id",
     "user_id",
@@ -41,16 +41,16 @@ _HISTORY_COLUMNS = (
 )
 _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
 
-# Marca la fila más antigua que la History window; sin window (NULL) nunca lo es.
+# True when the row is older than the History window, never when there is no window (NULL).
 _HIDDEN_SELECT = "created_at < %s::timestamptz AS hidden"
 
 
 class HiddenAnalysis(LookupError):
-    """El análisis existe pero queda fuera de la History window del Plan de su dueño."""
+    """The Analysis exists but falls outside the History window of its owner's Plan."""
 
 
 def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
-    """Mapea una fila SQL a un registro de historial tipado."""
+    """Map an SQL row to a typed History record."""
     return AnalysisHistoryItem(
         analysis_id=str(row["id"]),
         user_id=str(row["user_id"]),
@@ -76,13 +76,13 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         sources=row["sources"],
         file_filename=row["file_filename"],
         share_token=row["share_token"],
-        # stage no está en _HISTORY_COLUMNS: lo añade aparte la consulta por id.
+        # stage is not in _HISTORY_COLUMNS because the by-id query adds it separately.
         stage=row.get("stage"),
     )
 
 
 async def get_pending_analyses_summary(*, user_id: str) -> PendingAnalysesSummary:
-    """Cuenta los análisis ``pending`` del usuario y señala el más reciente."""
+    """Count the user's ``pending`` analyses and point at the most recent one."""
     pool = await get_pool()
 
     query = """
@@ -114,7 +114,7 @@ async def get_pending_analyses_summary(*, user_id: str) -> PendingAnalysesSummar
 async def get_user_analysis_by_id(
     *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> AnalysisHistoryItem | None:
-    """Obtiene un análisis propio por id; lanza HiddenAnalysis si es anterior a ``visible_since``."""
+    """Fetch an own Analysis by id, raising HiddenAnalysis if it is older than ``visible_since``."""
     pool = await get_pool()
 
     query = f"""
@@ -147,7 +147,7 @@ async def get_user_analysis_by_id(
 async def get_user_analysis_status(
     *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> AnalysisStatusResponse | None:
-    """Obtiene el estado y la etapa de un análisis propio; lanza HiddenAnalysis si es anterior a ``visible_since``."""
+    """Fetch the status and stage of an own Analysis, raising HiddenAnalysis if it is older than ``visible_since``."""
     pool = await get_pool()
 
     query = f"""
@@ -180,10 +180,10 @@ async def get_user_analysis_status(
 async def get_analysis_file(
     *, user_id: str, analysis_id: str, visible_since: datetime | None
 ) -> tuple[bytes, str | None] | None:
-    """Devuelve ``(file_data, file_filename)`` del archivo propio; lanza HiddenAnalysis si es anterior a ``visible_since``."""
+    """Return ``(file_data, file_filename)`` of an own file, raising HiddenAnalysis if it is older than ``visible_since``."""
     pool = await get_pool()
 
-    # Un archivo oculto no se lee: el binario puede pesar 10 MB y se descartaría.
+    # A hidden file is not read, since the binary can weigh 10 MB and would be discarded.
     query = f"""
         SELECT CASE WHEN created_at < %s::timestamptz THEN NULL ELSE file_data END,
                file_filename, {_HIDDEN_SELECT}
@@ -219,7 +219,7 @@ async def get_analysis_file(
 async def delete_user_analysis(
     *, user_id: str, analysis_id: str
 ) -> AnalysisStatus | None:
-    """Elimina un análisis propio del usuario y devuelve el estado que tenía, o None si no existía."""
+    """Delete an own Analysis of the user and return the status it had, or None if it did not exist."""
     pool = await get_pool()
 
     query = """
@@ -244,14 +244,14 @@ async def delete_user_analysis(
 
 @dataclass(frozen=True)
 class DeletedHistory:
-    """Cuántos análisis se borraron y los ids de los que seguían ``pending``."""
+    """How many analyses were deleted and the ids of those still ``pending``."""
 
     count: int
     pending_ids: list[str]
 
 
 async def delete_all_user_analyses(*, user_id: str) -> DeletedHistory:
-    """Elimina todos los análisis propios del usuario y señala cuáles tenían una Run pendiente."""
+    """Delete all of the user's own analyses and report which had a pending Run."""
     pool = await get_pool()
 
     query = """
@@ -279,11 +279,7 @@ async def delete_all_user_analyses(*, user_id: str) -> DeletedHistory:
 
 
 async def set_analysis_share_token(*, user_id: str, analysis_id: str) -> str | None:
-    """Activa el enlace público de un análisis ``done`` propio y devuelve el token.
-
-    Idempotente: si ya estaba compartido, conserva y devuelve el token existente.
-    Devuelve ``None`` si la fila no existe o no está en estado ``done``.
-    """
+    """Enable the public link of an own ``done`` Analysis and return its token, reusing any existing one, or ``None``."""
     pool = await get_pool()
     new_token = secrets.token_urlsafe(32)
 
@@ -310,7 +306,7 @@ async def set_analysis_share_token(*, user_id: str, analysis_id: str) -> str | N
 
 
 async def clear_analysis_share_token(*, user_id: str, analysis_id: str) -> bool:
-    """Desactiva el enlace público de un análisis propio. True si cambió una fila."""
+    """Turn off the public link of an own Analysis, True if a row changed."""
     pool = await get_pool()
 
     query = """
@@ -335,7 +331,7 @@ async def clear_analysis_share_token(*, user_id: str, analysis_id: str) -> bool:
 async def get_shared_analysis_by_token(
     *, token: str
 ) -> tuple[str, PublicAnalysisReport] | None:
-    """Obtiene el dueño y la vista pública de un informe compartido por su token, o ``None``."""
+    """Fetch the owner and public view of a report shared by its token, or ``None``."""
     pool = await get_pool()
 
     query = """

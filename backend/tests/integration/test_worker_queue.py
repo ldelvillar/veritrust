@@ -1,4 +1,4 @@
-"""Tests de la cola arq real sobre fakeredis: despacho por nombre, timeout y jobs desconocidos."""
+"""Tests of the real arq queue on fakeredis: dispatch by name, timeout and unknown jobs."""
 
 import asyncio
 
@@ -17,7 +17,7 @@ PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 
 @pytest.fixture(autouse=True)
 def _silence_redis_info(monkeypatch):
-    """fakeredis no implementa INFO, así que se anula el log de arranque de arq."""
+    """fakeredis does not implement INFO, so arq's startup log is disabled."""
 
     async def _noop(pool, log):
         pass
@@ -27,13 +27,13 @@ def _silence_redis_info(monkeypatch):
 
 @pytest.fixture
 def arq_pool():
-    """Pool de arq respaldado por un servidor Redis simulado en memoria."""
+    """arq pool backed by an in-memory mock Redis server."""
     fake = fakeredis.aioredis.FakeRedis(server=fakeredis.FakeServer())
     return ArqRedis(connection_pool=fake.connection_pool)
 
 
 class _RecordingRunner:
-    """Runner del ciclo de vida de mentira: registra cada Run y puede colgarse o fallar."""
+    """Fake lifecycle runner that records each Run and can hang or fail."""
 
     def __init__(self, *, hang=False, explode_on=None):
         self.runs: list[tuple] = []
@@ -52,7 +52,7 @@ class _RecordingRunner:
 
 
 def _make_worker(arq_pool, runner, **overrides) -> Worker:
-    """Construye un worker de arq en modo burst con las funciones registradas reales."""
+    """Build a burst-mode arq worker with the real registered functions."""
 
     async def startup(ctx):
         ctx["verification_system"] = object()
@@ -72,10 +72,10 @@ def _make_worker(arq_pool, runner, **overrides) -> Worker:
 
 
 async def test_enqueued_job_round_trips_through_real_arq_worker(arq_pool):
-    """El nombre y los argumentos que encola la cola de la web llegan intactos a run_analysis."""
+    """The name and arguments the web queue enqueues reach run_analysis intact."""
     runner = _RecordingRunner()
 
-    # El mismo adaptador de cola que usa el proceso web.
+    # The same queue adapter the web process uses.
     await ArqAnalysisQueue(arq_pool).enqueue(
         ANALYSIS_ID, notify_email="user@example.com"
     )
@@ -85,13 +85,13 @@ async def test_enqueued_job_round_trips_through_real_arq_worker(arq_pool):
     assert (worker.jobs_complete, worker.jobs_failed) == (1, 0)
     [(analysis_id, work, notify_email)] = runner.runs
     assert (analysis_id, notify_email) == (ANALYSIS_ID, "user@example.com")
-    # El trabajo de la Run es analyse sobre el ctx que preparó startup.
+    # The Run's work is analyse, bound to the ctx that startup prepared.
     assert work.func is worker_module.analyse
     assert work.args[0]["pipeline"] is PIPELINE
 
 
 async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(arq_pool):
-    """Dos encolados del mismo analysis_id mientras su job sigue vivo corren una sola vez."""
+    """Two enqueues of the same analysis_id while its job is alive run only once."""
     runner = _RecordingRunner()
     queue = ArqAnalysisQueue(arq_pool)
 
@@ -105,7 +105,7 @@ async def test_duplicate_enqueue_with_same_job_id_runs_the_analysis_once(arq_poo
 
 
 async def test_finished_job_without_kept_result_can_be_reenqueued(arq_pool):
-    """Con keep_result=0, una Run terminada suelta su job y el análisis puede reencolarse."""
+    """With keep_result=0 a finished Run releases its job and the Analysis can be enqueued again."""
     runner = _RecordingRunner()
     queue = ArqAnalysisQueue(arq_pool)
     keep_result = worker_module.WorkerSettings.keep_result
@@ -113,7 +113,7 @@ async def test_finished_job_without_kept_result_can_be_reenqueued(arq_pool):
     await queue.enqueue(ANALYSIS_ID, notify_email=None)
     await _make_worker(arq_pool, runner, keep_result=keep_result).main()
 
-    # Una clave arq:result: residual haría de este segundo encolado un no-op.
+    # A leftover arq:result: key would make this second enqueue a no-op.
     assert await queue.is_live(ANALYSIS_ID) is False
     await queue.enqueue(ANALYSIS_ID, notify_email=None)
     assert await queue.is_live(ANALYSIS_ID) is True
@@ -123,14 +123,14 @@ async def test_finished_job_without_kept_result_can_be_reenqueued(arq_pool):
 
 
 async def test_job_exceeding_timeout_is_cancelled_mid_run(arq_pool):
-    """Un job colgado se cancela por el corte duro de arq sin llegar a cerrar su Run."""
+    """A hung job is cancelled by arq's hard cut without closing its Run."""
     runner = _RecordingRunner(hang=True)
 
     job = await arq_pool.enqueue_job("run_analysis", analysis_id=ANALYSIS_ID)
     worker = _make_worker(arq_pool, runner, job_timeout=0.2)
     await worker.main()
 
-    # La fila sigue pending y es el cron reap_orphaned_analyses quien la recoge.
+    # The row stays pending and the reap_orphaned_analyses cron collects it.
     assert runner.finished == []
     assert worker.jobs_failed == 1
     info = await job.result_info()
@@ -140,7 +140,7 @@ async def test_job_exceeding_timeout_is_cancelled_mid_run(arq_pool):
 
 
 async def test_cancelling_a_running_job_aborts_its_run(arq_pool):
-    """Cancelar el job de una Run en curso la corta sin cerrarla y suelta el job."""
+    """Cancelling a running Run's job cuts it without closing it and releases the job."""
     runner = _RecordingRunner(hang=True)
     queue = ArqAnalysisQueue(arq_pool)
 
@@ -164,10 +164,10 @@ async def test_cancelling_a_running_job_aborts_its_run(arq_pool):
 
 
 async def test_job_with_unknown_function_name_fails_without_running(arq_pool):
-    """Un desfase de nombres web/worker falla el job en arq sin abrir ninguna Run."""
+    """A web and worker name mismatch fails the job in arq without opening any Run."""
     runner = _RecordingRunner()
 
-    # Simula un despliegue desfasado donde la web encola un nombre renombrado.
+    # Simulate a skewed deploy where the web enqueues a renamed name.
     job = await arq_pool.enqueue_job("run_analysis_v2", analysis_id=ANALYSIS_ID)
     worker = _make_worker(arq_pool, runner)
     await worker.main()
@@ -180,7 +180,7 @@ async def test_job_with_unknown_function_name_fails_without_running(arq_pool):
 
 
 async def test_worker_survives_a_failing_job_and_processes_the_next_one(arq_pool):
-    """Una excepción que escapa de un job no tumba el worker ni bloquea la cola."""
+    """An exception escaping a job neither kills the worker nor blocks the queue."""
     runner = _RecordingRunner(explode_on=ANALYSIS_ID)
     queue = ArqAnalysisQueue(arq_pool)
 
@@ -189,7 +189,7 @@ async def test_worker_survives_a_failing_job_and_processes_the_next_one(arq_pool
     worker = _make_worker(arq_pool, runner)
     await worker.main()
 
-    # arq no garantiza orden ante empate de score; lo que importa es que ambos corran.
+    # arq does not guarantee order on a score tie, and what matters is that both run.
     assert sorted(run[0] for run in runner.runs) == [ANALYSIS_ID, HEALTHY_ID]
     assert (worker.jobs_complete, worker.jobs_failed) == (1, 1)
     assert runner.finished == [HEALTHY_ID]

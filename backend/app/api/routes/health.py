@@ -1,4 +1,4 @@
-"""Endpoint de readiness para load balancers."""
+"""Readiness endpoint for load balancers."""
 
 import asyncio
 import logging
@@ -14,7 +14,7 @@ _HEALTHCHECK_TIMEOUT_SECONDS = 2.0
 
 
 async def _check_database() -> None:
-    """Comprueba que la base de datos responde con una consulta trivial."""
+    """Check that the database answers a trivial query."""
     pool = await get_pool()
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
@@ -22,7 +22,7 @@ async def _check_database() -> None:
 
 
 async def _check_redis(redis: object) -> None:
-    """Comprueba que Redis responde a un PING."""
+    """Check that Redis answers a PING."""
     await redis.ping()  # type: ignore[attr-defined]
 
 

@@ -1,7 +1,4 @@
-"""
-Este módulo define un agente de captura de información que extrae las afirmaciones importantes
-de un texto largo para su posterior análisis por parte de un agente experto en salud.
-"""
+"""Extractor agent that pulls the medical claims out of a long text for the health expert to analyse."""
 
 import logging
 from functools import lru_cache
@@ -57,7 +54,7 @@ class MedicalStatements(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_extractor_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
-    """Devuelve la cadena de extracción configurada y cacheada."""
+    """Return the configured, cached extraction chain."""
     llm = build_chat_model("extractor")
     structured_llm = llm.with_structured_output(MedicalStatements)
 
@@ -71,14 +68,11 @@ def get_extractor_chain(prompt_text: str) -> Runnable[dict[str, Any], Any]:
 
 
 def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
-    """
-    Recibe el estado actual, ejecuta la extracción y devuelve el estado actualizado.
-    """
+    """Take the current state, run the extraction and return the updated state."""
     logger.info("[Extractor] Analizando el texto en busca de afirmaciones médicas")
 
     input_text = state.get("input_text", "")
 
-    # Ejecutar la cadena
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})
 
@@ -94,5 +88,4 @@ def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
 
     logger.info("[Extractor] Se extrajeron %d afirmaciones", len(claims))
 
-    # Devolver la parte del estado que este agente es responsable de actualizar
     return {"claims": claims}

@@ -1,4 +1,4 @@
-"""Tests de la evaluación del juez sobre casos grabados, con el juez simulado."""
+"""Tests of the judge evaluation on recorded cases, with the judge mocked."""
 
 import json
 import sys
@@ -50,7 +50,7 @@ def _write(path: Path, *rows: dict) -> Path:
 
 
 def _case(text: str, expected: str, *keys: str) -> ej.JudgeCase:
-    """Caso cuya afirmación en inglés es ``<text> EN``, con una fuente candidata por clave."""
+    """Case whose English claim is ``<text> EN``, with one candidate Source per key."""
     claim = with_hits(
         Claim(index=0, text=text, text_en=f"{text} EN"), [_hit(k) for k in keys]
     )
@@ -65,7 +65,7 @@ def test_load_cases_rebuilds_the_candidates_in_the_investigators_order(tmp_path)
             "A",
             "falsa",
             ["A EN"],
-            # Grabadas en el orden en que terminaron los hilos, no en el de las fuentes.
+            # Recorded in the order the threads finished, not in source order.
             [
                 _call("cima", "C1"),
                 _call("pubmed", "P1", "E1"),
@@ -79,7 +79,7 @@ def test_load_cases_rebuilds_the_candidates_in_the_investigators_order(tmp_path)
 
     assert (case.text, case.expected) == ("A", "falsa")
     assert (case.claim.text, case.claim.text_en) == ("A (extraída)", "A EN")
-    # Europe PMC, PubMed, openFDA y CIMA; una URL repetida cuenta una vez.
+    # Europe PMC, PubMed, openFDA and CIMA, where a repeated URL counts once.
     assert [item.url for item in case.claim.evidence] == [
         "https://e.org/E1",
         "https://e.org/E2",
@@ -140,12 +140,12 @@ def test_judge_cases_saves_each_answer_with_the_verdict_it_decides(
         ("A", "A", "verdadera"),
         ("B", "B", "falsa"),
     ]
-    # Cada postura queda con la URL de su fuente, no por posición.
+    # Each Stance stays with its Source's URL, not by position.
     assert rows[1]["sources"] == [
         {"url": "https://e.org/3", "stance": "contradicts"},
         {"url": "https://e.org/4", "stance": "contradicts"},
     ]
-    # Un caso sin respuesta no queda guardado: se reintenta al reanudar.
+    # An unanswered case is not saved, so it is retried on resume.
     saved = [json.loads(line)["text"] for line in checkpoint.read_text().splitlines()]
     assert saved == ["A", "B"]
 
@@ -180,7 +180,7 @@ def test_judge_cases_stops_starting_cases_once_the_time_budget_runs_out(
         "judge_stances",
         _fake_judge({"A EN": ("supports",), "B EN": ("supports",)}, calls),
     )
-    # El plazo se fija en t=0; el primer caso empieza en t=0 y el segundo en t=61 s.
+    # The deadline is set at t=0, the first case starts at t=0 and the second at t=61 s.
     clock = iter([0.0, 0.0, 61.0])
     monkeypatch.setattr(ej, "time", lambda: next(clock))
 
@@ -250,12 +250,12 @@ def test_format_judge_report_names_the_judge_and_the_stance_ratio():
     assert "Juzgados  : 2/3" in report
     assert "falsa      supports    2 · contradicts    1" in report
     assert "s:c 2.00" in report
-    # Sin ningún contradicts la razón no tiene denominador.
+    # Without any contradicts the ratio has no denominator.
     assert "s:c ∞" in report
 
 
 def _offline(monkeypatch) -> None:
-    """Sustituye lo que main consulta fuera del proceso: el LLM, git y la configuración."""
+    """Replace what main queries outside the process: the LLM, git and the configuration."""
     monkeypatch.setattr(ej, "ensure_llm_available", lambda: None)
     monkeypatch.setattr(ej, "git_describe", lambda: "abc1234")
     monkeypatch.setattr(
@@ -324,13 +324,13 @@ def test_score_stances_separates_loose_strict_and_inverted_stances():
     )
     claim = row["claim"]
     labels = [
-        # Firme sin base, hacia el veredicto equivocado.
+        # Unfounded firm Stance, towards the wrong Verdict.
         _label(claim, "0", "verdadera", "inconclusive", "off_point"),
-        # Firme sin base, en la dirección de la etiqueta.
+        # Unfounded firm Stance, in the label's direction.
         _label(claim, "1", "verdadera", "unrelated", "indirect"),
         _label(claim, "2", "verdadera", "supports", "on_point"),
         _label(claim, "3", "verdadera", "contradicts", "on_point"),
-        # Una fuente que el juez no vio no se puntúa.
+        # A Source the judge did not see is not scored.
         _label(claim, "9", "verdadera", "supports", "on_point"),
     ]
 

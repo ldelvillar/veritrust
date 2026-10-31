@@ -1,4 +1,4 @@
-"""Esquemas de facturación: el Plan del usuario con su Usage, Checkout y portal de cliente."""
+"""Billing schemas: the user's Plan with its Usage, Checkout and customer portal."""
 
 from datetime import datetime
 

@@ -1,4 +1,4 @@
-"""Configuración centralizada de la aplicación, cargada y validada desde el entorno."""
+"""Centralised application configuration, loaded and validated from the environment."""
 
 from functools import lru_cache
 
@@ -6,11 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SettingsValidationError(RuntimeError):
-    """La configuración de la aplicación es inválida o está incompleta."""
+    """The application configuration is invalid or incomplete."""
 
 
 class Settings(BaseSettings):
-    """Configuración de servicio leída del entorno (y de un .env si existe)."""
+    """Service configuration read from the environment and from a .env file if present."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -19,27 +19,23 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Base de datos
     database_url: str = ""
 
-    # Entorno y CORS
     environment: str = "production"
-    log_format: str = "text"  # "json" emite una línea JSON por registro (Cloud Logging)
+    log_format: str = "text"  # "json" emits one JSON line per record (Cloud Logging).
     cors_allowed_origins: str = ""
     cors_allow_credentials: bool = True
 
-    # Ollama
     ollama_base_url: str = "http://localhost:11434"
 
-    # Modelos de Ollama por agente
     ollama_extractor_model: str = "llama3"
     ollama_translator_model: str = "translategemma"
     ollama_health_expert_model: str = "llama3.2"
     ollama_judge_model: str = "ministral-3:14b"
 
-    # Tope por llamada al LLM; una llamada lenta falla en vez de agotar todo el job
+    # Per-call LLM cap, so a slow call fails instead of exhausting the whole job.
     ollama_request_timeout_seconds: int = 240
-    # Ventana de contexto (num_ctx) y tope de generación (num_predict) por agente
+    # Context window (num_ctx) and generation cap (num_predict) per agent.
     ollama_extractor_num_ctx: int = 8192
     ollama_extractor_num_predict: int = 1024
     ollama_translator_num_ctx: int = 4096
@@ -49,132 +45,126 @@ class Settings(BaseSettings):
     ollama_judge_num_ctx: int = 8192
     ollama_judge_num_predict: int = 512
 
-    # Proveedor de los LLM: "ollama" (local), "mistral", "groq", "google" o "nvidia"
+    # LLM provider: "ollama" (local), "mistral", "groq", "google" or "nvidia".
     llm_provider: str = "ollama"
 
-    # Mistral; la api_key es obligatoria cuando llm_provider es "mistral"
+    # The api_key is required when llm_provider is "mistral".
     mistral_api_key: str | None = None
     mistral_extractor_model: str = "mistral-small-latest"
     mistral_translator_model: str = "mistral-small-latest"
     mistral_health_expert_model: str = "mistral-small-latest"
     mistral_judge_model: str = "mistral-small-latest"
-    # La ventana de contexto la fija el servidor; solo se acota la generación
+    # The server fixes the context window, so only generation is capped.
     mistral_max_tokens: int = 2048
     mistral_request_timeout_seconds: int = 60
-    # Reintentos ante 429 y 5xx: el límite de peticiones del workspace corta las ráfagas
+    # Retries on 429 and 5xx, since the workspace request limit cuts bursts.
     mistral_max_retries: int = 5
 
-    # Groq; la api_key es obligatoria cuando llm_provider es "groq"
-    # Un modelo por rol: la cuota diaria de tokens de Groq es por modelo
+    # The api_key is required when llm_provider is "groq", and each role gets its own model since Groq's daily token quota is per model.
     groq_api_key: str | None = None
     groq_extractor_model: str = "openai/gpt-oss-20b"
     groq_translator_model: str = "qwen/qwen3.8-27b"
     groq_health_expert_model: str = "qwen/qwen3.6-27b"
     groq_judge_model: str = "openai/gpt-oss-120b"
-    # La ventana de contexto la fija el servidor; solo se acota la generación
+    # The server fixes the context window, so only generation is capped.
     groq_max_tokens: int = 2048
     groq_request_timeout_seconds: int = 60
-    # El plan gratuito corta a 8000 tokens/min; reintentar absorbe el 429
+    # The free plan caps at 8000 tokens/min, so retrying absorbs the 429.
     groq_max_retries: int = 5
-    # La cuota diaria de Groq es por modelo: rotar reparte la carga del juez
+    # Groq's daily quota is per model, so rotating spreads the judge's load.
     groq_judge_model_rotation: str = ""
 
-    # Google AI Studio; la api_key es obligatoria cuando llm_provider es "google"
+    # The api_key is required when llm_provider is "google".
     google_api_key: str | None = None
     google_extractor_model: str = "gemini-3.5-flash"
     google_translator_model: str = "gemini-3.5-flash"
     google_health_expert_model: str = "gemini-3.5-flash"
     google_judge_model: str = "gemini-3.5-flash"
-    # La ventana de contexto la fija el servidor; solo se acota la generación
+    # The server fixes the context window, so only generation is capped.
     google_max_tokens: int = 2048
     google_request_timeout_seconds: int = 60
     google_max_retries: int = 5
 
-    # NVIDIA NIM; la api_key es obligatoria cuando llm_provider es "nvidia"
+    # The api_key is required when llm_provider is "nvidia".
     nvidia_api_key: str | None = None
     nvidia_extractor_model: str = "nvidia/nemotron-3-super-120b-a12b"
     nvidia_translator_model: str = "nvidia/nemotron-3-super-120b-a12b"
     nvidia_health_expert_model: str = "nvidia/nemotron-3-super-120b-a12b"
     nvidia_judge_model: str = "nvidia/nemotron-3-super-120b-a12b"
-    # La ventana de contexto la fija el servidor; solo se acota la generación
+    # The server fixes the context window, so only generation is capped.
     nvidia_max_tokens: int = 2048
     nvidia_request_timeout_seconds: int = 60
 
-    # El informe del experto no decide la etiqueta: se apaga al evaluar para ahorrar tokens
+    # The expert's report does not decide the label, so it is turned off during evaluation to save tokens.
     health_expert_explanation_enabled: bool = True
 
-    # Prompts de los agentes (ruta a un YAML; si no se define, usa el del paquete)
+    # Path to an agent prompts YAML, falling back to the packaged one when unset.
     prompt_file_path: str | None = None
 
-    # Europe PMC
     europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     europepmc_timeout_seconds: int = 10
 
-    # PubMed (NCBI E-utilities); la api_key solo amplía el límite de peticiones
+    # PubMed's api_key only raises the request limit.
     pubmed_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
     pubmed_timeout_seconds: int = 10
     pubmed_api_key: str | None = None
 
-    # openFDA (fichas de medicamentos); la api_key solo amplía el límite de peticiones
+    # openFDA's api_key only raises the request limit.
     openfda_base_url: str = "https://api.fda.gov"
     openfda_timeout_seconds: int = 10
     openfda_api_key: str | None = None
 
-    # AEMPS CIMA (medicamentos españoles: ficha técnica)
     cima_base_url: str = "https://cima.aemps.es/cima/rest"
     cima_timeout_seconds: int = 10
 
-    # Redis / cola de trabajos (arq)
     redis_url: str = "redis://localhost:6379"
 
-    # Cola de análisis (arq)
-    analysis_job_timeout_seconds: int = 900  # 15 min: presupuesto del pipeline
-    analysis_stale_after_seconds: int = 300  # 5 min: reaper, solo filas sin job vivo
-    worker_max_jobs: int = 1  # Análisis concurrentes por worker
+    analysis_job_timeout_seconds: int = 900  # 15 min pipeline budget.
+    # Can sit below the job timeout, since the reaper only fails rows with no live job.
+    analysis_stale_after_seconds: int = 300
+    worker_max_jobs: int = 1
 
-    # Rate limiting (POST /analysis, por usuario)
+    # Per-user rate limit for POST /analysis.
     rate_limit_max_requests: int = 5
     rate_limit_window_seconds: int = 60
 
-    # Rate limiting (POST /contact, por IP; perfil anti-spam de email)
+    # Per-IP rate limit for POST /contact, an email anti-spam profile.
     contact_rate_limit_max_requests: int = 5
     contact_rate_limit_window_seconds: int = 3600
 
-    # Subida de archivos (POST /analysis/file)
-    max_file_bytes: int = 10 * 1024 * 1024  # 10 MB
+    max_file_bytes: int = 10 * 1024 * 1024
 
-    # Autenticación
     clerk_jwks_url: str | None = None
     clerk_issuer: str | None = None
     clerk_audience: str | None = None
-    # Clave secreta del Backend API de Clerk, con la que se verifican las claves API (ak_…)
+    # Clerk Backend API secret key, used to verify API keys (ak_…).
     clerk_secret_key: str = ""
     clerk_api_base_url: str = "https://api.clerk.com/v1"
-    # Secreto de firma (whsec_…) del webhook con que Clerk avisa de las cuentas eliminadas
+    # Signing secret (whsec_…) of the webhook Clerk uses to report deleted accounts.
     clerk_webhook_secret: str = ""
 
-    # Notificaciones por email (Resend); obligatorias fuera de desarrollo, donde sin api_key no se envía nada
+    # Resend email notifications, required outside development, where nothing is sent without an api_key.
     resend_api_key: str = ""
     resend_from_email: str = ""
     resend_base_url: str = "https://api.resend.com"
-    # Origen público del frontend, para construir el enlace al informe en el email
+    # Public frontend origin, to build the report link in the email.
     app_base_url: str | None = None
-    # Buzón del equipo al que llegan los formularios de contacto y demo; obligatorio en la web fuera de desarrollo
+    # Team inbox for the contact and demo forms, required by the web process outside development.
     contact_to_email: str = ""
 
-    # Stripe (planes de pago): clave secreta, secreto de firma del webhook e ids de los precios Pro
+    # Stripe secret key, webhook signing secret and Pro price ids.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_price_pro_monthly: str = ""
     stripe_price_pro_yearly: str = ""
 
-    # Servidor MCP: URL pública del endpoint (termina en /mcp), identificador del recurso OAuth
+    # Public URL of the MCP endpoint (ends in /mcp), the OAuth resource identifier.
     mcp_resource_url: str | None = None
-    # Espera máxima de una llamada MCP antes de responder que el trabajo sigue en curso
+    # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
 
     def cors_origins(self) -> list[str]:
-        """Lista de orígenes permitidos; cae a localhost solo en desarrollo."""
+        """List of allowed origins, falling back to localhost only in development."""
         raw = self.cors_allowed_origins
         if not raw.strip() and self.is_development():
             raw = "http://localhost:3000"
@@ -182,7 +172,7 @@ class Settings(BaseSettings):
 
     @property
     def expected_issuer(self) -> str | None:
-        """Issuer esperado de Clerk: explícito o derivado del JWKS URL."""
+        """Expected Clerk issuer, explicit or derived from the JWKS URL."""
         issuer = (self.clerk_issuer or "").strip()
         if issuer:
             return issuer
@@ -195,7 +185,7 @@ class Settings(BaseSettings):
         return None
 
     def expected_audience(self) -> str | list[str] | None:
-        """Audiencia esperada de Clerk; lista si hay varias, str si hay una."""
+        """Expected Clerk audience, a list if there are several and a str if there is one."""
         raw = (self.clerk_audience or "").strip()
         if not raw:
             return None
@@ -204,21 +194,21 @@ class Settings(BaseSettings):
         return audiences if len(audiences) > 1 else audiences[0]
 
     def groq_judge_models(self) -> list[str]:
-        """Modelos entre los que rota el juez; vacía significa no rotar."""
+        """Models the judge rotates between, where empty means no rotation."""
         return [
             m.strip() for m in self.groq_judge_model_rotation.split(",") if m.strip()
         ]
 
     def is_development(self) -> bool:
-        """Indica si el proceso corre con ENVIRONMENT=development."""
+        """Tell whether the process runs with ENVIRONMENT=development."""
         return self.environment.strip().lower() == "development"
 
     def llm_provider_name(self) -> str:
-        """Devuelve el proveedor de LLM normalizado en minúsculas."""
+        """Return the LLM provider normalised to lowercase."""
         return self.llm_provider.strip().lower()
 
     def validate_runtime(self, *, web: bool = True) -> None:
-        """Valida la configuración obligatoria; el worker pasa web=False y omite lo exclusivo de la web."""
+        """Validate the required configuration, where the worker passes web=False and skips web-only settings."""
         missing: list[str] = []
 
         provider = self.llm_provider_name()
@@ -245,7 +235,7 @@ class Settings(BaseSettings):
             missing.append("CORS_ALLOWED_ORIGINS")
         if not self.app_base_url:
             missing.append("APP_BASE_URL")
-        # Sin Resend, los avisos de análisis se perderían en silencio y los formularios responderían 503
+        # Without Resend, analysis notices would be silently lost and the forms would answer 503.
         if not self.is_development():
             if not self.resend_api_key.strip():
                 missing.append("RESEND_API_KEY")
@@ -283,5 +273,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Devuelve la configuración cacheada, construyéndola bajo demanda."""
+    """Return the cached configuration, building it on demand."""
     return Settings()

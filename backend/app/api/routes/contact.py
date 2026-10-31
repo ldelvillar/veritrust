@@ -1,4 +1,4 @@
-"""Endpoint público (sin autenticación) que envía por email los formularios de contacto/demo."""
+"""Public, unauthenticated endpoint that emails the contact and demo forms."""
 
 from fastapi import APIRouter, Depends, HTTPException
 

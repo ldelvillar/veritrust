@@ -1,4 +1,4 @@
-"""Tests unitarios para el módulo de carga de datos."""
+"""Unit tests for the data loading module."""
 
 import pandas as pd
 import pytest
@@ -52,7 +52,7 @@ def test_load_jsonl_raises_when_file_does_not_exist(tmp_path) -> None:
 def test_negations_set_pairs_each_claim_with_its_negation() -> None:
     df = load_data.load_dataset("negations")
 
-    # Cada tema tiene su versión afirmativa y la negada, con etiquetas opuestas.
+    # Each topic has its affirmative and negated version, with opposite labels.
     for _, pair in df.groupby("topic"):
         assert sorted(pair["negated"]) == [False, True]
         assert sorted(pair["label"]) == [0, 1]

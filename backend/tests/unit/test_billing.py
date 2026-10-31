@@ -1,4 +1,4 @@
-"""Pruebas del adaptador de Stripe (``app/core/billing.py``) con un cliente y una BD de mentira."""
+"""Tests of the Stripe adapter (``app/core/billing.py``) with a fake client and DB."""
 
 import hashlib
 import hmac
@@ -20,7 +20,7 @@ PERIOD_END = 1_798_761_600
 
 
 class _Service:
-    """Servicio de Stripe de mentira que registra los parámetros de cada llamada."""
+    """Fake Stripe service that records each call's parameters."""
 
     def __init__(self, result=None):
         self.result = result
@@ -41,7 +41,7 @@ class _Service:
 
 
 class _CheckoutSessions(_Service):
-    """Sesiones de Checkout de mentira, con las abiertas del cliente y las que caducan."""
+    """Fake Checkout sessions, with the customer's open ones and the expiring ones."""
 
     def __init__(self, result):
         super().__init__(result)
@@ -57,7 +57,7 @@ class _CheckoutSessions(_Service):
 
 
 class _Subscriptions(_Service):
-    """Subscriptions de mentira: las que lista el cliente y las que se cancelan."""
+    """Fake Subscriptions, the ones the customer lists and the cancelled ones."""
 
     def __init__(self, result):
         super().__init__(result)
@@ -76,7 +76,7 @@ class _Subscriptions(_Service):
 
 
 class _FakeStripe:
-    """StripeClient de mentira; la verificación de firmas es la real del SDK."""
+    """Fake StripeClient, where signature verification is the SDK's real one."""
 
     def __init__(self):
         self.customers = _Service(SimpleNamespace(id="cus_new"))
@@ -95,7 +95,7 @@ class _FakeStripe:
 
 
 class _FakeBillingDb:
-    """Tablas de facturación en memoria con la misma interfaz que ``app.db.billing``."""
+    """In-memory billing tables with the same interface as ``app.db.billing``."""
 
     def __init__(self):
         self.customers: dict[str, str] = {}
@@ -296,7 +296,7 @@ async def test_subscription_event_refetches_and_stores_the_subscription(
     fake_stripe.subscriptions.result = _subscription(
         status="past_due", cancel_at=PERIOD_END
     )
-    # El objeto embebido está desfasado: solo se usa su id.
+    # The embedded object is stale, so only its id is used.
     payload, signature = _signed(
         "customer.subscription.updated", {"id": "sub_1", "status": "active"}
     )
@@ -455,7 +455,7 @@ async def test_forget_user_cancels_every_live_subscription_then_deletes_the_rows
     assert fake_stripe.subscriptions.list_params == [
         {"customer": "cus_1", "limit": 100}
     ]
-    # Stripe no deja cancelar las ya terminadas: se saltan.
+    # Stripe does not allow cancelling ended ones, so they are skipped.
     assert fake_stripe.subscriptions.cancelled == ["sub_active", "sub_past_due"]
     assert fake_db.forgotten == [USER]
 

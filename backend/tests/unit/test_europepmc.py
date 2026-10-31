@@ -1,4 +1,4 @@
-"""Tests del cliente de Europe PMC con la red mockeada."""
+"""Tests of the Europe PMC client with the network mocked."""
 
 import pytest
 import requests

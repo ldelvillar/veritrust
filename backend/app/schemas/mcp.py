@@ -1,4 +1,4 @@
-"""Esquemas de salida estructurada de las herramientas del servidor MCP."""
+"""Structured output schemas of the MCP server tools."""
 
 from typing import List, Literal, Optional
 
@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from app.core.verdict import VerdictKind
 from app.schemas.history import ClaimItem, SourceItem, Stance
 
-# Tope del resumen devuelto: la ficha técnica de CIMA puede ocupar decenas de miles de caracteres.
+# Cap on the returned abstract, since a CIMA summary of product characteristics can run to tens of thousands of characters.
 MAX_ABSTRACT_CHARS = 1500
-# Vida en Redis del resultado de una búsqueda de evidencia, para retomarla con get_evidence.
+# Redis lifetime of an Evidence search result, to resume it with get_evidence.
 EVIDENCE_RESULT_TTL_SECONDS = 3600
 
 

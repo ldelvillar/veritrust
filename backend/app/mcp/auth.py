@@ -1,4 +1,4 @@
-"""Verificación de los access tokens OAuth de Clerk que presentan los clientes MCP."""
+"""Verification of the Clerk OAuth access tokens MCP clients present."""
 
 import asyncio
 import logging
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _decode_oauth_token(token: str) -> AccessToken | None:
-    """Valida firma, emisor y caducidad de un access token OAuth de Clerk."""
+    """Validate the signature, issuer and expiry of a Clerk OAuth access token."""
     issuer = get_settings().expected_issuer
     if not issuer:
         logger.error(
@@ -60,8 +60,8 @@ def _decode_oauth_token(token: str) -> AccessToken | None:
 
 
 class ClerkOAuthTokenVerifier:
-    """Verificador de tokens del SDK MCP respaldado por el JWKS de Clerk."""
+    """MCP SDK token verifier backed by Clerk's JWKS."""
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        """Devuelve el token verificado o ``None`` si no es un access token OAuth válido."""
+        """Return the verified token, or ``None`` if it is not a valid OAuth access token."""
         return await asyncio.to_thread(_decode_oauth_token, token)

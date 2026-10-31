@@ -1,8 +1,4 @@
-"""
-Este módulo define un agente experto en salud que obtiene el veredicto de la postura de la
-literatura biomédica recuperada y lo explica a quien verifica el contenido con terminología
-médica rigurosa.
-"""
+"""Health expert agent that takes the Verdict from the Stance of the retrieved literature and explains it in rigorous medical terms."""
 
 import logging
 from collections.abc import Sequence
@@ -21,10 +17,9 @@ from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
-# Alias interno hacia la neutralización compartida de marcadores.
 _neutralize_delimiters = sanitize.neutralize_delimiters
 
-# Postura del juez tal como la lee el experto.
+# Spanish phrase the evidence block uses for each Stance.
 _STANCE_LABEL = {
     "supports": "respalda",
     "contradicts": "contradice",
@@ -33,7 +28,7 @@ _STANCE_LABEL = {
 
 
 def _build_evidence_block(prompt: HealthExpertPrompt, claims: Sequence[Claim]) -> str:
-    """Formatea cada fuente mostrada con su postura y su resumen como DATOS para fundamentar el informe."""
+    """Format each shown Source with its Stance and abstract as DATA to ground the report."""
     lines = []
     for claim in claims:
         statement = _neutralize_delimiters(claim.text)
@@ -62,15 +57,12 @@ def _build_evidence_block(prompt: HealthExpertPrompt, claims: Sequence[Claim]) -
 
 @lru_cache(maxsize=1)
 def get_health_expert_llm() -> BaseChatModel:
-    """Devuelve el LLM del experto en salud configurado y cacheado."""
+    """Return the configured, cached health expert LLM."""
     return build_chat_model("health_expert")
 
 
 def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
-    """
-    Recibe las afirmaciones extraídas, las verifica contra la postura de la
-    literatura recuperada y redacta el informe médico con el LLM configurado.
-    """
+    """Check the extracted claims against the Stance of the retrieved literature and write the medical report with the configured LLM."""
     logger.info("[Experto] Evaluando afirmaciones y redactando informe médico")
 
     claims = state.get("shown_claims", [])
@@ -78,17 +70,15 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
     if not claims:
         return {"verdict": None, "medical_explanation": ""}
 
-    # Instanciar el LLM
     llm = get_health_expert_llm()
 
-    # Definir el prompt de sistema
     prompt = prompts.health_expert
     system_prompt = SystemMessage(content=prompt.text)
 
-    # La postura de la literatura es la unica fuente del veredicto.
+    # The Stance of the literature is the only source of the Verdict.
     verdict = decide(claims, state["evidence_search"])
 
-    # Cada afirmación con su veredicto: el informe debe decir cuáles son falsas.
+    # Each claim with its Verdict, so the report can say which ones are false.
     all_statements = "".join(
         f"- Afirmacion: '{_neutralize_delimiters(claim.text)}' (veredicto: {claim.label})\n"
         for claim in verdict.claims
@@ -96,8 +86,7 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
 
     evidence_block = _build_evidence_block(prompt, claims)
 
-    # Un veredicto incierto no debe presentarse como una conclusión firme: el
-    # informe debe explicar la ambigüedad, no afirmar que es verdadero o falso.
+    # An uncertain Verdict must not read as a firm conclusion, so the report explains the ambiguity.
     if verdict.kind == "uncertain":
         verdict_line = prompt.verdict_uncertain
         closing_line = prompt.closing_uncertain
@@ -109,7 +98,6 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
             prompt.closing_mixed if verdict.kind == "mixed" else prompt.closing_certain
         )
 
-    # Construir el prompt para el LLM con todo el contexto.
     expert_message = HumanMessage(
         content=prompt.user_message.format(
             verdict_line=verdict_line,
@@ -119,7 +107,7 @@ def health_expert(state: AgentState, prompts: Prompts) -> AgentState:
         )
     )
 
-    # El informe no decide la etiqueta: al evaluar se omite para no gastar tokens.
+    # The report does not decide the label, so evaluation skips it to save tokens.
     if get_settings().health_expert_explanation_enabled:
         logger.info("[Experto] Generando explicación médica")
         medical_explanation = str(llm.invoke([system_prompt, expert_message]).content)

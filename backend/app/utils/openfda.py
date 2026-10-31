@@ -1,4 +1,4 @@
-"""Cliente del API openFDA para recuperar fichas de medicamentos (drug labels)."""
+"""openFDA API client that retrieves drug labels."""
 
 import logging
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 _LABEL_PATH = "/drug/label.json"
 _DAILYMED_URL = "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid="
 
-# Secciones de la ficha que sirven al juez; las fichas actuales avisan en warnings_and_cautions.
+# Label sections that serve the judge, where current labels warn in warnings_and_cautions.
 _ABSTRACT_SECTIONS = (
     "purpose",
     "indications_and_usage",
@@ -27,14 +27,14 @@ _ABSTRACT_SECTIONS = (
 
 
 def _first(values: object) -> str:
-    """Devuelve el primer elemento de un campo openFDA (siempre un array)."""
+    """Return the first element of an openFDA field, which is always an array."""
     if isinstance(values, list) and values:
         return str(values[0]).strip()
     return ""
 
 
 def _build_abstract(result: dict) -> str | None:
-    """Une las secciones clave de la ficha, cada una recortada, en un resumen para el juez."""
+    """Join the key label sections, each trimmed, into a summary for the judge."""
     parts: list[str] = []
     for section in _ABSTRACT_SECTIONS:
         value = result.get(section)
@@ -44,10 +44,7 @@ def _build_abstract(result: dict) -> str | None:
 
 
 def _map_result(result: dict) -> dict:
-    """Mapea una ficha de openFDA a los metadatos que persistimos.
-
-    El ``abstract`` es transitorio: solo se usa para juzgar la relevancia.
-    """
+    """Map an openFDA label to the metadata we persist, where the ``abstract`` is transient and only used to judge relevance."""
     openfda = result.get("openfda") or {}
     title = _first(openfda.get("brand_name")) or _first(openfda.get("generic_name"))
     set_id = str(result.get("set_id") or "").strip()
@@ -64,12 +61,7 @@ def _map_result(result: dict) -> dict:
 
 
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
-    """Busca fichas de medicamentos en openFDA para ``query`` y devuelve metadatos.
-
-    Lanza ``EvidenceRetrievalError`` ante fallos de red o respuestas no parseables;
-    el nodo investigador la captura y degrada con elegancia. Una búsqueda sin
-    resultados devuelve 404 en openFDA: se trata como lista vacía, no como error.
-    """
+    """Search openFDA drug labels for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()
     if not cleaned:
         return []
@@ -86,7 +78,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
             timeout=settings.openfda_timeout_seconds,
             headers={"Accept": "application/json"},
         )
-        # openFDA responde 404 cuando no hay coincidencias: no es un fallo.
+        # openFDA answers 404 when nothing matches, which is not a failure.
         if response.status_code == 404:
             return []
         response.raise_for_status()

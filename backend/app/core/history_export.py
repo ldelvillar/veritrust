@@ -1,4 +1,4 @@
-"""Serialización del historial de análisis al CSV que descarga el usuario."""
+"""Serialisation of the analysis History to the CSV the user downloads."""
 
 import csv
 import io
@@ -7,13 +7,13 @@ from datetime import datetime
 from app.core.config import get_settings
 from app.schemas.history import HistoryExportItem
 
-# BOM para que Excel detecte UTF-8 al abrir el CSV.
+# BOM so Excel detects UTF-8 when opening the CSV.
 _UTF8_BOM = "﻿"
 
-# Caracteres iniciales que Excel/Sheets interpretan como fórmula (inyección CSV).
+# Leading characters Excel and Sheets read as a formula (CSV injection).
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
-# Vocabulario único del producto: VERDICT_LABEL en analysis-result/format.ts.
+# Mirrors VERDICT_LABEL in analysis-result/format.ts, so the CSV uses the UI's words.
 _EXPORT_VERDICT_LABELS = {
     "real": "Verdadero",
     "fake": "Falso",
@@ -39,14 +39,14 @@ _EXPORT_COLUMNS = [
 
 
 def _neutralize_csv_formula(value: str) -> str:
-    """Antepone una comilla simple si el texto podría abrirse como fórmula en Excel."""
+    """Prepend a single quote if the text could open as a formula in Excel."""
     if value.startswith(_CSV_FORMULA_TRIGGERS):
         return "'" + value
     return value
 
 
 def _export_duration_seconds(created_at: str, completed_at: str | None) -> str:
-    """Segundos que tardó el análisis; vacío si falta o no se puede leer una marca."""
+    """Seconds the Analysis took, empty if a timestamp is missing or unreadable."""
     if not completed_at:
         return ""
     try:
@@ -58,21 +58,21 @@ def _export_duration_seconds(created_at: str, completed_at: str | None) -> str:
 
 
 def _export_entry(record: HistoryExportItem) -> str:
-    """Columna «Entrada»: el mismo título que el historial muestra en pantalla."""
+    """«Entrada» column, the same title the History shows on screen."""
     if record.source_type == "file" and record.file_filename:
         return record.file_filename
     return record.input_url or record.input_text or ""
 
 
 def _build_report_url(base_url: str | None, analysis_id: str) -> str:
-    """Enlace al informe en el frontend; vacío si APP_BASE_URL no está configurado."""
+    """Link to the report in the frontend, empty if APP_BASE_URL is not configured."""
     if not base_url:
         return ""
     return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
 
 
 def build_history_csv(records: list[HistoryExportItem]) -> bytes:
-    """Serializa el historial a CSV UTF-8 con BOM (compatible con Excel)."""
+    """Serialise the History to UTF-8 CSV with a BOM (Excel compatible)."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     base_url = get_settings().app_base_url

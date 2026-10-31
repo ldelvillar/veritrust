@@ -1,4 +1,4 @@
-"""Claves API de Clerk (ak_…): verificación contra su Backend API, con una caché breve."""
+"""Clerk API keys (ak_…), verified against its Backend API with a short cache."""
 
 import hashlib
 from time import monotonic
@@ -8,29 +8,29 @@ import httpx
 from app.core.config import get_settings
 
 API_KEY_PREFIX = "ak_"
-# Una clave revocada se sigue aceptando como mucho este tiempo tras su última verificación.
+# A revoked key is still accepted for at most this long after its last verification.
 VERIFIED_KEY_TTL_SECONDS = 60.0
 _VERIFY_PATH = "/api_keys/verify"
 _REQUEST_TIMEOUT_SECONDS = 5
 
-# Huella SHA-256 de la clave → (user_id, instante monotónico en que caduca la entrada).
+# SHA-256 fingerprint of the key to (user_id, monotonic instant the entry expires).
 _verified: dict[str, tuple[str, float]] = {}
 
 
 class InvalidApiKey(Exception):
-    """La clave no existe, está revocada o caducada, o no pertenece a un usuario."""
+    """The key does not exist, is revoked or expired, or does not belong to a user."""
 
 
 class ClerkUnreachable(Exception):
-    """El Backend API de Clerk no respondió o falló al verificar la clave."""
+    """Clerk's Backend API did not respond or failed to verify the key."""
 
 
 class ApiKeysMisconfigured(Exception):
-    """Clerk rechaza CLERK_SECRET_KEY o no tiene activadas las claves API en esta instancia."""
+    """Clerk rejects CLERK_SECRET_KEY or does not have API keys enabled on this instance."""
 
 
 def _ask_clerk(secret: str) -> str:
-    """Verifica la clave en el Backend API de Clerk y devuelve el user_id de su subject."""
+    """Verify the key against Clerk's Backend API and return the user_id of its subject."""
     settings = get_settings()
     try:
         response = httpx.post(
@@ -58,7 +58,7 @@ def _ask_clerk(secret: str) -> str:
 
 
 def verify_api_key(secret: str) -> str:
-    """Devuelve el user_id dueño de la clave, consultando a Clerk solo si no está en caché."""
+    """Return the user_id that owns the key, asking Clerk only when it is not cached."""
     fingerprint = hashlib.sha256(secret.encode()).hexdigest()
     cached = _verified.get(fingerprint)
     if cached is not None and monotonic() < cached[1]:

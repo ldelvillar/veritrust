@@ -1,4 +1,4 @@
-"""Tests del envoltorio de invocación del grafo y la traducción de errores de transporte."""
+"""Tests of the graph invocation wrapper and the translation of transport errors."""
 
 import groq
 import httpx
@@ -10,7 +10,7 @@ _GROQ_REQUEST = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/compl
 
 
 class _FakeGraph:
-    """Grafo de mentira que reproduce el streaming de LangGraph (modos updates + values)."""
+    """Fake graph that reproduces LangGraph streaming (updates and values modes)."""
 
     def __init__(self, chunks=(), error=None):
         self._chunks = chunks
@@ -61,7 +61,7 @@ async def test_a_stage_callback_that_stops_the_run_closes_the_stream() -> None:
     async def on_stage(node: str) -> None:
         raise LookupError(node)
 
-    # El ciclo de vida para así una Run borrada: el error llega intacto y el grafo no sigue.
+    # This is how the lifecycle stops a deleted Run, so the error arrives intact and the graph does not go on.
     with pytest.raises(LookupError, match="extractor"):
         await ainvoke_graph(graph, {}, on_stage=on_stage)
     assert graph.closed

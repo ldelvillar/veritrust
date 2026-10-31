@@ -1,4 +1,4 @@
-"""Juzga la relevancia y la postura de las fuentes recuperadas para cada afirmación."""
+"""Judge the relevance and Stance of the Sources retrieved for each claim."""
 
 import logging
 from collections.abc import Sequence
@@ -34,7 +34,7 @@ class SourceJudgment(BaseModel):
     )
 
 
-# Un campo por fuente candidata: el juez no puede dar más posturas ni menos que fuentes.
+# One field per candidate Source, so the judge cannot give more or fewer Stances than Sources.
 EVIDENCE_JUDGMENTS = NumberedAnswers(
     name="EvidenceJudgments",
     field="source",
@@ -43,12 +43,12 @@ EVIDENCE_JUDGMENTS = NumberedAnswers(
 )
 
 
-# La cuota diaria de Groq es por modelo: el juez alterna para no agotar uno solo.
+# Groq's daily quota is per model, so the judge rotates to avoid exhausting just one.
 _rotation = count()
 
 
 def _next_judge_model() -> str | None:
-    """Siguiente modelo de la rotación del juez, o ``None`` si no se rota."""
+    """Next model in the judge rotation, or ``None`` when there is no rotation."""
     settings = get_settings()
     if settings.llm_provider_name() != "groq":
         return None
@@ -62,7 +62,7 @@ def _next_judge_model() -> str | None:
 def get_relevance_chain(
     prompt_text: str, sources: int, model: str | None = None
 ) -> Runnable[dict[str, Any], Any]:
-    """Devuelve la cadena de juicio para ``sources`` candidatas, cacheada por número y modelo."""
+    """Return the judging chain for ``sources`` candidates, cached by count and model."""
     llm = build_chat_model("judge", model)
     structured_llm = llm.with_structured_output(EVIDENCE_JUDGMENTS.schema(sources))
 
@@ -80,7 +80,7 @@ def get_relevance_chain(
 
 
 def _format_candidates(evidence: Sequence[Evidence]) -> str:
-    """Numera el título y el resumen de cada candidata para el prompt."""
+    """Number each candidate's title and abstract for the prompt."""
     lines = []
     for index, item in enumerate(evidence, start=1):
         title = neutralize_delimiters(item.title).strip()
@@ -93,13 +93,13 @@ def _format_candidates(evidence: Sequence[Evidence]) -> str:
 def _ask_judge(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...]:
-    """Una llamada al juez; lanza si falla o si su respuesta no nombra cada fuente una vez."""
+    """Make one judge call, raising if it fails or its answer does not name each Source once."""
     chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
     answer = chain.invoke(
         {
             "claim": neutralize_delimiters(claim),
             "sources": _format_candidates(evidence),
-            # Sin saber cuántas son, el juez llega a saltarse la última fuente.
+            # Without knowing how many there are, the judge sometimes skips the last Source.
             "count": len(evidence),
         }
     )
@@ -112,7 +112,7 @@ def _ask_judge(
 def judge_stances(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...] | None:
-    """Pide al juez una postura por fuente candidata; ``None`` si falla o su respuesta no nombra cada fuente una vez."""
+    """Ask the judge for one Stance per candidate Source, or ``None`` if it fails or does not name each Source once."""
     if not evidence:
         return ()
 
@@ -122,7 +122,7 @@ def judge_stances(
         except (ValidationError, OutputParserException):
             if len(evidence) < 2:
                 raise
-            # Una respuesta larga es la que sale incompleta: cada mitad pide una más corta.
+            # A long answer is the one that comes back incomplete, so each half asks for a shorter one.
             half = len(evidence) // 2
             return _ask_judge(prompt_text, claim, evidence[:half]) + _ask_judge(
                 prompt_text, claim, evidence[half:]

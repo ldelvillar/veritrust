@@ -1,4 +1,4 @@
-"""Utilidad para verificar que el servidor de Ollama está activo."""
+"""Check that the Ollama server is up."""
 
 import http.client
 import json
@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class OllamaStartupError(RuntimeError):
-    """Error de inicialización del servidor de Ollama."""
+    """Ollama server startup error."""
 
 
 def _missing_models(url: str) -> list[str]:
-    """Devuelve los modelos configurados que el servidor de Ollama no tiene descargados."""
+    """Return the configured models the Ollama server has not downloaded."""
     settings = get_settings()
     wanted = {
         settings.ollama_extractor_model,
@@ -27,21 +27,17 @@ def _missing_models(url: str) -> list[str]:
     with urllib.request.urlopen(f"{url.rstrip('/')}/api/tags", timeout=5) as response:
         payload = json.load(response)
     available = {str(model.get("name", "")) for model in payload.get("models", [])}
-    # "llama3" en Settings debe casar con "llama3:latest" en el servidor.
+    # "llama3" in Settings must match "llama3:latest" on the server.
     base_names = {name.split(":", 1)[0] for name in available}
     return sorted(m for m in wanted if m not in available and m not in base_names)
 
 
 def ensure_ollama_available(url: str | None = None) -> None:
-    """
-    Verifica que Ollama responde en la URL indicada y avisa si faltan modelos.
-    Reintenta hasta 20 veces (10 s) antes de lanzar OllamaStartupError.
-    Si no se pasa una URL, se usa ``Settings.ollama_base_url``.
-    """
+    """Wait up to 20 tries for Ollama at ``url`` (default ``Settings.ollama_base_url``), warn about missing models and raise OllamaStartupError if it never answers."""
     if url is None:
         url = get_settings().ollama_base_url
 
-    # OSError cubre URLError y el TimeoutError de un servidor colgado; HTTPException, respuestas corruptas.
+    # OSError covers URLError and a hung server's TimeoutError, and HTTPException covers corrupt responses.
     for _ in range(20):
         try:
             with urllib.request.urlopen(url, timeout=2):
@@ -56,10 +52,10 @@ def ensure_ollama_available(url: str | None = None) -> None:
     try:
         missing = _missing_models(url)
     except (OSError, ValueError, http.client.HTTPException):
-        # El check de modelos es secundario: si /api/tags falla, no bloquea el arranque.
+        # The model check is secondary, so a failing /api/tags does not block startup.
         return
 
-    # Aviso ruidoso sin tumbar el proceso: los análisis fallarán por fila, con retry.
+    # A loud warning without killing the process, since analyses will fail per row with retry.
     if missing:
         logger.error(
             "Faltan modelos en Ollama (%s): %s. Descárgalos con 'ollama pull <modelo>'.",

@@ -1,4 +1,4 @@
-"""Respuestas del modelo con un campo obligatorio por elemento numerado de la entrada, ni más ni menos."""
+"""Model answers with one required field per numbered input item, no more and no fewer."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -7,24 +7,24 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 
 
 class _Answers(BaseModel):
-    """Base de los esquemas numerados: un campo que sobre también invalida la respuesta."""
+    """Base of the numbered schemas, where an extra field also invalidates the answer."""
 
     model_config = ConfigDict(extra="forbid")
 
 
 @dataclass(frozen=True)
 class NumberedAnswers:
-    """Esquema de salida con ``<field>_1`` … ``<field>_N``, uno por elemento, y su lectura en orden."""
+    """Output schema with ``<field>_1`` … ``<field>_N``, one per item, and its reading in order."""
 
     name: str
     field: str
-    # Tipo de cada respuesta, p. ej. un Literal de posturas o str.
+    # Type of each answer, e.g. a Literal of Stances or str.
     answer: Any
-    # Descripción de cada campo; ``{n}`` es el número del elemento al que responde.
+    # Description of each field, where ``{n}`` is the number of the item it answers.
     description: str
 
     def schema(self, size: int) -> type[BaseModel]:
-        """Esquema con un campo obligatorio por elemento; con él, Ollama no puede generar más ni menos."""
+        """Schema with one required field per item, so Ollama cannot generate more or fewer."""
         fields: dict[str, Any] = {
             self._key(n): (self.answer, Field(description=self.description.format(n=n)))
             for n in range(1, size + 1)
@@ -32,7 +32,7 @@ class NumberedAnswers:
         return create_model(self.name, __base__=_Answers, **fields)
 
     def in_order(self, result: object, size: int) -> tuple[Any, ...]:
-        """Respuestas de una salida ya validada, en el orden de los elementos de la entrada."""
+        """Answers of an already validated output, in the order of the input items."""
         return tuple(getattr(result, self._key(n)) for n in range(1, size + 1))
 
     def _key(self, n: int) -> str:

@@ -1,4 +1,4 @@
-"""Estados tipados de los grafos de LangGraph que leen y actualizan los agentes."""
+"""Typed LangGraph graph states that the agents read and update."""
 
 from typing import List, Optional, TypedDict
 
@@ -7,16 +7,16 @@ from app.core.verdict import Verdict
 
 
 class ClaimsState(TypedDict, total=False):
-    """Estado que comparten ambos grafos, el texto y sus afirmaciones; el de solo evidencia no lleva más."""
+    """Text and claims, the state both graphs share and all the evidence-only graph carries."""
 
     input_text: str
     claims: List[Claim]
 
 
 class AgentState(ClaimsState, total=False):
-    """Estado del grafo completo; cada nodo devuelve solo las claves que actualiza."""
+    """State of the full graph, where each node returns only the keys it updates."""
 
-    # Las afirmaciones recortadas a las fuentes que muestra el informe: las únicas que cuenta el veredicto.
+    # Claims trimmed to the Sources the report shows, the only ones the Verdict counts.
     shown_claims: List[Claim]
     sources: List[dict]
     evidence_search: EvidenceSearch

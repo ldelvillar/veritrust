@@ -1,4 +1,4 @@
-"""Dependencias para comprobar límites de tasa (por usuario y por IP)."""
+"""Dependencies that enforce rate limits, per user and per IP."""
 
 from fastapi import Depends, HTTPException, Request
 
@@ -16,7 +16,7 @@ from app.schemas.errors import ErrorCode
 async def _enforce(
     request: Request, *, key: str, max_requests: int, window: int
 ) -> None:
-    """Aplica el límite con el Redis del proceso y responde su rechazo como 429 o 503."""
+    """Apply the limit with the process's Redis and answer its refusal as 429 or 503."""
     try:
         await enforce_sliding_window(
             getattr(request.app.state, "redis", None),
@@ -35,7 +35,7 @@ async def check_rate_limit(
     request: Request,
     user: dict = Depends(get_current_user),
 ) -> dict:
-    """Dependencia que verifica el rate limit del usuario autenticado."""
+    """Dependency that enforces the authenticated user's rate limit."""
     user_id = user["sub"]
     if not user_id:
         raise HTTPException(
@@ -54,7 +54,7 @@ async def check_rate_limit(
 
 
 def _client_ip(request: Request) -> str:
-    """IP del cliente: el último salto de X-Forwarded-For, el único que escribe el proxy."""
+    """Client IP, the last X-Forwarded-For hop, the only one the proxy writes."""
     hops = [
         hop.strip()
         for hop in (request.headers.get("x-forwarded-for") or "").split(",")
@@ -66,7 +66,7 @@ def _client_ip(request: Request) -> str:
 
 
 async def check_public_rate_limit(request: Request) -> None:
-    """Dependencia que limita por IP los endpoints públicos (sin autenticación)."""
+    """Dependency that rate limits the public endpoints by IP."""
     settings = get_settings()
     await _enforce(
         request,

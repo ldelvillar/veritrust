@@ -1,4 +1,4 @@
-"""Cliente del API REST de AEMPS CIMA para recuperar fichas técnicas de medicamentos."""
+"""AEMPS CIMA REST API client that retrieves medicines' summaries of product characteristics."""
 
 import logging
 from datetime import datetime, timezone
@@ -16,16 +16,16 @@ logger = logging.getLogger(__name__)
 _MEDICAMENTOS_PATH = "/medicamentos"
 _DETALLE_URL = "https://cima.aemps.es/cima/publico/detalle.html?nregistro="
 
-# Tipo de documento en CIMA: 1 = ficha técnica, 2 = prospecto.
+# CIMA document type, where 1 is the summary of product characteristics and 2 the package leaflet.
 _FICHA_TECNICA_TIPO = 1
-# Secciones de la ficha técnica que sirven al juez: indicaciones y seguridad, hasta la sobredosis.
+# Sections of the summary that serve the judge, indications and safety through overdose.
 _SECTION_IDS = ("4.1", "4.3", "4.4", "4.6", "4.8", "4.9")
-# Cota del texto de una ficha sin secciones numeradas; la ficha completa es demasiado larga.
+# Cap on the text of a summary without numbered sections, since the full one is too long.
 _ABSTRACT_MAX_CHARS = 2000
 
 
 def _ficha_tecnica_html_url(result: dict) -> str | None:
-    """Devuelve la URL HTML de la ficha técnica de un medicamento, si existe."""
+    """Return the HTML URL of a medicine's summary of product characteristics, if any."""
     for doc in result.get("docs") or []:
         if doc.get("tipo") == _FICHA_TECNICA_TIPO:
             url = str(doc.get("urlHtml") or "").strip()
@@ -35,7 +35,7 @@ def _ficha_tecnica_html_url(result: dict) -> str | None:
 
 
 def _estado_year(result: dict) -> str | None:
-    """Deriva el año de autorización desde el timestamp (epoch ms) de ``estado``."""
+    """Derive the authorisation year from the ``estado`` timestamp (epoch ms)."""
     estado = result.get("estado")
     if not isinstance(estado, dict):
         return None
@@ -50,8 +50,8 @@ def _estado_year(result: dict) -> str | None:
 
 
 def _is_trusted_cima_url(url: str) -> bool:
-    """Confirma que ``url`` vive en el host oficial de CIMA y resuelve a una IP pública."""
-    # urlparse lanza ValueError con caracteres inválidos bajo NFKC; se trata como no fiable.
+    """Confirm that ``url`` lives on CIMA's official host and resolves to a public IP."""
+    # urlparse raises ValueError on characters invalid under NFKC, so it is treated as untrusted.
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -62,8 +62,7 @@ def _is_trusted_cima_url(url: str) -> bool:
     cima_host = (urlparse(get_settings().cima_base_url).hostname or "").lower()
     if not cima_host or not (host == cima_host or host.endswith(f".{cima_host}")):
         return False
-    # El allowlist de host se engaña con diferenciales de parseo (p.ej. un backslash
-    # en la autoridad), así que exigimos además que resuelva a una IP pública.
+    # Parser differentials (e.g. a backslash in the authority) fool the host allowlist, so it must also resolve to a public IP.
     try:
         resolve_public_host(url)
     except SSRFValidationError:
@@ -72,12 +71,8 @@ def _is_trusted_cima_url(url: str) -> bool:
 
 
 def _fetch_ficha_tecnica_text(url: str, timeout: int) -> str | None:
-    """Descarga la ficha técnica HTML y la reduce a texto acotado para el juez.
-
-    Un fallo aquí no es crítico: la fuente se conserva sin ``abstract``.
-    """
-    # El urlHtml llega de la respuesta de CIMA, no del usuario; lo fijamos al host
-    # oficial y sin redirecciones para que nunca alcance direcciones internas.
+    """Download the HTML summary and reduce it to bounded text for the judge, keeping the Source without ``abstract`` on failure."""
+    # urlHtml comes from CIMA's response, not the user, and is pinned to the official host without redirects so it never reaches internal addresses.
     if not _is_trusted_cima_url(url):
         logger.warning("[CIMA] urlHtml fuera del host oficial; se omite el texto")
         return None
@@ -107,7 +102,7 @@ def _fetch_ficha_tecnica_text(url: str, timeout: int) -> str | None:
 
 
 def _key_sections(soup: BeautifulSoup) -> str | None:
-    """Texto de las secciones clave de la ficha, cada una con su encabezado; ``None`` si no las numera."""
+    """Text of the summary's key sections, each with its heading, or ``None`` if it does not number them."""
     sections = []
     for heading in soup.find_all(["h1", "h2"], id=list(_SECTION_IDS)):
         body = []
@@ -120,10 +115,7 @@ def _key_sections(soup: BeautifulSoup) -> str | None:
 
 
 def _map_result(result: dict, *, timeout: int) -> dict | None:
-    """Mapea un medicamento de CIMA a los metadatos que persistimos.
-
-    El ``abstract`` es transitorio: solo se usa para juzgar la relevancia.
-    """
+    """Map a CIMA medicine to the metadata we persist, where the ``abstract`` is transient and only used to judge relevance."""
     title = str(result.get("nombre") or "").strip()
     if not title:
         return None
@@ -144,12 +136,7 @@ def _map_result(result: dict, *, timeout: int) -> dict | None:
 
 
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
-    """Busca medicamentos en CIMA por nombre y devuelve metadatos con su ficha técnica.
-
-    ``query`` es el nombre del medicamento o principio activo (en español). Lanza
-    ``EvidenceRetrievalError`` ante fallos de red o respuestas no parseables en la
-    búsqueda; el nodo investigador la captura y degrada con elegancia.
-    """
+    """Search CIMA medicines by name or active ingredient (in Spanish), raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()
     if not cleaned:
         return []

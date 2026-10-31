@@ -1,4 +1,4 @@
-"""Datos de prueba de facturación compartidos: valores de Stripe de mentira y Subscriptions."""
+"""Shared billing test data, fake Stripe values and Subscriptions."""
 
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -8,7 +8,7 @@ from app.core.plans import SubscriptionRow
 PRICE_MONTHLY = "price_test_monthly"
 PRICE_YEARLY = "price_test_yearly"
 WEBHOOK_SECRET = "whsec_test_dummy"
-# Los secretos de Svix son base64 tras el prefijo; este decodifica a b"clerk-test-dummy".
+# Svix secrets are base64 after the prefix, and this one decodes to b"clerk-test-dummy".
 CLERK_WEBHOOK_SECRET = "whsec_Y2xlcmstdGVzdC1kdW1teQ=="
 
 _SUBSCRIPTION = SubscriptionRow(
@@ -23,5 +23,5 @@ _SUBSCRIPTION = SubscriptionRow(
 
 
 def make_subscription(**overrides) -> SubscriptionRow:
-    """Subscription Pro mensual activa de ``user-a``, con los campos dados cambiados."""
+    """Active monthly Pro Subscription of ``user-a``, with the given fields changed."""
     return replace(_SUBSCRIPTION, **overrides)

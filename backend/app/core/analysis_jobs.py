@@ -1,4 +1,4 @@
-"""Adaptador arq de la cola de análisis: el nombre del job y su payload viven solo aquí."""
+"""arq adapter of the analysis queue, the only place that knows the job name and its payload."""
 
 import logging
 from collections.abc import Sequence
@@ -12,10 +12,10 @@ from app.core.analysis_lifecycle import QueueUnavailable
 
 logger = logging.getLogger(__name__)
 
-# Nombre con el que el worker registra la función que ejecuta cada Run.
+# Name under which the worker registers the function that runs each Run.
 ANALYSIS_JOB = "run_analysis"
 
-# arq solo retira un aborto al empezar o terminar su job: apuntarlo para uno ya ido lo dejaría para siempre.
+# arq only clears an abort when its job starts or ends, so marking one already gone would leave it forever.
 _ABORT_LIVE_JOBS = """
 for i = 2, #KEYS do
     if redis.call('EXISTS', KEYS[i]) == 1 then
@@ -26,14 +26,14 @@ end
 
 
 class ArqAnalysisQueue:
-    """Cola de análisis sobre arq y Redis."""
+    """Analysis queue on arq and Redis."""
 
     def __init__(self, redis: ArqRedis) -> None:
         self._redis = redis
         self._abort_live_jobs = redis.register_script(_ABORT_LIVE_JOBS)
 
     async def enqueue(self, analysis_id: str, *, notify_email: str | None) -> None:
-        """Encola la Run con ``_job_id=analysis_id`` para que un doble encolado sea un no-op."""
+        """Enqueue the Run with ``_job_id=analysis_id`` so a double enqueue is a no-op."""
         try:
             job = await self._redis.enqueue_job(
                 ANALYSIS_JOB,
@@ -47,14 +47,14 @@ class ArqAnalysisQueue:
             logger.warning("El análisis %s ya tenía un job vivo en arq", analysis_id)
 
     async def is_live(self, analysis_id: str) -> bool:
-        """Indica si arq guarda aún el job del análisis (en cola o en ejecución)."""
+        """Tell whether arq still holds the analysis job, queued or running."""
         try:
             return bool(await self._redis.exists(job_key_prefix + analysis_id))
         except (OSError, RedisError) as exc:
             raise QueueUnavailable(analysis_id) from exc
 
     async def cancel(self, analysis_ids: Sequence[str]) -> None:
-        """Pide a arq que aborte los jobs de los análisis que aún siguen en cola o en ejecución."""
+        """Ask arq to abort the jobs of the analyses still queued or running."""
         job_keys = [job_key_prefix + analysis_id for analysis_id in analysis_ids]
         try:
             await self._abort_live_jobs(

@@ -1,4 +1,4 @@
-"""Pool de conexiones compartido y utilidades base de persistencia."""
+"""Shared connection pool and base persistence helpers."""
 
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ _DATABASE_CONFIGURATION_HINT = (
 
 
 class DatabaseError(RuntimeError):
-    """Error base para operaciones de persistencia."""
+    """Base error for persistence operations."""
 
 
 def _build_connection_string() -> str:
-    """Obtiene la cadena de conexion desde la configuracion central."""
+    """Read the connection string from the central configuration."""
     db_url = get_settings().database_url
     if not db_url:
         raise DatabaseError("No se encontro la variable de entorno DATABASE_URL.")
@@ -29,7 +29,7 @@ def _build_connection_string() -> str:
 
 
 def _build_database_error(context_message: str) -> str:
-    """Construye mensajes de error de BD consistentes para todas las operaciones."""
+    """Build consistent DB error messages for every operation."""
     return f"{context_message} {_DATABASE_CONFIGURATION_HINT}"
 
 
@@ -37,7 +37,7 @@ _pool: AsyncConnectionPool | None = None
 
 
 async def get_pool() -> AsyncConnectionPool:
-    """Devuelve un pool async compartido, abriéndolo bajo demanda."""
+    """Return a shared async pool, opening it on demand."""
     global _pool
     if _pool is None:
         conninfo = _build_connection_string()
@@ -48,7 +48,7 @@ async def get_pool() -> AsyncConnectionPool:
 
 
 async def close_pool() -> None:
-    """Cierra el pool si está abierto. Llamado desde el lifespan."""
+    """Close the pool if it is open, called from the lifespan."""
     global _pool
     if _pool is not None:
         await _pool.close()

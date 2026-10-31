@@ -15,7 +15,6 @@ from app.utils.extract_text_from_url import (
 )
 
 
-# --- _resolve_public_host edge cases ---
 def test_invalid_scheme():
     with pytest.raises(URLExtractionError, match="comenzar con http:// o https://"):
         extract_text_from_url("ftp://example.com")
@@ -38,14 +37,13 @@ def test_unresolvable_host(mock_getaddrinfo):
 
 
 def test_parser_differential_backslash_rejected():
-    # urlparse ve cima.aemps.es (público) pero requests conecta a 169.254.169.254;
-    # el host debe coincidir en ambos parsers o se rechaza sin tocar la red.
+    # urlparse sees cima.aemps.es (public) but requests connects to 169.254.169.254, so a host mismatch between parsers is refused without touching the network.
     with pytest.raises(URLExtractionError, match="URLs locales"):
         extract_text_from_url("http://169.254.169.254\\@cima.aemps.es/")
 
 
 def test_nfkc_invalid_url_rejected():
-    # urlparse lanza ValueError con un solidus fullwidth; debe traducirse a URLExtractionError.
+    # urlparse raises ValueError on a fullwidth solidus, which must become URLExtractionError.
     with pytest.raises(URLExtractionError, match="no contiene un host válido"):
         extract_text_from_url("http://example.com／10.0.0.1/")
 
@@ -61,7 +59,7 @@ def test_private_ip_rejected(mock_getaddrinfo):
     return_value=[(2, 1, 6, "", ("93.184.216.34", 80))],
 )
 def test_mixed_public_private_rejected(mock_getaddrinfo):
-    # Si cualquiera de las IPs resueltas no es pública, se rechaza el conjunto.
+    # If any resolved IP is not public, the whole set is refused.
     mock_getaddrinfo.return_value = [
         (2, 1, 6, "", ("93.184.216.34", 80)),
         (2, 1, 6, "", ("10.0.0.5", 80)),
@@ -70,7 +68,6 @@ def test_mixed_public_private_rejected(mock_getaddrinfo):
         extract_text_from_url("http://mixed.example.com")
 
 
-# --- extract_text_from_url main logic ---
 @patch(
     "app.utils.extract_text_from_url._resolve_public_host",
     return_value=("redirect.com", "1.2.3.4"),
@@ -160,7 +157,7 @@ def test_successful_extraction(mock_get, mock_resolve):
 )
 @patch("requests.Session.get")
 def test_extracted_text_is_truncated(mock_get, mock_resolve):
-    # Una página enorme no puede convertirse en un prompt sin límite.
+    # A huge page cannot become an unbounded prompt.
     body = "a" * (MAX_INPUT_TEXT_LENGTH * 3)
     html = f"<html><body><p>{body}</p></body></html>".encode()
     mock_resp = MagicMock()
@@ -175,7 +172,7 @@ def test_extracted_text_is_truncated(mock_get, mock_resolve):
 
 
 def test_read_capped_body_stops_at_limit():
-    """Un cuerpo gigante (o infinito) se corta en MAX_DOWNLOAD_BYTES."""
+    """A huge (or endless) body is cut at MAX_DOWNLOAD_BYTES."""
     produced = {"n": 0}
 
     def _endless(chunk_size=8192):
@@ -190,13 +187,12 @@ def test_read_capped_body_stops_at_limit():
     body = _read_capped_body(mock_resp)
 
     assert len(body) == MAX_DOWNLOAD_BYTES
-    # Deja de leer en cuanto alcanza el tope (a lo sumo un chunk de margen).
+    # Stops reading as soon as it hits the cap, with at most one chunk of margin.
     assert produced["n"] <= MAX_DOWNLOAD_BYTES + 8192
 
 
-# --- DNS-rebinding / IP-pinning regression ---
 def test_connection_pinned_to_validated_ip():
-    """La conexión usa la IP validada y conserva el Host real (anti DNS rebinding)."""
+    """The connection uses the validated IP and keeps the real Host (anti DNS rebinding)."""
     seen: dict[str, str | None] = {}
 
     class _Handler(http.server.BaseHTTPRequestHandler):
@@ -213,8 +209,7 @@ def test_connection_pinned_to_validated_ip():
     port = server.server_address[1]
     threading.Thread(target=server.handle_request, daemon=True).start()
 
-    # El host nunca se resuelve por DNS: forzamos la IP validada a loopback, que
-    # es justo a donde debe conectar pese a que el host de la URL sea otro.
+    # The host is never resolved by DNS, so the validated IP is forced to loopback, where it must connect despite the URL's host.
     with patch(
         "app.utils.extract_text_from_url._resolve_public_host",
         return_value=("example.test", "127.0.0.1"),

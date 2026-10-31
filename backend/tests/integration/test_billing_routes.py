@@ -1,4 +1,4 @@
-"""Tests de integración de los endpoints de facturación (/billing)."""
+"""Integration tests of the billing endpoints (/billing)."""
 
 import importlib
 import sys
@@ -44,7 +44,7 @@ def client(stripe_settings):
 
 @pytest.fixture
 def subscription(monkeypatch):
-    """Subscription que devuelve la BD de mentira; None por defecto (Free)."""
+    """Subscription the fake DB returns, None (Free) by default."""
     state: dict = {"row": None, "usage": Usage(used=0, pending=0)}
 
     async def get_user_subscription(user_id):

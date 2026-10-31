@@ -1,4 +1,4 @@
-"""Mensajes localizados y factoría de detail estructurado para errores de la API."""
+"""Localised messages and the structured detail factory for API errors."""
 
 from typing import Any
 
@@ -91,10 +91,7 @@ _MESSAGES: dict[ErrorCode, str] = {
 
 
 def make_error_detail(code: ErrorCode, message: str | None = None) -> dict[str, Any]:
-    """
-    Construye un detail estructurado (dict JSON-ready) para HTTPException.
-    Usa el mensaje canónico del código salvo que se pase uno explícito.
-    """
+    """Build a structured, JSON-ready detail for HTTPException, using the code's canonical message unless one is passed."""
     return ErrorDetail(code=code, message=message or _MESSAGES[code]).model_dump(
         mode="json"
     )

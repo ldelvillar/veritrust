@@ -1,4 +1,4 @@
-"""Adaptador de Stripe: Checkout, portal de cliente, webhooks y sincronización de Subscriptions."""
+"""Stripe adapter for Checkout, the customer portal, webhooks and Subscription sync."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -15,7 +15,7 @@ from app.db import billing as billing_db
 
 logger = logging.getLogger(__name__)
 
-# Versión de la API fijada para que respuestas y webhooks no cambien de forma bajo el código
+# API version pinned so responses and webhooks do not change shape under the code.
 STRIPE_API_VERSION = "2026-09-30.endive"
 
 _SUBSCRIPTION_EVENTS = frozenset(
@@ -26,7 +26,7 @@ _SUBSCRIPTION_EVENTS = frozenset(
     }
 )
 _INVOICE_EVENTS = frozenset({"invoice.paid", "invoice.payment_failed"})
-# Estados en que una Subscription ya no cobra y Stripe no deja cancelarla
+# Statuses in which a Subscription no longer charges and Stripe does not allow cancelling it.
 _ENDED_STATUSES = frozenset({"canceled", "incomplete_expired"})
 
 _TERMS_MESSAGE = (
@@ -37,20 +37,20 @@ _TERMS_MESSAGE = (
 
 
 class BillingUnavailable(RuntimeError):
-    """Stripe no respondió o rechazó la llamada."""
+    """Stripe did not respond or rejected the call."""
 
 
 class InvalidWebhook(ValueError):
-    """La petición al webhook no trae un evento firmado por Stripe."""
+    """The webhook request does not carry an event signed by Stripe."""
 
 
 class BillingAccountNotFound(LookupError):
-    """El usuario nunca ha tenido un cliente de Stripe."""
+    """The user has never had a Stripe customer."""
 
 
 @cache
 def _client() -> stripe.StripeClient:
-    """Cliente de Stripe con la versión de la API fijada y transporte async (httpx)."""
+    """Stripe client with the pinned API version and async transport (httpx)."""
     return stripe.StripeClient(
         get_settings().stripe_secret_key,
         stripe_version=STRIPE_API_VERSION,
@@ -60,7 +60,7 @@ def _client() -> stripe.StripeClient:
 
 @asynccontextmanager
 async def _stripe_errors() -> AsyncIterator[None]:
-    """Traduce cualquier error de Stripe (red o API) a BillingUnavailable."""
+    """Translate any Stripe error (network or API) to BillingUnavailable."""
     try:
         yield
     except stripe.StripeError as exc:
@@ -69,12 +69,12 @@ async def _stripe_errors() -> AsyncIterator[None]:
 
 
 def _app_url() -> str:
-    """Origen público del frontend, sin barra final."""
+    """Public frontend origin, without a trailing slash."""
     return (get_settings().app_base_url or "").rstrip("/")
 
 
 async def _customer_for(user_id: str, email: str | None) -> str:
-    """Devuelve el cliente de Stripe del usuario, creándolo y guardándolo si no lo tiene."""
+    """Return the user's Stripe customer, creating and storing it if they have none."""
     existing = await billing_db.get_customer_id(user_id)
     if existing is not None:
         return existing
@@ -90,7 +90,7 @@ async def _customer_for(user_id: str, email: str | None) -> str:
 async def create_checkout_session(
     user_id: str, email: str | None, interval: BillingInterval
 ) -> str:
-    """Abre un Checkout de Stripe para suscribirse a Pro y devuelve su URL."""
+    """Open a Stripe Checkout to subscribe to Pro and return its URL."""
     settings = get_settings()
     price = (
         settings.stripe_price_pro_monthly
@@ -100,7 +100,7 @@ async def create_checkout_session(
     app_url = _app_url()
     async with _stripe_errors():
         customer_id = await _customer_for(user_id, email)
-        # Un Checkout abierto en otra pestaña caduca para no cobrar dos suscripciones
+        # A Checkout open in another tab is expired so two subscriptions are never charged.
         open_sessions = await _client().v1.checkout.sessions.list_async(
             params={"customer": customer_id, "status": "open"}
         )
@@ -135,7 +135,7 @@ async def create_checkout_session(
 
 
 async def create_portal_session(user_id: str) -> str:
-    """Abre el portal de cliente de Stripe del usuario y devuelve su URL."""
+    """Open the user's Stripe customer portal and return its URL."""
     customer_id = await billing_db.get_customer_id(user_id)
     if customer_id is None:
         raise BillingAccountNotFound(user_id)
@@ -151,8 +151,8 @@ async def create_portal_session(user_id: str) -> str:
 
 
 async def sync_subscription(subscription_id: str) -> None:
-    """Vuelve a leer la Subscription de Stripe y guarda su estado actual."""
-    # Sin el cerrojo, dos webhooks simultáneos podrían guardar una lectura vieja tras una nueva
+    """Read the Subscription back from Stripe and store its current state."""
+    # Without the lock, two concurrent webhooks could store a stale read after a fresh one.
     async with billing_db.subscription_lock(subscription_id) as conn:
         async with _stripe_errors():
             subscription = await _client().v1.subscriptions.retrieve_async(
@@ -184,7 +184,7 @@ async def sync_subscription(subscription_id: str) -> None:
                 subscription.cancel_at, UTC
             )
         else:
-            # Una baja al final del periodo puede llegar solo con el flag, sin fecha
+            # A cancellation at period end can arrive with only the flag and no date.
             cancel_at = period_end if subscription.cancel_at_period_end else None
         await billing_db.upsert_subscription(
             SubscriptionRow(
@@ -201,7 +201,7 @@ async def sync_subscription(subscription_id: str) -> None:
 
 
 async def forget_user(user_id: str) -> None:
-    """Cancela ya, sin prorrateo, las Subscriptions de un usuario que eliminó su cuenta y borra su facturación."""
+    """Cancel at once, without proration, the Subscriptions of a user who deleted their account and erase their billing."""
     customer_id = await billing_db.get_customer_id(user_id)
     if customer_id is not None:
         async with _stripe_errors():
@@ -211,13 +211,13 @@ async def forget_user(user_id: str) -> None:
             for subscription in subscriptions.data:
                 if subscription.status not in _ENDED_STATUSES:
                     await _client().v1.subscriptions.cancel_async(subscription.id)
-    # El cliente de Stripe y sus facturas se conservan: la ley fiscal obliga a guardarlas.
+    # The Stripe customer and its invoices are kept because tax law requires keeping them.
     await billing_db.delete_user_billing(user_id)
     logger.info("Facturación del usuario eliminado %s dada de baja", user_id)
 
 
 async def _handle(event_type: str, obj: Any) -> None:
-    """Aplica un evento de Stripe ya verificado; los tipos no manejados se ignoran."""
+    """Apply an already verified Stripe event, ignoring unhandled types."""
     if event_type == "checkout.session.completed":
         if obj.customer and obj.client_reference_id:
             await billing_db.insert_customer(obj.client_reference_id, obj.customer)
@@ -232,7 +232,7 @@ async def _handle(event_type: str, obj: Any) -> None:
 
 
 async def handle_webhook(payload: bytes, signature: str | None) -> None:
-    """Verifica la firma del webhook sobre el cuerpo crudo y aplica el evento una sola vez."""
+    """Verify the webhook signature over the raw body and apply the event only once."""
     try:
         event = _client().construct_event(
             payload, signature, get_settings().stripe_webhook_secret
@@ -244,6 +244,6 @@ async def handle_webhook(payload: bytes, signature: str | None) -> None:
         logger.info("Evento de Stripe %s (%s) ya procesado", event.id, event.type)
         return
     await _handle(event.type, event.data.object)
-    # Se registra solo tras el éxito: un fallo responde 5xx y Stripe lo reintenta
+    # Recorded only after success, so a failure answers 5xx and Stripe retries it.
     await billing_db.record_event(event.id, event.type)
     logger.info("Evento de Stripe %s (%s) procesado", event.id, event.type)

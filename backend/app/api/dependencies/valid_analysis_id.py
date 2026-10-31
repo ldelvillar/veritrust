@@ -1,4 +1,4 @@
-"""Dependencia que valida el id de análisis de la ruta antes de consultar la base de datos."""
+"""Dependency that validates the route's analysis id before querying the database."""
 
 from uuid import UUID
 
@@ -9,7 +9,7 @@ from app.schemas.errors import ErrorCode
 
 
 async def valid_analysis_id(analysis_id: str) -> str:
-    """Devuelve el id de la ruta en forma canónica si es un UUID o responde 400 con INVALID_ANALYSIS_ID."""
+    """Return the route id in canonical form if it is a UUID, or answer 400 with INVALID_ANALYSIS_ID."""
     try:
         canonical = UUID(analysis_id)
     except ValueError as e:
@@ -18,5 +18,5 @@ async def valid_analysis_id(analysis_id: str) -> str:
             detail=make_error_detail(ErrorCode.INVALID_ANALYSIS_ID),
         ) from e
 
-    # Las claves de arq usan la forma canónica; una variante en mayúsculas o sin guiones no las encontraría.
+    # arq keys use the canonical form, so an uppercase or dashless variant would not find them.
     return str(canonical)

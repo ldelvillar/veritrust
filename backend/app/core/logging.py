@@ -1,4 +1,4 @@
-"""Configuración de logging centralizada para la API."""
+"""Centralised logging configuration for the API."""
 
 import json
 import logging
@@ -11,7 +11,7 @@ _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
 
 class JsonFormatter(logging.Formatter):
-    """Emite cada registro como una línea JSON con severity, apta para Cloud Logging."""
+    """Emit each record as one JSON line with severity, fit for Cloud Logging."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -26,7 +26,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(level: str = "INFO") -> None:
-    """Configura el root logger con un único handler a stdout (texto o JSON según LOG_FORMAT)."""
+    """Configure the root logger with a single stdout handler, text or JSON by LOG_FORMAT."""
     use_json = get_settings().log_format.strip().lower() == "json"
     formatter: dict = {"()": JsonFormatter} if use_json else {"format": _LOG_FORMAT}
     dictConfig(

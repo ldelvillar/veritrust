@@ -1,4 +1,4 @@
-"""Aplica en orden las migraciones SQL pendientes de ``db/migrations``."""
+"""Apply the pending SQL migrations of ``db/migrations`` in order."""
 
 from __future__ import annotations
 
@@ -16,17 +16,17 @@ logger = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 
-# Clave del advisory lock que serializa ejecuciones simultáneas del migrador.
+# Advisory lock key that serialises concurrent migrator runs.
 _LOCK_KEY = 7_416_235_901
 
 
 class MigrationError(RuntimeError):
-    """Una migración ya aplicada no coincide con los ficheros del directorio."""
+    """An applied migration does not match the files in the directory."""
 
 
 @dataclass(frozen=True)
 class Migration:
-    """Un fichero de migración: versión (nombre sin extensión), SQL y su checksum."""
+    """A migration file with its version (name without extension), SQL and checksum."""
 
     version: str
     sql: str
@@ -34,7 +34,7 @@ class Migration:
 
 
 def load_migrations(directory: Path = MIGRATIONS_DIR) -> list[Migration]:
-    """Lee los ficheros ``*.sql`` del directorio en orden de nombre."""
+    """Read the directory's ``*.sql`` files in name order."""
     migrations = []
     for path in sorted(directory.glob("*.sql")):
         sql = path.read_text(encoding="utf-8")
@@ -44,10 +44,10 @@ def load_migrations(directory: Path = MIGRATIONS_DIR) -> list[Migration]:
 
 
 def apply_migrations(conninfo: str, directory: Path = MIGRATIONS_DIR) -> list[str]:
-    """Aplica cada migración pendiente en su propia transacción y devuelve sus versiones."""
+    """Apply each pending migration in its own transaction and return their versions."""
     migrations = load_migrations(directory)
     with psycopg.connect(conninfo, autocommit=True) as conn:
-        # Lock de sesión: se libera solo al cerrar la conexión.
+        # Session lock, released only when the connection closes.
         conn.execute("SELECT pg_advisory_lock(%s)", (_LOCK_KEY,))
         conn.execute(
             """
@@ -90,7 +90,7 @@ def apply_migrations(conninfo: str, directory: Path = MIGRATIONS_DIR) -> list[st
 
 
 def main() -> None:
-    """Aplica las migraciones pendientes contra DATABASE_URL."""
+    """Apply the pending migrations against DATABASE_URL."""
     configure_logging()
     database_url = get_settings().database_url.strip()
     if not database_url:

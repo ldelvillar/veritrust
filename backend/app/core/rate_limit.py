@@ -1,6 +1,4 @@
-"""
-Límite de tasa por ventana deslizante sobre Redis, compartido por la API web y el servidor MCP.
-"""
+"""Sliding-window rate limit on Redis, shared by the web API and the MCP server."""
 
 import logging
 import time
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimitRefused(Exception):
-    """El límite rechazó la petición."""
+    """The limit refused the request."""
 
     def __init__(self, code: ErrorCode) -> None:
         super().__init__(code.value)
@@ -23,14 +21,14 @@ class RateLimitRefused(Exception):
 
 
 def user_rate_limit_key(user_id: str) -> str:
-    """Clave del límite por usuario, compartida por la API web y el servidor MCP."""
+    """Per-user limit key, shared by the web API and the MCP server."""
     return f"rate_limit:{user_id}"
 
 
 async def enforce_sliding_window(
     redis: Any, key: str, max_requests: int, window: int
 ) -> None:
-    """Aplica un rate limit de ventana deslizante sobre `key`. Fail-closed si Redis no responde."""
+    """Apply a sliding-window rate limit on `key`, failing closed if Redis does not respond."""
     if redis is None:
         logger.warning("Redis no disponible; se rechaza la petición (fail-closed)")
         raise RateLimitRefused(ErrorCode.SERVICE_UNAVAILABLE)
@@ -39,7 +37,6 @@ async def enforce_sliding_window(
     cutoff = now - window
 
     try:
-        # Poda las marcas fuera de ventana y cuenta las que quedan.
         async with redis.pipeline(transaction=True) as pipe:
             pipe.zremrangebyscore(key, 0, cutoff)
             pipe.zcard(key)

@@ -1,4 +1,4 @@
-"""Este módulo define el esquema de los límites de entrada que la API publica."""
+"""Schema of the input limits the API publishes."""
 
 from typing import List
 
