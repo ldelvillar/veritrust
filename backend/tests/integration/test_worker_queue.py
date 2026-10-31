@@ -85,7 +85,7 @@ async def test_enqueued_job_round_trips_through_real_arq_worker(arq_pool):
     assert (worker.jobs_complete, worker.jobs_failed) == (1, 0)
     [(analysis_id, work, notify_email)] = runner.runs
     assert (analysis_id, notify_email) == (ANALYSIS_ID, "user@example.com")
-    # The Run's work is analyse on the ctx startup prepared.
+    # The Run's work is analyse, bound to the ctx that startup prepared.
     assert work.func is worker_module.analyse
     assert work.args[0]["pipeline"] is PIPELINE
 

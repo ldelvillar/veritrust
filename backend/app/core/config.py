@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # Retries on 429 and 5xx, since the workspace request limit cuts bursts.
     mistral_max_retries: int = 5
 
-    # The api_key is required when llm_provider is "groq", and each role has its own model because Groq's daily token quota is per model.
+    # The api_key is required when llm_provider is "groq".
     groq_api_key: str | None = None
     groq_extractor_model: str = "openai/gpt-oss-20b"
     groq_translator_model: str = "qwen/qwen3.8-27b"
@@ -120,9 +120,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     analysis_job_timeout_seconds: int = 900  # 15 min pipeline budget.
-    analysis_stale_after_seconds: int = (
-        300  # The reaper only fails rows with no live job.
-    )
+    # Can sit below the job timeout, since the reaper only fails rows with no live job.
+    analysis_stale_after_seconds: int = 300
     worker_max_jobs: int = 1
 
     # Per-user rate limit for POST /analysis.

@@ -7,7 +7,7 @@ from app.core.verdict import Verdict
 
 
 class ClaimsState(TypedDict, total=False):
-    """State both graphs share, the text and its claims, which is all the evidence-only graph carries."""
+    """Text and claims, the state both graphs share and all the evidence-only graph carries."""
 
     input_text: str
     claims: List[Claim]

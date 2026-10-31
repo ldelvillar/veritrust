@@ -85,7 +85,6 @@ def test_expected_audience_is_none_when_missing():
 
 
 def test_validate_runtime_passes_with_complete_config():
-    # Must not raise.
     _make_settings(environment="production").validate_runtime()
 
 

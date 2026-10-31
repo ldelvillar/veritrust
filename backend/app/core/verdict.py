@@ -123,7 +123,7 @@ def confidence_level_of(confidence: Optional[float]) -> Optional[ConfidenceLevel
     return "low"
 
 
-# Credibility in [0, 1] of credibility_of() in SQL, for sorting and aggregating, NULL when uncertain, mixed or without Confidence.
+# SQL twin of credibility_of() for sorting and aggregating.
 CREDIBILITY_SQL = (
     "CASE "
     "WHEN confidence IS NULL OR verdict IN ('uncertain', 'mixed') THEN NULL "

@@ -340,7 +340,6 @@ def test_evaluate_pipeline_resumes_and_appends(tmp_path) -> None:
     assert [r["text"] for r in rows] == ["hecha", "nueva"]
     assert rows[0]["predicted"] == "falsa"
     assert rows[1]["predicted"] == "verdadera"
-    # The new row was appended to the checkpoint (2 lines in total).
     assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 2
 
 

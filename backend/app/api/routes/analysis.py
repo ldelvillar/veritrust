@@ -327,7 +327,7 @@ _FILE_MEDIA_TYPES = {
 
 def _content_disposition_inline(filename: str) -> str:
     """Build a safe inline Content-Disposition (RFC 6266) for non-ASCII names."""
-    # HTTP headers are encoded in latin-1.
+    # Headers are latin-1, so the filename= fallback is plain ASCII while filename* carries the real name.
     ascii_fallback = (
         "".join(c for c in filename if 32 <= ord(c) < 127 and c not in '"\\')
         or "documento"

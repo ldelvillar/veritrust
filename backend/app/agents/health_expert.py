@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 _neutralize_delimiters = sanitize.neutralize_delimiters
 
-# Judge Stance as the expert reads it.
+# Spanish phrase the evidence block uses for each Stance.
 _STANCE_LABEL = {
     "supports": "respalda",
     "contradicts": "contradice",

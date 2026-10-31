@@ -347,7 +347,6 @@ async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
     assert len(row.input_text) == HISTORY_LIST_TEXT_CHARS
     # The Verdict and coverage do travel, since the table draws them on each row.
     assert (row.verdict, row.credibility, row.evidence_coverage) == ("fake", 10, 0.5)
-    # The report body is not part of the list item.
     assert not hasattr(row, "explanation")
     assert not hasattr(row, "claims")
 

@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
-# Stance of a Source on a claim.
 Stance = Literal["supports", "contradicts", "inconclusive"]
 # Judge answer per Source, a Stance or "unrelated" when it is about another topic.
 JudgeStance = Literal["supports", "contradicts", "inconclusive", "unrelated"]
@@ -13,7 +12,6 @@ ClaimOutcome = Literal[
     "unsearchable", "unsearched", "unavailable", "unjudged", "judged"
 ]
 
-# Outcomes of a claim that got searched.
 _SEARCHED: tuple[ClaimOutcome, ...] = ("unavailable", "unjudged", "judged")
 
 

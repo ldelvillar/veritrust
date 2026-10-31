@@ -33,7 +33,7 @@ def _missing_models(url: str) -> list[str]:
 
 
 def ensure_ollama_available(url: str | None = None) -> None:
-    """Check that Ollama answers at the URL, defaulting to ``Settings.ollama_base_url``, retrying 20 times (10 s) before raising OllamaStartupError."""
+    """Wait for Ollama to answer at ``url`` and warn about missing models, raising OllamaStartupError if it never answers."""
     if url is None:
         url = get_settings().ollama_base_url
 

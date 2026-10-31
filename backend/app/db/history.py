@@ -41,7 +41,7 @@ _HISTORY_COLUMNS = (
 )
 _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
 
-# Marks a row older than the History window, which with no window (NULL) it never is.
+# True when the row is older than the History window, never when there is no window (NULL).
 _HIDDEN_SELECT = "created_at < %s::timestamptz AS hidden"
 
 
@@ -279,7 +279,7 @@ async def delete_all_user_analyses(*, user_id: str) -> DeletedHistory:
 
 
 async def set_analysis_share_token(*, user_id: str, analysis_id: str) -> str | None:
-    """Turn on the public link of an own ``done`` Analysis and return its token, reusing an existing one, or ``None`` if the row is missing or not ``done``."""
+    """Enable the public link of an own ``done`` Analysis and return its token, reusing any existing one, or ``None``."""
     pool = await get_pool()
     new_token = secrets.token_urlsafe(32)
 

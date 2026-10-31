@@ -33,7 +33,7 @@ _FACET_SELECT = ", ".join(
     ["COUNT(*)", *("COUNT(*) FILTER (WHERE verdict = %s)" for _ in VERDICT_KINDS)]
 )
 
-# List columns, where the table does not draw the report, so it is neither fetched nor sent.
+# List columns, without the report, since the table never draws it.
 _HISTORY_LIST_COLUMNS = (
     "id",
     "source_type",
@@ -60,7 +60,7 @@ _HISTORY_LIST_SELECT = ", ".join(
     )
 )
 
-# CSV columns, where the report is not exported either, but the text goes in full with its duration.
+# CSV columns, still without the report but with the full text and end time.
 _HISTORY_EXPORT_COLUMNS = (
     "id",
     "source_type",

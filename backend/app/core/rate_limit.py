@@ -37,7 +37,6 @@ async def enforce_sliding_window(
     cutoff = now - window
 
     try:
-        # Prune the marks outside the window and count the rest.
         async with redis.pipeline(transaction=True) as pipe:
             pipe.zremrangebyscore(key, 0, cutoff)
             pipe.zcard(key)

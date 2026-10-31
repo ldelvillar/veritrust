@@ -32,7 +32,6 @@ _PDF_SIGNATURE = b"%PDF"
 
 # Visible stages in order, input preparation first and then each graph agent.
 _STAGES: tuple[AnalysisStage, ...] = get_args(AnalysisStage)
-# Finished stage to the next running stage.
 _NEXT_STAGE: dict[str, AnalysisStage] = dict(zip(_STAGES, _STAGES[1:]))
 
 

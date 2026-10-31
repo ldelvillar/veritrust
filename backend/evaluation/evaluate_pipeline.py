@@ -232,7 +232,7 @@ def load_recorded_evidence(path: Path) -> dict[str, list[EvidenceCall]]:
     }
 
 
-# What decides the rows, since resuming with another value would mix configurations under one header.
+# Run identity, since resuming with other values would mix configurations under one header.
 _RUN_IDENTITY_KEYS = ("provider", "models", "prompts", "replay_evidence")
 
 

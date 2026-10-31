@@ -33,7 +33,6 @@ OLLAMA_PREFIX_BY_ROLE = {
     "judge": "ollama_judge",
 }
 
-# Settings field holding each role's Mistral model.
 MISTRAL_MODEL_ATTR_BY_ROLE = {
     "extractor": "mistral_extractor_model",
     "translator": "mistral_translator_model",
@@ -41,7 +40,6 @@ MISTRAL_MODEL_ATTR_BY_ROLE = {
     "judge": "mistral_judge_model",
 }
 
-# Settings field holding each role's Groq model.
 GROQ_MODEL_ATTR_BY_ROLE = {
     "extractor": "groq_extractor_model",
     "translator": "groq_translator_model",
@@ -50,7 +48,6 @@ GROQ_MODEL_ATTR_BY_ROLE = {
 }
 
 
-# Settings field holding each role's Google model.
 GOOGLE_MODEL_ATTR_BY_ROLE = {
     "extractor": "google_extractor_model",
     "translator": "google_translator_model",
@@ -59,7 +56,6 @@ GOOGLE_MODEL_ATTR_BY_ROLE = {
 }
 
 
-# Cap on the wait between Mistral retries, in seconds.
 MISTRAL_RETRY_MAX_WAIT_SECONDS = 16
 
 
@@ -99,7 +95,6 @@ class _RetryingChatMistralAI(ChatMistralAI):
 # Nemotron reasons by default, with far more latency and tokens for the same output.
 NVIDIA_THINKING_OFF = {"chat_template_kwargs": {"enable_thinking": False}}
 
-# Settings field holding each role's NVIDIA model.
 NVIDIA_MODEL_ATTR_BY_ROLE = {
     "extractor": "nvidia_extractor_model",
     "translator": "nvidia_translator_model",
@@ -107,7 +102,6 @@ NVIDIA_MODEL_ATTR_BY_ROLE = {
     "judge": "nvidia_judge_model",
 }
 
-# Settings field holding each role's model, by provider.
 MODEL_ATTR_BY_PROVIDER = {
     "ollama": {
         role: f"{prefix}_model" for role, prefix in OLLAMA_PREFIX_BY_ROLE.items()

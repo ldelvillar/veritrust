@@ -1,4 +1,4 @@
-"""Infrastructure of the 'db' tests, a real, disposable, isolated PostgreSQL from ``TEST_DATABASE_URL`` or else an ephemeral Docker ``postgres:16-alpine``, skipping the suite when neither is available."""
+"""Disposable PostgreSQL for the 'db' tests, from ``TEST_DATABASE_URL`` or Docker, skipping the suite when neither is available."""
 
 import asyncio
 import os

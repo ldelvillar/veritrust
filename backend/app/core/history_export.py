@@ -13,7 +13,7 @@ _UTF8_BOM = "﻿"
 # Leading characters Excel and Sheets read as a formula (CSV injection).
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
-# Single product vocabulary, VERDICT_LABEL in analysis-result/format.ts.
+# Mirrors VERDICT_LABEL in analysis-result/format.ts, so the CSV uses the UI's words.
 _EXPORT_VERDICT_LABELS = {
     "real": "Verdadero",
     "fake": "Falso",

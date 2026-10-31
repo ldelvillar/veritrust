@@ -1,4 +1,4 @@
-"""Evaluate only the evidence judge by rejudging the claims and candidate Sources recorded in a pipeline checkpoint, picking the judge's provider and model from the environment as the pipeline does (e.g. ``LLM_PROVIDER=mistral`` or ``OLLAMA_JUDGE_MODEL=gemma4:12b``)."""
+"""Rejudge the claims and candidate Sources recorded in a pipeline checkpoint to compare judge models on the same input, chosen by env as in the pipeline (e.g. ``OLLAMA_JUDGE_MODEL=gemma4:12b``)."""
 
 import argparse
 import json
@@ -332,7 +332,7 @@ def main() -> dict:
     ensure_llm_available()
 
     prompts = load_prompts()
-    # What decides the Stances, since resuming with another judge would mix results.
+    # Run identity, since resuming with another judge would mix results.
     run = {
         "provider": get_settings().llm_provider_name(),
         "models": {"judge": configured_models()["judge"]},

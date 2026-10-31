@@ -54,7 +54,6 @@ def _search_all(claims: Sequence[Claim]) -> list[Claim]:
             tasks.append((position, claim.search_query, search))
             per_claim_attempts[position] += 1
         if claim.drug_term:
-            # CIMA (medicines) is only queried when the claim names a drug.
             tasks.append((position, claim.drug_term, search_cima))
             per_claim_attempts[position] += 1
 
@@ -144,7 +143,6 @@ def gather_evidence(
                 Counter(str(item.stance) for item in after.evidence).most_common(),
             )
 
-    # Reassembled in the original order of the claims.
     result = list(claims)
     for position, claim in zip(positions, investigated):
         result[position] = claim
