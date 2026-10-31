@@ -49,7 +49,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const delta = dashboard.kpis.week_over_week_delta;
   const deltaStr = delta >= 0 ? `+${delta}%` : `${delta}%`;
 
-  // A failing range change has no data of its own, so warn instead of silently showing the initial range's metrics as if they were this one's.
+  // A failed range change has no data of its own, so show an error rather than the initial range's metrics.
   if (!data && error) {
     return (
       <div className="flex w-full flex-col gap-5">

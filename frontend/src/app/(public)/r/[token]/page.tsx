@@ -40,7 +40,7 @@ function truncate(text: string, max: number): string {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-// Analysed subject (domain, file or text snippet) for context.
+// Analyzed subject (domain, file or text snippet) for context.
 function analyzedSubject(report: PublicReport): string | null {
   if (report.source_type === 'url' && report.input_url) {
     return displayHostname(report.input_url);
@@ -67,7 +67,7 @@ export async function generateMetadata({
   try {
     report = await getReport(token);
   } catch {
-    // If the backend fails while drawing metadata, the page's <head> must not break.
+    // If the backend fails while rendering metadata, the page's <head> must not break.
     report = null;
   }
 

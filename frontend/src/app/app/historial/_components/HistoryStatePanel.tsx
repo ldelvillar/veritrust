@@ -32,7 +32,7 @@ const DOTS_STYLES: Record<Variant, string> = {
 const DOTS_MASK =
   '[background-size:22px_22px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_38%,#000,transparent_72%)] [-webkit-mask-image:radial-gradient(ellipse_60%_60%_at_50%_38%,#000,transparent_72%)]';
 
-// Centered panel for the error and empty History states of the design.
+// Centered panel for the error and empty History states.
 export default function HistoryStatePanel({
   variant,
   icon,

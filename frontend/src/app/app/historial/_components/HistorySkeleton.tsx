@@ -30,7 +30,6 @@ export function SkeletonRows({ count = 5 }: { count?: number }) {
   );
 }
 
-// Full History loading screen (header, stats and list).
 export default function HistorySkeleton() {
   return (
     <div>

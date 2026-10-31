@@ -13,7 +13,7 @@ interface UpgradePromptProps {
   className?: string;
 }
 
-// Invitation to go Pro where the Free Plan does not reach, always leading to the Plan card.
+// Invitation to upgrade to Pro for features the Free Plan lacks, always linking to the Plan card.
 export default function UpgradePrompt({
   title,
   children,

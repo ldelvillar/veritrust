@@ -54,7 +54,7 @@ export function HiddenAnalysis() {
 const REANALYZE_DESCRIPTION =
   'Se generará un informe nuevo con la evidencia médica más reciente. El resultado actual se reemplazará y esta acción no se puede deshacer.';
 
-// Reanalyzing consumes one Allowance unit if it ends well, and the dialog says so.
+// A Reanalyze uses one Allowance unit if it ends done, and the dialog says so.
 function reanalyzeDescription(usage: PlanUsage | null): string {
   if (!usage) return REANALYZE_DESCRIPTION;
   if (usage.remaining === 0)
@@ -120,7 +120,7 @@ export default function AnalisisClient({
       ? { ...detail, stage: statusData.stage }
       : detail;
   const pollError = statusError ?? detailError;
-  // A polling failure freezes the waiting screen, so it is shown.
+  // A polling failure freezes the waiting screen, so surface the error.
   const pollErrorMessage =
     current.status === 'pending' && pollError
       ? pollError instanceof ApiError

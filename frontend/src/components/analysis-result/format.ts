@@ -112,7 +112,7 @@ export function formatDuration(
   return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
 }
 
-// The backend decides the bands next to the Verdict bands, and they are only labelled here.
+// The backend sets the Confidence tiers alongside the Verdict bands, and this only labels them.
 export const CONFIDENCE_LEVEL_LABEL: Record<ConfidenceLevel, string> = {
   high: 'Alta',
   medium: 'Media',
@@ -142,7 +142,7 @@ function pillFor(verdict: Verdict): { tile: string; pill: string } {
   return { tile: VERDICT_META[verdict].pill, pill: VERDICT_META[verdict].pill };
 }
 
-// Readable domain of an analysed link without «www.», or the text as is if it is not a valid URL.
+// Readable domain of an analyzed link without «www.», or the text as is if it is not a valid URL.
 export function displayHostname(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -185,7 +185,7 @@ export function getAnalysisTitle(
   return 'Análisis sin título';
 }
 
-// Only PDF files embed the viewer, while .txt and .md show their text.
+// Only PDFs are embedded in the viewer, while .txt and .md show their text.
 export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));
 }

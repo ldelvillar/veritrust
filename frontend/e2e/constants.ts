@@ -1,4 +1,4 @@
-// Own ports so as not to clash with the development stack on 3000 and 8000.
+// Dedicated ports to avoid clashing with the dev stack on 3000 and 8000.
 export const WEB_PORT = 3100;
 export const MOCK_API_PORT = 8100;
 export const WEB_URL = `http://localhost:${WEB_PORT}`;

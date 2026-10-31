@@ -257,7 +257,7 @@ export default function Sidebar() {
           >
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {/* Dot that gives away a pending Analysis, with the detail in the drawer. */}
+          {/* Dot signalling a pending Analysis, whose details live in the drawer. */}
           {pending.pendingCount > 0 && (
             <span
               aria-hidden="true"

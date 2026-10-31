@@ -31,7 +31,7 @@ export function stanceForClaim(
   )?.stance;
 }
 
-/** Group the Sources under the claims they are linked to by `claim_index`, listing one under each of its claims and the rest in `unmatched`. */
+/** Group each Source under every claim its `claim_index` points to, and the rest into `unmatched`. */
 export function groupSourcesByClaim(
   claims: ClaimType[],
   sources: SourceType[]

@@ -112,7 +112,7 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Local time only exists in the browser, so it is not drawn during SSR to avoid a hydration mismatch.
+// Local time only exists in the browser, so it is not rendered during SSR to avoid a hydration mismatch.
 const subscribeNever = () => () => {};
 const SENT_AT_FORMAT = new Intl.DateTimeFormat('es-ES', {
   hour: '2-digit',

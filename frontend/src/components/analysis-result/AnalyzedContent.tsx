@@ -130,7 +130,7 @@ export default function AnalyzedContent({
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
-  // The PDF binary requires auth, so the public view shows the extracted text, the same text branch .txt and .md files use.
+  // The PDF binary requires auth, so the public view falls through to the text branch below, as .txt and .md files do.
   const isPdf =
     result.source_type === 'file' && isPdfFilename(result.file_filename);
   if (isPdf && !isPublic && result.analysis_id) {
@@ -142,7 +142,6 @@ export default function AnalyzedContent({
     );
   }
 
-  // URL analyses show the link instead of the full text.
   if (result.source_type === 'url') {
     if (!result.input_url) return null;
     return (

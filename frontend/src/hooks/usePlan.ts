@@ -8,7 +8,7 @@ import { PLAN_PATH, type PlanResponse } from '@/lib/plan';
 // Plan preloaded by the /app layout, null if the API did not answer on the server.
 export const InitialPlanContext = createContext<PlanResponse | null>(null);
 
-// The client's single source of the Plan, where the API decides what is allowed while it is null.
+// The client's single source of the Plan, and while it is null the API decides what is allowed.
 export function usePlan(
   options: {
     refreshInterval?: number | ((latest: PlanResponse | undefined) => number);

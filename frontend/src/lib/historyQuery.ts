@@ -155,7 +155,7 @@ export function isExportable(status: StatusFilter): boolean {
   return status === 'all' || status === 'done';
 }
 
-// Query the server preloads, where the client only reuses initialData if its path matches.
+// The query the server preloads, whose initialData the client only reuses when its path matches.
 export const INITIAL_HISTORY_PATH = historyPath(DEFAULT_HISTORY_FILTERS, 1);
 
 // The menu's own key, since sharing the History's would void its server preload.

@@ -101,7 +101,7 @@ interface Billing {
 const hoursAgo = (hours: number) =>
   new Date(Date.now() - hours * 3_600_000).toISOString();
 
-// Report every Analysis the test submits or retries finishes with.
+// The report every Analysis a test submits or retries ends with.
 const FAKE_REPORT = {
   label: 'falsa',
   confidence: 0.82,

@@ -65,7 +65,6 @@ const URL_LABEL = 'Introduce la URL del artículo';
 const TEXT_LABEL = 'Pega el texto o la afirmación a verificar';
 const RUN_BUTTON = 'Analizar credibilidad';
 
-// The limits come from GET /config.
 const LIMITS = {
   max_file_bytes: 10 * 1024 * 1024,
   allowed_file_suffixes: ['.md', '.pdf', '.txt'],

@@ -34,7 +34,7 @@ const CARET =
 
 const TYPE_TICK = 34;
 
-/** Restart the mockup every `total` ms while in view, where `null` means no animation (no JS or reduced motion) and the final state is drawn directly. */
+/** Restart the mockup every `total` ms while in view, where `null` means no animation (no JS or reduced motion) and the final state renders directly. */
 function useLoop(total: number) {
   const ref = useRef<HTMLDivElement>(null);
   const [cycle, setCycle] = useState<number | null>(null);
@@ -74,7 +74,7 @@ function useLoop(total: number) {
   return [ref, cycle] as const;
 }
 
-/** How many `marks` (ms since the cycle start) have been reached, stored with their cycle so a new one resets on render without an effect. */
+/** How many `marks` (ms since the cycle start) have been reached, with progress keyed to its cycle so a new cycle resets on render without an effect. */
 function useMarks(cycle: number | null, marks: readonly number[]) {
   const [state, setState] = useState({ cycle, reached: marks.length });
 
@@ -91,7 +91,7 @@ function useMarks(cycle: number | null, marks: readonly number[]) {
   return state.cycle === cycle ? state.reached : 0;
 }
 
-/** Already «typed» length of `text`, advancing at a steady pace once `start` is true. */
+/** Already "typed" length of `text`, advancing at a steady pace once `start` is true. */
 function useTyped(
   cycle: number | null,
   text: string,

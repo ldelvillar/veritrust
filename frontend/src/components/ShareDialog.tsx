@@ -42,12 +42,11 @@ export default function ShareDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, isSharing, onClose]);
 
-  // Move focus to the close button on open.
   useEffect(() => {
     if (open) closeRef.current?.focus();
   }, [open]);
 
-  // Reset «copied» when the link changes (revoke and create again).
+  // Reset `copied` when the link changes (revoke and create again).
   const [trackedUrl, setTrackedUrl] = useState(shareUrl);
   if (trackedUrl !== shareUrl) {
     setTrackedUrl(shareUrl);

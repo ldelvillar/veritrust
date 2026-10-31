@@ -42,7 +42,6 @@ export default function ConfirmDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, isConfirming, onCancel]);
 
-  // Move focus to the cancel button on open.
   useEffect(() => {
     if (open) cancelRef.current?.focus();
   }, [open]);

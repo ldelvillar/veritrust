@@ -12,7 +12,6 @@ import Chevron from '@/assets/Chevron';
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export interface PdfDocumentProps {
-  /** PDF source, a URL (string) or a local File/Blob. */
   file: string | Blob;
   className?: string;
 }

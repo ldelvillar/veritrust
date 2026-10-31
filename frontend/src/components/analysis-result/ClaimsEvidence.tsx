@@ -28,7 +28,7 @@ export default function ClaimsEvidence({
     ) : null;
   }
 
-  // Old analyses (before the investigator) have no Sources, so "no Evidence" is not claimed because it was never searched.
+  // Analyses from before the investigator have no Sources, so do not claim "no Evidence" for a search that never ran.
   if (!hasEvidence) {
     return (
       <div className="rounded-xl border border-line bg-white p-6 shadow-sm">

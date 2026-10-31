@@ -75,7 +75,7 @@ describe('usePendingAnalyses (SWR real)', () => {
   it('refreshPending updates the indicator without navigation or poll', async () => {
     serverCount = 1;
     serverNewestId = 'aaa';
-    // No own provider, since refreshPending's global mutate works on the default cache.
+    // No custom provider, since refreshPending's global mutate targets the default cache.
     const { result } = renderHook(() => usePendingAnalyses(), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <StrictMode>{children}</StrictMode>

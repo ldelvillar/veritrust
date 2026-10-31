@@ -1,4 +1,4 @@
-// Skeleton bone, a bar with a shimmer whose height and radius each use sets.
+// Shimmering skeleton bar, whose height and radius each caller sets.
 function Bone({ className }: { className: string }) {
   return <span className={`skeleton block ${className}`} />;
 }

@@ -17,7 +17,7 @@ export function refreshHistoryLists(): Promise<unknown> {
   return lastListsRefresh;
 }
 
-// After an own action, the lists are fetched here if the indicator did not see the change.
+// After the user's own action, fetch the lists here if the indicator missed the change.
 export async function refreshHistory(): Promise<unknown> {
   const before = lastListsRefresh;
   await refreshPending();
