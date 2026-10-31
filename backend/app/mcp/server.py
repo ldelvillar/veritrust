@@ -1,4 +1,4 @@
-"""Servidor MCP de VeriTrust: verificación de afirmaciones y búsqueda de evidencia."""
+"""VeriTrust MCP server for claim verification and Evidence search."""
 
 import asyncio
 import logging
@@ -52,13 +52,13 @@ from app.schemas.mcp import (
 logger = logging.getLogger(__name__)
 
 MCP_PATH = "/mcp"
-# Ruta RFC 9728 de los metadatos del recurso protegido que sirve el SDK para MCP_PATH.
+# RFC 9728 path of the protected resource metadata the SDK serves for MCP_PATH.
 MCP_METADATA_PATH = "/.well-known/oauth-protected-resource/mcp"
 
 _POLL_INTERVAL_SECONDS = 2.0
-# Dueño de cada búsqueda de evidencia: solo quien la lanzó puede recogerla con get_evidence.
+# Owner of each Evidence search, so only whoever started it can collect it with get_evidence.
 _EVIDENCE_OWNER_KEY = "mcp:evidence_owner:{job_id}"
-# Etapas visibles del análisis en orden, para reportar un progreso monótono.
+# Visible Analysis stages in order, to report monotonic progress.
 _ANALYSIS_STAGES: tuple[str, ...] = ("preparing", *PIPELINE_STAGES)
 
 _INSTRUCTIONS = (
@@ -103,13 +103,13 @@ _GET_EVIDENCE_DESCRIPTION = (
 
 
 def _tool_error(code: ErrorCode, message: str | None = None) -> ToolError:
-    """Construye un error de herramienta con el código y mensaje del contrato de errores."""
+    """Build a tool error with the error contract's code and message."""
     detail = make_error_detail(code, message)
     return ToolError(f"{detail['code']}: {detail['message']}")
 
 
 def _current_user_id() -> str:
-    """Devuelve el usuario de Clerk del token OAuth de la petición en curso."""
+    """Return the Clerk user of the current request's OAuth token."""
     token = get_access_token()
     if token is None or not token.subject:
         raise _tool_error(ErrorCode.UNAUTHENTICATED)
@@ -117,7 +117,7 @@ def _current_user_id() -> str:
 
 
 async def _pro_caller() -> tuple[str, PlanLimits]:
-    """Identifica al usuario del token OAuth y su Plan, leído en cada llamada; rechaza si no incluye MCP."""
+    """Identify the OAuth token's user and their Plan, read on every call, refusing if it lacks MCP."""
     user_id = _current_user_id()
     try:
         limits = limits_for(await get_user_subscription(user_id))
@@ -129,7 +129,7 @@ async def _pro_caller() -> tuple[str, PlanLimits]:
 
 
 async def _require_allowance(user_id: str, limits: PlanLimits) -> None:
-    """Rechaza una búsqueda de evidencia con la Allowance del mes agotada; no cuenta las búsquedas en curso."""
+    """Refuse an Evidence search when the month's Allowance is used up, not counting searches in progress."""
     start, end = month_window(datetime.now(UTC))
     try:
         usage = await usage_this_month(user_id, start, end)
@@ -140,7 +140,7 @@ async def _require_allowance(user_id: str, limits: PlanLimits) -> None:
 
 
 async def _consume_rate_limit(redis: Any, user_id: str) -> None:
-    """Descuenta una llamada del mismo presupuesto por usuario que la API web."""
+    """Charge one call to the same per-user budget as the web API."""
     settings = get_settings()
     try:
         await enforce_sliding_window(
@@ -154,7 +154,7 @@ async def _consume_rate_limit(redis: Any, user_id: str) -> None:
 
 
 def _report_url(analysis_id: str) -> str | None:
-    """Enlace al informe completo en la web, con el mismo formato que los emails."""
+    """Link to the full report on the web, in the same format as the emails."""
     base_url = get_settings().app_base_url
     if not base_url:
         return None
@@ -162,7 +162,7 @@ def _report_url(analysis_id: str) -> str | None:
 
 
 def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:
-    """Traduce la fila del historial al resultado que ve el cliente MCP."""
+    """Translate the History row into the result the MCP client sees."""
     done = record.status == "done"
     status: Literal["pending", "done", "failed"] = (
         "done" if done else "pending" if record.status == "pending" else "failed"
@@ -190,9 +190,9 @@ RowT = TypeVar("RowT")
 async def _read_analysis(
     read: Callable[..., Awaitable[RowT | None]], *, user_id: str, analysis_id: str
 ) -> RowT:
-    """Lee el análisis del usuario, traduciendo un fallo de BD o su ausencia al contrato."""
+    """Read the user's Analysis, translating a DB failure or its absence to the contract."""
     try:
-        # MCP es solo de Pro, cuya History window no tiene límite.
+        # MCP is Pro only, whose History window has no limit.
         row = await read(user_id=user_id, analysis_id=analysis_id, visible_since=None)
     except DatabaseError as exc:
         raise _tool_error(ErrorCode.ANALYSIS_FETCH_FAILED) from exc
@@ -204,7 +204,7 @@ async def _read_analysis(
 async def _await_analysis(
     ctx: Context, *, user_id: str, analysis_id: str
 ) -> VerificationResult:
-    """Sondea solo el estado hasta que el análisis termina o se agota la espera, y lee el informe una vez."""
+    """Poll only the status until the Analysis ends or the wait runs out, and read the report once."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + get_settings().mcp_tool_wait_seconds
     last_progress = -1
@@ -242,7 +242,7 @@ async def _await_analysis(
 
 
 def _to_evidence_result(job_id: str, result: dict) -> EvidenceSearchResult:
-    """Traduce el resultado del job de evidencia al esquema de la herramienta."""
+    """Translate the evidence job's result into the tool schema."""
     claims = []
     for entry in result["claims"]:
         hits = entry.get("hits")
@@ -277,7 +277,7 @@ def _to_evidence_result(job_id: str, result: dict) -> EvidenceSearchResult:
 async def _await_evidence(
     ctx: Context, *, arq_pool: Any, job_id: str
 ) -> EvidenceSearchResult:
-    """Sondea el job de evidencia hasta que deja resultado o se agota la espera."""
+    """Poll the evidence job until it leaves a result or the wait runs out."""
     job = Job(job_id, arq_pool)
     loop = asyncio.get_running_loop()
     deadline = loop.time() + get_settings().mcp_tool_wait_seconds
@@ -291,7 +291,7 @@ async def _await_evidence(
             raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
 
         if info is not None:
-            # Un job que lanzó (p. ej. el corte duro de arq) no deja un dict de resultado.
+            # A job that raised (e.g. arq's hard timeout) leaves no result dict.
             if not info.success or not isinstance(info.result, dict):
                 raise _tool_error(ErrorCode.INTERNAL)
             if "error_code" in info.result:
@@ -323,18 +323,18 @@ async def _await_evidence(
 def build_mcp_server(
     *, arq_pool: Any, redis: Any, analysis_intake: AnalysisIntake
 ) -> MCPServer:
-    """Construye el servidor MCP con autenticación OAuth de Clerk y sus herramientas."""
+    """Build the MCP server with Clerk OAuth authentication and its tools."""
     settings = get_settings()
     server = MCPServer(
         "VeriTrust",
         instructions=_INSTRUCTIONS,
         token_verifier=ClerkOAuthTokenVerifier(),
-        # Cadenas, no AnyHttpUrl: el SDK conserva el issuer sin la barra final que rompería RFC 8414.
+        # Strings, not AnyHttpUrl, so the SDK keeps the issuer without the trailing slash that would break RFC 8414.
         auth=AuthSettings.model_validate(
             {
                 "issuer_url": settings.expected_issuer,
                 "resource_server_url": settings.mcp_resource_url,
-                # Clerk no liga el token al recurso (RFC 8707); el verificador valida emisor y client_id.
+                # Clerk does not bind the token to the resource (RFC 8707), so the verifier checks issuer and client_id.
                 "validate_token_resource": False,
             }
         ),
@@ -360,7 +360,7 @@ def build_mcp_server(
             Field(description="Public web page whose text should be fact-checked."),
         ] = None,
     ) -> VerificationResult:
-        """Lanza el pipeline completo sobre un texto o una URL y espera su resultado."""
+        """Run the full pipeline on a text or URL and wait for its result."""
         try:
             request = AnalysisRequest(
                 text=text,
@@ -374,7 +374,7 @@ def build_mcp_server(
         user_id, limits = await _pro_caller()
         await _consume_rate_limit(redis, user_id)
 
-        # Sin email: el cliente MCP recibe el resultado en la propia llamada.
+        # No email, since the MCP client gets the result in the call itself.
         submitter = Submitter(user_id=user_id, origin="mcp", limits=limits)
         try:
             analysis_id = await analysis_intake.submit(submitter, request)
@@ -393,7 +393,7 @@ def build_mcp_server(
             str, Field(description="The analysis_id returned by verify_claim.")
         ],
     ) -> VerificationResult:
-        """Espera y devuelve el estado de un análisis MCP del usuario."""
+        """Wait for and return the status of one of the user's MCP analyses."""
         user_id, _ = await _pro_caller()
         try:
             UUID(analysis_id)
@@ -416,21 +416,21 @@ def build_mcp_server(
             ),
         ],
     ) -> EvidenceSearchResult:
-        """Encola la búsqueda de evidencia en el worker y espera su resultado."""
+        """Enqueue the Evidence search in the worker and wait for its result."""
         user_id, limits = await _pro_caller()
         await _consume_rate_limit(redis, user_id)
         await _require_allowance(user_id, limits)
 
         job_id = uuid4().hex
         try:
-            # El dueño vive lo que puede durar el job más lo que se guarda su resultado.
+            # The owner lives as long as the job can last plus how long its result is kept.
             await redis.set(
                 _EVIDENCE_OWNER_KEY.format(job_id=job_id),
                 user_id,
                 ex=get_settings().analysis_job_timeout_seconds
                 + EVIDENCE_RESULT_TTL_SECONDS,
             )
-            # El worker anota la búsqueda en el Usage de user_id solo si termina con resultado.
+            # The worker records the search in user_id's Usage only if it ends with a result.
             job = await arq_pool.enqueue_job(
                 "run_evidence_search", claim.strip(), user_id, _job_id=job_id
             )
@@ -456,14 +456,14 @@ def build_mcp_server(
             ),
         ],
     ) -> EvidenceSearchResult:
-        """Espera y devuelve el resultado de una búsqueda de evidencia del usuario."""
+        """Wait for and return the result of one of the user's Evidence searches."""
         user_id, _ = await _pro_caller()
         try:
             owner = await redis.get(_EVIDENCE_OWNER_KEY.format(job_id=job_id))
         except (OSError, RedisError) as exc:
             raise _tool_error(ErrorCode.SERVICE_UNAVAILABLE) from exc
 
-        # Una búsqueda ajena se trata igual que una inexistente, para no revelar que existe.
+        # Someone else's search is treated like a missing one, so as not to reveal it exists.
         owner_id = owner.decode() if isinstance(owner, bytes) else owner
         if owner_id != user_id:
             raise _tool_error(ErrorCode.EVIDENCE_SEARCH_NOT_FOUND)
@@ -473,14 +473,14 @@ def build_mcp_server(
 
 
 def build_mcp_http_app(server: MCPServer) -> Starlette:
-    """Devuelve la app Streamable HTTP del servidor, limitada a los hosts configurados."""
+    """Return the server's Streamable HTTP app, limited to the configured hosts."""
     settings = get_settings()
     allowed_hosts = [urlparse(str(settings.mcp_resource_url)).netloc]
     if settings.is_development():
         allowed_hosts += ["localhost:*", "127.0.0.1:*"]
     return server.streamable_http_app(
         streamable_http_path=MCP_PATH,
-        # Sin sesión en memoria: cualquier réplica atiende a los clientes de protocolo antiguo.
+        # No in-memory session, so any replica serves old-protocol clients.
         stateless_http=True,
         transport_security=TransportSecuritySettings(
             allowed_hosts=allowed_hosts,

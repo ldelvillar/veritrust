@@ -1,4 +1,4 @@
-"""Tests unitarios del despachador de extracción de texto por tipo de archivo."""
+"""Unit tests of the text extraction dispatcher by file type."""
 
 import pytest
 

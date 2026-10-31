@@ -1,4 +1,4 @@
-"""Este módulo contiene la función para extraer el texto de una URL."""
+"""Extract the text of a URL."""
 
 from urllib.parse import urljoin, urlparse
 
@@ -17,15 +17,15 @@ _USER_AGENT = (
     "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 )
 
-MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024  # 5 MB de HTML bruto
+MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024  # 5 MB of raw HTML.
 
 
 class URLExtractionError(Exception):
-    """Excepción lanzada cuando ocurre un error al extraer el texto de la URL."""
+    """Raised when extracting the text of the URL fails."""
 
 
 def _resolve_public_host(url: str) -> tuple[str, str]:
-    """Valida la URL vía la comprobación SSRF y traduce el fallo al error del dominio."""
+    """Validate the URL through the SSRF check and translate the failure to the domain error."""
     try:
         return resolve_public_host(url)
     except SSRFValidationError as e:
@@ -33,7 +33,7 @@ def _resolve_public_host(url: str) -> tuple[str, str]:
 
 
 def _read_capped_body(response: requests.Response) -> bytes:
-    """Lee el cuerpo en streaming hasta ``MAX_DOWNLOAD_BYTES`` y trunca el resto."""
+    """Stream the body up to ``MAX_DOWNLOAD_BYTES`` and truncate the rest."""
     chunks: list[bytes] = []
     total = 0
     for chunk in response.iter_content(chunk_size=8192):
@@ -47,19 +47,19 @@ def _read_capped_body(response: requests.Response) -> bytes:
 
 
 def extract_text_from_url(url: str) -> str:
-    """Extrae el texto de una página web dada su URL."""
+    """Extract the text of a web page from its URL."""
     current_url = url
     max_redirects = 5
     raw_body = b""
 
     try:
         for _ in range(max_redirects + 1):
-            # Validar y resolver en el mismo paso; la conexión se fija a esta IP.
+            # Validate and resolve in one step, pinning the connection to this IP.
             host, pinned_ip = _resolve_public_host(current_url)
             parsed = urlparse(current_url)
             host_header = f"{host}:{parsed.port}" if parsed.port else host
 
-            # stream=True: el cuerpo se lee acotado dentro de la sesión viva.
+            # stream=True so the body is read bounded inside the live session.
             with build_pinned_session(host, pinned_ip) as session:
                 response = session.get(
                     current_url,
@@ -90,7 +90,6 @@ def extract_text_from_url(url: str) -> str:
 
     soup = BeautifulSoup(raw_body, "html.parser")
 
-    # Eliminar etiquetas que aportan ruido
     for tag in soup(
         ["script", "style", "noscript", "header", "footer", "nav", "aside", "iframe"]
     ):
@@ -104,6 +103,5 @@ def extract_text_from_url(url: str) -> str:
             "No se pudo extraer texto relevante de la URL proporcionada."
         )
 
-    # Acota el texto al mismo presupuesto que la entrada directa: una página
-    # enorme no puede convertirse en un prompt sin límite para el pipeline LLM.
+    # Cap the text to the same budget as direct input, so a huge page cannot become an unbounded LLM prompt.
     return text[:MAX_INPUT_TEXT_LENGTH]

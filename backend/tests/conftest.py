@@ -1,4 +1,4 @@
-"""Fixtures compartidas por todas las suites de pruebas."""
+"""Fixtures shared by every test suite."""
 
 import pytest
 
@@ -13,7 +13,7 @@ from tests.support.billing import (
 
 @pytest.fixture
 def stripe_settings(monkeypatch):
-    """Configura Stripe y el webhook de Clerk con valores de prueba y devuelve los Settings resultantes."""
+    """Configure Stripe and the Clerk webhook with test values and return the resulting Settings."""
     monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_dummy")
     monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", WEBHOOK_SECRET)
     monkeypatch.setenv("STRIPE_PRICE_PRO_MONTHLY", PRICE_MONTHLY)

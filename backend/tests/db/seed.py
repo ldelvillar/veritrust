@@ -1,4 +1,4 @@
-"""Siembra de filas para las pruebas de lectura con el SQL de transiciones, sin pasar por el ciclo de vida."""
+"""Row seeding for the read tests with the transitions SQL, bypassing the lifecycle."""
 
 from datetime import datetime
 
@@ -12,7 +12,7 @@ from app.schemas.analysis import AnalysisRequest, SourceType
 async def seed_pending(
     *, user_id: str, request: AnalysisRequest, origin: str = "web"
 ) -> str:
-    """Inserta un análisis ``pending`` de texto o URL con el Plan Pro y devuelve su id."""
+    """Insert a ``pending`` text or URL Analysis with the Pro Plan and return its id."""
     is_url = request.source_type == SourceType.URL
     return await transitions.insert_pending(
         user_id=user_id,
@@ -25,7 +25,7 @@ async def seed_pending(
 
 
 async def seed_pending_file(*, user_id: str, filename: str, data: bytes) -> str:
-    """Inserta un análisis ``pending`` de archivo con el Plan Pro y devuelve su id."""
+    """Insert a ``pending`` file Analysis with the Pro Plan and return its id."""
     return await transitions.insert_pending_file(
         user_id=user_id,
         origin="web",
@@ -46,11 +46,11 @@ async def seed_done(
     evidence_coverage: float | None = None,
     pipeline: dict | None = None,
 ) -> None:
-    """Cierra un análisis ``pending`` como ``done`` con el veredicto indicado."""
+    """Close a ``pending`` Analysis as ``done`` with the given Verdict."""
     verdict = Verdict(
         kind=kind_of(label),
         confidence=confidence,
-        # La falsedad no se guarda, así que su valor no importa al sembrar.
+        # The falsehood is not stored, so its value does not matter when seeding.
         falsehood=0.5,
         evidence_coverage=evidence_coverage,
         claims=tuple(
@@ -72,17 +72,17 @@ async def seed_done(
 
 
 async def seed_failed(*, analysis_id: str, error_code: str) -> None:
-    """Cierra un análisis ``pending`` como ``failed``."""
+    """Close a ``pending`` Analysis as ``failed``."""
     await transitions.fail(analysis_id=analysis_id, error_code=error_code)
 
 
 async def seed_stage(*, analysis_id: str, stage: str) -> None:
-    """Fija la etapa visible de un análisis ``pending``."""
+    """Set the visible stage of a ``pending`` Analysis."""
     await transitions.set_stage(analysis_id=analysis_id, stage=stage)
 
 
 async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
-    """Devuelve a ``pending`` un análisis ``done``, como hace Reanalyze."""
+    """Return a ``done`` Analysis to ``pending``, as Reanalyze does."""
     return await transitions.reopen(
         user_id=user_id,
         analysis_id=analysis_id,
@@ -92,7 +92,7 @@ async def seed_reopened_done(*, user_id: str, analysis_id: str) -> bool:
 
 
 async def seed_created_at(*, analysis_id: str, created_at: datetime) -> None:
-    """Fija el instante de alta de un análisis, para probar rangos de fechas y orden."""
+    """Set an Analysis's creation instant, to test date ranges and sorting."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(
@@ -104,7 +104,7 @@ async def seed_created_at(*, analysis_id: str, created_at: datetime) -> None:
 async def seed_usage(
     *, user_id: str, occurred_at: datetime, analysis_id: str | None = None
 ) -> None:
-    """Anota una unidad de Usage del usuario en el instante dado, sin pasar por una Run."""
+    """Record one unit of the user's Usage at the given instant, without a Run."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(

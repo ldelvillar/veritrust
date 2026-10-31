@@ -1,7 +1,4 @@
-"""
-Este módulo define un agente traductor que toma una lista de afirmaciones en
-español y devuelve sus traducciones al inglés clínico en una única llamada al LLM.
-"""
+"""Translator agent that turns Spanish claims into clinical English in a single LLM call."""
 
 import logging
 import re
@@ -20,11 +17,11 @@ from app.utils.llm import build_chat_model
 
 logger = logging.getLogger(__name__)
 
-# La entrada va numerada y el modelo a veces devuelve el número pegado a la traducción.
+# The input is numbered and the model sometimes returns the number glued to the translation.
 _LEADING_NUMBER = re.compile(r"^\s*\d+\s*[.)-]\s+")
 
 
-# Un campo por afirmación: el traductor no puede fusionar, omitir ni añadir traducciones.
+# One field per claim, so the translator cannot merge, drop or add translations.
 TRANSLATIONS = NumberedAnswers(
     name="TranslatedStatements",
     field="translation",
@@ -37,7 +34,7 @@ TRANSLATIONS = NumberedAnswers(
 def get_translator_chain(
     prompt_text: str, statements: int
 ) -> Runnable[dict[str, Any], Any]:
-    """Devuelve la cadena de traducción para ``statements`` afirmaciones, cacheada por número."""
+    """Return the translation chain for ``statements`` claims, cached by count."""
     llm = build_chat_model("translator")
     structured_llm = llm.with_structured_output(TRANSLATIONS.schema(statements))
 
@@ -55,10 +52,7 @@ def get_translator_chain(
 
 
 def translator(state: ClaimsState, prompts: Prompts) -> ClaimsState:
-    """
-    Recibe las afirmaciones en español y las traduce al inglés clínico
-    en una única llamada al LLM, preservando orden y cardinalidad.
-    """
+    """Translate the Spanish claims into clinical English in one LLM call, keeping order and count."""
     logger.info("[Traductor] Traduciendo afirmaciones al inglés")
 
     claims = state.get("claims", [])

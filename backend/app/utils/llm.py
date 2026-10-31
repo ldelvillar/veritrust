@@ -1,4 +1,4 @@
-"""Fábrica de los modelos de chat de los agentes según el proveedor configurado."""
+"""Factory of the agents' chat models for the configured provider."""
 
 import logging
 import random
@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 class LLMConfigurationError(RuntimeError):
-    """El proveedor de LLM configurado no es utilizable."""
+    """The configured LLM provider is not usable."""
 
 
-# Prefijo de los ajustes de Ollama de cada rol (modelo, num_ctx y num_predict).
+# Prefix of each role's Ollama settings (model, num_ctx and num_predict).
 OLLAMA_PREFIX_BY_ROLE = {
     "extractor": "ollama_extractor",
     "translator": "ollama_translator",
@@ -33,7 +33,7 @@ OLLAMA_PREFIX_BY_ROLE = {
     "judge": "ollama_judge",
 }
 
-# Ajuste de Settings con el modelo de Mistral de cada rol.
+# Settings field holding each role's Mistral model.
 MISTRAL_MODEL_ATTR_BY_ROLE = {
     "extractor": "mistral_extractor_model",
     "translator": "mistral_translator_model",
@@ -41,7 +41,7 @@ MISTRAL_MODEL_ATTR_BY_ROLE = {
     "judge": "mistral_judge_model",
 }
 
-# Ajuste de Settings con el modelo de Groq de cada rol.
+# Settings field holding each role's Groq model.
 GROQ_MODEL_ATTR_BY_ROLE = {
     "extractor": "groq_extractor_model",
     "translator": "groq_translator_model",
@@ -50,7 +50,7 @@ GROQ_MODEL_ATTR_BY_ROLE = {
 }
 
 
-# Ajuste de Settings con el modelo de Google de cada rol.
+# Settings field holding each role's Google model.
 GOOGLE_MODEL_ATTR_BY_ROLE = {
     "extractor": "google_extractor_model",
     "translator": "google_translator_model",
@@ -59,23 +59,23 @@ GOOGLE_MODEL_ATTR_BY_ROLE = {
 }
 
 
-# Tope de la espera entre reintentos de Mistral, en segundos.
+# Cap on the wait between Mistral retries, in seconds.
 MISTRAL_RETRY_MAX_WAIT_SECONDS = 16
 
 
 def _is_transient(exc: httpx.HTTPStatusError) -> bool:
-    """Indica si un error HTTP es pasajero: límite de peticiones o fallo del servidor."""
+    """Tell whether an HTTP error is transient, a rate limit or a server failure."""
     status = exc.response.status_code
     return status == 429 or status >= 500
 
 
 class _RetryingChatMistralAI(ChatMistralAI):
-    """ChatMistralAI que reintenta también los 429 y 5xx; la librería solo reintenta los fallos de red."""
+    """ChatMistralAI that also retries 429 and 5xx, since the library only retries network failures."""
 
     def completion_with_retry(
         self, run_manager: CallbackManagerForLLMRun | None = None, **kwargs: Any
     ) -> Any:
-        """Llama a la API con espera exponencial y jitter ante errores HTTP pasajeros."""
+        """Call the API with exponential backoff and jitter on transient HTTP errors."""
         attempt = 0
         while True:
             try:
@@ -83,7 +83,7 @@ class _RetryingChatMistralAI(ChatMistralAI):
             except httpx.HTTPStatusError as exc:
                 if not _is_transient(exc) or attempt == self.max_retries:
                     raise
-                # El jitter evita que las llamadas paralelas del juez reintenten a la vez.
+                # Jitter keeps the judge's parallel calls from retrying at the same time.
                 wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()
                 attempt += 1
                 logger.warning(
@@ -96,10 +96,10 @@ class _RetryingChatMistralAI(ChatMistralAI):
                 time.sleep(wait)
 
 
-# Nemotron razona por defecto: mucha más latencia y tokens para la misma salida.
+# Nemotron reasons by default, with far more latency and tokens for the same output.
 NVIDIA_THINKING_OFF = {"chat_template_kwargs": {"enable_thinking": False}}
 
-# Ajuste de Settings con el modelo de NVIDIA de cada rol.
+# Settings field holding each role's NVIDIA model.
 NVIDIA_MODEL_ATTR_BY_ROLE = {
     "extractor": "nvidia_extractor_model",
     "translator": "nvidia_translator_model",
@@ -107,7 +107,7 @@ NVIDIA_MODEL_ATTR_BY_ROLE = {
     "judge": "nvidia_judge_model",
 }
 
-# Ajuste de Settings con el modelo de cada rol, por proveedor.
+# Settings field holding each role's model, by provider.
 MODEL_ATTR_BY_PROVIDER = {
     "ollama": {
         role: f"{prefix}_model" for role, prefix in OLLAMA_PREFIX_BY_ROLE.items()
@@ -120,7 +120,7 @@ MODEL_ATTR_BY_PROVIDER = {
 
 
 def _mistral_api_key() -> str:
-    """Devuelve la api_key de Mistral o falla con un mensaje accionable."""
+    """Return the Mistral api_key or fail with an actionable message."""
     api_key = (get_settings().mistral_api_key or "").strip()
     if not api_key:
         raise LLMConfigurationError(
@@ -130,7 +130,7 @@ def _mistral_api_key() -> str:
 
 
 def _groq_api_key() -> str:
-    """Devuelve la api_key de Groq o falla con un mensaje accionable."""
+    """Return the Groq api_key or fail with an actionable message."""
     api_key = (get_settings().groq_api_key or "").strip()
     if not api_key:
         raise LLMConfigurationError(
@@ -140,7 +140,7 @@ def _groq_api_key() -> str:
 
 
 def _google_api_key() -> str:
-    """Devuelve la api_key de Google o falla con un mensaje accionable."""
+    """Return the Google api_key or fail with an actionable message."""
     api_key = (get_settings().google_api_key or "").strip()
     if not api_key:
         raise LLMConfigurationError(
@@ -150,7 +150,7 @@ def _google_api_key() -> str:
 
 
 def _nvidia_api_key() -> str:
-    """Devuelve la api_key de NVIDIA o falla con un mensaje accionable."""
+    """Return the NVIDIA api_key or fail with an actionable message."""
     api_key = (get_settings().nvidia_api_key or "").strip()
     if not api_key:
         raise LLMConfigurationError(
@@ -160,7 +160,7 @@ def _nvidia_api_key() -> str:
 
 
 def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
-    """Construye el modelo de chat del rol indicado para el proveedor configurado."""
+    """Build the chat model of the given role for the configured provider."""
     if role not in OLLAMA_PREFIX_BY_ROLE:
         raise LLMConfigurationError(f"Rol de LLM desconocido: {role}")
 
@@ -168,7 +168,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     provider = settings.llm_provider_name()
 
     def _model_for(attr_by_role: dict[str, str]) -> str:
-        # El override permite rotar de modelo sin tocar la configuración del rol.
+        # The override allows rotating models without touching the role's configuration.
         return model or str(getattr(settings, attr_by_role[role]))
 
     if provider == "mistral":
@@ -229,7 +229,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
 
 
 def configured_models() -> dict[str, str]:
-    """Devuelve el modelo configurado para cada rol del proveedor activo."""
+    """Return the configured model for each role of the active provider."""
     settings = get_settings()
     attrs = MODEL_ATTR_BY_PROVIDER.get(settings.llm_provider_name())
     if attrs is None:
@@ -237,14 +237,14 @@ def configured_models() -> dict[str, str]:
             f"LLM_PROVIDER no reconocido: '{settings.llm_provider}'."
         )
     models = {role: str(getattr(settings, attr)) for role, attr in attrs.items()}
-    # Con rotación, el juez de Groq alterna entre varios modelos: se registran todos.
+    # With rotation, Groq's judge alternates between several models, so they are all recorded.
     if settings.llm_provider_name() == "groq" and settings.groq_judge_models():
         models["judge"] = ",".join(settings.groq_judge_models())
     return models
 
 
 def ensure_llm_available() -> None:
-    """Verifica que el proveedor de LLM configurado puede atender peticiones."""
+    """Verify that the configured LLM provider can serve requests."""
     settings = get_settings()
     provider = settings.llm_provider_name()
 

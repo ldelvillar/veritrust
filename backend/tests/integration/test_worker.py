@@ -1,4 +1,4 @@
-"""Tests del worker de arq: convierte la entrada de una Run en su veredicto y la despacha."""
+"""Tests of the arq worker, which turns a Run's input into its Verdict and dispatches it."""
 
 from functools import partial
 
@@ -34,7 +34,7 @@ VERDICT = Verdict(
 
 
 def _graph_returning(result, seen=None):
-    """Grafo de mentira que anota el estado recibido y devuelve ``result``."""
+    """Fake graph that records the state it receives and returns ``result``."""
 
     async def fake_ainvoke(graph, state, on_stage=None):
         if seen is not None:
@@ -66,7 +66,7 @@ async def test_analyse_turns_the_graph_result_into_a_completion(monkeypatch):
     assert completion.verdict is VERDICT
     assert completion.explanation == "No hay evidencia clínica sólida."
     assert completion.sources == sources
-    # El veredicto queda atribuido a la configuración con la que arrancó el worker.
+    # The Verdict is attributed to the configuration the worker started with.
     assert completion.pipeline == PIPELINE
 
 
@@ -174,7 +174,7 @@ async def test_analyse_keeps_the_file_text_cut_to_the_rows_limit(monkeypatch):
 
     await worker.analyse(CTX, run)
 
-    # El historial guarda lo mismo que se analizó.
+    # The History stores the same text that was analysed.
     assert run.kept_text == ["Texto extr"]
     assert seen[0]["input_text"] == "Texto extr"
 
@@ -231,7 +231,7 @@ async def test_analyse_reports_llm_connection_errors(monkeypatch):
 
 
 class _RecordingRunner:
-    """Runner de mentira que registra lo que le pide el worker."""
+    """Fake runner that records what the worker asks of it."""
 
     def __init__(self):
         self.runs: list[tuple] = []
@@ -269,7 +269,7 @@ async def test_reap_cron_delegates_to_the_lifecycle_runner():
 
 
 async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
-    """startup deja el grafo compilado bajo la clave de ctx que lee run_analysis."""
+    """startup leaves the compiled graph under the ctx key run_analysis reads."""
     sentinel_prompts = object()
     sentinel_graph = object()
     calls: list[str] = []
@@ -306,13 +306,13 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     ctx: dict = {"redis": _Redis()}
     await worker.startup(ctx)
 
-    # El worker no sirve peticiones web: no debe exigir CORS ni la URL MCP.
+    # The worker serves no web requests, so it must not require CORS or the MCP URL.
     assert validated == {"web": False}
     assert ctx["verification_system"] is sentinel_graph
     assert ctx["evidence_system"] == ("evidence", sentinel_prompts)
-    # La configuración registrada describe los mismos prompts con los que se construyó el grafo.
+    # The recorded configuration describes the same prompts the graph was built with.
     assert ctx["pipeline"] == ("run", sentinel_prompts)
-    # run_analysis y el reaper usan el mismo runner del ciclo de vida.
+    # run_analysis and the reaper use the same lifecycle runner.
     assert isinstance(ctx["analysis_runner"], AnalysisRunner)
     assert set(calls) == {"llm", "pool"}
 
@@ -331,7 +331,7 @@ async def test_shutdown_closes_db_pool(monkeypatch):
 
 
 def test_main_starts_arq_worker_with_configured_redis(monkeypatch):
-    """El entrypoint arranca arq con WorkerSettings y el DSN de Redis de Settings."""
+    """The entry point starts arq with WorkerSettings and the Redis DSN from Settings."""
     seen: dict = {}
 
     def fake_run_worker(settings_cls, redis_settings=None):
@@ -348,28 +348,28 @@ def test_main_starts_arq_worker_with_configured_redis(monkeypatch):
 
 
 def test_worker_settings_expose_the_queue_contract():
-    """Las rutas encolan por nombre: el contrato de WorkerSettings debe sostenerlo."""
+    """Routes enqueue by name, so the WorkerSettings contract must hold it."""
     settings = worker.get_settings()
 
-    # El proceso web encola por nombre; renombrar una función rompería la cola.
+    # The web process enqueues by name, so renaming a function would break the queue.
     names = [
         getattr(fn, "name", None) or fn.__name__
         for fn in worker.WorkerSettings.functions
     ]
     assert names == ["run_analysis", "run_evidence_search"]
-    # La búsqueda de evidencia guarda su resultado para que get_evidence lo recoja.
+    # The Evidence search keeps its result so get_evidence can collect it.
     evidence_fn = worker.WorkerSettings.functions[1]
     assert evidence_fn.keep_result_s == worker.EVIDENCE_RESULT_TTL_SECONDS
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
         "cron:reap_orphaned_analyses"
     ]
-    # arq corta por encima del presupuesto interno; el margen deja notificar el fallo antes.
+    # arq cuts above the internal budget, and the margin lets the failure be notified first.
     assert (
         worker.WorkerSettings.job_timeout
         == settings.analysis_job_timeout_seconds + worker._JOB_TIMEOUT_GRACE_SECONDS
     )
     assert worker.WorkerSettings.max_jobs == settings.worker_max_jobs
-    # Sin resultados en Redis: una clave arq:result: residual bloquearía el retry.
+    # No results in Redis, since a leftover arq:result: key would block the retry.
     assert worker.WorkerSettings.keep_result == 0
 
 
@@ -378,7 +378,7 @@ USER = "user-a"
 
 @pytest.fixture(autouse=True)
 def recorded_usage(monkeypatch):
-    """Sustituye la anotación del Usage por la lista de usuarios anotados."""
+    """Replace the Usage recording with the list of recorded users."""
     users: list[str] = []
 
     async def record(user_id):
@@ -394,7 +394,7 @@ async def test_run_evidence_search_returns_claims(monkeypatch, recorded_usage):
     async def fake_ainvoke(graph, state, on_stage=None):
         seen["graph"] = graph
         seen["input"] = state["input_text"]
-        # Una buscada sin resultados y dos que la cota dejó sin buscar.
+        # One searched without results and two the cap left unsearched.
         return {
             "claims": [
                 with_hits(Claim(index=0, text="La vitamina C cura", query='"c"'), []),
@@ -424,7 +424,7 @@ async def test_run_evidence_search_returns_claims(monkeypatch, recorded_usage):
         ],
         "unsearched_claims": 2,
     }
-    # Una búsqueda con resultado consume una unidad del Usage de quien la lanzó.
+    # A search with a result consumes one unit of the Usage of whoever started it.
     assert recorded_usage == [USER]
 
 
@@ -511,7 +511,7 @@ async def test_run_evidence_search_truncates_long_abstracts(monkeypatch):
     result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
 
     long_hit, short_hit, empty_hit = result["claims"][0]["hits"]
-    # El resultado vive una hora en Redis: los resúmenes se acotan antes de guardarlo.
+    # The result lives an hour in Redis, so abstracts are capped before storing it.
     assert len(long_hit["abstract"]) == worker.MAX_ABSTRACT_CHARS + 1
     assert long_hit["abstract"].endswith("…")
     assert short_hit["abstract"] == "breve"

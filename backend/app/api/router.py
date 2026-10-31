@@ -1,4 +1,4 @@
-"""Este módulo contiene todas las rutas de la API."""
+"""All the API routes."""
 
 from fastapi import APIRouter
 
@@ -15,10 +15,10 @@ from app.api.routes.history import router as history_router
 from app.api.routes.share import router as share_router
 from app.schemas.errors import ErrorResponse
 
-# El handler de main.py da forma estructurada a los 422; sin esto FastAPI documentaría la suya.
+# The main.py handler shapes 422s, and without this FastAPI would document its own.
 _VALIDATION_ERROR_RESPONSES: dict[int | str, dict] = {422: {"model": ErrorResponse}}
 
-# get_current_user responde 401 por el token o la clave API y 503 si Clerk no responde.
+# get_current_user answers 401 for the token or API key and 503 when Clerk does not respond.
 _AUTHENTICATED_ERROR_RESPONSES: dict[int | str, dict] = {
     **_VALIDATION_ERROR_RESPONSES,
     401: {"model": ErrorResponse},
@@ -63,14 +63,14 @@ api_router.include_router(
     tags=["Billing"],
     responses=_AUTHENTICATED_ERROR_RESPONSES,
 )
-# El webhook lo llama Stripe servidor a servidor: sin usuario, solo la firma del cuerpo.
+# Stripe calls the webhook server to server, so there is no user, only the body signature.
 api_router.include_router(
     billing_webhook_router,
     prefix="/billing",
     tags=["Billing"],
     responses=_VALIDATION_ERROR_RESPONSES,
 )
-# Igual que el de Stripe: Clerk llama servidor a servidor, autenticado solo por la firma Svix.
+# Like Stripe's, Clerk calls server to server and is authenticated only by the Svix signature.
 api_router.include_router(
     clerk_webhook_router,
     prefix="/webhooks",

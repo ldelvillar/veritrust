@@ -1,4 +1,4 @@
-"""Pruebas del History query sobre PostgreSQL real: página, total, facet y exportación."""
+"""Tests of the History query on real PostgreSQL: page, total, Facet and Export."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -69,7 +69,7 @@ async def _export(visible_since: datetime | None = None, **filters):
 
 
 async def _seed_mixed_history() -> None:
-    """Dos falsas, una parcialmente falsa, una verdadera y una incierta terminadas, más una en curso y una fallida."""
+    """Two false, one partly false, one true and one uncertain finished, plus one pending and one failed."""
     await _done("Texto uno que resulta falso", "falsa")
     await _done("Texto dos que resulta falso", "falsa")
     await _done("Texto que mezcla lo falso con lo cierto", "parcialmente falsa")
@@ -80,7 +80,7 @@ async def _seed_mixed_history() -> None:
 
 
 async def test_the_verdict_facet_keeps_the_status_filter(db_pool):
-    """Con «Fallido» elegido, cada tarjeta cuenta las filas que mostraría al pulsarla."""
+    """With «Fallido» chosen, each card counts the rows it would show when clicked."""
     await _seed_mixed_history()
 
     page = await _search(status="failed")
@@ -102,7 +102,7 @@ async def test_the_verdict_facet_keeps_the_status_filter(db_pool):
 async def test_the_total_is_the_facet_cell_of_the_verdict_filter(
     db_pool, verdict, expected_total
 ):
-    """El total no se cuenta aparte: es la celda del facet que el filtro de veredicto elige."""
+    """The total is not counted separately but is the Facet cell the Verdict filter picks."""
     await _seed_mixed_history()
 
     page = await _search(verdict=verdict)
@@ -126,7 +126,7 @@ async def test_the_verdict_filter_reads_the_indexed_column(db_pool):
 
 
 async def test_export_keeps_the_status_filter_and_only_done_rows(db_pool):
-    """La exportación es la consulta del historial restringida a análisis done."""
+    """The Export is the History query restricted to done analyses."""
     await _seed_mixed_history()
 
     assert await _export(status="failed") == []
@@ -138,7 +138,7 @@ async def test_export_keeps_the_status_filter_and_only_done_rows(db_pool):
 
 
 async def test_search_matches_only_what_the_row_shows_as_its_title(db_pool):
-    """Las palabras guardadas del veredicto y del tipo no coinciden: no se ven en pantalla."""
+    """The stored words of the Verdict and type do not match, since they are not shown on screen."""
     await _done("La vitamina C previene el resfriado", "falsa")
     await seed_pending(
         user_id=USER,
@@ -167,7 +167,7 @@ async def test_search_matches_text_and_url_case_insensitively(db_pool):
 
 
 async def test_search_matches_the_file_name(db_pool):
-    """Un análisis de archivo se busca por su nombre: es el título que ve el usuario."""
+    """A file Analysis is searched by its name, the title the user sees."""
     file_id = await seed_pending_file(
         user_id=USER, filename="bulos-vitamina-d.pdf", data=b"%PDF-1.4 contenido"
     )
@@ -187,7 +187,7 @@ async def test_a_blank_search_matches_everything(db_pool):
 
 
 async def test_search_still_matches_beyond_the_truncated_title(db_pool):
-    """El recorte es solo de salida: la búsqueda sigue mirando el texto completo."""
+    """The trim is output only, so the search still looks at the full text."""
     tail = "cloroquina" + "!"
     analysis_id = await _pending(("relleno " * 400) + tail)
 
@@ -195,7 +195,7 @@ async def test_search_still_matches_beyond_the_truncated_title(db_pool):
 
     assert page.total == 1
     assert page.items[0].analysis_id == analysis_id
-    # El término buscado cae fuera del título recortado y aun así la fila coincide.
+    # The search term falls outside the trimmed title and the row still matches.
     title = page.items[0].input_text
     assert title is not None and "cloroquina" not in title
 
@@ -217,7 +217,7 @@ async def test_the_content_type_filter_keeps_only_that_type(db_pool):
 
 
 async def test_the_date_range_leaves_out_older_analyses(db_pool):
-    """El rango de fechas filtra la página, el facet y la exportación por igual."""
+    """The date range filters the page, the Facet and the Export alike."""
     recent_id = await _done("Un análisis de esta semana", "falsa")
     old_id = await _done("Un análisis de hace diez días", "falsa")
     await seed_created_at(
@@ -235,7 +235,7 @@ async def test_the_date_range_leaves_out_older_analyses(db_pool):
 
 
 async def test_the_history_window_hides_older_analyses_everywhere(db_pool):
-    """La window filtra la página, el facet y la exportación, y se suma a los filtros."""
+    """The window filters the page, the Facet and the Export, and adds to the filters."""
     now = datetime.now(timezone.utc)
     recent_id = await _done("Un análisis de hace diez días", "falsa")
     old_id = await _done("Un análisis de hace cuarenta días", "verdadera")
@@ -262,7 +262,7 @@ async def test_the_history_window_hides_older_analyses_everywhere(db_pool):
     [
         ("recent", ["pending", "uncertain", "real_60", "real_80", "fake_10"]),
         ("oldest", ["fake_10", "real_80", "real_60", "uncertain", "pending"]),
-        # Sin credibilidad (incierto, en curso) va al final, y entre ellos el más reciente.
+        # Without Credibility (uncertain, pending) goes last, and among them the newest first.
         ("credibility_high", ["real_80", "real_60", "fake_10", "pending", "uncertain"]),
         ("credibility_low", ["fake_10", "real_60", "real_80", "pending", "uncertain"]),
     ],
@@ -286,7 +286,7 @@ async def test_each_sort_orders_the_page_and_the_export(db_pool, sort, expected)
     exported = await _export(sort=sort)
 
     assert [names[item.analysis_id] for item in page.items] == expected
-    # La exportación solo lleva filas done, en el mismo orden.
+    # The Export only carries done rows, in the same order.
     assert [names[record.analysis_id] for record in exported] == [
         name for name in expected if name != "pending"
     ]
@@ -324,7 +324,7 @@ async def test_other_users_rows_never_appear(db_pool):
 
 
 async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
-    """El listado trae la fila que pinta la tabla: título recortado y sin informe."""
+    """The list brings the row the table draws, a trimmed title and no report."""
     long_text = "La vitamina C previene el resfriado. " * 200
     analysis_id = await _pending(long_text)
     await seed_done(
@@ -345,15 +345,15 @@ async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
     row = page.items[0]
     assert row.input_text is not None
     assert len(row.input_text) == HISTORY_LIST_TEXT_CHARS
-    # El veredicto y la cobertura sí viajan: la tabla los pinta en cada fila.
+    # The Verdict and coverage do travel, since the table draws them on each row.
     assert (row.verdict, row.credibility, row.evidence_coverage) == ("fake", 10, 0.5)
-    # El cuerpo del informe no forma parte del ítem de listado.
+    # The report body is not part of the list item.
     assert not hasattr(row, "explanation")
     assert not hasattr(row, "claims")
 
 
 async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
-    """La fila 'en curso' del historial muestra por dónde va el pipeline."""
+    """The History's pending row shows how far the pipeline has got."""
     analysis_id = await _pending("Un análisis todavía en marcha")
     await seed_stage(analysis_id=analysis_id, stage="investigator")
 
@@ -363,7 +363,7 @@ async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
 
 
 async def test_export_keeps_the_whole_input_text(db_pool):
-    """Exportar es llevarse los datos: el CSV no recorta el texto como sí hace el listado."""
+    """Exporting means taking the data away, so the CSV does not trim the text as the list does."""
     long_text = "La vitamina C previene el resfriado. " * 200
     await _done(long_text, "falsa", 0.9)
 
@@ -374,7 +374,7 @@ async def test_export_keeps_the_whole_input_text(db_pool):
 
 
 async def test_export_carries_the_verdict_but_not_the_report(db_pool):
-    """El CSV solo lleva el veredicto de cada fila; el informe no se exporta."""
+    """The CSV only carries each row's Verdict, and the report is not exported."""
     done_id = await _pending("La vitamina C previene el resfriado")
     await seed_done(
         analysis_id=done_id,
@@ -400,5 +400,5 @@ async def test_export_carries_the_verdict_but_not_the_report(db_pool):
     assert not hasattr(record, "explanation")
     assert not hasattr(record, "claims")
     assert not hasattr(record, "sources")
-    # La exportación no selecciona stage: no es una columna del CSV.
+    # The Export does not select stage, which is not a CSV column.
     assert record.stage is None

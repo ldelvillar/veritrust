@@ -1,4 +1,4 @@
-"""Primitivas de validación SSRF: valida la URL, resuelve el host y fija la conexión."""
+"""SSRF validation primitives that validate the URL, resolve the host and pin the connection."""
 
 import ipaddress
 import socket
@@ -12,11 +12,11 @@ from urllib3.util import parse_url
 
 
 class SSRFValidationError(Exception):
-    """La URL apunta a un destino no permitido (esquema inválido o red interna)."""
+    """The URL points at a forbidden destination (invalid scheme or internal network)."""
 
 
 class PinnedIPAdapter(HTTPAdapter):
-    """Conecta a un IP ya validado, preservando Host y SNI/certificado del host real."""
+    """Connect to an already validated IP, keeping the real host's Host header and SNI/certificate."""
 
     def __init__(self, host: str, ip: str, **kwargs):
         self._host = host.lower()
@@ -24,7 +24,7 @@ class PinnedIPAdapter(HTTPAdapter):
         super().__init__(**kwargs)
 
     def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
-        # Con proxy la resolución la hace el proxy; no tiene sentido fijar la IP.
+        # With a proxy, the proxy resolves the name, so pinning the IP makes no sense.
         if select_proxy(request.url, proxies):
             return super().get_connection_with_tls_context(
                 request, verify, proxies, cert
@@ -36,7 +36,7 @@ class PinnedIPAdapter(HTTPAdapter):
         if host_params["host"].lower() == self._host:
             host_params["host"] = self._ip
             if host_params["scheme"] == "https":
-                # La verificación TLS sigue usando el host real, no la IP.
+                # TLS verification still uses the real host, not the IP.
                 pool_kwargs["server_hostname"] = self._host
                 pool_kwargs["assert_hostname"] = self._host
 
@@ -46,7 +46,7 @@ class PinnedIPAdapter(HTTPAdapter):
 
 
 def is_public_ip(ip_str: str) -> bool:
-    """Devuelve True si la IP es pública y apta para conexiones salientes."""
+    """Return True if the IP is public and fit for outbound connections."""
     ip = ipaddress.ip_address(ip_str)
     return not (
         ip.is_private
@@ -59,8 +59,8 @@ def is_public_ip(ip_str: str) -> bool:
 
 
 def resolve_public_host(url: str) -> tuple[str, str]:
-    """Valida la URL y devuelve ``(host, ip_pública)`` para fijar la conexión."""
-    # urlparse lanza ValueError con caracteres inválidos bajo NFKC; lo tratamos como URL no válida.
+    """Validate the URL and return ``(host, public_ip)`` to pin the connection."""
+    # urlparse raises ValueError on characters invalid under NFKC, so the URL is treated as invalid.
     try:
         parsed = urlparse(url)
     except ValueError as e:
@@ -78,8 +78,7 @@ def resolve_public_host(url: str) -> tuple[str, str]:
             "No se permite extraer contenido desde URLs locales o de red interna"
         )
 
-    # requests conecta usando el parseo de urllib3; si difiere del host que validamos
-    # (p.ej. un backslash en la autoridad lo desvía a otra IP) rechazamos la URL.
+    # requests connects using urllib3's parsing, so the URL is refused if it differs from the validated host (e.g. a backslash in the authority).
     try:
         connect_host = (parse_url(url).host or "").strip().lower().strip("[]")
     except LocationParseError as e:
@@ -112,7 +111,7 @@ def resolve_public_host(url: str) -> tuple[str, str]:
 
 
 def build_pinned_session(host: str, ip: str) -> requests.Session:
-    """Crea una sesión que conecta a ``ip`` para cualquier petición a ``host``."""
+    """Create a session that connects to ``ip`` for any request to ``host``."""
     session = requests.Session()
     adapter = PinnedIPAdapter(host, ip)
     session.mount(f"http://{host}", adapter)

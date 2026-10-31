@@ -1,4 +1,4 @@
-"""Endpoints de facturación: Plan y Usage, Checkout, portal de cliente y webhooks de Stripe y de Clerk."""
+"""Billing endpoints: Plan and Usage, Checkout, customer portal and the Stripe and Clerk webhooks."""
 
 from datetime import UTC, datetime
 
@@ -27,14 +27,14 @@ clerk_webhook_router = APIRouter()
 
 
 def _database_failed() -> HTTPException:
-    """Responde un fallo de la base de datos de facturación como 500."""
+    """Answer a billing database failure as 500."""
     return HTTPException(
         status_code=500, detail=make_error_detail(ErrorCode.BILLING_FETCH_FAILED)
     )
 
 
 def _billing_unavailable() -> HTTPException:
-    """Responde un fallo de Stripe como 503."""
+    """Answer a Stripe failure as 503."""
     return HTTPException(
         status_code=503, detail=make_error_detail(ErrorCode.BILLING_UNAVAILABLE)
     )

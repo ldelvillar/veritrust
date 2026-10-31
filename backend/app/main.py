@@ -1,4 +1,4 @@
-"""Archivo principal de la API REST."""
+"""Entry point of the REST API."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Inicializa los recursos del proceso web."""
+    """Set up the web process's resources."""
     application.state.arq_pool = None
     application.state.redis = None
     application.state.analysis_intake = None
@@ -75,10 +75,10 @@ async def lifespan(application: FastAPI):
 
 
 class _McpDispatcher:
-    """Reenvía las rutas MCP a la app del SDK construida en el lifespan."""
+    """Forward the MCP routes to the SDK app built in the lifespan."""
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Delega en la app MCP o responde 503 si el proceso aún no está listo."""
+        """Delegate to the MCP app or answer 503 if the process is not ready yet."""
         mcp_app = getattr(scope["app"].state, "mcp_http_app", None)
         if mcp_app is None:
             response = JSONResponse({"detail": "Service not ready"}, status_code=503)
@@ -94,7 +94,7 @@ app = FastAPI(lifespan=lifespan)
 async def _validation_error(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    """Responde los 422 de validación con el detail estructurado, citando el primer error."""
+    """Answer validation 422s with the structured detail, quoting the first error."""
     errors = exc.errors()
     message = str(errors[0]["msg"]) if errors else None
     return JSONResponse(
@@ -105,13 +105,13 @@ async def _validation_error(
 
 @app.exception_handler(AnalysisRefused)
 async def _analysis_refused(request: Request, exc: AnalysisRefused) -> JSONResponse:
-    """Responde un rechazo del ciclo de vida con su estado HTTP y el detail del contrato."""
+    """Answer a lifecycle refusal with its HTTP status and the contract detail."""
     return refusal_response(exc)
 
 
 @app.exception_handler(HiddenAnalysis)
 async def _hidden_analysis(request: Request, exc: HiddenAnalysis) -> JSONResponse:
-    """Responde un análisis fuera de la History window con 403, para que el frontend muestre el upsell y no un 404."""
+    """Answer an Analysis outside the History window with 403, so the frontend shows the upsell and not a 404."""
     return JSONResponse(
         status_code=403,
         content={"detail": make_error_detail(ErrorCode.PLAN_REQUIRED)},

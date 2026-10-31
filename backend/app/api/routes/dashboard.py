@@ -1,4 +1,4 @@
-"""Este módulo contiene los endpoints relacionados con el dashboard del usuario."""
+"""Endpoints for the user's dashboard."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 

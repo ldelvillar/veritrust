@@ -1,4 +1,4 @@
-"""Dobles del ciclo de vida de un análisis compartidos por las suites de pruebas."""
+"""Analysis lifecycle doubles shared by the test suites."""
 
 from app.core.analysis_lifecycle import AnalysisRefused, QueueUnavailable
 from app.schemas.errors import ErrorCode
@@ -7,7 +7,7 @@ ANALYSIS_ID = "11111111-1111-1111-1111-111111111111"
 
 
 class InMemoryAnalysisQueue:
-    """Cola de análisis en memoria que imita el deduplicado por id de arq."""
+    """In-memory analysis queue that mimics arq's dedupe by id."""
 
     def __init__(self, *, live=(), down=False, fail_enqueue=False):
         self.enqueued: list[tuple[str, str | None]] = []
@@ -36,12 +36,12 @@ class InMemoryAnalysisQueue:
         self.live.difference_update(analysis_ids)
 
     def finish(self, analysis_id):
-        """Simula que el worker terminó la Run y arq soltó su job."""
+        """Simulate that the worker finished the Run and arq released its job."""
         self.live.discard(analysis_id)
 
 
 class StubIntake:
-    """Entrada de análisis de mentira que registra cada apertura y puede rechazarla."""
+    """Fake analysis intake that records each opening and can refuse it."""
 
     def __init__(self, *, analysis_id=ANALYSIS_ID, refuse: ErrorCode | None = None):
         self.calls: list[tuple] = []
@@ -76,7 +76,7 @@ class StubIntake:
 
 
 class RecordingNotifier:
-    """Aviso de fin de análisis que registra cada envío y puede fallar a propósito."""
+    """Analysis end notice that records each send and can fail on purpose."""
 
     def __init__(self, *, broken=False):
         self.sent: list[tuple[str, str, ErrorCode | None]] = []
@@ -89,7 +89,7 @@ class RecordingNotifier:
 
 
 class FakeRun:
-    """Run de mentira para probar el trabajo del worker sin base de datos."""
+    """Fake Run to test the worker's work without a database."""
 
     def __init__(self, content, analysis_id=ANALYSIS_ID):
         self.analysis_id = analysis_id

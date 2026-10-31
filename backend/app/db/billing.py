@@ -1,4 +1,4 @@
-"""Persistencia de facturación: clientes y Subscriptions de Stripe, eventos procesados y Usage."""
+"""Billing persistence: Stripe customers and Subscriptions, processed events and Usage."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from app.db.pool import DatabaseError, _build_database_error, get_pool
 
 @dataclass(frozen=True)
 class Usage:
-    """Runs done contados este mes y análisis pendientes que aún pueden consumir uno."""
+    """Done Runs counted this month and pending analyses that can still consume one."""
 
     used: int
     pending: int
@@ -26,7 +26,7 @@ class Usage:
 async def _connection(
     conn: psycopg.AsyncConnection | None,
 ) -> AsyncIterator[psycopg.AsyncConnection]:
-    """Usa la conexión dada o, sin ella, una del pool."""
+    """Use the given connection or, without one, one from the pool."""
     if conn is not None:
         yield conn
         return
@@ -41,7 +41,7 @@ async def _fetchone(
     context: str,
     conn: psycopg.AsyncConnection | None = None,
 ) -> tuple[Any, ...] | None:
-    """Ejecuta una sentencia y devuelve su primera fila, traduciendo el error de psycopg."""
+    """Run a statement and return its first row, translating the psycopg error."""
     try:
         async with _connection(conn) as active, active.cursor() as cur:
             await cur.execute(query, params)
@@ -51,7 +51,7 @@ async def _fetchone(
 
 
 async def get_customer_id(user_id: str) -> str | None:
-    """Devuelve el cliente de Stripe del usuario, o None si nunca inició un pago."""
+    """Return the user's Stripe customer, or None if they never started a payment."""
     row = await _fetchone(
         "SELECT stripe_customer_id FROM public.billing_customers WHERE user_id = %s",
         (user_id,),
@@ -61,7 +61,7 @@ async def get_customer_id(user_id: str) -> str | None:
 
 
 async def insert_customer(user_id: str, stripe_customer_id: str) -> str:
-    """Vincula el cliente de Stripe al usuario y devuelve el que queda guardado si ya tenía uno."""
+    """Link the Stripe customer to the user and return the stored one if they already had one."""
     row = await _fetchone(
         """
         INSERT INTO public.billing_customers (user_id, stripe_customer_id)
@@ -79,7 +79,7 @@ async def insert_customer(user_id: str, stripe_customer_id: str) -> str:
 async def user_id_for_customer(
     stripe_customer_id: str, conn: psycopg.AsyncConnection | None = None
 ) -> str | None:
-    """Devuelve el usuario al que pertenece un cliente de Stripe, o None si no es nuestro."""
+    """Return the user a Stripe customer belongs to, or None if it is not ours."""
     row = await _fetchone(
         "SELECT user_id FROM public.billing_customers WHERE stripe_customer_id = %s",
         (stripe_customer_id,),
@@ -92,7 +92,7 @@ async def user_id_for_customer(
 async def upsert_subscription(
     row: SubscriptionRow, conn: psycopg.AsyncConnection | None = None
 ) -> None:
-    """Guarda la Subscription sustituyendo todos sus campos por los recibidos."""
+    """Store the Subscription, replacing all its fields with the received ones."""
     await _fetchone(
         """
         INSERT INTO public.subscriptions
@@ -126,7 +126,7 @@ async def upsert_subscription(
 async def subscription_lock(
     stripe_subscription_id: str,
 ) -> AsyncIterator[psycopg.AsyncConnection]:
-    """Serializa la lectura en Stripe y el guardado de una Subscription; las consultas van por la conexión cedida."""
+    """Serialise the Stripe read and the store of a Subscription, with queries going through the yielded connection."""
     pool = await get_pool()
     try:
         async with pool.connection() as conn, conn.transaction():
@@ -142,7 +142,7 @@ async def subscription_lock(
 
 
 async def get_user_subscription(user_id: str) -> SubscriptionRow | None:
-    """Devuelve la Subscription que decide el Plan: la Pro primero, luego la de periodo más tardío."""
+    """Return the Subscription that decides the Plan, Pro first and then the latest period."""
     row = await _fetchone(
         """
         SELECT stripe_subscription_id, user_id, status, price_id, billing_interval,
@@ -159,7 +159,7 @@ async def get_user_subscription(user_id: str) -> SubscriptionRow | None:
 
 
 async def is_event_processed(event_id: str) -> bool:
-    """Indica si un evento de Stripe ya se procesó con éxito."""
+    """Tell whether a Stripe event was already processed successfully."""
     row = await _fetchone(
         "SELECT 1 FROM public.stripe_events WHERE id = %s",
         (event_id,),
@@ -169,7 +169,7 @@ async def is_event_processed(event_id: str) -> bool:
 
 
 async def record_event(event_id: str, event_type: str) -> None:
-    """Marca un evento de Stripe como procesado; repetirlo no tiene efecto."""
+    """Mark a Stripe event as processed, where repeating it has no effect."""
     await _fetchone(
         """
         INSERT INTO public.stripe_events (id, type) VALUES (%s, %s)
@@ -186,7 +186,7 @@ async def usage_this_month(
     end: datetime,
     conn: psycopg.AsyncConnection | None = None,
 ) -> Usage:
-    """Cuenta el Usage del usuario en [start, end) y sus análisis aún pendientes."""
+    """Count the user's Usage in [start, end) and their still pending analyses."""
     row = await _fetchone(
         """
         SELECT
@@ -204,7 +204,7 @@ async def usage_this_month(
 
 
 async def record_evidence_search(user_id: str) -> None:
-    """Anota en el Usage una búsqueda de evidencia que terminó con resultado."""
+    """Record in the Usage an Evidence search that ended with a result."""
     await _fetchone(
         "INSERT INTO public.usage_events (user_id, kind) "
         "VALUES (%s, 'evidence_search')",
@@ -214,8 +214,8 @@ async def record_evidence_search(user_id: str) -> None:
 
 
 async def delete_user_billing(user_id: str) -> None:
-    """Borra el cliente, las Subscriptions y el Usage de un usuario que eliminó su cuenta."""
-    # Una sola sentencia: los tres borrados se aplican juntos o ninguno.
+    """Erase the customer, Subscriptions and Usage of a user who deleted their account."""
+    # A single statement, so the three deletions apply together or not at all.
     await _fetchone(
         """
         WITH deleted_customers AS (

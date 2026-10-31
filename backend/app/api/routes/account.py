@@ -1,4 +1,4 @@
-"""Endpoints de la cuenta del usuario: la exportación completa de sus datos."""
+"""Endpoints of the user's account: the full export of their data."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 

@@ -1,4 +1,4 @@
-"""Veredicto de un análisis, decidido solo a partir de la postura de la literatura recuperada."""
+"""Verdict of an Analysis, decided only from the Stance of the retrieved literature."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,12 +8,12 @@ from app.core.claim import Claim, EvidenceSearch
 
 VerdictKind = Literal["real", "fake", "mixed", "uncertain"]
 
-# Vocabulario único de veredicto, reutilizado en validación y persistencia.
+# Single Verdict vocabulary, reused in validation and persistence.
 VERDICT_KINDS: tuple[VerdictKind, ...] = get_args(VerdictKind)
 
 ConfidenceLevel = Literal["high", "medium", "low"]
 
-# Etiqueta en español con la que se guarda y se publica cada veredicto.
+# Spanish label each Verdict is stored and published with.
 _LABELS: dict[VerdictKind, str] = {
     "real": "verdadera",
     "fake": "falsa",
@@ -24,22 +24,22 @@ _KINDS_BY_LABEL: dict[str, VerdictKind] = {
     label: kind for kind, label in _LABELS.items()
 }
 
-# Punto neutro del score suavizado: por debajo la evidencia apoya, por encima refuta.
+# Neutral point of the smoothed score, where below it the Evidence supports and above it refutes.
 FAKE_THRESHOLD = 0.50
 UNCERTAINTY_MARGIN = 0.05
-# Pseudo-cuenta por postura: impide la certeza absoluta con evidencia escasa.
+# Pseudo-count per Stance, which prevents absolute certainty from scarce Evidence.
 STANCE_SMOOTHING = 1.0
-# Atenuación máxima de la confianza cuando no se halla evidencia que respalde el veredicto.
+# Maximum attenuation of the Confidence when no Evidence backs the Verdict.
 EVIDENCE_MAX_PENALTY = 0.25
 
-# Cortes del tramo de confianza que ve el usuario, junto a las bandas del veredicto.
+# Cut-offs of the Confidence band the user sees, next to the Verdict bands.
 HIGH_CONFIDENCE_THRESHOLD = 0.85
 MEDIUM_CONFIDENCE_THRESHOLD = 0.6
 
 
 @dataclass(frozen=True)
 class ClaimVerdict:
-    """Veredicto de una afirmación concreta."""
+    """Verdict of one claim."""
 
     text: str
     kind: VerdictKind
@@ -47,31 +47,31 @@ class ClaimVerdict:
 
     @property
     def label(self) -> str:
-        """Etiqueta en español del veredicto."""
+        """Spanish label of the Verdict."""
         return _LABELS[self.kind]
 
 
 @dataclass(frozen=True)
 class Verdict:
-    """Veredicto de un análisis con su confianza, su cobertura de evidencia y el de cada afirmación."""
+    """Verdict of an Analysis with its Confidence, its Evidence coverage and each claim's Verdict."""
 
     kind: VerdictKind
-    # Confianza ya atenuada por la cobertura de evidencia.
+    # Confidence already attenuated by Evidence coverage.
     confidence: float
-    # Probabilidad media de falsedad de las afirmaciones con evidencia, antes de atenuar.
+    # Mean falsehood probability of the claims with Evidence, before attenuation.
     falsehood: float
-    # None cuando un corte de las fuentes impidió medirla.
+    # None when a source outage prevented measuring it.
     evidence_coverage: Optional[float]
     claims: tuple[ClaimVerdict, ...]
 
     @property
     def label(self) -> str:
-        """Etiqueta en español del veredicto."""
+        """Spanish label of the Verdict."""
         return _LABELS[self.kind]
 
 
 def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
-    """Decide el veredicto de cada afirmación y del análisis con la postura de su evidencia."""
+    """Decide the Verdict of each claim and of the Analysis from the Stance of its Evidence."""
     claim_verdicts: list[ClaimVerdict] = []
     evidenced: list[float] = []
     for claim in claims:
@@ -86,7 +86,7 @@ def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
             ClaimVerdict(text=claim.text, kind=kind, confidence=confidence)
         )
 
-    # Solo promedia las afirmaciones sobre las que la literatura se pronuncia.
+    # Only averages the claims the literature rules on.
     falsehood = sum(evidenced) / len(evidenced) if evidenced else 0.5
     kind, confidence = _overall(claim_verdicts, falsehood, bool(evidenced))
     penalized_coverage, evidence_coverage = _coverage(search)
@@ -100,12 +100,12 @@ def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
 
 
 def kind_of(label: Optional[str]) -> VerdictKind:
-    """Devuelve el veredicto de una etiqueta guardada; una etiqueta desconocida cuenta como incierta."""
+    """Return the Verdict of a stored label, where an unknown label counts as uncertain."""
     return _KINDS_BY_LABEL.get(label or "", "uncertain")
 
 
 def credibility_of(kind: VerdictKind, confidence: Optional[float]) -> Optional[int]:
-    """Devuelve la credibilidad como entero [0, 100], o ``None``."""
+    """Return the Credibility as an integer in [0, 100], or ``None``."""
     if confidence is None or kind in ("uncertain", "mixed"):
         return None
     value = 1 - confidence if kind == "fake" else confidence
@@ -113,7 +113,7 @@ def credibility_of(kind: VerdictKind, confidence: Optional[float]) -> Optional[i
 
 
 def confidence_level_of(confidence: Optional[float]) -> Optional[ConfidenceLevel]:
-    """Clasifica la confianza del veredicto como ``high``, ``medium`` o ``low``, o ``None``."""
+    """Classify the Verdict's Confidence as ``high``, ``medium`` or ``low``, or ``None``."""
     if confidence is None:
         return None
     if confidence >= HIGH_CONFIDENCE_THRESHOLD:
@@ -123,7 +123,7 @@ def confidence_level_of(confidence: Optional[float]) -> Optional[ConfidenceLevel
     return "low"
 
 
-# La credibilidad [0, 1] de credibility_of() en SQL, para ordenar y agregar; incierto, mixto o sin confianza → NULL.
+# Credibility in [0, 1] of credibility_of() in SQL, for sorting and aggregating, NULL when uncertain, mixed or without Confidence.
 CREDIBILITY_SQL = (
     "CASE "
     "WHEN confidence IS NULL OR verdict IN ('uncertain', 'mixed') THEN NULL "
@@ -134,16 +134,16 @@ CREDIBILITY_SQL = (
 
 
 def _falsehood(supports: int, contradicts: int) -> float:
-    """Probabilidad de falsedad de una afirmación según la postura de la literatura."""
-    # Suavizado de Laplace: sin evidencia da 0.5 y unas pocas fuentes no bastan para la certeza.
+    """Falsehood probability of a claim from the Stance of the literature."""
+    # Laplace smoothing, so no Evidence gives 0.5 and a few Sources are not enough for certainty.
     return (contradicts + STANCE_SMOOTHING) / (
         supports + contradicts + 2 * STANCE_SMOOTHING
     )
 
 
 def _band(falsehood: float, has_evidence: bool) -> tuple[VerdictKind, float]:
-    """Traduce una probabilidad de falsedad en veredicto y confianza."""
-    # La ausencia de literatura no es prueba de falsedad: sin postura, es incierta.
+    """Turn a falsehood probability into a Verdict and Confidence."""
+    # Missing literature is no proof of falsehood, so without a Stance it is uncertain.
     if not has_evidence:
         return "uncertain", 1.0 - falsehood
     if falsehood > FAKE_THRESHOLD + UNCERTAINTY_MARGIN:
@@ -156,17 +156,17 @@ def _band(falsehood: float, has_evidence: bool) -> tuple[VerdictKind, float]:
 def _overall(
     claims: Sequence[ClaimVerdict], falsehood: float, has_evidence: bool
 ) -> tuple[VerdictKind, float]:
-    """Decide el veredicto global a partir del de cada afirmación: una verdadera nunca compensa una falsa ni avala una incierta."""
+    """Decide the overall Verdict from each claim's, where a true one never offsets a false one or backs an uncertain one."""
     fake = [claim.confidence for claim in claims if claim.kind == "fake"]
     real = [claim.confidence for claim in claims if claim.kind == "real"]
     uncertain = [claim.confidence for claim in claims if claim.kind == "uncertain"]
     if fake and real:
-        # El aviso es por la afirmación falsa más sólida.
+        # The warning follows the strongest false claim.
         return "mixed", max(fake)
     if fake:
         return "fake", sum(fake) / len(fake)
     if real and uncertain:
-        # Un texto solo es verdadero si se pudo verificar todo lo que afirma (ADR-0003).
+        # A text is only true if everything it claims could be verified (ADR-0003).
         return "uncertain", sum(uncertain) / len(uncertain)
     if real:
         return "real", sum(real) / len(real)
@@ -174,10 +174,10 @@ def _overall(
 
 
 def _coverage(search: EvidenceSearch) -> tuple[float, Optional[float]]:
-    """Devuelve la cobertura con la que se atenúa la confianza y la que ve el usuario."""
+    """Return the coverage that attenuates the Confidence and the one the user sees."""
     if not search.total:
         return 0.0, 0.0
-    # Un corte total no penaliza lo buscado (fallo nuestro), pero sí lo que la cota dejó fuera.
+    # A total outage does not penalise what was searched (our failure), but does penalise what the cap left out.
     if search.outage:
         return search.searched / search.total, None
     coverage = search.covered / search.total
@@ -185,6 +185,6 @@ def _coverage(search: EvidenceSearch) -> tuple[float, Optional[float]]:
 
 
 def _attenuate(confidence: float, coverage: float) -> float:
-    """Atenúa la confianza del veredicto según la cobertura de evidencia [0, 1]."""
+    """Attenuate the Verdict's Confidence by Evidence coverage in [0, 1]."""
     adjusted = confidence * (1 - EVIDENCE_MAX_PENALTY * (1 - coverage))
     return max(0.0, min(1.0, adjusted))

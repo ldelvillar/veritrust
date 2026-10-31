@@ -1,4 +1,4 @@
-"""Esquemas del formulario de contacto/demo enviado a POST /contact."""
+"""Schemas of the contact and demo form sent to POST /contact."""
 
 from enum import Enum
 from typing import Annotated, Optional
@@ -45,7 +45,7 @@ class ContactRequest(BaseModel):
     def validate_metadata(
         cls, value: Optional[dict[str, str]]
     ) -> Optional[dict[str, str]]:
-        """Acota el número de entradas y la longitud de cada valor para evitar abuso."""
+        """Bound the number of entries and the length of each value to prevent abuse."""
         if value is None:
             return None
         if len(value) > _MAX_METADATA_ENTRIES:

@@ -1,4 +1,4 @@
-"""Tests unitarios para ensure_ollama_available."""
+"""Unit tests for ensure_ollama_available."""
 
 import http.client
 import json
@@ -76,7 +76,7 @@ def test_retries_until_server_becomes_available(monkeypatch):
 
     ollama_module.ensure_ollama_available()
 
-    # Dos esperas de liveness; la consulta de modelos ya no reintenta.
+    # Two liveness waits, and the model query no longer retries.
     assert urlopen_calls["count"] == 4
     assert len(sleep_calls) == 2
 
@@ -95,7 +95,7 @@ def test_raises_after_all_retries_fail(monkeypatch):
 
 
 def test_hung_server_raises_startup_error_instead_of_raw_timeout(monkeypatch):
-    """Un servidor que acepta la conexión pero nunca responde no debe filtrar TimeoutError."""
+    """A server that accepts the connection but never answers must not leak TimeoutError."""
 
     def fake_urlopen(*_args, **_kwargs):
         raise TimeoutError("timed out")
@@ -108,7 +108,7 @@ def test_hung_server_raises_startup_error_instead_of_raw_timeout(monkeypatch):
 
 
 def test_logs_error_listing_missing_models_without_raising(monkeypatch, caplog):
-    """Sin los modelos configurados el worker arranca igual, pero avisa con su lista."""
+    """Without the configured models the worker starts anyway but warns with their list."""
 
     def fake_urlopen(url, *args, **kwargs):
         if str(url).endswith("/api/tags"):
@@ -125,7 +125,7 @@ def test_logs_error_listing_missing_models_without_raising(monkeypatch, caplog):
 
 
 def test_configured_model_matches_server_tag_variants(monkeypatch, caplog):
-    """'llama3' de Settings casa con 'llama3:latest' del servidor sin falso negativo."""
+    """Settings' 'llama3' matches the server's 'llama3:latest' without a false negative."""
 
     def fake_urlopen(url, *args, **kwargs):
         if str(url).endswith("/api/tags"):
@@ -150,7 +150,7 @@ def test_configured_model_matches_server_tag_variants(monkeypatch, caplog):
     ],
 )
 def test_tags_endpoint_failure_does_not_block_startup(monkeypatch, tags_error):
-    """El check de modelos es secundario: si /api/tags falla, cuelga o responde basura, el arranque continúa."""
+    """The model check is secondary, so startup goes on if /api/tags fails, hangs or answers garbage."""
 
     def fake_urlopen(url, *args, **kwargs):
         if str(url).endswith("/api/tags"):
@@ -163,7 +163,7 @@ def test_tags_endpoint_failure_does_not_block_startup(monkeypatch, tags_error):
 
 
 def test_corrupt_liveness_response_raises_startup_error(monkeypatch):
-    """Bytes no-HTTP en el puerto de Ollama no deben filtrar una excepción cruda."""
+    """Non-HTTP bytes on the Ollama port must not leak a raw exception."""
 
     def fake_urlopen(*_args, **_kwargs):
         raise http.client.BadStatusLine("esto no es HTTP")

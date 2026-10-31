@@ -1,4 +1,4 @@
-"""Tests unitarios para la autenticacion (get_current_user, el cliente JWKS y las claves API de Clerk)."""
+"""Unit tests for authentication (get_current_user, the JWKS client and Clerk API keys)."""
 
 import io
 import json
@@ -26,7 +26,7 @@ _KEY_OWNER = "user_2xhFjEI5X2qWRvtV13BzSj8H6Dk"
 
 
 def _make_settings(**overrides) -> Settings:
-    """Construye Settings deterministas, ignorando .env y el entorno real."""
+    """Build deterministic Settings, ignoring .env and the real environment."""
     base: dict[str, object] = {
         "database_url": "postgresql://user:pass@localhost:5432/db",
         "environment": "development",
@@ -42,7 +42,7 @@ def _make_settings(**overrides) -> Settings:
 
 
 def _use_settings(monkeypatch, **overrides) -> Settings:
-    """Hace que get_current_user, el cliente JWKS y las claves API usen una configuración controlada."""
+    """Make get_current_user, the JWKS client and the API keys use a controlled configuration."""
     settings = _make_settings(**overrides)
     monkeypatch.setattr(get_user_module, "get_settings", lambda: settings)
     monkeypatch.setattr(jwks_module, "get_settings", lambda: settings)
@@ -195,7 +195,7 @@ def test_get_current_user_returns_401_when_token_is_invalid(monkeypatch):
 
 
 def _use_jwks(monkeypatch, serve) -> list[str]:
-    """Sirve el JWKS de Clerk con ``serve`` al cliente real de producción y cuenta las descargas."""
+    """Serve Clerk's JWKS with ``serve`` to the real production client and count the downloads."""
     _use_settings(
         monkeypatch,
         clerk_jwks_url=_JWKS_URL,
@@ -218,7 +218,7 @@ def _rsa_key():
 
 
 def _jwk(key, kid: str) -> dict:
-    """Clave pública en formato JWK con su kid, como la publica Clerk."""
+    """Public key in JWK format with its kid, as Clerk publishes it."""
     return {**RSAAlgorithm.to_jwk(key.public_key(), as_dict=True), "kid": kid}
 
 
@@ -261,7 +261,7 @@ def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
             get_user_module.get_current_user(f"Bearer {_token(kid)}")
         assert exc.value.status_code == 401
 
-    # Una descarga para llenar la caché y un único refresco forzado dentro del cooldown.
+    # One download to fill the cache and a single forced refresh within the cooldown.
     assert len(downloads) == 2
 
 
@@ -274,7 +274,7 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
-    # Clerk publica la clave nueva, pero el refresco forzado ya se gastó en este intervalo.
+    # Clerk publishes the new key, but the forced refresh was already spent this interval.
     jwks["keys"].append(_jwk(_rsa_key(), "new-key"))
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
@@ -284,7 +284,7 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
 
 
 def _api_key_record(**overrides) -> dict:
-    """Cuerpo 200 de POST /api_keys/verify, con la forma del OpenAPI del Backend API de Clerk."""
+    """200 body of POST /api_keys/verify, shaped like Clerk's Backend API OpenAPI."""
     record: dict[str, object] = {
         "object": "api_key",
         "id": "ak_3beecc9c60adb5f9b850e91a8ee1e992",
@@ -313,7 +313,7 @@ _CLERK_ERROR = {
 
 
 def _use_clerk(monkeypatch, respond) -> list[httpx.Request]:
-    """Atiende con ``respond`` las peticiones al Backend API de Clerk y devuelve las recibidas."""
+    """Answer requests to Clerk's Backend API with ``respond`` and return the received ones."""
     _use_settings(monkeypatch)
     monkeypatch.setattr(api_keys_module, "_verified", {})
     received: list[httpx.Request] = []
@@ -412,7 +412,7 @@ def test_a_verified_api_key_is_served_from_cache_until_its_ttl_passes(monkeypatc
     received = _use_clerk(monkeypatch, lambda _: clerk["response"]())
 
     get_user_module.get_current_user(f"Bearer {_API_KEY}")
-    # Revocada en Clerk: la caché la sigue aceptando hasta que caduque su entrada.
+    # Revoked in Clerk, so the cache keeps accepting it until its entry expires.
     clerk["response"] = lambda: httpx.Response(404, json=_CLERK_ERROR)
     assert get_user_module.get_current_user(f"Bearer {_API_KEY}") == {"sub": _KEY_OWNER}
     assert len(received) == 1

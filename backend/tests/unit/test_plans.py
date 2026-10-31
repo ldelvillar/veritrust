@@ -1,4 +1,4 @@
-"""Tablas de casos de ``app/core/plans.py``: qué Subscription da Pro y el mes de la Allowance."""
+"""Case tables of ``app/core/plans.py``: which Subscription gives Pro and the Allowance month."""
 
 from dataclasses import fields
 from datetime import UTC, datetime, timedelta
@@ -62,12 +62,12 @@ def _madrid(*args: int) -> datetime:
 @pytest.mark.parametrize(
     ("now", "start", "end"),
     [
-        # Mitad de mes
+        # Mid-month.
         (_madrid(2026, 10, 15, 12), _madrid(2026, 10, 1), _madrid(2026, 11, 1)),
-        # 31 de diciembre a última hora y 1 de enero a primera hora
+        # Late on 31 December and early on 1 January.
         (_madrid(2026, 12, 31, 23, 59), _madrid(2026, 12, 1), _madrid(2027, 1, 1)),
         (_madrid(2027, 1, 1, 0, 0), _madrid(2027, 1, 1), _madrid(2027, 2, 1)),
-        # Cambio de hora de marzo (último domingo, 29) y de octubre (último domingo, 25)
+        # The March (last Sunday, 29) and October (last Sunday, 25) clock changes.
         (_madrid(2026, 3, 29, 3, 30), _madrid(2026, 3, 1), _madrid(2026, 4, 1)),
         (_madrid(2026, 10, 25, 2, 30), _madrid(2026, 10, 1), _madrid(2026, 11, 1)),
     ],
@@ -77,7 +77,7 @@ def test_month_window_is_the_madrid_calendar_month(now, start, end):
 
 
 def test_month_window_uses_madrid_not_utc_near_midnight():
-    # 31 oct 23:30 UTC ya es 1 nov 00:30 en Madrid (UTC+1 en invierno).
+    # 31 Oct 23:30 UTC is already 1 Nov 00:30 in Madrid (UTC+1 in winter).
     start, end = month_window(datetime(2026, 10, 31, 23, 30, tzinfo=UTC))
 
     assert start == _madrid(2026, 11, 1)
@@ -86,7 +86,7 @@ def test_month_window_uses_madrid_not_utc_near_midnight():
 
 
 def test_month_window_offsets_follow_daylight_saving():
-    # Octubre empieza en horario de verano (UTC+2) y noviembre en el de invierno (UTC+1).
+    # October starts on summer time (UTC+2) and November on winter time (UTC+1).
     start, end = month_window(_madrid(2026, 10, 15))
 
     assert start.utcoffset() == timedelta(hours=2)

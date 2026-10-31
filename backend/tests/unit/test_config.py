@@ -1,4 +1,4 @@
-"""Tests unitarios para la configuración central (app.core.config)."""
+"""Unit tests for the central configuration (app.core.config)."""
 
 import pytest
 
@@ -12,7 +12,7 @@ from tests.support.billing import (
 
 
 def _make_settings(**overrides) -> Settings:
-    """Construye Settings deterministas, ignorando .env y el entorno real."""
+    """Build deterministic Settings, ignoring .env and the real environment."""
     base: dict[str, object] = {
         "database_url": "postgresql://user:pass@localhost:5432/db",
         "environment": "development",
@@ -41,7 +41,7 @@ def test_analysis_queue_defaults():
     settings = _make_settings()
 
     assert settings.analysis_job_timeout_seconds == 900
-    # El reaper solo toca filas sin job vivo: puede bajar del job_timeout sin riesgo.
+    # The reaper only touches rows with no live job, so it can go below job_timeout safely.
     assert settings.analysis_stale_after_seconds == 300
 
 
@@ -85,7 +85,7 @@ def test_expected_audience_is_none_when_missing():
 
 
 def test_validate_runtime_passes_with_complete_config():
-    # No debe lanzar.
+    # Must not raise.
     _make_settings(environment="production").validate_runtime()
 
 

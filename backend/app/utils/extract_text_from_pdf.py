@@ -1,4 +1,4 @@
-"""Este módulo contiene la función para extraer el texto de un PDF."""
+"""Extract the text of a PDF."""
 
 import io
 
@@ -9,11 +9,11 @@ from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 
 
 class PDFExtractionError(Exception):
-    """Excepción lanzada cuando ocurre un error al extraer el texto del PDF."""
+    """Raised when extracting the text of the PDF fails."""
 
 
 def extract_text_from_pdf(data: bytes) -> str:
-    """Extrae el texto de un PDF dado en bytes, acotado a ``MAX_INPUT_TEXT_LENGTH``."""
+    """Extract the text of a PDF given as bytes, capped to ``MAX_INPUT_TEXT_LENGTH``."""
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted and not reader.decrypt(""):

@@ -1,4 +1,4 @@
-"""Pruebas del webhook de Clerk (``app/core/clerk_webhooks.py``) con firmas Svix reales."""
+"""Tests of the Clerk webhook (``app/core/clerk_webhooks.py``) with real Svix signatures."""
 
 import json
 from datetime import UTC, datetime, timedelta
@@ -18,7 +18,7 @@ USER = "user_2abc"
 
 @pytest.fixture
 def forgotten(monkeypatch):
-    """Sustituye la baja de facturación y el borrado del historial por la lista de pasos dados."""
+    """Replace the billing cancellation and the History deletion with the list of steps taken."""
     steps: list[tuple[str, str]] = []
 
     async def forget_user(user_id):
@@ -37,7 +37,7 @@ def forgotten(monkeypatch):
 
 @pytest.fixture
 def intake():
-    """Entrada de análisis que registra las Runs abortadas."""
+    """Analysis intake that records the aborted Runs."""
     return StubIntake()
 
 

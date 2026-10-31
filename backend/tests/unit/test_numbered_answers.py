@@ -1,4 +1,4 @@
-"""Tests del esquema numerado: un campo obligatorio por elemento de la entrada."""
+"""Tests of the numbered schema, one required field per input item."""
 
 from typing import Literal
 
@@ -13,7 +13,7 @@ _ANSWERS = NumberedAnswers(
 
 
 def test_schema_requires_one_field_per_item_and_no_other():
-    # Es lo que recibe Ollama para restringir su salida.
+    # This is what Ollama receives to constrain its output.
     schema = _ANSWERS.schema(3).model_json_schema()
 
     assert schema["required"] == ["item_1", "item_2", "item_3"]

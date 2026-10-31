@@ -1,4 +1,4 @@
-"""Endpoint público (sin autenticación) para ver informes compartidos por token."""
+"""Public, unauthenticated endpoint to view reports shared by token."""
 
 from fastapi import APIRouter, HTTPException
 
@@ -28,7 +28,7 @@ async def get_shared_report(token: str):
     """Devuelve la vista pública de un informe compartido mientras su dueño pueda compartir, sin datos de identidad."""
     try:
         shared = await get_shared_analysis_by_token(token=token)
-        # El token se conserva: el enlace vuelve a responder si el dueño recupera el Plan.
+        # The token is kept, so the link answers again if the owner gets the Plan back.
         if (
             shared is not None
             and not limits_for(await get_user_subscription(shared[0])).share

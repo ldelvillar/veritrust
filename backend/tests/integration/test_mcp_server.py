@@ -1,4 +1,4 @@
-"""Tests de las herramientas MCP con el cliente en proceso del SDK y dobles de cola y BD."""
+"""Tests of the MCP tools with the SDK's in-process client and queue and DB doubles."""
 
 from types import SimpleNamespace
 
@@ -28,7 +28,7 @@ USER_ID = "user_123"
 
 
 def _settings(**overrides) -> Settings:
-    """Settings deterministas para el servidor MCP, ignorando .env."""
+    """Deterministic Settings for the MCP server, ignoring .env."""
     base: dict[str, object] = {
         "environment": "production",
         "cors_allowed_origins": "https://veritrust.es",
@@ -46,7 +46,7 @@ JOB_ID = "0123456789abcdef0123456789abcdef"
 
 
 class _ScriptedJob:
-    """Doble de arq.jobs.Job que recorre una secuencia de estados y termina con un resultado."""
+    """Double of arq.jobs.Job that walks a sequence of statuses and ends with a result."""
 
     def __init__(self, steps):
         self._steps = list(steps)
@@ -69,7 +69,7 @@ class _ScriptedJob:
 
 
 def _patch_job(monkeypatch, *steps):
-    """Hace que el servidor reabra los jobs de evidencia con el guion indicado."""
+    """Make the server reopen the evidence jobs with the given script."""
     created: list[str] = []
     job = _ScriptedJob(steps)
 
@@ -82,7 +82,7 @@ def _patch_job(monkeypatch, *steps):
 
 
 class _ArqPool:
-    """Doble del pool de arq que registra los encolados."""
+    """Double of the arq pool that records enqueues."""
 
     def __init__(self, fail=False):
         self.enqueued: list[tuple] = []
@@ -96,7 +96,7 @@ class _ArqPool:
 
 
 def _record(status="done", **overrides) -> AnalysisHistoryItem:
-    """Fila del historial de un análisis MCP."""
+    """History row of an MCP Analysis."""
     base: dict = {
         "analysis_id": ANALYSIS_ID,
         "user_id": USER_ID,
@@ -121,7 +121,7 @@ def _record(status="done", **overrides) -> AnalysisHistoryItem:
 
 @pytest.fixture
 def plan(monkeypatch, stripe_settings):
-    """Subscription y Usage que lee el servidor: Pro y sin uso salvo que la prueba los cambie."""
+    """Subscription and Usage the server reads, Pro and unused unless the test changes them."""
     state: dict = {
         "subscription": make_subscription(user_id=USER_ID),
         "usage": Usage(used=0, pending=0),
@@ -144,7 +144,7 @@ def plan(monkeypatch, stripe_settings):
 
 @pytest.fixture
 def env(monkeypatch, plan):
-    """Configura settings, identidad OAuth y sondeo rápido para las herramientas."""
+    """Configure settings, OAuth identity and fast polling for the tools."""
     settings = _settings()
     monkeypatch.setattr(server_module, "get_settings", lambda: settings)
     monkeypatch.setattr(server_module, "_POLL_INTERVAL_SECONDS", 0.01)
@@ -157,7 +157,7 @@ def env(monkeypatch, plan):
 
 
 def _patch_db(monkeypatch, records) -> list[str]:
-    """Sustituye las lecturas del sondeo: el estado avanza por las filas y el informe lee la actual."""
+    """Replace the poll reads, where the status walks through the rows and the report reads the current one."""
     rows = list(records)
     cursor = -1
     report_reads: list[str] = []
@@ -182,7 +182,7 @@ def _patch_db(monkeypatch, records) -> list[str]:
 
 
 def _server(pool=None, redis=None, intake=None):
-    """Construye el servidor MCP con dobles de cola, Redis y entrada de análisis."""
+    """Build the MCP server with queue, Redis and analysis intake doubles."""
     return server_module.build_mcp_server(
         arq_pool=pool or _ArqPool(),
         redis=redis if redis is not None else fakeredis.aioredis.FakeRedis(),
@@ -223,7 +223,7 @@ async def test_verify_claim_opens_the_analysis_and_waits_until_done(env, monkeyp
     assert body["verdict"] == "fake"
     assert body["credibility"] == 10
     assert body["report_url"] == f"https://veritrust.es/app/analisis/{ANALYSIS_ID}"
-    # Misma entrada que la ruta web, con Origin mcp y sin email para el cliente MCP.
+    # Same intake as the web route, with Origin mcp and no email for the MCP client.
     [(kind, submitter, request)] = intake.calls
     assert (kind, submitter) == (
         "submit",
@@ -457,12 +457,12 @@ async def test_search_evidence_waits_for_the_result(env, monkeypatch):
     assert progress == ["Queued", "Searching the literature"]
 
     ((name, args, kwargs),) = pool.enqueued
-    # El worker anota la búsqueda en el Usage de quien la lanzó.
+    # The worker records the search in the Usage of whoever started it.
     assert (name, args) == (
         "run_evidence_search",
         ("La vitamina C previene el resfriado", USER_ID),
     )
-    # El job se reabre por su id y queda ligado al usuario que lo lanzó.
+    # The job is reopened by its id and stays bound to the user who started it.
     assert created == [kwargs["_job_id"]] == [body["job_id"]]
     owner_key = f"mcp:evidence_owner:{body['job_id']}"
     assert await redis.get(owner_key) == USER_ID.encode()

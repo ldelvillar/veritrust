@@ -1,4 +1,4 @@
-"""Adaptador HTTP de la entrada de análisis: quién la usa, con qué intake y cómo responde un rechazo."""
+"""HTTP adapter of the analysis intake: who uses it, with which intake, and how a refusal answers."""
 
 from fastapi import Depends, Request
 from starlette.responses import JSONResponse
@@ -11,7 +11,7 @@ from app.core.errors import make_error_detail
 from app.core.plans import PlanLimits
 from app.schemas.errors import ErrorCode
 
-# Estado HTTP de cada motivo de rechazo; un test vigila que cubra REFUSAL_CODES.
+# HTTP status of each refusal reason, which a test keeps in step with REFUSAL_CODES.
 REFUSAL_HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.ALLOWANCE_EXHAUSTED: 402,
     ErrorCode.PLAN_REQUIRED: 403,
@@ -33,7 +33,7 @@ async def web_submitter(
     user: dict = Depends(check_rate_limit),
     limits: PlanLimits = Depends(current_plan),
 ) -> Submitter:
-    """Identifica al usuario web que abre el análisis y su Plan, tras descontar su rate limit."""
+    """Identify the web user opening the Analysis and their Plan, after charging their rate limit."""
     return Submitter(
         user_id=user["sub"],
         origin="web",
@@ -43,16 +43,16 @@ async def web_submitter(
 
 
 async def analysis_intake(request: Request) -> AnalysisIntake:
-    """Devuelve la entrada del proceso; sin lifespan, una sin cola que rechaza con 503."""
+    """Return the process's intake, or one without a queue that refuses with 503 when there is no lifespan."""
     intake = getattr(request.app.state, "analysis_intake", None)
     if intake is None:
-        # Nunca lanza aquí: un 503 desde una dependencia se adelantaría al 422 del cuerpo.
+        # Never raise here, as a 503 from a dependency would preempt the body's 422.
         return AnalysisIntake(None, max_file_bytes=get_settings().max_file_bytes)
     return intake
 
 
 def refusal_response(exc: AnalysisRefused) -> JSONResponse:
-    """Construye la respuesta HTTP de un rechazo con el detail del contrato de errores."""
+    """Build the HTTP response of a refusal with the error contract's detail."""
     return JSONResponse(
         status_code=REFUSAL_HTTP_STATUS[exc.code],
         content={"detail": make_error_detail(exc.code)},

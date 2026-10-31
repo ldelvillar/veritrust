@@ -1,4 +1,4 @@
-"""Este módulo contiene los prompts de sistema que utilizan los distintos agentes."""
+"""System prompts used by the agents."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 @dataclass
 class PromptItem:
-    """Define la estructura de cada prompt, incluyendo su versión y el texto del prompt."""
+    """Structure of each prompt, with its version and text."""
 
     version: str
     text: str
@@ -18,7 +18,7 @@ class PromptItem:
 
 @dataclass
 class HealthExpertPrompt(PromptItem):
-    """Prompt del experto en salud: el de sistema y las plantillas del mensaje de usuario."""
+    """Health expert prompt, the system one and the user-message templates."""
 
     user_message: str
     verdict_certain: str
@@ -32,7 +32,7 @@ class HealthExpertPrompt(PromptItem):
 
 @dataclass
 class Prompts:
-    """Contiene los prompts para cada agente."""
+    """Prompts for each agent."""
 
     extractor: PromptItem
     translator: PromptItem
@@ -41,7 +41,7 @@ class Prompts:
 
 
 def load_prompts() -> Prompts:
-    """Carga los prompts desde un archivo YAML y los devuelve como una instancia de Prompts."""
+    """Load the prompts from a YAML file and return them as a Prompts instance."""
     default_path = Path(__file__).parent / "prompts.yaml"
     configured_path = get_settings().prompt_file_path
     yaml_path = Path(configured_path) if configured_path else default_path

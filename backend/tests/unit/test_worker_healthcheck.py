@@ -1,4 +1,4 @@
-"""Tests de la sonda de liveness del worker basada en el heartbeat de arq en Redis."""
+"""Tests of the worker liveness probe based on arq's heartbeat in Redis."""
 
 from arq.connections import RedisSettings
 
@@ -17,7 +17,7 @@ def test_main_probes_the_configured_redis(monkeypatch):
 
     assert healthcheck.main() == 0
 
-    # La sonda debe mirar el mismo Redis que usa el worker según Settings.
+    # The probe must look at the same Redis the worker uses according to Settings.
     expected = RedisSettings.from_dsn(get_settings().redis_url)
     assert (seen["settings"].host, seen["settings"].port) == (
         expected.host,

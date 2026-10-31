@@ -8,7 +8,7 @@ from app.utils.extract_text_from_pdf import PDFExtractionError, extract_text_fro
 
 
 def _make_pdf(text: str) -> bytes:
-    """Construye un PDF mínimo de una página con ``text`` en un operador Tj."""
+    """Build a minimal one-page PDF with ``text`` in a Tj operator."""
     escaped = text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
     content = f"BT /F1 24 Tf 72 720 Td ({escaped}) Tj ET".encode("latin-1")
     objects = [

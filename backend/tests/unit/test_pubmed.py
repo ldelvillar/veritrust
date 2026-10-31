@@ -1,4 +1,4 @@
-"""Tests del cliente de PubMed (NCBI E-utilities) con la red mockeada."""
+"""Tests of the PubMed (NCBI E-utilities) client with the network mocked."""
 
 import pytest
 import requests
@@ -124,7 +124,7 @@ def test_search_evidence_drops_articles_without_title(monkeypatch):
 
 
 def test_search_evidence_returns_empty_when_no_pmids(monkeypatch):
-    # Sin PMIDs no se llega a efetch; basta con la respuesta de esearch.
+    # Without PMIDs efetch is never reached, so the esearch response is enough.
     _patch_get(monkeypatch, esearch=_esearch([]))
 
     assert search_evidence("query", max_results=3) == []

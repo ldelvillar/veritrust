@@ -1,4 +1,4 @@
-"""Este módulo define los esquemas de datos relacionados con los análisis de noticias."""
+"""Data schemas for analyses."""
 
 from enum import Enum
 from typing import Annotated, Literal, Optional
@@ -6,7 +6,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, HttpUrl, StringConstraints, model_validator
 
 MAX_INPUT_TEXT_LENGTH = 10_000
-# Suelo util: por debajo no cabe una afirmacion medica verificable y el pipeline se gasta en balde.
+# Useful floor, since below it no verifiable medical claim fits and the pipeline runs for nothing.
 MIN_INPUT_TEXT_LENGTH = 10
 
 
@@ -18,15 +18,15 @@ class SourceType(str, Enum):
     URL = "url"
 
 
-# Ciclo de vida de un análisis; coincide con el CHECK de status en db/migrations.
+# Analysis lifecycle, matching the status CHECK in db/migrations.
 AnalysisStatus = Literal["pending", "done", "failed"]
 
-# Etapa que reporta el worker: la preparación de la entrada y luego cada nodo del grafo.
+# Stage the worker reports, input preparation first and then each graph node.
 AnalysisStage = Literal[
     "preparing", "extractor", "translator", "investigator", "health_expert"
 ]
 
-# Canal que creó el análisis; coincide con el CHECK de origin en db/migrations.
+# Channel that created the Analysis, matching the origin CHECK in db/migrations.
 AnalysisOrigin = Literal["web", "mcp"]
 
 
@@ -48,7 +48,7 @@ class AnalysisRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_payload_coherence(self) -> "AnalysisRequest":
-        """Valida que el payload sea coherente."""
+        """Validate that the payload is consistent."""
         has_text = self.text is not None
         has_url = self.url is not None
 

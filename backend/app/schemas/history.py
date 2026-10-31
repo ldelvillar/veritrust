@@ -1,6 +1,4 @@
-"""
-Este módulo define los esquemas de datos relacionados con el historial de análisis del usuario.
-"""
+"""Data schemas for the user's analysis History."""
 
 from typing import List, Literal, Optional
 
@@ -59,7 +57,7 @@ class SourceItem(BaseModel):
 class HistoryListItem(BaseModel):
     """Fila del listado de historial: lo que pinta la tabla, sin el cuerpo del informe."""
 
-    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    # Enums validate the contract but are stored as str.
     model_config = ConfigDict(use_enum_values=True)
 
     analysis_id: str
@@ -97,7 +95,7 @@ class HistoryListItem(BaseModel):
 
 
 class HistoryExportItem(HistoryListItem):
-    """Fila del CSV: como el listado pero con ``input_text`` íntegro y el instante de fin."""
+    """CSV row, like the list one but with the full ``input_text`` and the end instant."""
 
     completed_at: Optional[str] = None
 
@@ -116,7 +114,7 @@ class AnalysisHistoryItem(HistoryListItem):
 class PublicAnalysisReport(BaseModel):
     """Vista pública de solo lectura de un informe compartido; sin datos de identidad."""
 
-    # Los enums validan el contrato pero se guardan como str, igual que antes de tiparlos.
+    # Enums validate the contract but are stored as str.
     model_config = ConfigDict(use_enum_values=True)
 
     source_type: SourceType
@@ -153,7 +151,7 @@ class PublicAnalysisReport(BaseModel):
 
 
 class HistoryQuery(BaseModel):
-    """Búsqueda, filtros y orden con los que el usuario consulta su historial."""
+    """Search, filters and sort the user queries their History with."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -167,7 +165,7 @@ class HistoryQuery(BaseModel):
     @field_validator("search")
     @classmethod
     def _trim_search(cls, value: Optional[str]) -> Optional[str]:
-        """Recorta la búsqueda y trata una en blanco como ausente."""
+        """Trim the search and treat a blank one as absent."""
         return (value or "").strip() or None
 
 

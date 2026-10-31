@@ -1,7 +1,4 @@
-"""
-Este módulo construye el grafo de LangGraph, define los nodos (agentes) y ejecuta
-el flujo completo para verificar noticias falsas en el ámbito de la salud.
-"""
+"""Build the LangGraph graph and its agent nodes that fact-check health misinformation."""
 
 import logging
 import time
@@ -27,7 +24,7 @@ StateT = TypeVar("StateT", bound=ClaimsState)
 
 
 class _Node(Protocol[StateT]):
-    """Nodo del grafo con la firma que exige LangGraph en add_node."""
+    """Graph node with the signature LangGraph's add_node requires."""
 
     def __call__(self, state: StateT) -> StateT: ...
 
@@ -35,7 +32,7 @@ class _Node(Protocol[StateT]):
 def _timed_node(
     name: str, node: Callable[[StateT, Prompts], StateT], prompts: Prompts
 ) -> _Node[StateT]:
-    """Envuelve un nodo del grafo registrando cuánto tarda en completarse."""
+    """Wrap a graph node and log how long it takes to finish."""
 
     def run(state: StateT) -> StateT:
         start = time.perf_counter()
@@ -47,7 +44,7 @@ def _timed_node(
     return run
 
 
-# Orden canónico de los nodos del grafo; el worker lo usa para reportar la etapa activa.
+# Canonical order of the graph's nodes, which the worker uses to report the active stage.
 PIPELINE_STAGES: tuple[str, ...] = (
     "extractor",
     "translator",
@@ -57,7 +54,7 @@ PIPELINE_STAGES: tuple[str, ...] = (
 
 
 def describe_pipeline(prompts: Prompts) -> dict:
-    """Identifica la configuración que produce un veredicto: proveedor, modelos por rol y versiones de prompt."""
+    """Identify the configuration that produces a Verdict, from provider, per-role models and prompt versions."""
     return {
         "provider": get_settings().llm_provider_name(),
         "models": configured_models(),
@@ -66,11 +63,9 @@ def describe_pipeline(prompts: Prompts) -> dict:
 
 
 def create_graph(prompts: Prompts) -> CompiledStateGraph:
-    """Instancia y configura el flujo de trabajo multiagente."""
-    # Inicializar el grafo con el estado definido
+    """Build and wire the multi-agent workflow."""
     workflow = StateGraph(AgentState)
 
-    # Añadir los nodos (los agentes), instrumentados con su duración
     workflow.add_node("extractor", _timed_node("extractor", extractor, prompts))
     workflow.add_node("translator", _timed_node("translator", translator, prompts))
     workflow.add_node(
@@ -80,26 +75,24 @@ def create_graph(prompts: Prompts) -> CompiledStateGraph:
         "health_expert", _timed_node("health_expert", health_expert, prompts)
     )
 
-    # Definir el flujo lógico (las aristas del grafo)
     workflow.add_edge(START, "extractor")
     workflow.add_edge("extractor", "translator")
     workflow.add_edge("translator", "investigator")
     workflow.add_edge("investigator", "health_expert")
     workflow.add_edge("health_expert", END)
 
-    # Compilar el grafo
     app = workflow.compile()
 
     return app
 
 
 def _evidence_node(state: ClaimsState, prompts: Prompts) -> ClaimsState:
-    """Nodo del grafo de evidencia: busca y juzga las fuentes de cada afirmación."""
+    """Evidence graph node that searches and judges each claim's Sources."""
     return {"claims": gather_evidence(state.get("claims", []), prompts)}
 
 
 def create_evidence_graph(prompts: Prompts) -> CompiledStateGraph:
-    """Instancia el flujo de solo evidencia, sin veredicto ni explicación."""
+    """Build the evidence-only workflow, with no Verdict or explanation."""
     workflow = StateGraph(ClaimsState)
 
     workflow.add_node("extractor", _timed_node("extractor", extractor, prompts))

@@ -1,4 +1,4 @@
-"""Consultas analíticas agregadas para el dashboard del usuario."""
+"""Aggregated analytics queries for the user's dashboard."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[int, int]:
-    """Normaliza parámetros de dashboard para mantener límites seguros."""
+    """Normalise dashboard parameters to keep safe limits."""
     safe_trend_days = max(7, min(trend_days, 90))
     safe_alert_limit = max(1, min(alert_limit, 20))
     return safe_trend_days, safe_alert_limit
@@ -34,7 +34,7 @@ def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[in
 def _extract_kpis_values(
     kpi_row: Sequence[Any] | None,
 ) -> tuple[int, float | None, int, int, int, int, float, int]:
-    """Extrae valores de KPI con defaults cuando no hay resultados."""
+    """Extract KPI values with defaults when there are no results."""
     total_analyses = int(kpi_row[0] or 0) if kpi_row else 0
     average_credibility = (
         float(kpi_row[1]) if kpi_row and kpi_row[1] is not None else None
@@ -58,7 +58,7 @@ def _extract_kpis_values(
 
 
 def _calculate_reliable_rate(*, reliable_total: int, total_analyses: int) -> float:
-    """Calcula porcentaje de análisis etiquetados como fiables."""
+    """Compute the percentage of analyses labelled as reliable."""
     if total_analyses == 0:
         return 0.0
     return round((reliable_total / total_analyses) * 100, 1)
@@ -67,7 +67,7 @@ def _calculate_reliable_rate(*, reliable_total: int, total_analyses: int) -> flo
 def _calculate_week_over_week_delta(
     *, current_week_total: int, previous_week_total: int
 ) -> float:
-    """Calcula variación semanal porcentual con manejo de división por cero."""
+    """Compute the week-over-week percentage change, handling division by zero."""
     if previous_week_total == 0:
         return 0.0 if current_week_total == 0 else 100.0
 
@@ -78,19 +78,19 @@ def _calculate_week_over_week_delta(
 
 
 def _round_percentage(value: float | None) -> float:
-    """Convierte una proporción [0, 1] en porcentaje acotado a [0, 100]."""
+    """Convert a [0, 1] ratio to a percentage clamped to [0, 100]."""
     if value is None:
         return 0.0
     return round(max(0.0, min(100.0, value * 100)), 1)
 
 
 def _credibility_percentage(value: Any) -> float | None:
-    """Convierte una credibilidad media [0, 1] en porcentaje, o None si ningún análisis la tiene."""
+    """Convert a mean [0, 1] credibility to a percentage, or None if no Analysis has one."""
     return None if value is None else _round_percentage(float(value))
 
 
 def _extract_domain(url: str | None) -> str | None:
-    """Devuelve el host en minúsculas de una URL, o None si no es válida."""
+    """Return the lowercase host of a URL, or None if it is invalid."""
     if not url:
         return None
 
@@ -105,7 +105,7 @@ def _extract_domain(url: str | None) -> str | None:
 def _build_trend_points(
     *, trend_rows: Sequence[Sequence[Any]], trend_start_date: date, trend_days: int
 ) -> list[DashboardTrendPoint]:
-    """Construye una serie diaria continua para tendencia de dashboard."""
+    """Build a continuous daily series for the dashboard trend."""
     trend_map: dict[date, tuple[int, float | None]] = {}
     for row in trend_rows:
         row_day: date = row[0]
@@ -130,7 +130,7 @@ def _build_trend_points(
 def _build_source_breakdown(
     source_rows: Sequence[Sequence[Any]],
 ) -> list[DashboardSourceBreakdownItem]:
-    """Mapea la distribución por fuente para el dashboard."""
+    """Map the breakdown by Content type for the dashboard."""
     return [
         DashboardSourceBreakdownItem(
             source_type=row[0],
@@ -144,7 +144,7 @@ def _build_source_breakdown(
 def _build_domain_breakdown(
     *, domain_rows: Sequence[Sequence[Any]], limit: int = 5
 ) -> list[DashboardDomainBreakdownItem]:
-    """Agrega y ordena dominios de URL por frecuencia para el dashboard."""
+    """Aggregate and sort URL domains by frequency for the dashboard."""
     domain_aggregates: dict[str, dict[str, float]] = {}
     for row in domain_rows:
         domain = _extract_domain(row[0])
@@ -155,7 +155,7 @@ def _build_domain_breakdown(
             domain_aggregates[domain] = {"total": 0.0, "sum_cred": 0.0, "n_cred": 0.0}
 
         domain_aggregates[domain]["total"] += 1
-        # Los veredictos inciertos no tienen credibilidad; cuentan como frecuencia pero no en la media.
+        # Uncertain Verdicts have no Credibility, so they count towards frequency but not the mean.
         if row[1] is not None:
             domain_aggregates[domain]["sum_cred"] += float(row[1])
             domain_aggregates[domain]["n_cred"] += 1
@@ -180,7 +180,7 @@ def _build_domain_breakdown(
 
 
 def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertItem]:
-    """Mapea filas de alertas (baja credibilidad) para el dashboard."""
+    """Map alert rows (low Credibility) for the dashboard."""
     return [
         DashboardAlertItem(
             id=str(row[0]),
@@ -198,7 +198,7 @@ def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertIte
 async def get_user_dashboard_summary(
     *, user_id: str, trend_days: int = 14, alert_limit: int = 5
 ) -> DashboardSummaryResponse:
-    """Obtiene métricas agregadas para el dashboard del usuario."""
+    """Fetch aggregated metrics for the user's dashboard."""
     pool = await get_pool()
     safe_trend_days, safe_alert_limit = _sanitize_dashboard_params(
         trend_days=trend_days,
@@ -334,9 +334,9 @@ async def get_user_dashboard_summary(
         previous_week_total=previous_week_total,
     )
 
-    # Un contenido parcialmente falso también es una alerta: contiene algo falso.
+    # Partly false content is also an alert because it contains something false.
     active_alerts = fake_total + mixed_total
-    # 'incierto' es el resto: ni fiable ni con algo falso. Así los cuatro suman el total
+    # Uncertain is the rest, neither reliable nor with anything false, so the four add up to the total.
     uncertain_total = max(0, total_analyses - reliable_total - active_alerts)
     verdict_distribution = DashboardVerdictDistribution(
         real=reliable_total,

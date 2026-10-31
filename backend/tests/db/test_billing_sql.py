@@ -1,4 +1,4 @@
-"""Pruebas del SQL real de ``app/db/billing.py``: clientes, Subscriptions, eventos y Usage."""
+"""Tests of the real SQL of ``app/db/billing.py``: customers, Subscriptions, events and Usage."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
@@ -97,7 +97,7 @@ async def test_usage_counts_this_month_and_pending_analyses(db_pool):
     await seed_usage(
         user_id=USER, occurred_at=datetime(2026, 10, 31, 23, 59, tzinfo=UTC)
     )
-    # Fuera de la ventana o de otro usuario: no cuentan.
+    # Outside the window or from another user, so they do not count.
     await seed_usage(
         user_id=USER, occurred_at=datetime(2026, 9, 30, 23, 59, tzinfo=UTC)
     )

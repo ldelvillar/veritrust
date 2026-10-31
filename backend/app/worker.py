@@ -1,4 +1,4 @@
-"""Worker de arq que ejecuta el pipeline multiagente fuera del request HTTP."""
+"""arq worker that runs the multi-agent pipeline outside the HTTP request."""
 
 import asyncio
 import logging
@@ -42,12 +42,12 @@ from app.utils.llm import ensure_llm_available
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# Margen del job_timeout de arq sobre el presupuesto interno; deja notificar antes del corte duro.
+# Margin of arq's job_timeout over the internal budget, to notify before the hard cut.
 _JOB_TIMEOUT_GRACE_SECONDS = 30
 
 
 async def _input_text(run: AnalysisRun) -> str:
-    """Obtiene el texto a verificar: el pegado, o el extraído de la URL o del archivo hasta el tope del Plan."""
+    """Get the text to check, the pasted one or the one extracted from the URL or file, up to the Plan's cap."""
     content = run.content
     if isinstance(content, UrlContent):
         try:
@@ -67,7 +67,7 @@ async def _input_text(run: AnalysisRun) -> str:
                 "[Worker] Extracción de archivo fallida para %s", run.analysis_id
             )
             raise AnalysisFailure(ErrorCode.FILE_EXTRACTION) from exc
-        # Se guarda lo que de verdad se analiza: el texto ya recortado al tope del Plan.
+        # Store what is actually analysed, the text already cut to the Plan's cap.
         text = text[: content.max_chars]
         await run.keep_input_text(text)
         return text
@@ -76,7 +76,7 @@ async def _input_text(run: AnalysisRun) -> str:
 
 
 async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
-    """Convierte la entrada de un análisis pendiente en su veredicto con el grafo multiagente."""
+    """Turn the input of a pending Analysis into its Verdict with the multi-agent graph."""
     text = neutralize_delimiters(await _input_text(run))
     initial_state: dict[str, object] = {
         "input_text": text,
@@ -116,7 +116,7 @@ async def run_analysis(
     analysis_id: str,
     notify_email: str | None = None,
 ) -> None:
-    """Ejecuta la Run de un análisis pendiente a través del ciclo de vida."""
+    """Run a pending Analysis's Run through the lifecycle."""
     logger.info("[Worker] Procesando análisis %s", analysis_id)
     outcome = await ctx["analysis_runner"].run(
         analysis_id, partial(analyse, ctx), notify_email=notify_email
@@ -125,17 +125,14 @@ async def run_analysis(
 
 
 def _truncate_abstract(text: str | None) -> str | None:
-    """Recorta el resumen para acotar el tamaño del resultado guardado en Redis."""
+    """Trim the abstract to bound the size of the result stored in Redis."""
     if not text or len(text) <= MAX_ABSTRACT_CHARS:
         return text
     return text[:MAX_ABSTRACT_CHARS].rstrip() + "…"
 
 
 async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
-    """
-    Busca y juzga la evidencia de una afirmación sin
-    emitir veredicto; devuelve un dict serializable.
-    """
+    """Search and judge a claim's Evidence without a Verdict and return a serialisable dict."""
     logger.info("[Worker] Procesando búsqueda de evidencia")
     initial_state: dict[str, object] = {
         "input_text": neutralize_delimiters(claim),
@@ -165,7 +162,7 @@ async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
         for hit in entry["hits"] or []:
             hit["abstract"] = _truncate_abstract(hit["abstract"])
 
-    # Solo una búsqueda con resultado consume Allowance; si anotarla falla, el resultado se entrega igual.
+    # Only a search with a result consumes Allowance, and the result is delivered even if recording it fails.
     try:
         await record_evidence_search(user_id)
     except DatabaseError:
@@ -176,12 +173,12 @@ async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
 
 
 async def reap_orphaned_analyses(ctx: dict) -> None:
-    """Cron: marca como ``failed`` los análisis huérfanos."""
+    """Cron that fails orphaned analyses."""
     await ctx["analysis_runner"].reap_orphans()
 
 
 async def startup(ctx: dict) -> None:
-    """Inicializa recursos de IA una vez al arrancar el worker."""
+    """Set up AI resources once when the worker starts."""
     settings = get_settings()
     settings.validate_runtime(web=False)
     ensure_llm_available()
@@ -200,19 +197,19 @@ async def startup(ctx: dict) -> None:
 
 
 async def shutdown() -> None:
-    """Cierra el pool de base de datos al parar el worker."""
+    """Close the database pool when the worker stops."""
     await close_pool()
 
 
 class WorkerSettings:
-    """Configuración del worker de arq."""
+    """arq worker configuration."""
 
     functions = [
         run_analysis,
-        # El resultado se guarda para que get_evidence lo recoja aunque la llamada MCP ya expirase.
+        # The result is kept so get_evidence can collect it even if the MCP call already expired.
         func(run_evidence_search, keep_result=EVIDENCE_RESULT_TTL_SECONDS),
     ]
-    cron_jobs = [cron(reap_orphaned_analyses, second=0)]  # ~una vez por minuto
+    cron_jobs = [cron(reap_orphaned_analyses, second=0)]  # About once a minute.
     on_startup = startup
     on_shutdown = shutdown
     job_timeout = (
@@ -220,13 +217,13 @@ class WorkerSettings:
     )
     max_jobs = get_settings().worker_max_jobs
     keep_result = 0
-    # Borrar un análisis pendiente aborta su job: el agente en curso acaba, pero no arranca ninguno más.
+    # Deleting a pending Analysis aborts its job, so the running agent finishes but no other starts.
     allow_abort_jobs = True
     health_check_interval = 30
 
 
 def main() -> None:
-    """Entrypoint del worker (``python -m app.worker``)."""
+    """Worker entry point (``python -m app.worker``)."""
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     run_worker(WorkerSettings, redis_settings=redis_settings)  # type: ignore[arg-type]
 

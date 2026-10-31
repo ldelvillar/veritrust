@@ -1,4 +1,4 @@
-"""Tests unitarios para la evaluación del pipeline multiagente."""
+"""Unit tests for the multi-agent pipeline evaluation."""
 
 import asyncio
 import json
@@ -15,7 +15,7 @@ from evaluation import evaluate_pipeline as ep
 
 
 def _verdict(kind, confidence: float, falsehood: float = 0.5) -> Verdict:
-    """Veredicto mínimo tal y como lo deja el experto en el estado del grafo."""
+    """Minimal Verdict as the expert leaves it in the graph state."""
     return Verdict(
         kind=kind,
         confidence=confidence,
@@ -59,7 +59,7 @@ def test_compute_metrics_counts_confusion_and_skips() -> None:
         _row("falsa", "verdadera"),  # fn
         _row("verdadera", "falsa"),  # fp
         _row("verdadera", "verdadera"),  # tn
-        _row("falsa", None),  # sin afirmaciones -> excluida
+        _row("falsa", None),  # no claims, excluded
     ]
     metrics = ep.compute_metrics(rows)
 
@@ -72,9 +72,9 @@ def test_compute_metrics_counts_confusion_and_skips() -> None:
 def test_compute_metrics_treats_incierta_as_abstention() -> None:
     rows = [
         _row("falsa", "falsa"),  # tp
-        _row("verdadera", "incierta"),  # abstención -> no puntúa
-        _row("falsa", "incierta"),  # abstención -> no puntúa
-        _row("verdadera", None),  # sin afirmaciones -> excluida
+        _row("verdadera", "incierta"),  # abstention, does not score
+        _row("falsa", "incierta"),  # abstention, does not score
+        _row("verdadera", None),  # no claims, excluded
     ]
     metrics = ep.compute_metrics(rows)
 
@@ -82,9 +82,9 @@ def test_compute_metrics_treats_incierta_as_abstention() -> None:
     assert metrics["evaluated"] == 1
     assert metrics["uncertain"] == 2
     assert metrics["skipped"] == 1
-    # Abstenerse no penaliza: el único veredicto firme es correcto.
+    # Abstaining is not penalised, since the only firm Verdict is correct.
     assert metrics["accuracy"] == 1.0
-    # La cobertura sí refleja las abstenciones: 1 firme de 3 con afirmaciones.
+    # Coverage does reflect abstentions, 1 firm out of 3 with claims.
     assert metrics["coverage"] == pytest.approx(1 / 3)
 
 
@@ -97,7 +97,7 @@ def test_evaluate_pipeline_records_the_raw_falsehood_the_band_saw() -> None:
 
     [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
 
-    # La falsedad llega sin atenuar: ya no hace falta invertir la cobertura.
+    # The falsehood arrives unattenuated, so coverage no longer needs inverting.
     assert (row["predicted"], row["confidence"]) == ("falsa", 0.5425)
     assert row["fake_avg"] == 0.62
     assert row["evidence_coverage"] == 1.0
@@ -122,7 +122,7 @@ def test_evaluate_pipeline_records_every_claim_evidence_before_the_report_cap() 
 
     class FakeGraph:
         async def astream(self, state: dict, stream_mode: object = None):
-            # El informe solo mostró la primera fuente; la fila guarda las dos.
+            # The report only showed the first Source and the row keeps both.
             shown = [replace(found[0], evidence=found[0].evidence[:1]), *found[1:]]
             yield (
                 "values",
@@ -146,7 +146,7 @@ def test_evaluate_pipeline_records_every_claim_evidence_before_the_report_cap() 
         {"outcome": "unavailable", "evidence": []},
         {"outcome": "unsearchable", "evidence": []},
     ]
-    # El texto de las afirmaciones sigue viniendo del mismo registro.
+    # The claims' text still comes from the same record.
     assert row["extracted"] == ["A", "B", "C"]
 
 
@@ -175,7 +175,7 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     df = pd.DataFrame(
         {
             "claim": [f"c{i}" for i in range(8)],
-            # 0->verdadera, 1->falsa; NEI (2) se descarta
+            # 0 is verdadera, 1 is falsa and NEI (2) is dropped.
             "label": [0, 0, 0, 1, 1, 1, 2, 2],
         }
     )
@@ -186,7 +186,7 @@ def test_load_samples_balances_classes_and_maps_labels(monkeypatch) -> None:
     assert len(samples) == 4
     labels = {s["expected"] for s in samples}
     assert labels <= {"verdadera", "falsa"}
-    # La clase 'NEI' (2) nunca debe aparecer.
+    # The 'NEI' class (2) must never appear.
     assert all(s["text"] not in {"c6", "c7"} for s in samples)
 
 
@@ -223,7 +223,7 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
         {"text": "sin afirmaciones medicas", "expected": "verdadera"},
     ]
 
-    # ainvoke_graph consume el grafo por streaming (astream), no ainvoke.
+    # ainvoke_graph consumes the graph by streaming (astream), not ainvoke.
     class FakeGraph:
         async def astream(self, state: dict, stream_mode: object = None):
             if "sin" in state["input_text"]:
@@ -261,10 +261,10 @@ def test_evaluate_pipeline_records_the_explanation() -> None:
 
 def test_partly_false_counts_as_flagging_the_falsehood() -> None:
     rows = [
-        _row("falsa", "parcialmente falsa"),  # tp: avisa de algo falso
+        _row("falsa", "parcialmente falsa"),  # tp, warns of something false
         _row(
             "verdadera", "parcialmente falsa"
-        ),  # fp: una verdadera no contiene nada falso
+        ),  # fp, a true one contains nothing false
     ]
     metrics = ep.compute_metrics(rows)
 
@@ -334,13 +334,13 @@ def test_evaluate_pipeline_resumes_and_appends(tmp_path) -> None:
     graph = FakeGraph()
     rows = asyncio.run(ep.evaluate_pipeline(samples, graph, path))
 
-    # La muestra ya evaluada no se vuelve a ejecutar.
+    # The already evaluated sample is not run again.
     assert graph.seen == ["nueva"]
-    # Se preserva el orden de las muestras y la fila previa del checkpoint.
+    # The sample order and the checkpoint's previous row are preserved.
     assert [r["text"] for r in rows] == ["hecha", "nueva"]
     assert rows[0]["predicted"] == "falsa"
     assert rows[1]["predicted"] == "verdadera"
-    # La nueva fila se anexó al checkpoint (2 líneas en total).
+    # The new row was appended to the checkpoint (2 lines in total).
     assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 2
 
 
@@ -362,7 +362,7 @@ def test_evaluate_pipeline_skips_failed_samples_for_retry(tmp_path) -> None:
 
     rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph(), path))
 
-    # La muestra que falla no se incluye ni se persiste: se reintentará al reanudar.
+    # The failing sample is neither included nor persisted, so it is retried on resume.
     assert [r["text"] for r in rows] == ["buena"]
     assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 1
 
@@ -387,7 +387,7 @@ def test_prepare_checkpoint_writes_a_header_that_is_not_a_row(tmp_path) -> None:
 
     assert recorded == _run()
     assert ep.read_checkpoint_run(path) == _run()
-    # La cabecera no cuenta como muestra evaluada al reanudar.
+    # The header does not count as an evaluated sample on resume.
     assert ep.load_checkpoint(path) == {}
 
 
@@ -399,7 +399,7 @@ def test_prepare_checkpoint_resumes_with_same_config_after_a_new_commit(
 
     recorded = ep.prepare_checkpoint(path, _run(git="def5678", seed=7))
 
-    # Se conserva la cabecera original y no se duplica.
+    # The original header is kept and not duplicated.
     assert recorded["git"] == "abc1234"
     assert len(path.read_text(encoding="utf-8").strip().splitlines()) == 1
 
@@ -430,7 +430,7 @@ def test_prepare_checkpoint_rejects_resuming_with_another_evidence_source(
     path = tmp_path / "ckpt.jsonl"
     ep.prepare_checkpoint(path, _run())
 
-    # Reanudar reproduciendo evidencia mezclaría filas en vivo y reproducidas.
+    # Resuming while replaying Evidence would mix live and replayed rows.
     with pytest.raises(ep.CheckpointMismatchError):
         ep.prepare_checkpoint(path, _run(replay_evidence="/r/base.jsonl"))
 
@@ -500,7 +500,7 @@ def test_evidence_tape_replays_hits_and_failures_without_searching() -> None:
     )
 
     assert tape.wrap("pubmed", _unreachable)("q", max_results=3) == [_hit("p")]
-    # Una caída grabada se reproduce como caída, no se reintenta en vivo.
+    # A recorded outage replays as an outage and is not retried live.
     with pytest.raises(EvidenceRetrievalError):
         tape.wrap("cima", _unreachable)("ibuprofeno", max_results=3)
 
@@ -517,7 +517,7 @@ def test_evidence_tape_searches_live_what_the_recording_lacks() -> None:
     def live(query: str, *, max_results: int) -> list[dict]:
         return [_hit("viva")]
 
-    # Otra consulta, otra fuente u otra cota no son la búsqueda grabada.
+    # Another query, source or cap is not the recorded search.
     assert tape.wrap("pubmed", live)("otra", max_results=3) == [_hit("viva")]
     assert tape.wrap("europepmc", live)("q", max_results=3) == [_hit("viva")]
     assert tape.wrap("pubmed", live)("q", max_results=5) == [_hit("viva")]
@@ -557,7 +557,7 @@ def test_evidence_tape_intercepts_every_search_of_the_investigator(
         ("openfda", "ibuprofen kidney damage"),
         ("pubmed", "ibuprofen kidney damage"),
     ]
-    # Al salir del bloque el investigador vuelve a usar sus búsquedas.
+    # On leaving the block the investigator uses its own searches again.
     assert all(
         getattr(investigator_module, f"search_{name}") is live[name] for name in sources
     )
@@ -595,7 +595,7 @@ def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(
     recorded = ep.load_recorded_evidence(base)
     assert recorded == {"afirmacion": [_call("pubmed", "q", [_hit("indice de ayer")])]}
 
-    # El índice cambia entre corridas: la variante debe ver la evidencia de la base.
+    # The index changes between runs, so the variant must see the base's Evidence.
     monkeypatch.setattr(
         investigator_module,
         "search_pubmed",

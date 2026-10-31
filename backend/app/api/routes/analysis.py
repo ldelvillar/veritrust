@@ -1,4 +1,4 @@
-"""Este módulo contiene los endpoints relacionados con los análisis de noticas."""
+"""Endpoints for analyses."""
 
 from datetime import datetime
 from pathlib import Path
@@ -172,7 +172,7 @@ async def share_analysis(
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
-    # Solo se comparte un informe terminado; pending/failed no tienen resultado.
+    # Only a finished report is shared, since pending and failed have no result.
     if record.status != "done":
         raise HTTPException(
             status_code=409,
@@ -188,7 +188,7 @@ async def share_analysis(
         ) from e
 
     if token is None:
-        # Perdió la carrera: el estado cambió entre la lectura y el update.
+        # Lost the race because the status changed between the read and the update.
         raise HTTPException(
             status_code=409,
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_SHAREABLE),
@@ -272,7 +272,7 @@ async def get_analysis_detail(
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
-    # Solo un informe terminado puede tener valoración; el sondeo pending se ahorra la consulta.
+    # Only a finished report can have feedback, so the pending poll skips the query.
     feedback = None
     if record.status == "done":
         try:
@@ -326,13 +326,13 @@ _FILE_MEDIA_TYPES = {
 
 
 def _content_disposition_inline(filename: str) -> str:
-    """Construye un Content-Disposition inline seguro (RFC 6266) para nombres no ASCII."""
-    # Las cabeceras HTTP se codifican en latin-1
+    """Build a safe inline Content-Disposition (RFC 6266) for non-ASCII names."""
+    # HTTP headers are encoded in latin-1.
     ascii_fallback = (
         "".join(c for c in filename if 32 <= ord(c) < 127 and c not in '"\\')
         or "documento"
     )
-    # surrogatepass evita un UnicodeEncodeError si el nombre trae surrogates sueltos.
+    # surrogatepass avoids a UnicodeEncodeError when the name carries lone surrogates.
     encoded = quote(filename, safe="", errors="surrogatepass")
     return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
 
@@ -451,7 +451,7 @@ async def submit_analysis_feedback(
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
 
-    # Solo se valora un veredicto existente.
+    # Only an existing Verdict gets feedback.
     if record.status != "done":
         raise HTTPException(
             status_code=409,

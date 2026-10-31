@@ -1,4 +1,4 @@
-"""History query: la única traducción de la búsqueda, los filtros y el orden del historial a SQL."""
+"""History query, the only translation of the History search, filters and sort into SQL."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from app.schemas.history import (
     HistoryVerdictCounts,
 )
 
-# Cláusulas ORDER BY por clave del orden validado; nunca se interpola entrada del usuario.
+# ORDER BY clauses by validated sort key, never interpolating user input.
 _ORDER_BY = {
     "recent": "created_at DESC",
     "oldest": "created_at ASC",
@@ -28,12 +28,12 @@ _ORDER_BY = {
 
 _DATE_RANGE_DAYS = {"7d": 7, "30d": 30, "90d": 90}
 
-# Un agregado por veredicto, en el orden de VERDICT_KINDS; el total va primero.
+# One aggregate per Verdict in VERDICT_KINDS order, with the total first.
 _FACET_SELECT = ", ".join(
     ["COUNT(*)", *("COUNT(*) FILTER (WHERE verdict = %s)" for _ in VERDICT_KINDS)]
 )
 
-# Columnas del listado: la tabla no pinta el informe, así que no se traen ni se envían.
+# List columns, where the table does not draw the report, so it is neither fetched nor sent.
 _HISTORY_LIST_COLUMNS = (
     "id",
     "source_type",
@@ -50,7 +50,7 @@ _HISTORY_LIST_COLUMNS = (
     "share_token",
 )
 
-# El texto pegado llega a 10.000 caracteres y la fila solo lo usa como título: se recorta en SQL.
+# Pasted text reaches 10,000 characters and the row only uses it as a title, so SQL trims it.
 HISTORY_LIST_TEXT_CHARS = 300
 
 _HISTORY_LIST_SELECT = ", ".join(
@@ -60,7 +60,7 @@ _HISTORY_LIST_SELECT = ", ".join(
     )
 )
 
-# Columnas del CSV: el informe tampoco se exporta, pero el texto va entero y con su duración.
+# CSV columns, where the report is not exported either, but the text goes in full with its duration.
 _HISTORY_EXPORT_COLUMNS = (
     "id",
     "source_type",
@@ -82,7 +82,7 @@ _EXPORT_MAX_ROWS = 10_000
 
 @dataclass(frozen=True)
 class HistoryPage:
-    """Una página del historial con su total y el facet de veredicto de la misma consulta."""
+    """One History page with its total and the Verdict Facet of the same query."""
 
     items: list[HistoryListItem]
     total: int
@@ -90,7 +90,7 @@ class HistoryPage:
 
 
 def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
-    """Mapea una fila del listado a un ítem tipado, sin el cuerpo del informe."""
+    """Map a list row to a typed item, without the report body."""
     return HistoryListItem(
         analysis_id=str(row["id"]),
         source_type=row["source_type"],
@@ -114,7 +114,7 @@ def _map_history_list_record(row: dict[str, Any]) -> HistoryListItem:
 
 
 def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
-    """Mapea una fila de la exportación a un ítem tipado, sin el cuerpo del informe."""
+    """Map an export row to a typed item, without the report body."""
     return HistoryExportItem(
         analysis_id=str(row["id"]),
         source_type=row["source_type"],
@@ -140,11 +140,11 @@ def _map_history_export_record(row: dict[str, Any]) -> HistoryExportItem:
 def _where(
     user_id: str, query: HistoryQuery, now: datetime, visible_since: datetime | None
 ) -> tuple[str, list[Any]]:
-    """Traduce la consulta a un WHERE parametrizado con un predicado por filtro activo y la History window."""
+    """Translate the query to a parameterised WHERE with one predicate per active filter and the History window."""
     clauses = ["user_id = %s"]
     params: list[Any] = [user_id]
 
-    # La History window es un derecho del Plan, no un filtro: va aparte de HistoryQuery.
+    # The History window is a Plan entitlement, not a filter, so it stays apart from HistoryQuery.
     if visible_since is not None:
         clauses.append("created_at >= %s")
         params.append(visible_since)
@@ -154,7 +154,7 @@ def _where(
         params.append(query.status)
 
     if query.search:
-        # Solo lo que la fila muestra como título: el texto, la URL o el nombre del archivo.
+        # Only what the row shows as a title: the text, the URL or the file name.
         clauses.append(
             "("
             "COALESCE(input_text, '') ILIKE %s OR "
@@ -168,7 +168,7 @@ def _where(
         clauses.append("source_type = %s")
         params.append(query.source_type)
 
-    # Igualdad sobre la columna verdict (indexable); las filas pending/failed la tienen NULL.
+    # Equality on the indexable verdict column, which pending and failed rows have NULL.
     if query.verdict != "all":
         clauses.append("verdict = %s")
         params.append(query.verdict)
@@ -188,11 +188,11 @@ async def search_history(
     page_size: int,
     visible_since: datetime | None,
 ) -> HistoryPage:
-    """Devuelve una página del historial visible, su total y el facet de veredicto de la consulta."""
+    """Return a page of the visible History, its total and the query's Verdict Facet."""
     pool = await get_pool()
     now = datetime.now(timezone.utc)
 
-    # El facet es la consulta sin su propio filtro; el total es una de sus celdas.
+    # The Facet is the query without its own filter, so the total is one of its cells.
     facet_sql, facet_params = _where(
         user_id, query.model_copy(update={"verdict": "all"}), now, visible_since
     )
@@ -214,7 +214,7 @@ async def search_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
-                # El SQL se compone de cláusulas fijas y parametrizadas, no de entrada cruda.
+                # The SQL is built from fixed, parameterised clauses, not raw input.
                 await cur.execute(facet_query, (*VERDICT_KINDS, *facet_params))  # pyright: ignore[reportArgumentType]
                 facet_row = await cur.fetchone()
             async with conn.cursor(row_factory=dict_row) as cur:
@@ -230,7 +230,7 @@ async def search_history(
             )
         ) from exc
 
-    # Un agregado sin GROUP BY siempre devuelve una fila.
+    # An aggregate without GROUP BY always returns one row.
     assert facet_row is not None
     by_verdict = dict(zip(VERDICT_KINDS, map(int, facet_row[1:])))
     verdict_counts = HistoryVerdictCounts(total=int(facet_row[0]), **by_verdict)
@@ -248,7 +248,7 @@ async def search_history(
 async def export_history(
     *, user_id: str, query: HistoryQuery, visible_since: datetime | None
 ) -> list[HistoryExportItem]:
-    """Devuelve los análisis done visibles que encuentra la consulta, sin paginar, para el CSV."""
+    """Return the visible done analyses the query finds, unpaginated, for the CSV."""
     pool = await get_pool()
     where_sql, where_params = _where(
         user_id, query, datetime.now(timezone.utc), visible_since

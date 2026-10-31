@@ -1,4 +1,4 @@
-"""Tests de integración del endpoint público POST /contact."""
+"""Integration tests of the public POST /contact endpoint."""
 
 import importlib
 import sys
@@ -11,7 +11,7 @@ from app.utils.email import ContactEmailError, ContactEmailNotConfigured
 
 
 class _LoopSafeFakeRedis:
-    """Redis de mentira resistente al cambio de event loop del TestClient."""
+    """Fake Redis that survives the TestClient's event loop changes."""
 
     def __init__(self):
         self._server = fakeredis.FakeServer()
@@ -29,7 +29,7 @@ def _load_server_module():
     sys.modules.pop("app.main", None)
     server_module = importlib.import_module("app.main")
 
-    # TestClient(app) no ejecuta el lifespan; inyectamos un Redis fresco por test.
+    # TestClient(app) does not run the lifespan, so a fresh Redis is injected per test.
     server_module.app.state.redis = _LoopSafeFakeRedis()
     return server_module
 
@@ -92,7 +92,7 @@ def test_contact_forwards_demo_metadata(monkeypatch):
     assert response.status_code == 200
     assert received["contact_type"] == "demo"
     assert received["message"] is None
-    # Los valores vacíos del metadata se descartan en la validación del esquema.
+    # Empty metadata values are dropped by schema validation.
     assert received["metadata"] == {"Organización": "Medio S.L."}
 
 
@@ -169,7 +169,7 @@ def test_contact_returns_429_when_rate_limit_exceeded(monkeypatch):
         "app.api.routes.contact.send_contact_email", fake_send_contact_email
     )
 
-    # El límite por defecto es 5 peticiones por IP y ventana: las 5 primeras pasan.
+    # The default limit is 5 requests per IP and window, so the first 5 pass.
     for _ in range(5):
         ok = client.post("/contact", json=_VALID_BODY)
         assert ok.status_code == 200
@@ -181,7 +181,7 @@ def test_contact_returns_429_when_rate_limit_exceeded(monkeypatch):
 
 
 def test_contact_rate_limit_ignores_spoofed_forwarded_for_hops(monkeypatch):
-    """Rotar el X-Forwarded-For no puede regalar cuota: solo cuenta el salto que añade el proxy."""
+    """Rotating X-Forwarded-For cannot grant quota, since only the hop the proxy adds counts."""
     server_module = _load_server_module()
     client = TestClient(server_module.app)
 
@@ -192,7 +192,7 @@ def test_contact_rate_limit_ignores_spoofed_forwarded_for_hops(monkeypatch):
         "app.api.routes.contact.send_contact_email", fake_send_contact_email
     )
 
-    # Cadena tal y como la entrega Caddy: primero el valor del cliente, al final el peer real.
+    # Chain as Caddy delivers it, the client's value first and the real peer last.
     def post_from(spoofed: str, peer: str = "10.0.0.9"):
         return client.post(
             "/contact",
@@ -205,5 +205,5 @@ def test_contact_rate_limit_ignores_spoofed_forwarded_for_hops(monkeypatch):
 
     assert post_from("7.7.7.7").status_code == 429
 
-    # Otro peer conserva su cuota: la clave sigue distinguiendo IPs, no es constante.
+    # Another peer keeps its quota, so the key still tells IPs apart and is not constant.
     assert post_from("1.2.3.4", peer="10.0.0.10").status_code == 200

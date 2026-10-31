@@ -1,4 +1,4 @@
-"""La credibilidad que ordena y agrega el SQL es la misma que publica ``credibility_of``."""
+"""The Credibility the SQL sorts and aggregates by is the same one ``credibility_of`` publishes."""
 
 import pytest
 
@@ -27,7 +27,7 @@ async def test_sql_credibility_matches_the_python_rule_row_by_row(db_pool):
                 explanation=None,
             )
             expected[analysis_id] = credibility_of(kind_of(label), confidence)
-    # Una fila pendiente aún no tiene veredicto ni confianza.
+    # A pending row has no Verdict or Confidence yet.
     expected[await _analysis("Análisis aún pendiente")] = None
 
     async with db_pool.connection() as conn:

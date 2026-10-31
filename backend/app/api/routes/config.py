@@ -1,4 +1,4 @@
-"""Endpoint público que publica los límites de entrada que aplica la API."""
+"""Public endpoint that publishes the input limits the API enforces."""
 
 from fastapi import APIRouter
 

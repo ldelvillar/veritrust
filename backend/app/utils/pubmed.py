@@ -1,4 +1,4 @@
-"""Cliente de NCBI E-utilities (PubMed) para recuperar literatura biomédica."""
+"""NCBI E-utilities (PubMed) client that retrieves biomedical literature."""
 
 import logging
 from xml.etree import ElementTree
@@ -15,13 +15,13 @@ _EFETCH_PATH = "/efetch.fcgi"
 
 
 def _extract_pmids(payload: dict, max_results: int) -> list[str]:
-    """Lee la lista de PMIDs del resultado de esearch."""
+    """Read the PMID list of the esearch result."""
     ids = ((payload.get("esearchresult") or {}).get("idlist")) or []
     return [str(pmid).strip() for pmid in ids if str(pmid).strip()][:max_results]
 
 
 def _article_url(pmid: str, doi: str) -> str:
-    """Construye una URL estable: DOI si existe, si no la ficha de PubMed."""
+    """Build a stable URL, the DOI if any and otherwise the PubMed record."""
     if doi:
         return f"https://doi.org/{doi}"
     if pmid:
@@ -30,15 +30,12 @@ def _article_url(pmid: str, doi: str) -> str:
 
 
 def _node_text(node: ElementTree.Element | None) -> str:
-    """Concatena el texto de un nodo (y sus hijos) en una sola cadena."""
+    """Concatenate the text of a node and its children into one string."""
     return " ".join(node.itertext()).strip() if node is not None else ""
 
 
 def _map_article(article: ElementTree.Element) -> dict | None:
-    """Mapea un <PubmedArticle> a los metadatos que persistimos.
-
-    El ``abstract`` es transitorio: solo se usa para juzgar la relevancia.
-    """
+    """Map a <PubmedArticle> to the metadata we persist, where the ``abstract`` is transient and only used to judge relevance."""
     citation = article.find("MedlineCitation")
     art = citation.find("Article") if citation is not None else None
     if citation is None or art is None:
@@ -71,11 +68,7 @@ def _map_article(article: ElementTree.Element) -> dict | None:
 
 
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
-    """Busca artículos en PubMed para ``query`` y devuelve metadatos saneados.
-
-    Lanza ``EvidenceRetrievalError`` ante fallos de red o respuestas no parseables;
-    el nodo investigador la captura y degrada con elegancia.
-    """
+    """Search PubMed articles for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()
     if not cleaned:
         return []

@@ -1,4 +1,4 @@
-"""Este módulo contiene los endpoints relacionados con el historial de análisis del usuario."""
+"""Endpoints for the user's analysis History."""
 
 from datetime import datetime
 
@@ -65,7 +65,7 @@ async def get_history(
     visible_since: datetime | None = Depends(history_window),
 ):
     """Endpoint para listar el historial de análisis del usuario autenticado."""
-    # Sin búsqueda, filtros ni orden en el Plan, solo vale la consulta por defecto; paginar sí.
+    # Without search, filters or sort in the Plan, only the default query is allowed, though paging is.
     if not limits.history_tools and query != HistoryQuery():
         raise plan_required()
 

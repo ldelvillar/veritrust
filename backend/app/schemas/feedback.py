@@ -1,4 +1,4 @@
-"""Esquemas de las valoraciones de veredicto que envían los usuarios."""
+"""Schemas of the Verdict feedback users send."""
 
 from typing import Literal, Optional
 
@@ -16,7 +16,7 @@ class FeedbackRequest(BaseModel):
 
     @model_validator(mode="after")
     def _normalize(self) -> "FeedbackRequest":
-        """Recorta el comentario y descarta la corrección si el veredicto se confirma."""
+        """Trim the comment and drop the correction if the Verdict is confirmed."""
         if self.comment is not None:
             self.comment = self.comment.strip() or None
         if self.is_correct:

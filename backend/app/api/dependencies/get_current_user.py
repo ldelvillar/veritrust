@@ -1,7 +1,4 @@
-"""
-Dependencia para obtener el usuario actual a partir
-del token de autenticación en el header Authorization.
-"""
+"""Dependency that resolves the current user from the token in the Authorization header."""
 
 import logging
 
@@ -24,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _user_from_api_key(secret: str) -> dict[str, str]:
-    """Verifica una clave API de Clerk y devuelve el usuario al que pertenece."""
+    """Verify a Clerk API key and return the user it belongs to."""
     try:
         return {"sub": verify_api_key(secret)}
     except InvalidApiKey as e:
@@ -50,7 +47,7 @@ def _user_from_api_key(secret: str) -> dict[str, str]:
 
 
 def _get_expected_issuer() -> str:
-    """Obtiene el issuer esperado de Clerk para validar el claim iss."""
+    """Return Clerk's expected issuer to validate the iss claim."""
     issuer = get_settings().expected_issuer
     if issuer:
         return issuer
@@ -65,7 +62,7 @@ def _get_expected_issuer() -> str:
 
 
 def _get_expected_audience() -> str | list[str]:
-    """Obtiene la audiencia esperada de Clerk para validar el claim aud."""
+    """Return Clerk's expected audience to validate the aud claim."""
     audience = get_settings().expected_audience()
     if audience is None:
         logger.error("Autenticación mal configurada: falta CLERK_AUDIENCE")
@@ -78,7 +75,7 @@ def _get_expected_audience() -> str | list[str]:
 
 
 def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
-    """Dependencia para obtener el usuario actual a partir del token de autenticación."""
+    """Dependency that resolves the current user from the authentication token."""
     if not authorization:
         raise HTTPException(
             status_code=401,

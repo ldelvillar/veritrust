@@ -1,7 +1,4 @@
-"""
-Este módulo evalúa el pipeline multiagente completo contra un
-conjunto etiquetado de HealthVer y reporta métricas de clasificación.
-"""
+"""Evaluate the full multi-agent pipeline against a labelled HealthVer set and report classification metrics."""
 
 import argparse
 import asyncio
@@ -29,19 +26,19 @@ from evaluation.load_data import load_dataset, load_jsonl
 
 logger = logging.getLogger(__name__)
 
-# Mapeo de HealthVer a las binarias del sistema; NEI (2) queda fuera de la métrica.
+# Map HealthVer to the system's binary labels, leaving NEI (2) out of the metric.
 LABEL_BY_CODE = {0: "verdadera", 1: "falsa"}
 
 
 class Sample(TypedDict):
-    """Una muestra etiquetada lista para evaluar."""
+    """A labelled sample ready to evaluate."""
 
     text: str
     expected: str
 
 
 class EvidenceCall(TypedDict):
-    """Una búsqueda en una fuente de evidencia con sus resultados brutos, o hits None si la fuente cayó."""
+    """A search in an evidence source with its raw results, or hits None if the source failed."""
 
     source: str
     query: str
@@ -50,21 +47,21 @@ class EvidenceCall(TypedDict):
 
 
 class RecordedEvidence(TypedDict):
-    """Una fuente hallada para una afirmación y la postura que le dio el juez."""
+    """A Source found for a claim and the Stance the judge gave it."""
 
     url: str
     stance: str | None
 
 
 class RecordedClaim(TypedDict):
-    """Desenlace de la búsqueda de una afirmación y toda su evidencia, antes del recorte del informe."""
+    """Outcome of a claim's search and all its Evidence, before the report's trim."""
 
     outcome: str
     evidence: list[RecordedEvidence]
 
 
 class EvalRow(TypedDict):
-    """Resultado del pipeline para una muestra, frente a su etiqueta esperada."""
+    """Pipeline result for a sample, against its expected label."""
 
     text: str
     expected: str
@@ -84,7 +81,7 @@ class EvalRow(TypedDict):
     explanation: str
 
 
-# Búsquedas del investigador por fuente: la cinta las sustituye mientras se evalúa una muestra.
+# The investigator's searches per source, which the tape replaces while a sample is evaluated.
 _SEARCHES = {
     "europepmc": "search_europepmc",
     "pubmed": "search_pubmed",
@@ -94,7 +91,7 @@ _SEARCHES = {
 
 
 class EvidenceTape:
-    """Graba las búsquedas de evidencia de una muestra y reproduce las que ya traía grabadas."""
+    """Record a sample's evidence searches and replay the ones it already had recorded."""
 
     def __init__(self, recorded: list[EvidenceCall] | None = None) -> None:
         self._recorded = {
@@ -106,16 +103,16 @@ class EvidenceTape:
 
     @property
     def live(self) -> int:
-        """Búsquedas que la grabación no cubría y fueron a la fuente."""
+        """Searches the recording did not cover, which went to the source."""
         return len(self._live)
 
     def wrap(
         self, source: str, search: Callable[..., list[dict]]
     ) -> Callable[..., list[dict]]:
-        """Envuelve una búsqueda: sirve la grabación si la hay y si no consulta la fuente."""
+        """Wrap a search, serving the recording if there is one and otherwise querying the source."""
 
         def taped(query: str, *, max_results: int) -> list[dict]:
-            # Se anota antes de buscar: si la fuente cae, queda grabada como caída.
+            # Noted before searching, so a failing source is recorded as failed.
             call: EvidenceCall = {
                 "source": source,
                 "query": query,
@@ -127,7 +124,7 @@ class EvidenceTape:
             if key in self._recorded:
                 hits = self._recorded[key]
                 if hits is None:
-                    # Una caída grabada se reproduce: ambas corridas ven la misma evidencia.
+                    # A recorded outage is replayed, so both runs see the same Evidence.
                     raise EvidenceRetrievalError(f"Caída grabada de {source}")
             else:
                 self._live.append(call)
@@ -139,7 +136,7 @@ class EvidenceTape:
 
     @contextmanager
     def install(self) -> Iterator[None]:
-        """Sustituye las búsquedas del investigador por las de la cinta mientras dura el bloque."""
+        """Replace the investigator's searches with the tape's for the duration of the block."""
         live = {attr: getattr(investigator_module, attr) for attr in _SEARCHES.values()}
         for source, attr in _SEARCHES.items():
             setattr(investigator_module, attr, self.wrap(source, live[attr]))
@@ -151,7 +148,7 @@ class EvidenceTape:
 
 
 def _recorded(claim: Claim) -> RecordedClaim:
-    """Resume una afirmación en lo que hace falta para volver a decidir su veredicto."""
+    """Reduce a claim to what is needed to decide its Verdict again."""
     return {
         "outcome": claim.outcome,
         "evidence": [
@@ -161,7 +158,7 @@ def _recorded(claim: Claim) -> RecordedClaim:
 
 
 def _stance_histogram(sources: list[dict]) -> dict[str, int]:
-    """Cuenta las posturas asignadas a las fuentes que sobrevivieron al juez."""
+    """Count the Stances assigned to the Sources that survived the judge."""
     counts: dict[str, int] = {}
     for source in sources:
         for statement in source.get("statements") or []:
@@ -176,12 +173,12 @@ def load_samples(
     seed: int = 42,
     data: Path | None = None,
 ) -> list[Sample]:
-    """Carga una muestra binaria y balanceada de una partición, o del JSONL ``data`` si se da, para la evaluación."""
+    """Load a balanced binary sample from a partition, or from the JSONL ``data`` if given, for evaluation."""
     df = load_jsonl(str(data)) if data else load_dataset(partition)
     df = df[df["label"].isin(LABEL_BY_CODE)].copy()
     df["expected"] = df["label"].map(LABEL_BY_CODE)
 
-    # Muestrear a partes iguales de cada clase para no sesgar las métricas.
+    # Sample each class equally so the metrics are not biased.
     per_class = max(1, limit // 2)
     frames = [
         subset.sample(n=min(per_class, len(subset)), random_state=seed)
@@ -198,7 +195,7 @@ def load_samples(
 
 
 def _build_initial_state(text: str) -> dict[str, object]:
-    """Construye el estado inicial del grafo para un texto de entrada."""
+    """Build the graph's initial state for an input text."""
     return {
         "input_text": text,
         "claims": [],
@@ -207,7 +204,7 @@ def _build_initial_state(text: str) -> dict[str, object]:
 
 
 def load_checkpoint(path: Path) -> dict[str, EvalRow]:
-    """Lee las filas ya evaluadas de un checkpoint JSONL; vacío si no existe."""
+    """Read the already evaluated rows of a JSONL checkpoint, empty if it does not exist."""
     done: dict[str, EvalRow] = {}
     if not path.exists():
         return done
@@ -219,7 +216,7 @@ def load_checkpoint(path: Path) -> dict[str, EvalRow]:
             try:
                 row = json.loads(stripped)
             except json.JSONDecodeError:
-                # Línea corrupta (p. ej. crash a media escritura): se ignora.
+                # Corrupt line (e.g. a crash mid-write), ignored.
                 continue
             if isinstance(row, dict) and "text" in row:
                 done[row["text"]] = cast(EvalRow, row)
@@ -227,7 +224,7 @@ def load_checkpoint(path: Path) -> dict[str, EvalRow]:
 
 
 def load_recorded_evidence(path: Path) -> dict[str, list[EvidenceCall]]:
-    """Lee la evidencia bruta grabada en un checkpoint, por texto de muestra."""
+    """Read the raw Evidence recorded in a checkpoint, by sample text."""
     return {
         text: row["evidence"]
         for text, row in load_checkpoint(path).items()
@@ -235,16 +232,16 @@ def load_recorded_evidence(path: Path) -> dict[str, list[EvidenceCall]]:
     }
 
 
-# Lo que decide las filas: reanudar con otro valor mezclaría configuraciones bajo una cabecera.
+# What decides the rows, since resuming with another value would mix configurations under one header.
 _RUN_IDENTITY_KEYS = ("provider", "models", "prompts", "replay_evidence")
 
 
 class CheckpointMismatchError(ValueError):
-    """El checkpoint se generó con otra configuración o no la registra."""
+    """The checkpoint was generated with another configuration or does not record it."""
 
 
 def git_describe() -> str | None:
-    """Commit del código evaluado, con -dirty si hay cambios sin commitear; None sin git."""
+    """Commit of the evaluated code, with -dirty if there are uncommitted changes, None without git."""
     try:
         result = subprocess.run(
             ["git", "describe", "--always", "--dirty"],
@@ -266,7 +263,7 @@ def describe_run(
     seed: int,
     replay_evidence: str | None = None,
 ) -> dict:
-    """Resume la configuración del pipeline que produce las filas de un checkpoint."""
+    """Summarise the pipeline configuration that produces a checkpoint's rows."""
     return {
         **describe_pipeline(prompts),
         "partition": partition,
@@ -277,7 +274,7 @@ def describe_run(
 
 
 def read_checkpoint_run(path: Path) -> dict | None:
-    """Devuelve la configuración registrada en la cabecera del checkpoint, si la hay."""
+    """Return the configuration recorded in the checkpoint header, if any."""
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             try:
@@ -290,7 +287,7 @@ def read_checkpoint_run(path: Path) -> dict | None:
 
 
 def prepare_checkpoint(path: Path, run: dict) -> dict:
-    """Escribe la cabecera de un checkpoint nuevo o verifica que se reanuda con la misma configuración."""
+    """Write a new checkpoint's header or verify it resumes with the same configuration."""
     if not path.exists() or not path.read_text(encoding="utf-8").strip():
         path.write_text(
             json.dumps({"run": run}, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -311,7 +308,7 @@ async def evaluate_pipeline(
     checkpoint_path: Path | None = None,
     replay: dict[str, list[EvidenceCall]] | None = None,
 ) -> list[EvalRow]:
-    """Ejecuta el grafo sobre cada muestra, con checkpoint, reanudación y evidencia grabada opcionales."""
+    """Run the graph on each sample, with optional checkpoint, resume and recorded Evidence."""
     done: dict[str, EvalRow] = (
         load_checkpoint(checkpoint_path) if checkpoint_path else {}
     )
@@ -320,7 +317,7 @@ async def evaluate_pipeline(
     if done:
         logger.info("Reanudando: %d ya evaluadas, %d pendientes", len(done), total)
 
-    # Solo se persisten muestras completadas; una que falla se reintenta al reanudar.
+    # Only completed samples are persisted, so a failing one is retried on resume.
     handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
     try:
         for i, sample in enumerate(pending, start=1):
@@ -338,7 +335,7 @@ async def evaluate_pipeline(
                 continue
             duration = time() - started
 
-            # Sin veredicto: el texto no contenía afirmaciones médicas verificables.
+            # No Verdict, so the text had no verifiable medical claims.
             verdict: Verdict | None = result.get("verdict")
             claims: list[Claim] = result.get("claims") or []
             row: EvalRow = {
@@ -346,26 +343,26 @@ async def evaluate_pipeline(
                 "expected": sample["expected"],
                 "predicted": verdict.label if verdict else None,
                 "confidence": verdict.confidence if verdict else 0.0,
-                # fake_avg cruda para poder barrer la banda global sin re-ejecutar.
+                # Raw fake_avg so the global band can be swept without rerunning.
                 "fake_avg": verdict.falsehood if verdict else None,
-                # Coste por muestra: fija el n asumible en evaluaciones posteriores.
+                # Cost per sample, which sets the affordable n in later evaluations.
                 "duration_seconds": round(duration, 3),
-                # Permite detectar inversiones de polaridad extractor/traductor.
+                # Lets extractor and translator polarity inversions be detected.
                 "extracted": [claim.text for claim in claims],
                 "translated": [claim.text_en for claim in claims],
-                # Diagnóstico: separa "no se recuperó nada" de "el juez no se moja".
+                # Diagnostic that tells "nothing was retrieved" apart from "the judge will not commit".
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
                 "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
-                # Juez caido: la fila no mide el pipeline, mide una incidencia.
+                # Judge down, so the row measures an incident, not the pipeline.
                 "judge_failures": int(result.get("judge_failures") or 0),
-                # Evidencia completa por afirmación: otra política de recorte se prueba sin re-ejecutar.
+                # Full Evidence per claim, so another trim policy can be tested without rerunning.
                 "claim_evidence": [_recorded(claim) for claim in claims],
-                # Hits brutos por búsqueda: otra corrida los reproduce con --replay-evidence.
+                # Raw hits per search, which another run replays with --replay-evidence.
                 "evidence": tape.calls,
-                # Búsquedas que la grabación no cubría; con --replay-evidence miden el desparejamiento.
+                # Searches the recording did not cover, which measure the mismatch with --replay-evidence.
                 "evidence_live": tape.live,
-                # Informe del experto (vacío sin --with-explanation): permite evaluar su fundamentación.
+                # Expert report (empty without --with-explanation), to evaluate how well it is grounded.
                 "explanation": str(result.get("medical_explanation") or ""),
             }
             done[sample["text"]] = row
@@ -384,27 +381,27 @@ async def evaluate_pipeline(
         if handle is not None:
             handle.close()
 
-    # Filas de las muestras de esta ejecución, en orden; las fallidas quedan fuera.
+    # Rows of this run's samples, in order, leaving the failed ones out.
     return [done[s["text"]] for s in samples if s["text"] in done]
 
 
 def _is_abstention(predicted: str | None) -> bool:
-    """Sin afirmaciones (None) o veredicto no firme ('incierta') no puntúan."""
+    """No claims (None) or a non-firm Verdict ('incierta') do not score."""
     return predicted is None or kind_of(predicted) == "uncertain"
 
 
 def _flags_falsehood(predicted: str | None) -> bool:
-    """Un veredicto falso o parcialmente falso avisa de que el texto contiene algo falso."""
+    """A false or partly false Verdict warns that the text contains something false."""
     return kind_of(predicted) in ("fake", "mixed")
 
 
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
-    """Calcula la matriz de confusión y métricas tomando 'falsa' como positivo."""
-    # Con el juez caido no hay posturas: la fila no mide nada y se excluye.
+    """Compute the confusion matrix and metrics taking 'falsa' as positive."""
+    # With the judge down there are no Stances, so the row measures nothing and is excluded.
     invalid = [r for r in rows if r.get("judge_failures")]
     valid = [r for r in rows if not r.get("judge_failures")]
 
-    # Abstenerse ('incierta') es seguro, no un error: se excluye de las métricas.
+    # Abstaining ('incierta') is safe, not an error, so it is excluded from the metrics.
     scored = [r for r in valid if not _is_abstention(r["predicted"])]
     skipped = sum(1 for r in valid if r["predicted"] is None)
     uncertain = len(valid) - len(scored) - skipped
@@ -422,7 +419,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
 
     total = tp + tn + fp + fn
     accuracy = (tp + tn) / total if total else 0.0
-    # Cobertura: veredictos firmes sobre las muestras que sí tenían afirmaciones.
+    # Coverage, the firm Verdicts over the samples that did have claims.
     coverage = total / (total + uncertain) if (total + uncertain) else 0.0
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
@@ -446,7 +443,7 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
 
 
 def _format_run(run: dict) -> list[str]:
-    """Líneas del informe que atribuyen las métricas a la configuración que las produjo."""
+    """Report lines that attribute the metrics to the configuration that produced them."""
     models = ", ".join(f"{role}={name}" for role, name in run["models"].items())
     prompts = ", ".join(f"{name}={version}" for name, version in run["prompts"].items())
     return [
@@ -458,7 +455,7 @@ def _format_run(run: dict) -> list[str]:
 
 
 def _format_replay(run: dict | None, rows: list[EvalRow]) -> list[str]:
-    """Línea del informe que dice cuánta evidencia se reprodujo de la grabación."""
+    """Report line that says how much Evidence was replayed from the recording."""
     if not run or not run.get("replay_evidence"):
         return []
     searches = sum(len(row.get("evidence") or []) for row in rows)
@@ -472,7 +469,7 @@ def _format_replay(run: dict | None, rows: list[EvalRow]) -> list[str]:
 def format_report(
     metrics: dict[str, float], rows: list[EvalRow], run: dict | None = None
 ) -> str:
-    """Compone un informe legible con métricas y ejemplos mal clasificados."""
+    """Compose a readable report with metrics and misclassified examples."""
     lines = [
         "",
         "===== Evaluación del pipeline multiagente =====",
@@ -492,7 +489,7 @@ def format_report(
         f"F1-score  : {metrics['f1_score']:.2%}",
     ]
 
-    # Solo cuentan como error los veredictos firmes que discrepan de lo esperado.
+    # Only firm Verdicts that disagree with the expected one count as errors.
     errors = [
         r
         for r in rows
@@ -513,7 +510,7 @@ def format_report(
 
 
 def main() -> dict[str, float]:
-    """Punto de entrada de script: ejecuta la evaluación e imprime el informe."""
+    """Script entry point that runs the evaluation and prints the report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--partition",
@@ -556,13 +553,13 @@ def main() -> dict[str, float]:
     )
     args = parser.parse_args()
 
-    # El informe es ~1/3 de los tokens por muestra y no influye en la métrica.
+    # The report is ~1/3 of the tokens per sample and does not affect the metric.
     if not args.with_explanation:
         os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
 
-    # results/ está git-ignored; el checkpoint permite reanudar una evaluación larga.
+    # results/ is git-ignored, and the checkpoint lets a long evaluation resume.
     data = Path(args.data) if args.data else None
-    # El conjunto se nombra por su archivo cuando no es una partición del repo.
+    # The set is named after its file when it is not a repo partition.
     source = data.stem if data else args.partition
     default_dir = Path(__file__).resolve().parents[1] / "results"
     checkpoint_path = (
@@ -575,7 +572,7 @@ def main() -> dict[str, float]:
     replay: dict[str, list[EvidenceCall]] | None = None
     replay_path = Path(args.replay_evidence).resolve() if args.replay_evidence else None
     if replay_path is not None:
-        # Con --fresh se borraría justo la grabación que se quiere reproducir.
+        # --fresh would delete exactly the recording meant to be replayed.
         if replay_path == checkpoint_path.resolve():
             raise SystemExit(
                 "--replay-evidence debe apuntar a otro checkpoint que --checkpoint."

@@ -1,4 +1,4 @@
-"""Sonda de liveness del worker para el healthcheck del contenedor."""
+"""Worker liveness probe for the container healthcheck."""
 
 import asyncio
 import sys
@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 
 def main() -> int:
-    """Devuelve 0 si el worker escribió un heartbeat reciente, 1 si no."""
+    """Return 0 if the worker wrote a recent heartbeat, 1 otherwise."""
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     return asyncio.run(async_check_health(redis_settings))
 

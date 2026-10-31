@@ -1,4 +1,4 @@
-"""Tests unitarios para los esquemas de la API."""
+"""Unit tests for the API schemas."""
 
 from typing import get_args
 
@@ -97,7 +97,7 @@ def test_source_item_keeps_statement_stance_when_present() -> None:
 
 
 def test_source_item_rejects_a_statement_without_its_claim_index() -> None:
-    """El índice enlaza fuente y afirmación: sin él la fuente no es interpretable."""
+    """The index links Source and claim, and without it the Source cannot be interpreted."""
     with pytest.raises(ValidationError):
         SourceItem.model_validate(
             {
@@ -109,7 +109,7 @@ def test_source_item_rejects_a_statement_without_its_claim_index() -> None:
 
 
 def test_analysis_stage_vocabulary_matches_the_worker_stages() -> None:
-    """El contrato de etapas es la preparación más los nodos del grafo, ni más ni menos."""
+    """The stage contract is preparation plus the graph nodes, no more and no fewer."""
     assert set(get_args(AnalysisStage)) == {"preparing", *PIPELINE_STAGES}
 
 

@@ -1,4 +1,4 @@
-"""Tests del adaptador arq de la cola de análisis sobre un Redis simulado."""
+"""Tests of the analysis queue's arq adapter on a mock Redis."""
 
 import inspect
 
@@ -58,7 +58,7 @@ async def test_cancelling_asks_arq_to_abort_only_the_live_jobs(redis) -> None:
     queue = ArqAnalysisQueue(redis)
     await queue.enqueue(ANALYSIS_ID, notify_email=None)
 
-    # El segundo id no tiene job: arq nunca retiraría su aborto.
+    # The second id has no job, so arq would never clear its abort.
     await queue.cancel([ANALYSIS_ID, "22222222-2222-2222-2222-222222222222"])
 
     assert await redis.zrange(abort_jobs_ss, 0, -1) == [ANALYSIS_ID.encode()]

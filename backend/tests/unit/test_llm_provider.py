@@ -1,4 +1,4 @@
-"""Tests unitarios para la fábrica de modelos de chat de los agentes."""
+"""Unit tests for the agents' chat model factory."""
 
 import httpx
 import pytest
@@ -14,7 +14,7 @@ ROLES = ("extractor", "translator", "judge", "health_expert")
 
 
 class _FakeSettings:
-    """Ajustes mínimos para construir cualquiera de los proveedores."""
+    """Minimal settings to build any of the providers."""
 
     def __init__(self, provider: str, api_key: str | None = None) -> None:
         self.llm_provider = provider
@@ -132,7 +132,7 @@ def test_build_chat_model_rejects_groq_without_api_key(monkeypatch) -> None:
 def test_build_chat_model_maps_each_role_to_its_own_ollama_model(monkeypatch) -> None:
     _patch_settings(monkeypatch, _FakeSettings("ollama"))
 
-    # El prefijo por rol debe resolver el modelo propio de cada agente.
+    # The per-role prefix must resolve each agent's own model.
     assert llm_module.build_chat_model("extractor").model == "llama3"
     assert llm_module.build_chat_model("translator").model == "translategemma"
 
@@ -335,7 +335,7 @@ _MISTRAL_REPLY = {
 
 
 def _mistral_with_responses(monkeypatch, statuses: list[int]):
-    """Devuelve un cliente de Mistral cuya API responde con `statuses` en orden, las esperas que pidió y sus llamadas."""
+    """Return a Mistral client whose API answers with `statuses` in order, the waits it asked for and its calls."""
     calls: list[int] = []
     waits: list[float] = []
 

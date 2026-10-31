@@ -1,4 +1,4 @@
-"""Test de arquitectura: solo el ciclo de vida escribe el estado y la etapa de un análisis (ADR-0001)."""
+"""Architecture test that only the lifecycle writes an Analysis's status and stage (ADR-0001)."""
 
 import re
 from pathlib import Path
@@ -18,7 +18,7 @@ _WRITES_USAGE = re.compile(
 
 
 def _writes_state(source: str) -> list[str]:
-    """Devuelve las sentencias que dan de alta un análisis o asignan su estado o etapa."""
+    """Return the statements that create an Analysis or assign its status or stage."""
     writes = [match.group(0) for match in _INSERT.finditer(source)]
     writes += [
         match.group(0)
@@ -56,7 +56,7 @@ def test_no_other_sql_opens_an_analysis_or_writes_its_status_or_stage():
 
 
 def test_only_run_completion_and_evidence_searches_write_the_usage_ledger():
-    # ADR-0005: el Usage de una Run nace con su done; el de una búsqueda, en el worker.
+    # ADR-0005 has a Run's Usage born with its done and a search's in the worker.
     writers = sorted(
         name for name, source in _app_sources().items() if _WRITES_USAGE.search(source)
     )
@@ -65,7 +65,7 @@ def test_only_run_completion_and_evidence_searches_write_the_usage_ledger():
 
 
 def test_the_check_still_recognises_the_real_transitions():
-    # Si los patrones dejaran de reconocer el SQL real, el test anterior pasaría en vacío.
+    # If the patterns stopped recognising the real SQL, the previous test would pass vacuously.
     writes = _writes_state(TRANSITIONS.read_text(encoding="utf-8"))
 
     assert any("INSERT" in write for write in writes)

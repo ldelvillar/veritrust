@@ -1,4 +1,4 @@
-"""Tests de integración para la API server, verificando endpoints y manejo de errores."""
+"""Integration tests for the API server's endpoints and error handling."""
 
 import contextlib
 import csv
@@ -43,14 +43,14 @@ from tests.support.lifecycle import ANALYSIS_ID, StubIntake
 
 
 class _FakeArqPool:
-    """Pool de arq de mentira para el healthcheck."""
+    """Fake arq pool for the healthcheck."""
 
     async def close(self):
         pass
 
 
 class _LoopSafeFakeRedis:
-    """Redis de mentira resistente al cambio de event loop del TestClient."""
+    """Fake Redis that survives the TestClient's event loop changes."""
 
     def __init__(self):
         self._server = fakeredis.FakeServer()
@@ -72,25 +72,25 @@ def _load_server_module(monkeypatch):
     sys.modules.pop("app.main", None)
     server_module = importlib.import_module("app.main")
 
-    # TestClient(app) no ejecuta el lifespan, así que inyectamos el pool y la entrada a mano.
+    # TestClient(app) does not run the lifespan, so the pool and the intake are injected by hand.
     fake_pool = _FakeArqPool()
     server_module.app.state.arq_pool = fake_pool
     server_module.app.state.analysis_intake = StubIntake()
 
-    # Redis de mentira fresco por test: el rate limit no se acumula entre tests.
+    # Fresh fake Redis per test so the rate limit does not build up between tests.
     server_module.app.state.redis = _LoopSafeFakeRedis()
     server_module.app.dependency_overrides[get_current_user] = lambda: {
         "sub": "test-user",
         "email": "test-user@example.com",
     }
-    # Pro por defecto: cada prueba de una restricción de Free cambia el Plan con _as_free.
+    # Pro by default, so each Free restriction test changes the Plan with _as_free.
     server_module.app.dependency_overrides[current_plan] = lambda: PRO
 
     return server_module, fake_pool
 
 
 def _as_free(server_module) -> None:
-    """Hace que el usuario de prueba tenga el Plan Free."""
+    """Give the test user the Free Plan."""
     server_module.app.dependency_overrides[current_plan] = lambda: FREE
 
 
@@ -100,7 +100,7 @@ async def _ok_database():
 
 def test_healthz_returns_ready_when_dependencies_respond(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
-    # La BD real no está disponible en tests; sondeamos solo Redis (fake).
+    # The real DB is unavailable in tests, so only the fake Redis is probed.
     monkeypatch.setattr("app.api.routes.health._check_database", _ok_database)
     client = TestClient(server_module.app)
 
@@ -153,7 +153,7 @@ def test_analisis_returns_429_when_rate_limit_exceeded(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    # El límite por defecto es 5 peticiones por ventana: las 5 primeras pasan.
+    # The default limit is 5 requests per window, so the first 5 pass.
     for _ in range(5):
         ok = client.post("/analysis", json={"text": "Bleach cures COVID"})
         assert ok.status_code == 200
@@ -165,7 +165,7 @@ def test_analisis_returns_429_when_rate_limit_exceeded(monkeypatch):
 
 
 def test_analisis_returns_503_when_redis_errors(monkeypatch):
-    """Fail-closed: si Redis falla no podemos limitar, así que se rechaza."""
+    """Fail-closed, since the limit cannot be enforced when Redis fails."""
     server_module, _ = _load_server_module(monkeypatch)
 
     class _BrokenRedis:
@@ -182,7 +182,7 @@ def test_analisis_returns_503_when_redis_errors(monkeypatch):
 
 
 def test_analisis_returns_503_when_redis_unavailable(monkeypatch):
-    """Fail-closed: sin Redis configurado no se permite encolar el pipeline caro."""
+    """Fail-closed, since the costly pipeline must not be enqueued without Redis."""
     server_module, _ = _load_server_module(monkeypatch)
     server_module.app.state.redis = None
     client = TestClient(server_module.app)
@@ -202,7 +202,6 @@ def test_analisis_rejects_invalid_url(monkeypatch):
         json={"url": "not-a-valid-url", "source_type": "url"},
     )
 
-    # Pydantic HttpUrl validation should fail with 422
     assert response.status_code == 422
     assert server_module.app.state.analysis_intake.calls == []
 
@@ -386,7 +385,7 @@ def test_analisis_detail_returns_400_when_id_is_invalid(monkeypatch):
 
 
 def test_analisis_detail_authenticates_before_validating_the_id(monkeypatch):
-    """La dependencia del id va tras la de auth: sin token responde 401, no 400."""
+    """The id dependency runs after auth, so without a token it answers 401, not 400."""
     server_module, _ = _load_server_module(monkeypatch)
     server_module.app.dependency_overrides.clear()
     client = TestClient(server_module.app)
@@ -658,7 +657,7 @@ def _failed_record(
     input_url: str | None = None,
     status: str = "failed",
 ) -> AnalysisHistoryItem:
-    """Construye un registro de historial para los tests de reintento."""
+    """Build a History record for the retry tests."""
     return AnalysisHistoryItem(
         analysis_id=_RETRY_ID,
         user_id="test-user",
@@ -677,7 +676,7 @@ def _done_record(
     input_text: str | None = "Bleach cures COVID",
     input_url: str | None = None,
 ) -> AnalysisHistoryItem:
-    """Construye un registro ``done`` para los tests de reanálisis."""
+    """Build a ``done`` record for the reanalysis tests."""
     return AnalysisHistoryItem(
         analysis_id=_RETRY_ID,
         user_id="test-user",
@@ -697,7 +696,7 @@ def _feedback(
     suggested_verdict: str | None = None,
     comment: str | None = None,
 ) -> AnalysisFeedback:
-    """Construye una valoración guardada para los tests de feedback."""
+    """Build stored feedback for the feedback tests."""
     return AnalysisFeedback(
         is_correct=is_correct,
         suggested_verdict=suggested_verdict,
@@ -770,7 +769,7 @@ def test_feedback_saves_correction_with_verdict_and_comment(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["feedback"]["suggested_verdict"] == "real"
-    # El comentario llega recortado por la validación del cuerpo.
+    # The comment arrives trimmed by the body validation.
     assert created[0]["comment"] == "Fuente en contra."
     assert created[0]["suggested_verdict"] == "real"
 
@@ -796,7 +795,7 @@ def test_feedback_drops_correction_fields_when_confirming(monkeypatch):
         json={"is_correct": True, "suggested_verdict": "real", "comment": "sobra"},
     )
 
-    # Confirmar el veredicto descarta la corrección: las etiquetas quedan limpias.
+    # Confirming the Verdict drops the correction, so the labels stay clean.
     assert response.status_code == 200
     assert created[0]["suggested_verdict"] is None
     assert created[0]["comment"] is None
@@ -908,7 +907,7 @@ def test_feedback_returns_500_when_save_fails(monkeypatch):
 
 
 def _stub_saved_feedback(monkeypatch) -> None:
-    """Hace que cualquier valoración sobre un análisis ``done`` propio se guarde."""
+    """Make any feedback on an own ``done`` Analysis get stored."""
 
     async def fake_get(*, user_id, analysis_id, visible_since):
         return _done_record()
@@ -997,7 +996,7 @@ def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
 
     response = client.get(f"/analysis/{_RETRY_ID}")
 
-    # El sondeo de una fila pending no debe pagar la consulta de la valoración.
+    # Polling a pending row must not pay for the feedback query.
     assert response.status_code == 200
     assert response.json()["feedback"] is None
     assert lookups == []
@@ -1047,7 +1046,7 @@ def test_openapi_documents_every_422_as_the_structured_error(monkeypatch):
         if "422" in operation["responses"]
     }
 
-    # Toda ruta con parámetros o cuerpo puede dar 422; sin la declaración FastAPI documenta su propia forma.
+    # Any route with parameters or a body can answer 422, and without the declaration FastAPI documents its own shape.
     assert "POST /analysis" in documented and "GET /history" in documented
     assert {
         route: schema["content"]["application/json"]["schema"]["$ref"]
@@ -1073,7 +1072,7 @@ def test_openapi_documents_auth_failures_on_every_authenticated_route(monkeypatc
     server_module, _ = _load_server_module(monkeypatch)
     spec = server_module.app.openapi()
 
-    # Toda ruta autenticada puede responder 401 (token) o 503 (JWKS de Clerk caído).
+    # Every authenticated route can answer 401 (token) or 503 (Clerk JWKS down).
     missing = {
         f"{method.upper()} {path}": sorted({"401", "503"} - set(operation["responses"]))
         for path, operations in spec["paths"].items()
@@ -1144,9 +1143,9 @@ def test_historial_returns_user_history(monkeypatch):
     async def fake_search_history(*, user_id, query, page, page_size, visible_since):
         assert user_id == "test-user"
         assert (page, page_size) == (1, 10)
-        # Pro ve toda su History.
+        # Pro sees its whole History.
         assert visible_since is None
-        # Sin parámetro 'status' explícito el filtro de estado queda en "all".
+        # Without an explicit 'status' parameter the status filter stays "all".
         assert query == HistoryQuery(
             search="vacuna",
             source_type="text",
@@ -1177,17 +1176,17 @@ def test_historial_returns_user_history(monkeypatch):
     assert body["page_size"] == 10
     assert body["items"][0]["source_type"] == "text"
     assert body["items"][0]["evidence_coverage"] == 0.75
-    # El listado no arrastra el cuerpo del informe ni el id de usuario: la tabla no los pinta.
+    # The list carries neither the report body nor the user id, since the table does not draw them.
     assert not {"explanation", "claims", "sources", "user_id"} & set(body["items"][0])
-    # El veredicto y la credibilidad siguen derivándose para pintar el indicador.
+    # The Verdict and Credibility are still derived to draw the indicator.
     assert body["items"][0]["verdict"] == "fake"
     assert body["items"][0]["credibility"] == 12
     assert body["items"][0]["confidence_level"] == "high"
-    # El listado debe conservar el nombre del archivo (no descartarlo en la ruta).
+    # The list must keep the file name rather than drop it in the route.
     assert body["items"][0]["file_filename"] == "documento.pdf"
-    # El token de compartición debe llegar para pintar la insignia "Compartido".
+    # The share token must arrive to draw the "Compartido" badge.
     assert body["items"][0]["share_token"] == "tok_share_xyz"
-    # Conteos globales por veredicto para las tarjetas (independientes de la página).
+    # Global counts per Verdict for the cards, independent of the page.
     assert body["verdict_counts"] == {
         "total": 12,
         "real": 3,
@@ -1366,7 +1365,7 @@ def test_historial_export_returns_csv(monkeypatch):
 
     async def fake_export_history(*, user_id, query, visible_since):
         assert user_id == "test-user"
-        # La exportación recibe la misma consulta que el listado, estado incluido.
+        # The Export receives the same query as the list, status included.
         assert query == HistoryQuery(
             search="vacuna",
             source_type="url",
@@ -1405,13 +1404,13 @@ def test_historial_export_returns_csv(monkeypatch):
     assert "Una afirmación médica,Verdadero,90" in lines[2]
 
     rows = list(csv.reader(io.StringIO(body)))
-    # Cobertura en %, duración en segundos y enlace directo al informe.
+    # Coverage in %, duration in seconds and a direct link to the report.
     assert rows[1][5:] == [
         "75",
         "240",
         "https://veritrust.test/app/analisis/id-uno",
     ]
-    # Un análisis sin cobertura ni marca de fin deja esas celdas vacías.
+    # An Analysis without coverage or end timestamp leaves those cells empty.
     assert rows[2][5:] == [
         "",
         "",
@@ -1426,7 +1425,7 @@ def test_historial_export_neutralizes_csv_formula(monkeypatch):
     records = [
         types.SimpleNamespace(
             source_type="text",
-            # Payload de inyección: al abrir en Excel ejecutaría la fórmula sin el prefijo.
+            # Injection payload that Excel would run as a formula without the prefix.
             input_text="=cmd|'/c calc'!A1",
             input_url=None,
             label="falsa",
@@ -1452,7 +1451,7 @@ def test_historial_export_neutralizes_csv_formula(monkeypatch):
     assert response.status_code == 200
     body = response.content.decode("utf-8-sig")
     rows = list(csv.reader(io.StringIO(body)))
-    # La celda "Entrada" (índice 2) queda inerte con la comilla simple antepuesta.
+    # The "Entrada" cell (index 2) is inert with the prepended single quote.
     assert rows[1][2] == "'=cmd|'/c calc'!A1"
 
 
@@ -1463,7 +1462,7 @@ def test_historial_export_uses_the_file_name_as_entry(monkeypatch):
     records = [
         types.SimpleNamespace(
             source_type="file",
-            # El worker guarda aquí el texto extraído: volcarlo haría ilegible la celda.
+            # The worker stores the extracted text here, and dumping it would make the cell unreadable.
             input_text="Texto larguísimo extraído del documento " * 10,
             input_url=None,
             file_filename="bulos-vitamina-d.pdf",
@@ -1603,7 +1602,7 @@ def test_get_file_handles_non_latin1_filename(monkeypatch):
     client = TestClient(server_module.app)
 
     async def fake_get_analysis_file(*, user_id, analysis_id, visible_since):
-        # Em dash y emoji no caben en latin-1: antes reventaban la respuesta.
+        # An em dash and an emoji do not fit in latin-1 and used to break the response.
         return (b"%PDF-1.4 data", "informe—salud☕.pdf")
 
     monkeypatch.setattr(
@@ -1615,7 +1614,7 @@ def test_get_file_handles_non_latin1_filename(monkeypatch):
     assert response.status_code == 200
     assert response.content == b"%PDF-1.4 data"
     disposition = response.headers["content-disposition"]
-    # El nombre real viaja percent-encoded en filename*; el fallback ASCII no rompe.
+    # The real name travels percent-encoded in filename*, and the ASCII fallback does not break.
     assert "filename*=UTF-8''" in disposition
     assert "%E2%80%94" in disposition
 
@@ -1778,7 +1777,7 @@ _SHARED_REPORT = PublicAnalysisReport(
 
 
 def _shared_by(monkeypatch, owner_subscription) -> list[str]:
-    """Sirve el informe compartido de ``owner-1`` con la Subscription dada y anota a quién se consulta."""
+    """Serve ``owner-1``'s shared report with the given Subscription and record who is looked up."""
     consulted: list[str] = []
 
     async def fake_get_shared(*, token):
@@ -1815,7 +1814,7 @@ def test_shared_report_returns_public_view_without_user_id(
     assert body["verdict"] == "fake"
     assert body["confidence_level"] == "high"
     assert body["input_text"] == "Bleach cures COVID"
-    # Decide el Plan del dueño, no el de quien mira.
+    # The owner's Plan decides, not the viewer's.
     assert consulted == ["owner-1"]
 
 
@@ -1950,7 +1949,7 @@ def test_get_file_returns_500_when_database_fails(monkeypatch):
 
 
 async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
-    """El lifespan del proceso web abre BD + pool de arq y los cierra en orden inverso."""
+    """The web process lifespan opens the DB and the arq pool and closes them in reverse order."""
     server_module, _ = _load_server_module(monkeypatch)
     opened: list[str] = []
     closed: list[str] = []
@@ -2019,7 +2018,7 @@ async def test_lifespan_opens_and_closes_web_queue_resources(monkeypatch):
         assert app_obj.state.arq_pool is not None
         assert app_obj.state.redis is not None
         assert isinstance(app_obj.state.analysis_intake, AnalysisIntake)
-        # El servidor MCP recibe las mismas colas y la misma entrada que las rutas web.
+        # The MCP server receives the same queues and the same intake as the web routes.
         assert built["resources"] == (
             app_obj.state.arq_pool,
             app_obj.state.redis,
@@ -2036,7 +2035,7 @@ def test_mcp_routes_answer_503_until_the_lifespan_builds_the_server(monkeypatch)
 
     assert client.post("/mcp", json={}).status_code == 503
     assert client.get("/.well-known/oauth-protected-resource/mcp").status_code == 503
-    # Las rutas MCP no capturan el resto: una ruta desconocida sigue dando el 404 de la API.
+    # The MCP routes do not catch the rest, so an unknown route still gets the API's 404.
     unknown = client.get("/no-existe")
     assert unknown.status_code == 404
     assert unknown.json() == {"detail": "Not Found"}
@@ -2046,11 +2045,11 @@ def test_config_publishes_the_limits_the_api_actually_enforces(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
 
-    # Sin cabecera Authorization: el formulario lo pide antes de que haya sesión.
+    # No Authorization header, since the form asks for it before there is a session.
     response = client.get("/config")
 
     assert response.status_code == 200
-    # Se compara contra las constantes vivas, no contra números repetidos aquí.
+    # Compared against the live constants, not numbers repeated here.
     assert response.json() == {
         "max_file_bytes": get_settings().max_file_bytes,
         "allowed_file_suffixes": sorted(ALLOWED_FILE_SUFFIXES),
@@ -2078,7 +2077,7 @@ _WEB_SUBMITTER = Submitter(
     notify_email="test-user@example.com",
 )
 
-# Cada ruta que abre un análisis, con una petición que supera la validación del cuerpo.
+# Each route that opens an Analysis, with a request that passes body validation.
 _OPENINGS = {
     "submit": ("/analysis", {"json": {"text": "Bleach cures COVID"}}),
     "submit_file": (
@@ -2334,7 +2333,7 @@ def test_an_analysis_outside_the_window_answers_403_for_the_upsell(
 
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "PLAN_REQUIRED"
-    # El suelo de la window viaja a la consulta: no se filtra en Python.
+    # The window floor travels to the query rather than being filtered in Python.
     assert _within_thirty_days(floors[0])
 
 
@@ -2366,7 +2365,7 @@ def test_account_export_covers_every_done_analysis_on_any_plan(monkeypatch):
     assert response.headers["content-type"].startswith("text/csv")
     assert "veritrust-mis-datos.csv" in response.headers["content-disposition"]
     assert response.content.decode("utf-8-sig").startswith("Fecha,Tipo,Entrada")
-    # Sin History query ni window: también lleva los análisis ocultos (RGPD art. 20).
+    # Without a History query or window it also carries the hidden analyses (GDPR art. 20).
     assert seen == [("test-user", HistoryQuery(), None)]
 
 
@@ -2408,7 +2407,7 @@ def test_the_plan_is_read_from_the_subscription_on_each_request(
 
     assert client.get("/dashboard/summary").status_code == 403
     subscription["row"] = make_subscription(user_id="test-user")
-    # Pro pasa la restricción y llega a la consulta del dashboard.
+    # Pro passes the restriction and reaches the dashboard query.
     assert client.get("/dashboard/summary").json()["detail"]["code"] == (
         "DASHBOARD_FETCH_FAILED"
     )
