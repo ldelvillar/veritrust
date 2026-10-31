@@ -3,22 +3,6 @@
     "commit": "",
     "pr": ""
   },
-  "permissions": {
-    "allow": [
-      "Bash(pnpm --dir frontend lint *)",
-      "Bash(pnpm --dir frontend build *)",
-      "Bash(pnpm --dir frontend test *)",
-      "Bash(pnpm --dir frontend generate:api-types)",
-      "Bash(pnpm --dir frontend tsc *)",
-      "Bash(uv run *)",
-      "PowerShell(pnpm --dir frontend lint *)",
-      "PowerShell(pnpm --dir frontend build *)",
-      "PowerShell(pnpm --dir frontend test *)",
-      "PowerShell(pnpm --dir frontend generate:api-types)",
-      "PowerShell(pnpm --dir frontend tsc *)",
-      "PowerShell(uv run *)"
-    ]
-  },
   "hooks": {
     "PostToolUse": [
       {
