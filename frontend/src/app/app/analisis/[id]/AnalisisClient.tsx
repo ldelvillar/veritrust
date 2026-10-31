@@ -234,7 +234,7 @@ export default function AnalisisClient({
     </Button>
   );
 
-  // Only a finished report can be reanalyzed or shared.
+  // Only a done report can be reanalyzed or shared.
   const headerActions = (
     <>
       {current.status === 'done' && reanalyzeButton}

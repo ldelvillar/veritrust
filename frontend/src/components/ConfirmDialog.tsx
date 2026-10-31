@@ -33,7 +33,6 @@ export default function ConfirmDialog({
   const descriptionId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  // Close on Escape while the dialog is open.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -150,7 +150,7 @@ export function historyExportPath(filters: HistoryFilters): string {
   return withSearch('/history/export', query, filters.search);
 }
 
-// Only finished analyses are exported, so «En curso» or «Fallido» have nothing to export.
+// Only done analyses are exported, so «En curso» or «Fallido» have nothing to export.
 export function isExportable(status: StatusFilter): boolean {
   return status === 'all' || status === 'done';
 }

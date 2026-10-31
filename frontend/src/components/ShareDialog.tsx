@@ -33,7 +33,6 @@ export default function ShareDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
 
-  // Close on Escape while the dialog is open.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
