@@ -28,7 +28,7 @@ async def create_analysis_feedback(
     suggested_verdict: Optional[str],
     comment: Optional[str],
 ) -> AnalysisFeedback | None:
-    """Store and return the feedback of an own ``done`` Analysis, or ``None`` if it is not ``done`` or already has active feedback."""
+    """Store and return the feedback of an own ``done`` Analysis, or ``None`` if it is not ``done`` or already has feedback newer than the row's ``created_at``, which a Reanalyze resets."""
     pool = await get_pool()
 
     query = """
@@ -69,7 +69,7 @@ async def create_analysis_feedback(
 async def get_analysis_feedback(
     *, user_id: str, analysis_id: str
 ) -> AnalysisFeedback | None:
-    """Return the active feedback of an own Analysis, or ``None``, counting only feedback newer than the row's ``created_at``."""
+    """Return the active feedback of an own Analysis, or ``None``, counting only feedback newer than the row's ``created_at``, which a Reanalyze resets so earlier feedback stays as history."""
     pool = await get_pool()
 
     query = """

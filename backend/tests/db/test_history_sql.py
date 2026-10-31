@@ -290,7 +290,7 @@ async def test_pending_summary_ignores_finished_rows_and_other_users(db_pool):
 
 
 async def test_origin_rejects_unknown_channels(db_pool):
-    """The table's CHECK forbids channels other than web and mcp."""
+    """The table's CHECK forbids an Origin other than web or mcp."""
     with pytest.raises(DatabaseError):
         await seed_pending(
             user_id=USER, request=AnalysisRequest(text="Texto de prueba"), origin="api"

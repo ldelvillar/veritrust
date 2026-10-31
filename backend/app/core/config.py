@@ -161,7 +161,7 @@ class Settings(BaseSettings):
 
     # Public URL of the MCP endpoint (ends in /mcp), the OAuth resource identifier.
     mcp_resource_url: str | None = None
-    # How long an MCP call waits before answering that the job is still running.
+    # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
 
     def cors_origins(self) -> list[str]:

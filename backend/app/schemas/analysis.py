@@ -26,7 +26,7 @@ AnalysisStage = Literal[
     "preparing", "extractor", "translator", "investigator", "health_expert"
 ]
 
-# Channel that created the Analysis, matching the origin CHECK in db/migrations.
+# Origin of the Analysis, matching the origin CHECK in db/migrations.
 AnalysisOrigin = Literal["web", "mcp"]
 
 
