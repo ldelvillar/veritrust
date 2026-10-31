@@ -57,7 +57,7 @@ export function parseErrorDetail(detail: unknown): ParsedErrorDetail {
   return { message: null, code: null };
 }
 
-// Lanza un ApiError con el detail estructurado del backend si la respuesta no es 2xx.
+// Throw an ApiError with the backend's structured detail if the response is not 2xx.
 export async function throwIfNotOk(
   response: Response,
   errorContextMessage: string
@@ -115,7 +115,7 @@ export async function fetchJsonWithAuth<TResponse>(
   return (await response.json()) as TResponse;
 }
 
-// POST público sin autenticación (formularios accesibles por visitantes sin sesión).
+// Public unauthenticated POST, for forms open to signed-out visitors.
 export async function postJsonPublic<TResponse>(
   path: string,
   body: unknown,
@@ -150,7 +150,7 @@ export async function postFormWithAuth<TResponse>(
     throw new Error(AUTH_TOKEN_ERROR);
   }
 
-  // Sin Content-Type manual: el navegador fija el boundary de multipart.
+  // No manual Content-Type, so the browser sets the multipart boundary.
   const response = await fetch(buildApiUrl(path), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

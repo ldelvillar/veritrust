@@ -10,7 +10,7 @@ test.describe('on the Free plan', () => {
   }) => {
     await page.goto('/app/analisis');
 
-    // El análisis en curso sembrado reserva una unidad: 4 usados + 1 en curso.
+    // The seeded pending Analysis reserves one unit, so 4 used plus 1 pending.
     const menu = page.getByRole('complementary');
     await expect(menu.getByText('Gratis', { exact: true })).toBeVisible();
     await expect(menu.getByText('5 de 10 análisis este mes')).toBeVisible();
@@ -28,7 +28,7 @@ test.describe('on the Free plan', () => {
 
     const plan = page.getByRole('region', { name: 'Tu plan' });
     await expect(plan.getByText('Activando tu plan Pro…')).toBeVisible();
-    // El resultado se quita de la URL: recargar no repite el aviso.
+    // The result is removed from the URL, so reloading does not repeat the notice.
     await expect(page).toHaveURL(/\/app\/cuenta#plan$/);
     await expect(
       plan.getByText('¡Ya tienes el plan Pro! Gracias por suscribirte.')

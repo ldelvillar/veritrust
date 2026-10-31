@@ -17,7 +17,7 @@ export interface FinishedAnalysis {
   analysisId: string;
 }
 
-// Vigila los análisis 'pending' del usuario para el indicador global del menú.
+// Watch the user's 'pending' analyses for the menu's global indicator.
 export function usePendingAnalyses() {
   const { isSignedIn } = useAuth();
   const pathname = usePathname();
@@ -27,15 +27,15 @@ export function usePendingAnalyses() {
     count: 0,
     analysisId: null,
   });
-  // Último resumen recibido; null hasta la primera respuesta para no refrescar al montar.
+  // Last summary received, null until the first response so mounting does not refresh.
   const lastSummary = useRef<PendingSummary | null>(null);
 
-  // Refresca los listados si cambia el resumen y detecta >0 → 0 para el aviso de "finalizado".
+  // Refresh the lists if the summary changes and detect >0 to 0 for the "finished" notice.
   const trackTransition = useCallback((latest: PendingSummary) => {
     setHasPending(latest.count > 0);
     const before = lastSummary.current;
     lastSummary.current = latest;
-    // Un análisis empezó o terminó: los listados abiertos y el Usage lo reflejan en el mismo sondeo.
+    // An Analysis started or finished, so the open lists and the Usage reflect it in the same poll.
     if (
       before &&
       (before.count !== latest.count ||
@@ -56,7 +56,7 @@ export function usePendingAnalyses() {
     }
   }, []);
 
-  // La identidad cambia con hasPending: obliga a SWR a rearmar el sondeo con la nueva cadencia.
+  // The identity changes with hasPending, forcing SWR to rearm the poll at the new cadence.
   const refreshInterval = useCallback(
     () => (hasPending ? 10_000 : 60_000),
     [hasPending]
@@ -70,12 +70,12 @@ export function usePendingAnalyses() {
     }
   );
 
-  // Al navegar refrescamos: un análisis recién enviado aparece sin esperar al sondeo.
+  // Refresh on navigation, so a just submitted Analysis appears without waiting for the poll.
   useEffect(() => {
     void refetch();
   }, [pathname, refetch]);
 
-  // El aviso de finalizado se retira solo pasados unos segundos.
+  // The finished notice clears itself after a few seconds.
   useEffect(() => {
     if (!finished) return;
     const timer = setTimeout(() => setFinished(null), FINISHED_DISMISS_MS);
@@ -85,7 +85,7 @@ export function usePendingAnalyses() {
   const dismissFinished = useCallback(() => setFinished(null), []);
 
   return {
-    // Un fallo del sondeo deja data en null: el indicador simplemente no se muestra.
+    // A poll failure leaves data null and the indicator simply does not show.
     pendingCount: data?.count ?? 0,
     newestPendingId: data?.newest_analysis_id ?? null,
     finished,

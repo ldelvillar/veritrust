@@ -20,7 +20,7 @@ const variants: Record<ButtonVariant, string> = {
   outline:
     'border-[1.5px] border-white/40 text-white hover:border-white hover:bg-white/12',
   soft: 'bg-white text-body border border-line-strong hover:border-primary hover:text-primary-strong',
-  // Variante autónoma: incluye su propia geometría, tipografía y foco, sin base ni size.
+  // Standalone variant with its own geometry, typography and focus, without base or size.
   danger:
     'inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-white px-4 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger-soft focus:ring-2 focus:ring-danger-soft focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
 };

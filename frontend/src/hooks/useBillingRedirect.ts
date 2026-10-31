@@ -10,13 +10,13 @@ import type { components } from '@/types/api';
 
 type BillingUrlResponse = components['schemas']['BillingUrlResponse'];
 
-// Abre el Checkout o el portal de Stripe, que viven fuera de la app.
+// Open Stripe's Checkout or portal, which live outside the app.
 export function useBillingRedirect() {
   const { getToken } = useAuth();
   const { mutate, isPending, error } = useApiMutation();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Volver atrás desde Stripe puede restaurar la página de la bfcache con el botón aún ocupado.
+  // Going back from Stripe can restore the page from the bfcache with the button still busy.
   useEffect(() => {
     const reset = (event: PageTransitionEvent) => {
       if (event.persisted) setIsRedirecting(false);
@@ -34,7 +34,7 @@ export function useBillingRedirect() {
         })
       );
       if (!data) return;
-      // El botón sigue ocupado hasta que el navegador abandona la página.
+      // The button stays busy until the browser leaves the page.
       setIsRedirecting(true);
       window.location.assign(data.url);
     },

@@ -14,7 +14,6 @@ export default function Loading() {
         actions={<Sk className="h-11 w-47 rounded-xl" />}
       />
 
-      {/* Loading strip */}
       <div className="flex items-center gap-2.5 text-sm font-semibold text-muted">
         <span className="size-4.5 shrink-0 animate-spin rounded-full border-[2.5px] border-line-strong border-t-accent" />
         <span>
@@ -25,7 +24,6 @@ export default function Loading() {
         </span>
       </div>
 
-      {/* KPI tier skeletons */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2.25">
           <Sk className="h-2.75 w-30 rounded-md" />
@@ -67,7 +65,6 @@ export default function Loading() {
         </div>
       </div>
 
-      {/* Trend + Sources skeleton row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
         <div className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
           <div className="mb-5">
@@ -97,7 +94,6 @@ export default function Loading() {
         </div>
       </div>
 
-      {/* Domains + Alerts skeleton row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.1fr]">
         {Array.from({ length: 2 }, (_, col) => (
           <div

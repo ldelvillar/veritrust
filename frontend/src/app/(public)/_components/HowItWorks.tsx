@@ -11,21 +11,21 @@ import { container } from './container';
 const EASE = 'ease-[cubic-bezier(0.22,0.61,0.36,1)]';
 const POP = 'ease-[cubic-bezier(0.2,1.2,0.4,1)]';
 
-/** Entrada del bloque de un paso: aparece cuando su panel entra en pantalla. */
+/** Entry of a step's block, shown when its panel comes into view. */
 const rv = (on: boolean, delay = '') =>
   `transition duration-700 ${EASE} ${delay} ${on ? '' : 'translate-y-6.5 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100'}`;
 
-/** Rótulo de sección dentro de la consola. */
+/** Section heading inside the console. */
 const DH = 'font-mono text-2xs tracking-[0.12em] text-console-dim uppercase';
 
-/** Metadato monoespaciado bajo cada fila de la consola. */
+/** Monospaced metadata under each console row. */
 const META = 'font-mono text-2xs tracking-[0.04em] text-console-meta';
 
-/** Etiqueta de veredicto sobre fondo oscuro. */
+/** Verdict pill on a dark background. */
 const PILL =
   'rounded-full px-2.25 py-1 text-center font-mono text-2xs font-bold tracking-[0.06em] uppercase';
 
-/** Aparición de una fila de la consola, desplazándose desde abajo. */
+/** Appearance of a console row, sliding in from below. */
 const enter = (on: boolean) =>
   `transition-[opacity,transform] duration-450 ${EASE} ${on ? '' : 'translate-y-2.5 opacity-0'}`;
 
@@ -34,10 +34,7 @@ const CARET =
 
 const TYPE_TICK = 34;
 
-/**
- * Reinicia la maqueta cada `total` ms mientras está a la vista; `null` significa que
- * no se anima (sin JS o con movimiento reducido) y se pinta directamente el estado final.
- */
+/** Restart the mockup every `total` ms while in view, where `null` means no animation (no JS or reduced motion) and the final state is drawn directly. */
 function useLoop(total: number) {
   const ref = useRef<HTMLDivElement>(null);
   const [cycle, setCycle] = useState<number | null>(null);
@@ -77,11 +74,7 @@ function useLoop(total: number) {
   return [ref, cycle] as const;
 }
 
-/**
- * Cuántos hitos de `marks` (ms desde el inicio del ciclo) se han alcanzado ya. El avance
- * se guarda junto a su ciclo, de modo que uno nuevo vuelve a cero al renderizar y no
- * hace falta reiniciarlo desde el efecto.
- */
+/** How many `marks` (ms since the cycle start) have been reached, stored with their cycle so a new one resets on render without an effect. */
 function useMarks(cycle: number | null, marks: readonly number[]) {
   const [state, setState] = useState({ cycle, reached: marks.length });
 
@@ -98,7 +91,7 @@ function useMarks(cycle: number | null, marks: readonly number[]) {
   return state.cycle === cycle ? state.reached : 0;
 }
 
-/** Longitud ya «escrita» de `text`, avanzando a ritmo constante desde que `start` es true. */
+/** Already «typed» length of `text`, advancing at a steady pace once `start` is true. */
 function useTyped(
   cycle: number | null,
   text: string,
@@ -129,7 +122,7 @@ function useTyped(
   return state.cycle === cycle ? state.len : 0;
 }
 
-/** Cuenta de 0 a `to` con desaceleración cúbica desde que `start` es true. */
+/** Count from 0 to `to` with cubic easing once `start` is true. */
 function useCount(
   cycle: number | null,
   to: number,
@@ -154,7 +147,7 @@ function useCount(
   return state.cycle === cycle ? state.value : 0;
 }
 
-/** Carcasa oscura común a las cuatro maquetas: barra del agente, cuerpo y barra de avance. */
+/** Dark shell shared by the four mockups: agent bar, body and progress bar. */
 function Console({
   panelRef,
   icon,
@@ -201,13 +194,11 @@ function Console({
   );
 }
 
-/* ---------------- 01 · Extractor ---------------- */
-
 const EXTRACT_TOTAL = 13000;
 const EXTRACT_DELAY = 500;
 const EXTRACT_STEP = 72;
 
-/** Texto del análisis de /ejemplo troceado; `claim > 0` marca el segmento que alimenta una ficha. */
+/** The /ejemplo Analysis text split up, where `claim > 0` marks the segment that feeds a card. */
 const extractSegments = [
   {
     claim: 1,
@@ -243,7 +234,7 @@ const extractClaims = [
   },
 ];
 
-/** Índice de la última palabra de cada afirmación: al alcanzarla encaja su ficha. */
+/** Index of each claim's last word, where its card snaps in on reaching it. */
 const extractHits = extractClaims.map((_, i) =>
   extractWords.reduce((last, word, k) => (word.closes === i + 1 ? k : last), -1)
 );
@@ -341,8 +332,6 @@ function ExtractorArt() {
   );
 }
 
-/* ---------------- 02 · Traductor ---------------- */
-
 const TRANSLATE_TOTAL = 12500;
 const TRANSLATE_TYPE = 1100;
 const TRANSLATE_STARTS = [500, 2400];
@@ -431,8 +420,6 @@ function TranslatorArt() {
   );
 }
 
-/* ---------------- 03 · Investigador ---------------- */
-
 const INVESTIGATE_TOTAL = 14000;
 const INVESTIGATE_TYPE = 1000;
 const INVESTIGATE_STARTS = [300, 1500];
@@ -440,7 +427,7 @@ const INVESTIGATE_DBS = [2900, 3200, 3500];
 const INVESTIGATE_LOGS = [3900, 4900];
 const INVESTIGATE_SRCS = [5500, 6200, 6900, 7600];
 
-// CIMA solo se consulta cuando la afirmación nombra un fármaco, y estas no lo hacen.
+// CIMA is only queried when the claim names a drug, and these do not.
 const databases = [
   { name: 'europepmc', hits: 6 },
   { name: 'pubmed', hits: 6 },
@@ -604,8 +591,6 @@ function InvestigatorArt() {
   );
 }
 
-/* ---------------- 04 · Experto en salud ---------------- */
-
 const EXPERT_TOTAL = 14000;
 const EXPERT_SCORE = 29;
 const EXPERT_COUNT = 1300;
@@ -614,7 +599,7 @@ const EXPERT_CALC = [2300, 3700];
 const EXPERT_WRITE = [4300];
 const EXPERT_TYPE = 2600;
 
-// Probabilidad de falsedad = (contradicen + 1) / (respaldan + contradicen + 2), como en decide().
+// Falsehood probability = (contradicting + 1) / (supporting + contradicting + 2), as in decide().
 const judgements = [
   {
     id: 'C-01',
@@ -726,8 +711,6 @@ function HealthExpertArt() {
     </Console>
   );
 }
-
-/* ---------------- sección ---------------- */
 
 const steps = [
   {

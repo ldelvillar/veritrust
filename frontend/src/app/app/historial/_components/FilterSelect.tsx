@@ -47,7 +47,7 @@ export default function FilterSelect<T extends string>({
     setOpen(true);
   };
 
-  // Al abrir: mueve el foco a la lista y cierra al hacer clic fuera.
+  // On open, move focus to the list and close on outside clicks.
   useEffect(() => {
     if (!open) return;
     listRef.current?.focus();
@@ -60,7 +60,7 @@ export default function FilterSelect<T extends string>({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  // Mantiene visible la opción resaltada al navegar con el teclado.
+  // Keep the highlighted option visible while navigating with the keyboard.
   useEffect(() => {
     if (!open) return;
     const el = listRef.current?.children[active] as HTMLElement | undefined;

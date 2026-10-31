@@ -8,7 +8,7 @@ import { formatCount } from '@/lib/plan';
 
 interface DeleteAllDialogProps {
   open: boolean;
-  // null si el Plan oculta parte de la History y el total no se conoce.
+  // null if the Plan hides part of the History and the total is unknown.
   count: number | null;
   isConfirming?: boolean;
   errorMessage?: string | null;

@@ -4,7 +4,7 @@ import WarningIcon from '@/assets/Warning';
 import type { HistoryItem } from '@/lib/historyQuery';
 import type { ConfidenceLevel, Verdict } from './types';
 
-// Fuente única de veredicto: etiqueta y clases de color respaldadas por tokens semánticos.
+// Single source of Verdict label and color classes, backed by semantic tokens.
 export const VERDICT_META: Record<
   Verdict,
   {
@@ -50,7 +50,7 @@ export const VERDICT_META: Record<
   },
 };
 
-// Vocabulario único de veredicto para todo el producto
+// Single Verdict vocabulary for the whole product.
 export const VERDICT_LABEL: Record<Verdict, string> = {
   real: VERDICT_META.real.label,
   fake: VERDICT_META.fake.label,
@@ -99,7 +99,7 @@ export function formatCoverage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-// Lo que tardó el pipeline (envío → fin); null si la fila es previa a completed_at.
+// How long the pipeline took (submission to end), null if the row predates completed_at.
 export function formatDuration(
   createdAt: string,
   completedAt?: string | null
@@ -112,7 +112,7 @@ export function formatDuration(
   return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
 }
 
-// Los tramos los decide el backend junto a las bandas del veredicto; aquí solo se rotulan.
+// The backend decides the bands next to the Verdict bands, and they are only labelled here.
 export const CONFIDENCE_LEVEL_LABEL: Record<ConfidenceLevel, string> = {
   high: 'Alta',
   medium: 'Media',
@@ -142,7 +142,7 @@ function pillFor(verdict: Verdict): { tile: string; pill: string } {
   return { tile: VERDICT_META[verdict].pill, pill: VERDICT_META[verdict].pill };
 }
 
-// Dominio legible de un enlace analizado, sin «www.»; si no es una URL válida, el texto tal cual.
+// Readable domain of an analysed link without «www.», or the text as is if it is not a valid URL.
 export function displayHostname(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -153,7 +153,7 @@ export function displayHostname(url: string): string {
 
 export type AnalysisStatusKey = 'pending' | 'failed' | 'failed_no_claims';
 
-// Estado de un análisis sin veredicto en listados; null cuando ya tiene veredicto.
+// Status of an Analysis without a Verdict in lists, null once it has one.
 export function getStatusKey(
   item: Pick<HistoryItem, 'status' | 'error_code'>
 ): AnalysisStatusKey | null {
@@ -171,7 +171,7 @@ export const STATUS_LABEL: Record<AnalysisStatusKey | 'done', string> = {
   failed_no_claims: 'Sin afirmaciones',
 };
 
-// Título de un análisis en listados: la URL, el nombre del archivo o el texto enviado.
+// Title of an Analysis in lists, the URL, the file name or the submitted text.
 export function getAnalysisTitle(
   item: Pick<
     HistoryItem,
@@ -185,12 +185,12 @@ export function getAnalysisTitle(
   return 'Análisis sin título';
 }
 
-// Solo los archivos PDF se incrustan con el visor; .txt/.md muestran su texto.
+// Only PDF files embed the viewer, while .txt and .md show their text.
 export function isPdfFilename(name?: string | null): boolean {
   return Boolean(name && name.toLowerCase().endsWith('.pdf'));
 }
 
-// Resumen "a favor / en contra" de las fuentes de una afirmación, en orden.
+// "For / against" summary of a claim's Sources, in order.
 export const STANCE_SUMMARY_META = [
   { key: 'supports', label: 'a favor', dot: VERDICT_META.real.solid },
   { key: 'contradicts', label: 'en contra', dot: VERDICT_META.fake.solid },
@@ -201,7 +201,7 @@ export const STANCE_SUMMARY_META = [
   },
 ] as const;
 
-// Postura de una fuente sobre la afirmación que tiene enlazada.
+// Stance of a Source on the claim it is linked to.
 export function getStanceInfo(
   stance: string | null | undefined
 ): { text: string; className: string } | null {

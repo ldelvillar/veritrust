@@ -3,7 +3,7 @@ import ArrowRightIcon from '@/assets/ArrowRight';
 import { VERDICT_LABEL } from '@/components/analysis-result/format';
 import type { DashboardAlertItem } from './types';
 
-// Las alertas llegan filtradas por el backend a 'fake' o 'mixed'; cada una se pinta con su veredicto.
+// Alerts arrive filtered by the backend to 'fake' or 'mixed', and each is drawn with its Verdict.
 const ALERT_STYLES = {
   fake: {
     card: {

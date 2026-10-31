@@ -19,7 +19,7 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Sin herramientas de History en el Plan, la URL no cuenta: solo la consulta por defecto, paginada.
+// Without History tools in the Plan the URL does not count, only the default query, paginated.
 export function useHistoryFilters(toolsLocked = false) {
   const searchParams = useSearchParams();
   const router = useRouter();

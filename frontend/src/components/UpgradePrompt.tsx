@@ -13,7 +13,7 @@ interface UpgradePromptProps {
   className?: string;
 }
 
-// Invitación a pasarse a Pro donde el Plan Gratis no llega; siempre lleva a la tarjeta del Plan.
+// Invitation to go Pro where the Free Plan does not reach, always leading to the Plan card.
 export default function UpgradePrompt({
   title,
   children,
@@ -55,7 +55,7 @@ export default function UpgradePrompt({
   );
 }
 
-// Botón de una función que el Plan no incluye: mismo aspecto, con candado, y lleva a la tarjeta del Plan.
+// Button for a feature the Plan lacks, same look with a padlock, leading to the Plan card.
 export function ProLockedButton({
   title,
   children,

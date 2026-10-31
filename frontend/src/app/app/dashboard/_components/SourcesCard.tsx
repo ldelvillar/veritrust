@@ -35,7 +35,6 @@ export default function SourcesCard({
         </span>
       </div>
 
-      {/* Segmented bar */}
       <div className="mb-5 flex h-3.5 gap-0.5 overflow-hidden rounded-full">
         {items.map(s => {
           const meta = SOURCE_META[s.source_type];

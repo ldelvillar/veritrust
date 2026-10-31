@@ -157,7 +157,7 @@ function SidebarContent({
           <div
             className={`flex items-center py-1.5 ${collapsed ? 'mt-2 justify-center border-t border-line pt-4' : 'gap-3 px-1.5'}`}
           >
-            {/* Las claves API se emiten a mano a cada cliente Institución, no por autoservicio */}
+            {/* API keys are issued by hand to each Institución client, not self-served. */}
             <UserButton userProfileProps={{ apiKeysProps: { hide: true } }}>
               <UserButton.MenuItems>
                 <UserButton.Link
@@ -220,14 +220,13 @@ function SidebarContent({
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  // Una sola instancia del sondeo; escritorio, drawer y lanzador móvil la comparten.
+  // A single poll instance shared by desktop, drawer and mobile launcher.
   const pending = usePendingAnalyses();
   const recent = useRecentAnalyses();
   const close = () => setOpen(false);
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside
         className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-line bg-white pt-2 pb-2 transition-all duration-300 md:flex print:hidden ${collapsed ? 'w-16 items-center px-0' : 'w-66.5 px-1.5'}`}
       >
@@ -240,7 +239,6 @@ export default function Sidebar() {
         />
       </aside>
 
-      {/* Mobile launcher bar */}
       <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line bg-white/90 px-4 backdrop-blur-sm md:hidden print:hidden">
         <button
           type="button"
@@ -259,7 +257,7 @@ export default function Sidebar() {
           >
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {/* Punto que delata un análisis en curso; el detalle vive en el drawer. */}
+          {/* Dot that gives away a pending Analysis, with the detail in the drawer. */}
           {pending.pendingCount > 0 && (
             <span
               aria-hidden="true"
@@ -272,7 +270,6 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div

@@ -3,7 +3,7 @@ import PageHeader from '@/components/PageHeader';
 const HISTORY_SUBTITLE =
   'Revisa, filtra y gestiona tus informes de credibilidad previos.';
 
-// Filas esqueleto con la misma silueta que una tarjeta de resultado.
+// Skeleton rows with the same silhouette as a result card.
 export function SkeletonRows({ count = 5 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-3">
@@ -30,7 +30,7 @@ export function SkeletonRows({ count = 5 }: { count?: number }) {
   );
 }
 
-// Pantalla de carga completa del historial (cabecera + estadísticas + lista).
+// Full History loading screen (header, stats and list).
 export default function HistorySkeleton() {
   return (
     <div>

@@ -27,7 +27,7 @@ export default function PendingIndicator({
       pendingCount === 1
         ? '1 análisis en curso'
         : `${pendingCount} análisis en curso`;
-    // Un único análisis enlaza a su informe; varios, al historial filtrado.
+    // A single Analysis links to its report, several to the filtered History.
     const href =
       pendingCount === 1 && newestPendingId
         ? `/app/analisis/${newestPendingId}`

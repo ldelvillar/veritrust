@@ -54,7 +54,7 @@ interface HistoryToolbarProps {
   disabled?: boolean;
 }
 
-// Búsqueda y filtros del historial; el estado vive en useHistoryFilters (la URL).
+// History search and filters, whose state lives in useHistoryFilters (the URL).
 export default function HistoryToolbar({
   searchQuery,
   onSearchChange,

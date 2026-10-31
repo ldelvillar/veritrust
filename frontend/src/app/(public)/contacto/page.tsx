@@ -83,7 +83,6 @@ export default function ContactoPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* ===================== SUBHEAD ===================== */}
       <section className="relative overflow-hidden bg-primary pt-16 pb-30 text-center text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
@@ -99,7 +98,6 @@ export default function ContactoPage() {
         </div>
       </section>
 
-      {/* ===================== CHANNELS + FORM ===================== */}
       <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
         <div className="mb-8.5 grid gap-5.5 md:grid-cols-3">
           {channels.map(({ Icon, title, desc, link }) => (
@@ -129,7 +127,6 @@ export default function ContactoPage() {
         <div className="grid items-start gap-6.5 md:grid-cols-2">
           <ContactForm />
 
-          {/* info side */}
           <div className="rounded-xs border border-line-strong bg-white px-8 py-8.5 shadow-[0_1px_2px_rgba(18,33,31,0.05),0_10px_30px_rgba(18,33,31,0.06)]">
             <h3 className="font-display text-2xl leading-[1.1] font-normal tracking-[-0.005em] text-ink">
               Otras formas de encontrarnos
@@ -189,7 +186,6 @@ export default function ContactoPage() {
               </div>
             </div>
 
-            {/* schematic map */}
             <div
               role="img"
               aria-label="Mapa esquemático de la ubicación de la oficina en Madrid"

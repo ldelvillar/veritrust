@@ -8,12 +8,11 @@ import Spinner from '@/assets/Spinner';
 import WarningIcon from '@/assets/Warning';
 import Chevron from '@/assets/Chevron';
 
-// El worker de pdf.js se carga desde un CDN con la versión exacta que usa
-// react-pdf, evitando configurar el empaquetado del worker en Turbopack.
+// The pdf.js worker loads from a CDN at the exact version react-pdf uses, avoiding worker bundling setup in Turbopack.
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export interface PdfDocumentProps {
-  /** Origen del PDF: una URL (string) o un File/Blob local. */
+  /** PDF source, a URL (string) or a local File/Blob. */
   file: string | Blob;
   className?: string;
 }
@@ -42,7 +41,7 @@ export default function PdfDocument({ file, className }: PdfDocumentProps) {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Reinicia el estado al cambiar de documento (patrón de estado derivado).
+  // Reset the state when the document changes (derived state pattern).
   const [prevFile, setPrevFile] = useState(file);
   if (file !== prevFile) {
     setPrevFile(file);

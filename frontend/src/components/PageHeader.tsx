@@ -8,7 +8,7 @@ interface PageHeaderProps {
   actionsClassName?: string;
 }
 
-// Cabecera de página común al dashboard, historial e informe para un tipográfico uniforme.
+// Page header shared by the dashboard, History and report for uniform typography.
 export default function PageHeader({
   title,
   eyebrow,

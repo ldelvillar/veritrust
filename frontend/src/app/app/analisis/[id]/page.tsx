@@ -22,7 +22,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// null si no existe; 'hidden' si queda fuera de la ventana de History del Plan.
+// null if it does not exist, 'hidden' if it falls outside the Plan's History window.
 async function getAnalysis(
   id: string
 ): Promise<AnalysisDetail | 'hidden' | null> {

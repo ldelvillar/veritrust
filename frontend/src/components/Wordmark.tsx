@@ -1,4 +1,4 @@
-// translate-y-px recentra el logotipo: Instrument Serif reserva un descendente que «VeriTrust» no usa
+// translate-y-px recenters the logotype, since Instrument Serif reserves a descender «VeriTrust» does not use.
 export default function Wordmark({ className }: { className: string }) {
   return (
     <span

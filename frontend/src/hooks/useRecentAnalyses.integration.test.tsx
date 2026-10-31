@@ -34,10 +34,10 @@ let newestId: string | null = null;
 const callsFor = (path: string) =>
   mockedFetch.mock.calls.filter(([, key]) => key === path).length;
 
-// Los helpers usan el mutate global, así que cada test arranca con la caché por defecto vacía.
+// The helpers use the global mutate, so each test starts with the default cache empty.
 describe('history lists refresh (SWR real)', () => {
   beforeEach(async () => {
-    // Sin hooks montados, mutate sin datos solo borra las peticiones deduplicadas del test anterior.
+    // With no hooks mounted, mutate without data only clears the previous test's deduped requests.
     await mutate(() => true);
     await mutate(() => true, undefined, { revalidate: false });
     pendingCount = 0;
@@ -87,7 +87,7 @@ describe('history lists refresh (SWR real)', () => {
 
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
     await waitFor(() => expect(callsFor(RECENT_HISTORY_PATH)).toBe(2));
-    // Margen para que un segundo refresco, si lo hubiera, llegue a contarse.
+    // Margin for a second refresh, if any, to get counted.
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });
@@ -109,7 +109,7 @@ describe('history lists refresh (SWR real)', () => {
     await act(async () => {
       await refreshHistory();
     });
-    // Margen para que el refresco que dispara el indicador, si lo hubiera, llegue a contarse.
+    // Margin for the refresh the indicator triggers, if any, to get counted.
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });

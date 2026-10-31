@@ -7,7 +7,7 @@ type Schemas = components['schemas'];
 type Analysis = Schemas['AnalysisHistoryItem'];
 type Stage = NonNullable<Analysis['stage']>;
 type ErrorCode = Schemas['ErrorCode'];
-// Cuerpo JSON de la respuesta 200 de una operación del contrato generado.
+// JSON body of the 200 response of an operation in the generated contract.
 type Ok<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
   responses: { 200: { content: { 'application/json': infer T } } };
 }
@@ -16,14 +16,14 @@ type Ok<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
 
 interface Row {
   analysis: Analysis;
-  // Momento en que termina el pipeline simulado; null si no termina nunca.
+  // When the mock pipeline finishes, null if it never does.
   finishesAt: number | null;
 }
 
 interface Reply {
   status: number;
   body?: unknown;
-  // Cuerpo de texto (CSV) en vez de JSON.
+  // Text (CSV) body instead of JSON.
   text?: string;
 }
 
@@ -55,12 +55,12 @@ const STAGES: Stage[] = [
   'health_expert',
 ];
 const DAYS_BY_RANGE: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
-// Lo que tarda el webhook simulado de Stripe en activar Pro tras el Checkout.
+// How long the mock Stripe webhook takes to activate Pro after Checkout.
 const CHECKOUT_ACTIVATION_MS = 2500;
 
 type PlanName = Schemas['PlanLimits']['name'];
 
-// La matriz de app/core/plans.py, la que devuelve GET /billing/plan.
+// The app/core/plans.py matrix that GET /billing/plan returns.
 const LIMITS: Record<PlanName, Schemas['PlanLimits']> = {
   free: {
     name: 'free',
@@ -92,16 +92,16 @@ const LIMITS: Record<PlanName, Schemas['PlanLimits']> = {
 
 interface Billing {
   plan: PlanName;
-  // Análisis done ya contados este mes.
+  // Done analyses already counted this month.
   used: number;
-  // Instante en que el Checkout simulado activa Pro; null sin Checkout en curso.
+  // When the mock Checkout activates Pro, null with no Checkout in progress.
   upgradesAt: number | null;
 }
 
 const hoursAgo = (hours: number) =>
   new Date(Date.now() - hours * 3_600_000).toISOString();
 
-// Informe con el que termina todo análisis que la prueba envía o reintenta.
+// Report every Analysis the test submits or retries finishes with.
 const FAKE_REPORT = {
   label: 'falsa',
   confidence: 0.82,
@@ -153,7 +153,7 @@ function analysis(
   };
 }
 
-// Un análisis de cada estado y veredicto; los ids legibles sirven de URL en las pruebas.
+// One Analysis of each status and Verdict, whose readable ids serve as URLs in the tests.
 function seed(): Map<string, Row> {
   const rows: Row[] = [
     {
@@ -283,7 +283,7 @@ function seed(): Map<string, Row> {
 let store = seed();
 let billing: Billing = { plan: 'pro', used: 0, upgradesAt: null };
 
-// Pro por defecto, para que las pruebas que no tratan de Planes vean toda la app.
+// Pro by default, so tests that are not about Plans see the whole app.
 function seedBilling(query: URLSearchParams): Billing {
   return {
     plan: query.get('plan') === 'free' ? 'free' : 'pro',
@@ -308,7 +308,7 @@ function remaining(): number {
   );
 }
 
-// Misma ventana que history_window: Gratis no ve lo anterior a sus últimos días.
+// Same window as history_window, so Free does not see anything older than its last days.
 const withinDays = (a: Analysis, days: number) =>
   Date.parse(a.created_at) >= Date.now() - days * 86_400_000;
 
@@ -317,7 +317,7 @@ function isVisible(a: Analysis): boolean {
   return days === null || withinDays(a, days);
 }
 
-// Gratis solo puede pedir la consulta por defecto del historial; paginar sí.
+// Free can only request the History's default query, though paging is allowed.
 function usesHistoryTools(query: URLSearchParams): boolean {
   const defaults: Record<string, string> = {
     source_type: 'all',
@@ -341,7 +341,7 @@ function toCsv(rows: Analysis[]): string {
   return ['analysis_id,verdict,created_at', ...lines].join('\n');
 }
 
-// Encola como el backend: created_at se reinicia y el resultado anterior se borra.
+// Enqueue like the backend, restarting created_at and erasing the previous result.
 function enqueue(previous: Analysis): Row {
   return {
     finishesAt: Date.now() + PIPELINE_MS,
@@ -358,7 +358,7 @@ function enqueue(previous: Analysis): Row {
   };
 }
 
-// Avanza el pipeline simulado según el tiempo transcurrido desde que se encoló.
+// Advance the mock pipeline by the time elapsed since it was enqueued.
 function settle(row: Row): Analysis {
   if (row.analysis.status !== 'pending' || row.finishesAt === null) {
     return row.analysis;
@@ -434,7 +434,7 @@ function toPublicReport(a: Analysis): Schemas['PublicAnalysisReport'] {
   };
 }
 
-// Misma semántica que app/db/history_query.py: el facet es la consulta sin su filtro de veredicto.
+// Same semantics as app/db/history_query.py, where the Facet is the query without its Verdict filter.
 function searchHistory(query: URLSearchParams): Ok<'/history', 'get'> {
   const filter = (name: string) => query.get(name) ?? 'all';
   const search = (query.get('search') ?? '').toLowerCase();
@@ -451,7 +451,7 @@ function searchHistory(query: URLSearchParams): Ok<'/history', 'get'> {
         )) &&
       (!days || withinDays(a, days))
   );
-  // Las filas pending y failed no tienen veredicto en la base de datos.
+  // Pending and failed rows have no Verdict in the database.
   const verdictOf = (a: Analysis) => (a.status === 'done' ? a.verdict : null);
   const countOf = (verdict: Analysis['verdict']) =>
     base.filter(a => verdictOf(a) === verdict).length;
@@ -491,7 +491,7 @@ function searchHistory(query: URLSearchParams): Ok<'/history', 'get'> {
   };
 }
 
-// Respuesta 200 tipada con la operación del contrato que simula.
+// Typed 200 response with the contract operation it mocks.
 const ok = <P extends keyof paths, M extends keyof paths[P]>(
   body: Ok<P, M>
 ): Reply => ({ status: 200, body });

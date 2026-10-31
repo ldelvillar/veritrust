@@ -81,7 +81,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     refetch: fetchHistory,
   } = useApiQuery<HistoryPayload>(path, {
     fallbackData: isInitialQuery ? initialData : undefined,
-    // Mientras haya análisis en curso, refrescamos para que pasen a hecho/fallido solos.
+    // While analyses are pending, refresh so they turn done or failed on their own.
     refreshInterval: latest =>
       latest?.items?.some(item => item.status === 'pending') ? 5000 : 0,
   });
@@ -115,15 +115,15 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
     const success = await deleteAnalysis(pendingDelete.analysis_id);
     if (!success) return;
     setPendingDelete(null);
-    // La página actual ya se refresca desde useAnalysisDeletion; solo retrocedemos si quedó vacía.
+    // useAnalysisDeletion already refreshes the current page, so only step back if it became empty.
     if (wasLastOnPage && currentPage > 1) setPage(currentPage - 1);
   }, [pendingDelete, history.length, deleteAnalysis, currentPage, setPage]);
 
-  // Conteos globales del backend, independientes de la página y del propio filtro.
+  // Global counts from the backend, independent of the page and of the filter itself.
   const verdictFacets = data?.verdict_counts ?? null;
   const canExport = isExportable(statusFilter);
 
-  // Los análisis anteriores a la ventana del Plan siguen guardados: se avisa también con la lista vacía.
+  // Analyses older than the Plan's window are still stored, so the notice shows even with an empty list.
   const windowNote =
     historyDays !== null ? (
       <UpgradePrompt variant="inline" className="mb-4">
@@ -132,7 +132,7 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
       </UpgradePrompt>
     ) : null;
 
-  // Primera vez (sin análisis ni filtros): panel de bienvenida en vez de tabla vacía.
+  // First time (no analyses or filters), a welcome panel instead of an empty table.
   const isFirstTimeEmpty =
     totalCount === 0 && !hasActiveFilters && !fetchError && !isLoading;
 
@@ -184,7 +184,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
 
   return (
     <>
-      {/* Page header */}
       <div className="mb-6">
         <PageHeader
           eyebrow="Historial"
@@ -260,7 +259,6 @@ export default function HistorialClient({ initialData }: HistorialClientProps) {
         disabled={toolsLocked}
       />
 
-      {/* Result summary line */}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3.5">
         <div className="text-sm font-semibold text-muted">
           {history.length > 0 ? (

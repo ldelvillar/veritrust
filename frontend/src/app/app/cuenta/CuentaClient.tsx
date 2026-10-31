@@ -18,7 +18,7 @@ interface CuentaClientProps {
   initialCount: number;
 }
 
-// Exportación completa de cualquier Plan (RGPD art. 20): incluye los análisis que la History oculta.
+// Full export for any Plan (GDPR art. 20), including the analyses the History hides.
 const EXPORT_ALL_PATH = '/account/export';
 
 const EXPORT_FALLBACK_ERROR =
@@ -31,7 +31,6 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
   const { limits } = usePlan();
   const historyDays = limits?.history_days ?? null;
 
-  // --- Exportar ---
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -57,7 +56,6 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
     }
   }, [getToken]);
 
-  // --- Eliminar toda la actividad ---
   const {
     removeAll,
     isDeleting,
@@ -66,9 +64,9 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
   } = useAllAnalysesDeletion();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // 'all': se borró todo, pero el total no se conocía.
+  // 'all' means everything was deleted but the total was unknown.
   const [deletedCount, setDeletedCount] = useState<number | 'all' | null>(null);
-  // Con ventana de History, /history solo cuenta lo visible: el total real es desconocido hasta borrarlo todo.
+  // With a History window, /history only counts what is visible, so the real total is unknown until everything is deleted.
   const knownCount =
     historyDays === null || deletedCount !== null ? count : null;
 

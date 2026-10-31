@@ -60,7 +60,7 @@ const optMark = (
   <span className="text-2xs font-semibold text-faint">(opcional)</span>
 );
 
-// El botón «Acceso anticipado» del plan Equipo llega con ?plan=equipo.
+// The Equipo plan's «Acceso anticipado» button arrives with ?plan=equipo.
 const PLAN_INTEREST: Record<string, string> = {
   equipo: 'Plan Equipo (acceso anticipado)',
 };

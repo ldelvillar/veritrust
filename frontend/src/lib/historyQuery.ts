@@ -39,7 +39,7 @@ export const DEFAULT_HISTORY_FILTERS: HistoryFilters = {
   sort: 'recent',
 };
 
-// Cada valor del contrato una vez: satisfies falla si el backend añade o quita uno.
+// Each contract value once, so satisfies fails if the backend adds or removes one.
 const SOURCE_TYPES = {
   all: true,
   text: true,
@@ -84,7 +84,7 @@ function parseParam<T extends string>(
     : fallback;
 }
 
-// Un valor fuera del contrato en la URL cae al de por defecto en vez de llegar al backend.
+// A value outside the contract in the URL falls back to the default instead of reaching the backend.
 export function parseHistoryFilters(params: ParamReader): HistoryFilters {
   const defaults = DEFAULT_HISTORY_FILTERS;
   return {
@@ -150,13 +150,13 @@ export function historyExportPath(filters: HistoryFilters): string {
   return withSearch('/history/export', query, filters.search);
 }
 
-// Solo se exportan análisis completados: con «En curso» o «Fallido» no hay nada que exportar.
+// Only finished analyses are exported, so «En curso» or «Fallido» have nothing to export.
 export function isExportable(status: StatusFilter): boolean {
   return status === 'all' || status === 'done';
 }
 
-// Consulta que precarga el servidor; el cliente solo reusa initialData si su ruta coincide.
+// Query the server preloads, where the client only reuses initialData if its path matches.
 export const INITIAL_HISTORY_PATH = historyPath(DEFAULT_HISTORY_FILTERS, 1);
 
-// Clave propia del menú: compartir la del historial anularía su precarga de servidor.
+// The menu's own key, since sharing the History's would void its server preload.
 export const RECENT_HISTORY_PATH = historyPath(DEFAULT_HISTORY_FILTERS, 1, 5);

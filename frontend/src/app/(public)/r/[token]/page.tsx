@@ -21,10 +21,10 @@ interface PageProps {
   params: Promise<{ token: string }>;
 }
 
-// Los informes de usuarios nunca se indexan
+// User reports are never indexed.
 const NO_INDEX = { index: false, follow: false } as const;
 
-// cache() deduplica la petición entre generateMetadata y la página en un render.
+// cache() dedupes the request between generateMetadata and the page within one render.
 const getReport = cache(async (token: string): Promise<PublicReport | null> => {
   try {
     return await fetchPublicJsonServer<PublicReport>(`/shared/${token}`);
@@ -34,13 +34,13 @@ const getReport = cache(async (token: string): Promise<PublicReport | null> => {
   }
 });
 
-// Recorta el texto a una línea legible para la descripción de la previsualización.
+// Trim the text to one readable line for the preview description.
 function truncate(text: string, max: number): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-// Asunto analizado (dominio, archivo o fragmento del texto) para dar contexto.
+// Analysed subject (domain, file or text snippet) for context.
 function analyzedSubject(report: PublicReport): string | null {
   if (report.source_type === 'url' && report.input_url) {
     return displayHostname(report.input_url);
@@ -67,7 +67,7 @@ export async function generateMetadata({
   try {
     report = await getReport(token);
   } catch {
-    // Si el backend falla al pintar metadatos, no rompemos el <head> de la página.
+    // If the backend fails while drawing metadata, the page's <head> must not break.
     report = null;
   }
 

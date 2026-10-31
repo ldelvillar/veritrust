@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 type ClientConfig =
   paths['/config']['get']['responses']['200']['content']['application/json'];
 
-// Si la API no responde, el formulario no inventa límites: delega la validación en el servidor.
+// If the API does not answer, the form does not invent limits and leaves validation to the server.
 async function loadLimits(): Promise<ClientConfig | null> {
   try {
     return await fetchPublicJsonServer<ClientConfig>('/config');

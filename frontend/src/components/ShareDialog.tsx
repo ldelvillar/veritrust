@@ -33,7 +33,7 @@ export default function ShareDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
 
-  // Cierra con Escape mientras el diálogo está abierto.
+  // Close on Escape while the dialog is open.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -43,12 +43,12 @@ export default function ShareDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, isSharing, onClose]);
 
-  // Lleva el foco al botón de cerrar al abrir.
+  // Move focus to the close button on open.
   useEffect(() => {
     if (open) closeRef.current?.focus();
   }, [open]);
 
-  // Restablece «copiado» cuando cambia el enlace (revocar y volver a crear).
+  // Reset «copied» when the link changes (revoke and create again).
   const [trackedUrl, setTrackedUrl] = useState(shareUrl);
   if (trackedUrl !== shareUrl) {
     setTrackedUrl(shareUrl);
@@ -104,7 +104,7 @@ export default function ShareDialog({
           </div>
         </div>
 
-        {/* Sin Pro el enlace existente responde 404, pero se puede desactivar; uno nuevo no se crea. */}
+        {/* Without Pro the existing link answers 404 but can be turned off, and no new one is created. */}
         {locked ? (
           shareUrl ? (
             <p className="mt-4 rounded-xl bg-warning-soft px-3.5 py-3 text-sm font-semibold text-warning-ink">

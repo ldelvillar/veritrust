@@ -1,4 +1,4 @@
-// Cabecera con marca que solo aparece al imprimir (PDF), no en pantalla.
+// Branded header that only appears when printing (PDF), not on screen.
 export default function PrintHeader({ createdAt }: { createdAt: string }) {
   const formattedDate = new Date(createdAt).toLocaleDateString('es-ES', {
     day: 'numeric',

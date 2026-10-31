@@ -25,7 +25,7 @@ test.describe('on the Free plan', () => {
       page.getByPlaceholder('Buscar por título o fuente…')
     ).toBeDisabled();
     await expect(page.getByRole('button', { name: /Falsos$/ })).toBeDisabled();
-    // La URL con filtro no llega a la API: se lista la consulta por defecto, sin lo anterior a 30 días.
+    // The filtered URL never reaches the API, so the default query is listed, without anything older than 30 days.
     const rows = page.getByRole('main').getByRole('listitem');
     await expect(rows).toHaveCount(5);
     await expect(rows.filter({ hasText: 'Caminar a diario' })).toHaveCount(0);

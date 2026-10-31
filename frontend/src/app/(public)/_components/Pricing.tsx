@@ -20,7 +20,7 @@ type Plan = {
   badge?: string;
   intro?: string;
   items: string[];
-  // signedOutHref: a dónde va un visitante sin sesión, si no es href.
+  // signedOutHref is where a signed-out visitor goes, if not href.
   cta: { label: string; href: string; signedOutHref?: string; soft: boolean };
   featured: boolean;
 };
@@ -52,7 +52,7 @@ const PLANS: Record<Audience, Plan[]> = {
       cta: {
         label: 'Hazte Pro',
         href: UPGRADE_HREF,
-        // Sin sesión, Pro pasa por el registro y vuelve a la tarjeta del Plan para suscribirse.
+        // Signed out, Pro goes through sign-up and comes back to the Plan card to subscribe.
         signedOutHref: `${SIGN_UP_URL}?redirect_url=${encodeURIComponent(UPGRADE_HREF)}`,
         soft: false,
       },

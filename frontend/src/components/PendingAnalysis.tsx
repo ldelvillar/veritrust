@@ -74,7 +74,7 @@ const STEPS = [
   },
 ] as const;
 
-// Enlaces y archivos sustituyen la descripción del primer paso por la suya.
+// Links and files replace the first step's description with their own.
 const SOURCE_COPY: Record<
   ReportView['source_type'],
   { meta: string; prep?: string }
@@ -90,14 +90,14 @@ const SOURCE_COPY: Record<
   },
 };
 
-// Estimación habitual del pipeline completo, en segundos.
+// Usual estimate for the full pipeline, in seconds.
 const ESTIMATED_SECONDS = 480;
 const ESTIMATED_MINUTES = ESTIMATED_SECONDS / 60;
 
-// Superada con margen la estimación, avisamos y ofrecemos una salida.
+// Once the estimate is passed with margin, warn and offer a way out.
 const SLOW_AFTER_SECONDS = 600;
 
-// El worker reporta la etapa real; aquí la traducimos al paso visible.
+// The worker reports the real stage, translated here to the visible step.
 const STAGE_INDEX: Record<AnalysisStage, number> = {
   preparing: 0,
   extractor: 1,
@@ -112,7 +112,7 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// La hora local solo existe en el navegador; en SSR no se pinta para no desajustar la hidratación.
+// Local time only exists in the browser, so it is not drawn during SSR to avoid a hydration mismatch.
 const subscribeNever = () => () => {};
 const SENT_AT_FORMAT = new Intl.DateTimeFormat('es-ES', {
   hour: '2-digit',
@@ -126,8 +126,7 @@ function formatSentAt(createdAt: string): string | null {
 
 type NotifyPermission = NotificationPermission | 'unsupported';
 
-// Notification.permission no tiene evento nativo; un store mínimo lo lee de forma
-// segura en SSR y refresca la UI cuando el usuario concede el permiso.
+// Notification.permission has no native event, so a minimal store reads it safely during SSR and refreshes the UI when the user grants permission.
 const notifyListeners = new Set<() => void>();
 
 function subscribeNotifyPermission(callback: () => void): () => void {
@@ -154,7 +153,7 @@ const NOTICE_TONE = {
   warning: 'border-warning/30 bg-warning-soft text-warning-ink',
 } as const;
 
-// Aviso dentro de la respuesta: error de conexión o análisis más lento de lo normal.
+// Notice inside the reply, a connection error or a slower than usual Analysis.
 function Notice({
   tone,
   Icon,
@@ -189,7 +188,7 @@ function Notice({
   );
 }
 
-// El contenido enviado se muestra como el mensaje del usuario en la conversación.
+// The submitted content is shown as the user's message in the conversation.
 function SubmittedContent({
   sourceType,
   inputText,
@@ -288,10 +287,10 @@ export default function PendingAnalysis({
     () => null
   );
 
-  // Sin etapa todavía (recién encolado): mostramos el primer paso como activo.
+  // No stage yet (just enqueued), so the first step shows as active.
   const activeStep = stage != null ? STAGE_INDEX[stage] : 0;
 
-  // Solo cronometramos los pasos cuyo inicio hemos visto en esta pestaña.
+  // Only time the steps whose start this tab has seen.
   const [seenStep, setSeenStep] = useState(activeStep);
   const [stepStarts, setStepStarts] = useState<Record<number, number>>({});
   if (activeStep !== seenStep) {

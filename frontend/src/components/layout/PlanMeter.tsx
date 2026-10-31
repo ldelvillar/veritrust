@@ -10,7 +10,7 @@ import {
   usedThisMonth,
 } from '@/lib/plan';
 
-// Por debajo de esta fracción del Allowance el medidor avisa de que quedan pocos.
+// Below this fraction of the Allowance the meter warns that little is left.
 const LOW_REMAINING_RATIO = 0.2;
 
 export default function PlanMeter({ onNavigate }: { onNavigate?: () => void }) {

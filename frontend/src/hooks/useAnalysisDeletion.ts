@@ -17,7 +17,7 @@ export function useAnalysisDeletion() {
 
   const remove = useCallback(
     async (analysisId: string): Promise<boolean> => {
-      // El refresco va dentro de la mutación: el diálogo sigue ocupado hasta que la fila desaparece.
+      // The refresh runs inside the mutation, so the dialog stays busy until the row disappears.
       const data = await mutate(async () => {
         const deleted = await fetchJsonWithAuth<DeleteAnalysisResponse>(
           getToken,

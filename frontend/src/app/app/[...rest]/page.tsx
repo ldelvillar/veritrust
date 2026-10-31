@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 
-// Rutas inexistentes bajo /app/* caen aquí para renderizar el 404 con la barra lateral.
+// Unknown routes under /app/* land here to render the 404 with the sidebar.
 export default function AppCatchAll() {
   notFound();
 }

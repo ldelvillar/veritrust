@@ -17,7 +17,7 @@ export default function ClaimsEvidence({
 }) {
   const hasEvidence = sources.length > 0;
 
-  // Caso defensivo: fuentes sin afirmaciones → lista plana, sin perder nada.
+  // Defensive case where Sources without claims become a flat list, losing nothing.
   if (claims.length === 0) {
     return hasEvidence ? (
       <SourcesCard
@@ -28,8 +28,7 @@ export default function ClaimsEvidence({
     ) : null;
   }
 
-  // Análisis antiguos (previos al investigador) no tienen fuentes: no decimos
-  // "sin evidencia" porque nunca llegó a buscarse.
+  // Old analyses (before the investigator) have no Sources, so "no Evidence" is not claimed because it was never searched.
   if (!hasEvidence) {
     return (
       <div className="rounded-xl border border-line bg-white p-6 shadow-sm">

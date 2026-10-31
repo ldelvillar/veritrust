@@ -1,4 +1,4 @@
-// Hueso del esqueleto: una barra con barrido; el alto y el radio los fija cada uso.
+// Skeleton bone, a bar with a shimmer whose height and radius each use sets.
 function Bone({ className }: { className: string }) {
   return <span className={`skeleton block ${className}`} />;
 }
@@ -11,7 +11,7 @@ export default function Loading() {
       className="flex flex-1 flex-col px-4 py-8 md:py-10"
     >
       <span className="sr-only">Cargando análisis...</span>
-      {/* Mismo marco que page.tsx y AnalysisResult, para que no salte al llegar el informe. */}
+      {/* Same frame as page.tsx and AnalysisResult, so nothing jumps when the report arrives. */}
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div
           className="flex flex-wrap items-start justify-between gap-4"

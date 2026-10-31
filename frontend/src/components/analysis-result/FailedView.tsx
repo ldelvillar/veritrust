@@ -19,7 +19,7 @@ const FAILURE_MESSAGES: Partial<Record<ErrorCode, string>> = {
     'No se pudo extraer texto del archivo. Puede estar protegido, dañado, vacío o ser un documento escaneado sin texto seleccionable.',
 };
 
-// Fallos ligados a la entrada: reintentar el mismo enlace o archivo suele volver a fallar.
+// Input-bound failures, where retrying the same link or file usually fails again.
 const INPUT_ERROR_CODES = new Set<ErrorCode>([
   'URL_EXTRACTION',
   'FILE_EXTRACTION',
@@ -36,7 +36,7 @@ export default function FailedView({
   isRetrying?: boolean;
   retryError?: string | null;
 }) {
-  // No es un fallo del sistema: el contenido no traía afirmaciones médicas que verificar
+  // Not a system failure, since the content had no medical claims to check.
   if (errorCode === 'NO_MEDICAL_CLAIMS') {
     return (
       <div className="flex w-full flex-col items-center gap-4 rounded-xl border border-line bg-white p-10 text-center shadow-sm">

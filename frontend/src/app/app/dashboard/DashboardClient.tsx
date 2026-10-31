@@ -28,7 +28,7 @@ interface DashboardClientProps {
   initialData: DashboardPayload;
 }
 
-// El SSR carga el rango por defecto (14 d); solo ese reusa initialData como fallback.
+// SSR loads the default range (14 d), and only that one reuses initialData as a fallback.
 const DEFAULT_RANGE: DashboardRange = '14d';
 
 export default function DashboardClient({ initialData }: DashboardClientProps) {
@@ -49,8 +49,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const delta = dashboard.kpis.week_over_week_delta;
   const deltaStr = delta >= 0 ? `+${delta}%` : `${delta}%`;
 
-  // Un cambio de rango que falla no tiene datos propios: avisamos en vez de
-  // mostrar en silencio las métricas del rango inicial como si fueran de este.
+  // A failing range change has no data of its own, so warn instead of silently showing the initial range's metrics as if they were this one's.
   if (!data && error) {
     return (
       <div className="flex w-full flex-col gap-5">
@@ -93,7 +92,6 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         actions={<RangeSelector value={range} onChange={setRange} />}
       />
 
-      {/* KPI tiers */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2.25">
           <p className="pl-0.5 text-2xs font-extrabold tracking-[.11em] text-faint uppercase">
@@ -163,10 +161,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
 
-      {/* Verdict distribution */}
       <VerdictDistributionCard distribution={dashboard.verdict_distribution} />
 
-      {/* Trend + Sources row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.62fr_1fr]">
         <section className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)]">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -211,7 +207,6 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         />
       </div>
 
-      {/* Domains + Alerts row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.1fr]">
         <DomainsCard items={dashboard.domain_breakdown} />
         <AlertsCard

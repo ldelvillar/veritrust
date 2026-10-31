@@ -93,7 +93,7 @@ const TYPE_META = {
   },
 } as const;
 
-// El worker reporta la etapa real; aquí la traducimos a una etiqueta compacta.
+// The worker reports the real stage, translated here to a compact label.
 const STAGE_LABEL: Record<NonNullable<HistoryItem['stage']>, string> = {
   preparing: 'Preparando el contenido',
   extractor: 'Extrayendo afirmaciones',
@@ -120,7 +120,7 @@ const STATUS_BADGES = {
   },
 } as const satisfies Record<AnalysisStatusKey, object>;
 
-// El tono lo decide el veredicto; la credibilidad solo se muestra como número.
+// The Verdict decides the tone, and Credibility is only shown as a number.
 const TONE_BY_VERDICT = {
   real: 'ok',
   uncertain: 'warn',
@@ -406,14 +406,12 @@ export default function HistoryResultsTable({
                 key={item.analysis_id}
                 className="group relative flex flex-wrap items-center gap-3.5 overflow-hidden rounded-2xl border border-line bg-white py-4 pr-4 pl-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md sm:flex-nowrap sm:gap-4.5 sm:py-4.5 sm:pr-5.5 sm:pl-6"
               >
-                {/* Left tone rail */}
                 <div
                   className="absolute inset-y-0 left-0 w-1"
                   style={{ background: railStyle }}
                   aria-hidden
                 />
 
-                {/* Credibility gauge */}
                 {tone !== null && credibility !== null ? (
                   <CredibilityGauge score={credibility} tone={tone} />
                 ) : statusKey !== 'pending' && statusBadgeCfg ? (
@@ -425,7 +423,6 @@ export default function HistoryResultsTable({
                   <GaugePlaceholder status={item.status} tone={tone} />
                 )}
 
-                {/* Main content */}
                 <div className="min-w-35 flex-1">
                   <div className="mb-1.5 flex flex-wrap items-center gap-2">
                     <span
@@ -493,7 +490,6 @@ export default function HistoryResultsTable({
                   )}
                 </div>
 
-                {/* Right column */}
                 <div className="flex flex-[1_1_100%] items-center justify-between gap-2.5 border-t border-line pt-3.5 sm:flex-none sm:gap-4.5 sm:border-0 sm:pt-0">
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-2xs font-bold tracking-[.04em] whitespace-nowrap uppercase"
@@ -535,7 +531,6 @@ export default function HistoryResultsTable({
         </ul>
       )}
 
-      {/* Pagination footer */}
       {!isLoading && !errorMessage && (
         <div className="mt-1 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-muted">

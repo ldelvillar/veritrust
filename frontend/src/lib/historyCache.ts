@@ -4,20 +4,20 @@ import { PENDING_HISTORY_PATH } from '@/lib/historyQuery';
 const keyStartsWith = (prefix: string) => (key: unknown) =>
   typeof key === 'string' && key.startsWith(prefix);
 
-// Refresca el indicador; si su resumen cambia, usePendingAnalyses refresca los listados.
+// Refresh the indicator, and if its summary changes usePendingAnalyses refreshes the lists.
 export function refreshPending(): Promise<unknown> {
   return mutate(PENDING_HISTORY_PATH);
 }
 
 let lastListsRefresh: Promise<unknown> | null = null;
 
-// Refresca todo listado de /history en caché: el menú y la página abierta del historial.
+// Refresh every cached /history list, the menu and the open History page.
 export function refreshHistoryLists(): Promise<unknown> {
   lastListsRefresh = mutate(keyStartsWith('/history?'));
   return lastListsRefresh;
 }
 
-// Tras una acción propia: si el indicador no vio el cambio, los listados se piden aquí.
+// After an own action, the lists are fetched here if the indicator did not see the change.
 export async function refreshHistory(): Promise<unknown> {
   const before = lastListsRefresh;
   await refreshPending();

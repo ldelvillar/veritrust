@@ -21,10 +21,7 @@ export interface StanceSummary {
   inconclusive: number;
 }
 
-/**
- * Postura de una fuente sobre una afirmación concreta, resuelta por el
- * `claim_index` que el investigador adjunta a cada `statement`.
- */
+/** Stance of a Source on a specific claim, resolved by the `claim_index` the investigator attaches to each `statement`. */
 export function stanceForClaim(
   source: SourceType,
   claimIndex: number
@@ -34,12 +31,7 @@ export function stanceForClaim(
   )?.stance;
 }
 
-/**
- * Agrupa las fuentes bajo la afirmación que respaldan, usando el `claim_index`
- * que el investigador adjunta a cada `statement`. Una fuente que respalda varias
- * afirmaciones aparece bajo todas ellas; las que no apuntan a ninguna afirmación
- * de la lista (o no traen `statements`) caen en `unmatched`.
- */
+/** Group the Sources under the claims they support by `claim_index`, listing one under each of its claims and the rest in `unmatched`. */
 export function groupSourcesByClaim(
   claims: ClaimType[],
   sources: SourceType[]
@@ -51,7 +43,7 @@ export function groupSourcesByClaim(
     const matchedIndices = new Set<number>();
     for (const statement of source.statements ?? []) {
       const index = statement.claim_index;
-      // Un índice fuera de rango no tiene afirmación bajo la que anidar la fuente.
+      // An out-of-range index has no claim to nest the Source under.
       if (index >= 0 && index < groups.length) matchedIndices.add(index);
     }
 
@@ -65,10 +57,7 @@ export function groupSourcesByClaim(
   return { groups, unmatched };
 }
 
-/**
- * Cuenta la postura de las fuentes ya enlazadas a una afirmación, para el
- * resumen "a favor / en contra" de la fila.
- */
+/** Count the Stances of the Sources linked to a claim, for the row's "for / against" summary. */
 export function summarizeStances(
   claimIndex: number,
   sources: SourceType[]

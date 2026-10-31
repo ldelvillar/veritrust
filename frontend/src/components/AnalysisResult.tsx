@@ -87,7 +87,6 @@ export default function AnalysisResult({
   });
   const duration = formatDuration(result.created_at, result.completed_at);
 
-  // Imprime el informe
   const handleExport = () => {
     const formattedDate = new Date(result.created_at).toLocaleDateString(
       'es-ES'
@@ -137,7 +136,7 @@ export default function AnalysisResult({
           <MedicalExplanation explanation={result.explanation} />
         )}
         <ClaimsEvidence claims={claims} sources={sources} />
-        {/* Solo el dueño valora su informe: la vista pública y el ejemplo no la muestran. */}
+        {/* Only the owner rates their report, so the public view and the sample do not show it. */}
         {!isPublic && result.analysis_id && (
           <FeedbackCard
             analysisId={result.analysis_id}
@@ -147,7 +146,7 @@ export default function AnalysisResult({
         <Disclaimer />
       </div>
 
-      {/* Los enlaces a /app/* requieren cuenta: se ocultan en la vista pública. */}
+      {/* Links to /app/* require an account, so they are hidden in the public view. */}
       {!isPublic && (
         <div className="flex flex-wrap gap-3 print:hidden">
           <Button href="/app/analisis" variant="soft">

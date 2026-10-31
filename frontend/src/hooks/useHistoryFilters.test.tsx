@@ -8,7 +8,7 @@ const PATHNAME = '/app/historial';
 let currentQuery = '';
 const replace = vi.fn();
 
-// Next devuelve la misma instancia mientras no se navega; el debounce depende de ello.
+// Next returns the same instance until navigation, and the debounce depends on it.
 const paramsCache = new Map<string, URLSearchParams>();
 
 function searchParamsFor(query: string): URLSearchParams {

@@ -25,7 +25,7 @@ export function useAnalysisRetry() {
         )
       );
       if (!data) return false;
-      // La fila vuelve a pending sin navegación: refrescamos el indicador y los listados.
+      // The row returns to pending without navigation, so refresh the indicator and the lists.
       void refreshHistory();
       return true;
     },

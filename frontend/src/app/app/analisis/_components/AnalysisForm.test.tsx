@@ -65,7 +65,7 @@ const URL_LABEL = 'Introduce la URL del artículo';
 const TEXT_LABEL = 'Pega el texto o la afirmación a verificar';
 const RUN_BUTTON = 'Analizar credibilidad';
 
-// Los límites llegan de GET /config.
+// The limits come from GET /config.
 const LIMITS = {
   max_file_bytes: 10 * 1024 * 1024,
   allowed_file_suffixes: ['.md', '.pdf', '.txt'],
@@ -154,7 +154,7 @@ describe('AnalysisForm text limits from GET /config', () => {
     render(<AnalysisForm limits={null} />);
     typeText('corto');
 
-    // Sin límites no se prevalida la longitud: el envío llega y la API decide.
+    // Without limits the length is not prevalidated, so the submit goes through and the API decides.
     expect(screen.getByRole('button', { name: RUN_BUTTON })).toBeEnabled();
     expect(screen.queryByText(/mínimo/)).toBeNull();
   });

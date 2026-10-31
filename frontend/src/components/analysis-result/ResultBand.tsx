@@ -8,7 +8,7 @@ import {
 } from './format';
 import type { ReportView } from './types';
 
-// Barra sobre la banda oscura; el ancho se acota a 0-100 aunque el backend redondee fuera.
+// Bar over the dark band, its width clamped to 0-100 even if the backend rounds outside.
 function Bar({
   percent,
   track,

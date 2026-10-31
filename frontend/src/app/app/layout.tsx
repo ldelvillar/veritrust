@@ -5,12 +5,12 @@ import PlanProvider from '@/components/PlanProvider';
 import type { PlanResponse } from '@/lib/plan';
 import { fetchPlanServer } from '@/lib/serverApi';
 
-// Sin Plan precargado la app sigue en pie: el cliente lo pide y la API aplica sus límites.
+// Without a preloaded Plan the app still works, as the client requests it and the API enforces its limits.
 async function loadPlan(): Promise<PlanResponse | null> {
   try {
     return await fetchPlanServer();
   } catch (err) {
-    // Los errores de control de Next (renderizado dinámico, redirecciones) no son fallos de la API.
+    // Next's control errors (dynamic rendering, redirects) are not API failures.
     unstable_rethrow(err);
     return null;
   }

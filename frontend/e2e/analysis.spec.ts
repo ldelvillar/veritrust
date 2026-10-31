@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 
-// El mock termina cada análisis encolado como falso a los pocos segundos.
+// The mock finishes every enqueued Analysis as false within a few seconds.
 const FINISHED_VERDICT = { name: 'Contenido falso' } as const;
 const PIPELINE_TIMEOUT = { timeout: 15_000 } as const;
 
@@ -24,7 +24,7 @@ test('a submitted text opens its report, which shows the verdict once the pipeli
   await expect(page.getByRole('heading', FINISHED_VERDICT)).toBeVisible(
     PIPELINE_TIMEOUT
   );
-  // El sondeo del indicador ve terminar el análisis y refresca los recientes del menú.
+  // The indicator's poll sees the Analysis finish and refreshes the menu's recent ones.
   await expect(recent).toContainText('Falso', PIPELINE_TIMEOUT);
 });
 

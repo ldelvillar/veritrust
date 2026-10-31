@@ -2,7 +2,7 @@ import Arrow from '@/assets/Arrow';
 import PublicButton from '@/components/PublicButton';
 import { container } from './container';
 
-// Las dos afirmaciones del análisis real que muestra /ejemplo, con una de sus fuentes.
+// The two claims of the real Analysis /ejemplo shows, with one of their Sources.
 const claims = [
   {
     n: '01',
@@ -42,7 +42,6 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* product mockup */}
         <div className="relative">
           <div
             role="img"

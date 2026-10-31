@@ -1,6 +1,6 @@
 import type { BillingInterval, PlanName } from '@/lib/plan';
 
-// Precios de Pro con IVA incluido, como los cobra Stripe; los comparten la landing y /app/cuenta.
+// Pro prices including VAT, as Stripe charges them, shared by the landing and /app/cuenta.
 export const PRO_PRICE: Record<BillingInterval, string> = {
   month: '29€',
   year: '290€',

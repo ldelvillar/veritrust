@@ -9,7 +9,7 @@ test('the mobile menu shows the navigation and the signed-in account', async ({
   await page.goto('/app/analisis');
   await page.getByRole('button', { name: 'Abrir menú' }).click();
 
-  // La barra lateral de escritorio sigue en el DOM, oculta; solo el drawer es un complementary visible.
+  // The desktop sidebar stays in the DOM, hidden, so only the drawer is a visible complementary.
   const drawer = page.getByRole('complementary');
   await expect(
     drawer.getByRole('link', { name: 'Análisis anteriores' })

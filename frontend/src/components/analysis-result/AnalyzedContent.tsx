@@ -130,9 +130,7 @@ export default function AnalyzedContent({
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
-  // Análisis por PDF: el binario requiere auth, así que en la vista pública
-  // mostramos el texto extraído (cae a la rama de texto de abajo). Los archivos
-  // .txt/.md también caen a la rama de texto: su contenido ya es el texto.
+  // The PDF binary requires auth, so the public view shows the extracted text, the same text branch .txt and .md files use.
   const isPdf =
     result.source_type === 'file' && isPdfFilename(result.file_filename);
   if (isPdf && !isPublic && result.analysis_id) {
@@ -144,7 +142,7 @@ export default function AnalyzedContent({
     );
   }
 
-  // Análisis por URL: mostramos el enlace en lugar del texto completo.
+  // URL analyses show the link instead of the full text.
   if (result.source_type === 'url') {
     if (!result.input_url) return null;
     return (
@@ -171,8 +169,7 @@ export default function AnalyzedContent({
   const text = result.input_text;
   if (!text) return null;
 
-  // El binario requiere auth: solo se ofrece la descarga del original en la
-  // vista propia de un análisis por archivo (.txt/.md; el PDF usa su visor).
+  // The binary requires auth, so downloading the original is only offered in the owner's view of a .txt or .md file Analysis.
   const originalFileId =
     result.source_type === 'file' && !isPublic ? result.analysis_id : undefined;
 
@@ -210,8 +207,7 @@ export default function AnalyzedContent({
           ? 'El texto extraído del archivo original que se verificó.'
           : 'El texto original tal y como se envió a verificar.'}
       </p>
-      {/* Siempre en el DOM y colapsado con clases, para que el PDF (print:block)
-          imprima el texto completo aunque esté oculto en pantalla. */}
+      {/* Always in the DOM and collapsed with classes, so the PDF (print:block) prints the full text even when hidden on screen. */}
       <div id={panelId} className={open ? 'block' : 'hidden print:block'}>
         <p className="mt-4 max-h-96 overflow-y-auto rounded-xl border border-line bg-surface-subtle/70 p-4 text-sm leading-relaxed whitespace-pre-wrap text-body print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0">
           {text}

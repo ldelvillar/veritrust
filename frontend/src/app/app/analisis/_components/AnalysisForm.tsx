@@ -43,7 +43,7 @@ const EXAMPLE_TEXT_2 =
 const EXAMPLE_URL_1 = 'www.20minutos.es/salud/actualidad/estudio-vitamina-c';
 const EXAMPLE_URL_2 = 'www.larazon.es/salud/asi-influye-la-vitamina-d';
 
-// '.pdf' -> 'PDF', para las etiquetas de tipos aceptados.
+// '.pdf' becomes 'PDF' for the accepted-type labels.
 const suffixLabel = (suffix: string): string =>
   suffix.replace('.', '').toUpperCase();
 
@@ -61,7 +61,7 @@ export default function AnalysisForm({
   const isFree = plan?.plan === 'free';
   const filesLocked = planLimits?.files === false;
   const isExhausted = usage?.remaining === 0;
-  // El máximo de texto es el del Plan; /config solo aporta el máximo del esquema si el Plan no cargó.
+  // The Plan sets the text maximum, and /config only provides the schema maximum if the Plan did not load.
   const maxChars = planLimits?.max_input_chars ?? limits?.max_input_text_length;
 
   const [inputMethod, setInputMethod] =
@@ -126,7 +126,7 @@ export default function AnalysisForm({
     if (isTextArea && e.shiftKey) return;
     if (inputMethod === 'file') return;
     e.preventDefault();
-    // requestSubmit ignora el botón deshabilitado: Enter sigue la misma regla que el botón.
+    // requestSubmit ignores the disabled button, so Enter follows the same rule as the button.
     if (!canRun) return;
     e.currentTarget.requestSubmit();
   };
@@ -140,8 +140,7 @@ export default function AnalysisForm({
         setError('Por favor, selecciona un archivo primero.');
         return;
       }
-      // Todos los archivos (PDF/TXT/MD) se suben tal cual: el backend extrae el
-      // texto y guarda el binario, igual que antes solo se hacía con los PDF.
+      // Every file (PDF/TXT/MD) is uploaded as is, and the backend extracts the text and stores the binary.
       await submitFile(selectedFile);
       return;
     }
@@ -178,7 +177,7 @@ export default function AnalysisForm({
 
   const isTextTooLong = maxChars !== undefined && trimmedTextLength > maxChars;
 
-  // Sin límites conocidos solo se exige texto no vacío; la API tiene la última palabra.
+  // Without known limits only non-empty text is required, and the API has the last word.
   const isTextLengthValid =
     trimmedTextLength > 0 &&
     (!limits || trimmedTextLength >= limits.min_input_text_length) &&
@@ -196,13 +195,13 @@ export default function AnalysisForm({
     { id: 'file' as const, label: 'Archivo', Icon: DocumentIcon },
   ];
 
-  // Ids estables para asociar cada pestaña con su panel (semántica de tablist).
+  // Stable ids to associate each tab with its panel (tablist semantics).
   const baseId = useId();
   const tabId = (id: string) => `${baseId}-tab-${id}`;
   const panelId = `${baseId}-panel`;
   const urlHintId = `${baseId}-url-hint`;
 
-  // Navegación con flechas del patrón tablist WAI-ARIA (activación automática).
+  // Arrow-key navigation of the WAI-ARIA tablist pattern (automatic activation).
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     e.preventDefault();
@@ -270,7 +269,6 @@ export default function AnalysisForm({
         onSubmit={handleSubmit}
         onKeyDown={handleKeyDown}
       >
-        {/* Texto tab */}
         {inputMethod === 'text' && (
           <div role="tabpanel" id={panelId} aria-labelledby={tabId('text')}>
             <label htmlFor="analysis-text" className="sr-only">
@@ -298,7 +296,6 @@ export default function AnalysisForm({
           </div>
         )}
 
-        {/* Enlace tab */}
         {inputMethod === 'url' && (
           <div role="tabpanel" id={panelId} aria-labelledby={tabId('url')}>
             <label htmlFor="analysis-url" className="sr-only">
@@ -342,7 +339,6 @@ export default function AnalysisForm({
           </div>
         )}
 
-        {/* Archivo tab */}
         {inputMethod === 'file' && (
           <div role="tabpanel" id={panelId} aria-labelledby={tabId('file')}>
             <div className="relative pb-17">
@@ -445,7 +441,6 @@ export default function AnalysisForm({
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div
             role="alert"

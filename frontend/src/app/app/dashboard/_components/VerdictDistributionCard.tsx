@@ -2,7 +2,7 @@ import { VERDICT_META } from '@/components/analysis-result/format';
 import type { Verdict } from '@/components/analysis-result/types';
 import type { DashboardPayload } from './types';
 
-// Etiquetas en plural de cada categoría; el color procede del token de veredicto compartido.
+// Plural labels of each category, with the color from the shared Verdict token.
 const VERDICT_SEGMENTS: { key: Verdict; label: string }[] = [
   { key: 'real', label: 'Verdaderos' },
   { key: 'uncertain', label: 'Dudosos' },
@@ -38,7 +38,6 @@ export default function VerdictDistributionCard({
         </span>
       </div>
 
-      {/* Segmented bar */}
       <div
         className="mb-5 flex h-3.5 gap-0.5 overflow-hidden rounded-full"
         style={{ background: 'var(--color-surface)' }}
@@ -56,7 +55,6 @@ export default function VerdictDistributionCard({
         })}
       </div>
 
-      {/* Legend */}
       <div className="grid grid-cols-2 gap-3">
         {VERDICT_SEGMENTS.map(v => {
           const count = distribution[v.key];

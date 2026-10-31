@@ -21,7 +21,7 @@ test('a shared report opens for a visitor without an account', async ({
   await expect(
     visitorPage.getByRole('heading', { name: 'Contenido falso' })
   ).toBeVisible();
-  // La vista pública no enlaza a /app/*, que exige cuenta.
+  // The public view does not link to /app/*, which requires an account.
   await expect(
     visitorPage.getByRole('link', { name: 'Analizar otro contenido' })
   ).toHaveCount(0);

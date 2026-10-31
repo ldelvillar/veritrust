@@ -54,7 +54,7 @@ const STAT_TONE_STYLES = {
   },
 } as const;
 
-// Cada tarjeta mapea a su conteo global por veredicto en la respuesta del historial.
+// Each card maps to its global count per Verdict in the History response.
 const FACET_KEY: Record<VerdictFilter, keyof VerdictCounts> = {
   all: 'total',
   real: 'real',
@@ -69,7 +69,7 @@ interface HistoryStatCardsProps {
   onSelect?: (verdict: VerdictFilter) => void;
 }
 
-// Tarjetas de conteo por veredicto; cada una filtra la tabla al pulsarla, si el Plan incluye filtros.
+// Count cards per Verdict, each filtering the table when clicked if the Plan includes filters.
 export default function HistoryStatCards({
   verdictFilter,
   verdictCounts,

@@ -25,7 +25,7 @@ const mockedFetch = vi.mocked(fetchJsonWithAuth);
 let serverCount = 0;
 let serverNewestId: string | null = null;
 
-// Caché SWR aislada por test; el dev server de Next corre en StrictMode.
+// SWR cache isolated per test, as Next's dev server runs in StrictMode.
 const wrapper = ({ children }: { children: ReactNode }) => (
   <StrictMode>
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
@@ -75,7 +75,7 @@ describe('usePendingAnalyses (SWR real)', () => {
   it('refreshPending updates the indicator without navigation or poll', async () => {
     serverCount = 1;
     serverNewestId = 'aaa';
-    // Sin proveedor propio: el mutate global de refreshPending opera sobre la caché por defecto.
+    // No own provider, since refreshPending's global mutate works on the default cache.
     const { result } = renderHook(() => usePendingAnalyses(), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <StrictMode>{children}</StrictMode>
@@ -101,7 +101,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     });
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
 
-    // A termina: el sondeo devuelve 0 y el aviso de finalizado aparece.
+    // A finishes, so the poll returns 0 and the finished notice appears.
     serverCount = 0;
     serverNewestId = null;
     pathname = '/app/historial';
@@ -109,7 +109,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     await waitFor(() => expect(result.current.pendingCount).toBe(0));
     expect(result.current.finished).toEqual({ analysisId: 'aaa' });
 
-    // Se envía B.
+    // B is submitted.
     serverCount = 1;
     serverNewestId = 'bbb';
     pathname = '/app/analisis/bbb';
@@ -117,7 +117,7 @@ describe('usePendingAnalyses (SWR real)', () => {
     await waitFor(() => expect(result.current.pendingCount).toBe(1));
     expect(result.current.finished).toBeNull();
 
-    // Se envía C con B aún en curso.
+    // C is submitted with B still pending.
     serverCount = 2;
     serverNewestId = 'ccc';
     pathname = '/app/analisis/ccc';

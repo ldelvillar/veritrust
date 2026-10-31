@@ -32,7 +32,7 @@ interface AnalisisClientProps {
   initialData: AnalysisDetail;
 }
 
-// Un análisis anterior a la ventana de History del Plan: sigue guardado, pero oculto.
+// An Analysis older than the Plan's History window, still stored but hidden.
 export function HiddenAnalysis() {
   const days = usePlan().limits?.history_days ?? null;
   return (
@@ -54,7 +54,7 @@ export function HiddenAnalysis() {
 const REANALYZE_DESCRIPTION =
   'Se generará un informe nuevo con la evidencia médica más reciente. El resultado actual se reemplazará y esta acción no se puede deshacer.';
 
-// Volver a analizar consume una unidad del Allowance si termina bien: el diálogo lo avisa.
+// Reanalyzing consumes one Allowance unit if it ends well, and the dialog says so.
 function reanalyzeDescription(usage: PlanUsage | null): string {
   if (!usage) return REANALYZE_DESCRIPTION;
   if (usage.remaining === 0)
@@ -103,7 +103,7 @@ export default function AnalisisClient({
   const detail = data ?? initialData;
   const isPending = detail.status === 'pending';
 
-  // Mientras siga 'pending' sondeamos cada 2s solo estado y etapa; el informe se pide una vez al terminar.
+  // While still 'pending', only status and stage are polled every 2s, and the report is fetched once at the end.
   const {
     data: statusData,
     error: statusError,
@@ -120,14 +120,14 @@ export default function AnalisisClient({
       ? { ...detail, stage: statusData.stage }
       : detail;
   const pollError = statusError ?? detailError;
-  // Un fallo de polling deja la pantalla de espera congelada: lo mostramos.
+  // A polling failure freezes the waiting screen, so it is shown.
   const pollErrorMessage =
     current.status === 'pending' && pollError
       ? pollError instanceof ApiError
         ? pollError.message
         : 'Sin conexión con el servidor. Seguiremos reintentando automáticamente.'
       : null;
-  // Avisa por notificación si el análisis termina con la pestaña en segundo plano.
+  // Notify when the Analysis finishes with the tab in the background.
   useCompletionNotification(id, current.status);
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function AnalisisClient({
     };
   }, [current.status]);
 
-  // origin es '' en SSR; el diálogo solo se renderiza tras interacción (cliente).
+  // origin is '' during SSR, and the dialog only renders after interaction (client).
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const shareToken = current.share_token ?? null;
   const shareUrl = shareToken ? `${origin}/r/${shareToken}` : null;
@@ -170,13 +170,13 @@ export default function AnalisisClient({
 
   const handleRetry = async () => {
     const success = await retry(id);
-    // Al reabrirse la fila vuelve a 'pending': refrescamos para reanudar el polling.
+    // Reopening returns the row to 'pending', so refetch to resume polling.
     if (success) await refetch();
   };
 
   const handleReanalyzeConfirm = async () => {
     const success = await reanalyze(id);
-    // La fila vuelve a 'pending': cerramos y refrescamos para reanudar el polling.
+    // The row returns to 'pending', so close and refetch to resume polling.
     if (success) {
       setReanalyzeOpen(false);
       await refetch();
@@ -191,7 +191,7 @@ export default function AnalisisClient({
 
   const handleDeleteConfirm = async () => {
     const success = await deleteAnalysis(id);
-    // Al borrarse la fila, volvemos al historial (la página se desmonta).
+    // Once the row is deleted, go back to the History (the page unmounts).
     if (success) router.push('/app/historial');
   };
 
@@ -234,7 +234,7 @@ export default function AnalisisClient({
     </Button>
   );
 
-  // Solo un informe terminado se puede volver a analizar o compartir.
+  // Only a finished report can be reanalyzed or shared.
   const headerActions = (
     <>
       {current.status === 'done' && reanalyzeButton}
@@ -243,7 +243,7 @@ export default function AnalisisClient({
     </>
   );
 
-  // El Plan bajó a Gratis con el informe abierto y el análisis quedó fuera de su ventana.
+  // The Plan dropped to Free with the report open and the Analysis fell outside its window.
   if (detailError instanceof ApiError && detailError.code === 'PLAN_REQUIRED')
     return <HiddenAnalysis />;
 
