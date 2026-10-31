@@ -43,7 +43,7 @@ def _search_source(
 
 def _search_all(claims: Sequence[Claim]) -> list[Claim]:
     """Search every claim in all its sources at once and record what they returned."""
-    # Literature sources are queried with the focused English query.
+    # Europe PMC, PubMed and openFDA take the focused English query, while CIMA takes the Spanish drug_term when the claim names a drug.
     topic_sources = (search_europepmc, search_pubmed, search_openfda)
 
     # Each claim and source pair is independent network I/O, so they all run in parallel.
@@ -60,7 +60,7 @@ def _search_all(claims: Sequence[Claim]) -> list[Claim]:
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
 
-    # Regroup by claim, which only fails when ALL its queried sources fail.
+    # Regroup by claim, where a claim only fails when ALL its queried sources fail.
     per_claim_hits: list[list[dict]] = [[] for _ in claims]
     per_claim_failures = [0] * len(claims)
     for position, hits in outcomes:

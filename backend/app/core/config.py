@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # Retries on 429 and 5xx, since the workspace request limit cuts bursts.
     mistral_max_retries: int = 5
 
-    # The api_key is required when llm_provider is "groq".
+    # The api_key is required when llm_provider is "groq", and each role gets its own model since Groq's daily token quota is per model.
     groq_api_key: str | None = None
     groq_extractor_model: str = "openai/gpt-oss-20b"
     groq_translator_model: str = "qwen/qwen3.8-27b"
@@ -104,12 +104,12 @@ class Settings(BaseSettings):
     europepmc_base_url: str = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     europepmc_timeout_seconds: int = 10
 
-    # The api_key only raises the request limit.
+    # PubMed's api_key only raises the request limit.
     pubmed_base_url: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
     pubmed_timeout_seconds: int = 10
     pubmed_api_key: str | None = None
 
-    # The api_key only raises the request limit.
+    # openFDA's api_key only raises the request limit.
     openfda_base_url: str = "https://api.fda.gov"
     openfda_timeout_seconds: int = 10
     openfda_api_key: str | None = None

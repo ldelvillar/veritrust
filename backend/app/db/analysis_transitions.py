@@ -330,7 +330,7 @@ async def list_stale_pending_ids(*, older_than_seconds: int) -> list[str]:
 async def fail_stale(
     *, analysis_ids: Sequence[str], older_than_seconds: int, error_code: str
 ) -> int:
-    """Fail the given ids if they are still ``pending`` and orphaned, returning how many."""
+    """Fail the given ids if they are still ``pending`` and past the age threshold, returning how many."""
     # Recheck status and age, since a Retry between the read and this write restarts created_at.
     query = """
         UPDATE public.analysis_history

@@ -1,4 +1,4 @@
-"""Rejudge the claims and candidate Sources recorded in a pipeline checkpoint to compare judge models on the same input, chosen by env as in the pipeline (e.g. ``OLLAMA_JUDGE_MODEL=gemma4:12b``)."""
+"""Rejudge the claims and candidate Sources recorded in a pipeline checkpoint, without running the rest of the pipeline, to compare judge models chosen by env as in the pipeline (e.g. ``LLM_PROVIDER=mistral`` or ``OLLAMA_JUDGE_MODEL=gemma4:12b``)."""
 
 import argparse
 import json

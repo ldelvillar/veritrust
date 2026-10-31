@@ -335,7 +335,7 @@ async def evaluate_pipeline(
                 continue
             duration = time() - started
 
-            # No Verdict, so the text had no verifiable medical claims.
+            # No Verdict because the text had no verifiable medical claims.
             verdict: Verdict | None = result.get("verdict")
             claims: list[Claim] = result.get("claims") or []
             row: EvalRow = {
