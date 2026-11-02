@@ -1,9 +1,9 @@
 """Endpoints for analyses."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable
 from datetime import datetime
 from pathlib import Path
-from typing import TypeVar
+from typing import Protocol, TypeVar
 from urllib.parse import quote
 
 from fastapi import (
@@ -45,10 +45,19 @@ router = APIRouter()
 
 
 _T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
+
+
+class _OwnedLookup(Protocol[_T_co]):
+    """A lookup of one of the user's own analyses, returning None when it does not exist."""
+
+    def __call__(
+        self, *, user_id: str, analysis_id: str, visible_since: datetime | None
+    ) -> Awaitable[_T_co | None]: ...
 
 
 async def _owned_analysis(
-    read: Callable[..., Awaitable[_T | None]],
+    read: _OwnedLookup[_T],
     user_id: str,
     analysis_id: str,
     visible_since: datetime | None,
