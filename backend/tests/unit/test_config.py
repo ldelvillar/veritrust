@@ -34,7 +34,7 @@ def _make_settings(**overrides) -> Settings:
         "contact_to_email": "equipo@example.com",
     }
     base.update(overrides)
-    return Settings(_env_file=None, **base)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **base)
 
 
 def test_analysis_queue_defaults():

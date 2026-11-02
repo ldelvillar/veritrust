@@ -21,7 +21,7 @@ from app.schemas.history import AnalysisHistoryItem, HistoryListItem
 
 def _use_database_url(monkeypatch, database_url: str) -> None:
     """Make _build_connection_string read a controlled configuration."""
-    settings = Settings(_env_file=None, database_url=database_url)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None, database_url=database_url)
     monkeypatch.setattr(pool_module, "get_settings", lambda: settings)
 
 

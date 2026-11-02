@@ -39,7 +39,7 @@ def _settings(**overrides) -> Settings:
         "rate_limit_max_requests": 5,
     }
     base.update(overrides)
-    return Settings(_env_file=None, **base)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **base)
 
 
 JOB_ID = "0123456789abcdef0123456789abcdef"
