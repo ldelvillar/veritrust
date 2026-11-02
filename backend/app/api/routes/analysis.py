@@ -42,6 +42,28 @@ from app.schemas.history import AnalysisHistoryItem
 router = APIRouter()
 
 
+async def _owned_analysis(
+    user_id: str, analysis_id: str, visible_since: datetime | None
+) -> AnalysisHistoryItem:
+    """Fetch an own Analysis, answering 500 when the database fails and 404 when it does not exist."""
+    try:
+        record = await get_user_analysis_by_id(
+            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
+        ) from e
+
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
+        )
+    return record
+
+
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
     401: {"model": ErrorResponse},
     402: {"model": ErrorResponse},
@@ -156,21 +178,7 @@ async def share_analysis(
     """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
     user_id = user["sub"]
 
-    try:
-        record = await get_user_analysis_by_id(
-            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
+    record = await _owned_analysis(user_id, analysis_id, visible_since)
 
     # Only a finished report is shared, since pending and failed have no result.
     if record.status != "done":
@@ -256,21 +264,7 @@ async def get_analysis_detail(
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
 
-    try:
-        record = await get_user_analysis_by_id(
-            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
+    record = await _owned_analysis(user_id, analysis_id, visible_since)
 
     # Only a finished report can have feedback, so the pending poll skips the query.
     feedback = None
@@ -435,21 +429,7 @@ async def submit_analysis_feedback(
     """Guarda la valoración del veredicto de un análisis ``done`` propio."""
     user_id = user["sub"]
 
-    try:
-        record = await get_user_analysis_by_id(
-            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
+    record = await _owned_analysis(user_id, analysis_id, visible_since)
 
     # Only an existing Verdict gets feedback.
     if record.status != "done":

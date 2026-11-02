@@ -24,7 +24,6 @@ dependencies = [
     "arq>=0.26",
     "redis>=5",
     # LLM / Agents
-    "langchain>=1.4.7",
     "langchain-core>=1.6.12",
     "langchain-ollama>=1.1.0",
     "langchain-mistralai>=1.1",
@@ -32,13 +31,11 @@ dependencies = [
     "langchain-google-genai>=4.4.2",
     "langchain-nvidia-ai-endpoints>=1.5.0",
     "langgraph>=1.2.18",
-    "ollama>=0.6.3",
     # Web scraping
     "beautifulsoup4>=4.15.0",
     "requests>=2.34.2",
     # Utilities
     "PyYAML>=6.0",
-    "orjson>=3.13.0",
     "pypdf>=6.21.4",
     "mcp>=2.3.0",
     "stripe>=16.0.1",
