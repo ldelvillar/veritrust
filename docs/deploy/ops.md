@@ -112,7 +112,7 @@ Pro is sold through Stripe Billing (ADR-0005). The Stripe Dashboard setup, the t
 
 ## Capacity & scaling
 
-The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (600s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
+The throughput ceiling is the single shared Ollama, **not** the worker count. Each analysis runs three Ollama models sequentially (`llama3`, `translategemma`, `llama3.2`), and the worker takes one job at a time (`WORKER_MAX_JOBS=1`) because the pipeline saturates CPU/Ollama — concurrency >1 only inflates per-job latency. A run is capped at `ANALYSIS_JOB_TIMEOUT_SECONDS` (900s). Rows `pending` for more than `ANALYSIS_STALE_AFTER_SECONDS` (300s) **whose arq job no longer exists** are reaped to `failed`; rows whose job is still queued or running are left alone, so a deep queue under concurrent traffic does not fail anyone's analysis prematurely.
 
 **Memory budget (4 GB host, hosted LLM).** `docker-compose.prod.yml` caps each
 service with `mem_limit` (worker 1g, postgres/backend 512m each, frontend/redis
