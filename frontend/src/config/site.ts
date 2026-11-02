@@ -4,7 +4,7 @@ export const SITE_CONFIG = {
   email: 'lucasvillarv@gmail.com',
   phone: '+34 604 11 26 28',
 
-  // Titular del servicio (LSSI art. 10); lo citan el aviso legal, los términos y la privacidad.
+  // Holder of the service (LSSI art. 10), cited by the legal notice, terms and privacy policy.
   legal: {
     holder: 'Lucas del Villar Vázquez',
     nif: '54714499Y',

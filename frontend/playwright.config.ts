@@ -11,7 +11,7 @@ import {
   WEB_URL,
 } from './e2e/constants';
 
-// Las claves de Clerk de desarrollo salen de frontend/.env en local y de los secretos en CI.
+// Clerk's development keys come from frontend/.env locally and from the secrets in CI.
 const envFile = join(__dirname, '.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 

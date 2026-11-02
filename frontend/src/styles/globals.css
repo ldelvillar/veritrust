@@ -1,18 +1,18 @@
-/* Clerk va en su propia capa, por debajo de las utilidades, para que las clases de appearance ganen */
+/* Clerk gets its own layer below the utilities so the appearance classes win */
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
 @theme {
-  /* Tipografía: Onest para interfaz y cuerpo, Instrument Serif para titulares grandes */
+  /* Typography: Onest for UI and body, Instrument Serif for large headlines */
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-instrument), ui-serif, Georgia, serif;
 
-  /* Tramo micro para etiquetas y badges, por debajo del text-xs de Tailwind */
+  /* Micro step for labels and badges, below Tailwind's text-xs */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1.35;
 
-  /* Escala de titulares en Instrument Serif, separada de la escala de interfaz */
+  /* Instrument Serif headline scale, separate from the UI scale */
   --text-display-sm: 2.125rem;
   --text-display-sm--line-height: 1.12;
   --text-display-md: 2.625rem;
@@ -20,32 +20,32 @@
   --text-display-lg: 3.5rem;
   --text-display-lg--line-height: 1.06;
 
-  /* Marca: teal profundo */
+  /* Brand: deep teal */
   --color-primary: #0c4f52;
   --color-primary-strong: #073a3e;
   --color-primary-soft: #e3eeed;
   --color-primary-soft-strong: #d3e3e2;
   --color-border: #12211f26;
 
-  /* Acento secundario de marca, más claro que primary (eyebrows, nav activa) */
+  /* Secondary brand accent, lighter than primary (eyebrows, active nav) */
   --color-accent: #16686b;
 
-  /* Escala neutra de texto (grises con matiz cálido) */
+  /* Neutral text scale (warm-tinted greys) */
   --color-ink: #12211f;
   --color-body: #2e403d;
   --color-muted: #556866;
   --color-faint: #7d8f8c;
 
-  /* Líneas y superficies, crema */
+  /* Lines and surfaces, cream */
   --color-line: #e4e6e0;
   --color-line-strong: #d6d9d1;
   --color-surface: #f4f2ec;
   --color-surface-subtle: #faf9f5;
 
-  /* Fondo de sección oscura de marca */
+  /* Background of dark brand sections */
   --color-ink-deep: #0a2b2e;
 
-  /* Veredicto: verde (verdadero), ámbar (dudoso), coral (parcialmente falso), rojo (falso) — sólido, fondo suave y tinta */
+  /* Verdict: green (true), amber (uncertain), coral (partly false), red (false), each solid, soft background and ink */
   --color-verdict-real: #13b877;
   --color-verdict-real-soft: #def4ea;
   --color-verdict-real-ink: #0e8e5b;
@@ -59,24 +59,24 @@
   --color-verdict-fake-soft: #fbe4e8;
   --color-verdict-fake-ink: #c23552;
 
-  /* Danger/error: estados de fallo del sistema (no veredictos) — rojo anaranjado, distinto del rosa de "falso" */
+  /* Danger: system failure states (not Verdicts), an orange red distinct from the "false" rose */
   --color-danger: #dc4433;
   --color-danger-soft: #fce4e0;
   --color-danger-ink: #b23223;
   --color-danger-g1: #e2604a;
   --color-danger-g2: #c73824;
 
-  /* Success: confirmaciones de UI (no veredictos) — verde hierba, distinto del verde-teal de "verdadero" */
+  /* Success: UI confirmations (not Verdicts), a grass green distinct from the "true" teal green */
   --color-success: #2fa84f;
   --color-success-soft: #e1f5e6;
   --color-success-ink: #217a3c;
 
-  /* Warning: avisos de UI (no veredictos) — ámbar anaranjado, distinto del ocre de "dudoso" */
+  /* Warning: UI notices (not Verdicts), an orange amber distinct from the "uncertain" ochre */
   --color-warning: #f59e0b;
   --color-warning-soft: #fffbeb;
   --color-warning-ink: #b45309;
 
-  /* Paradas de degradado (claro → oscuro) para raíles y medidores renderizados en navegador */
+  /* Gradient stops (light to dark) for rails and meters rendered in the browser */
   --color-verdict-real-g1: #2bc488;
   --color-verdict-real-g2: #10a566;
   --color-verdict-uncertain-g1: #e8b057;
@@ -86,7 +86,7 @@
   --color-verdict-fake-g1: #e2607a;
   --color-verdict-fake-g2: #d23c5d;
 
-  /* Consola oscura de las maquetas de agente en «Cómo funciona»: superficies, hairlines y escala de texto */
+  /* Dark console of the agent mockups in «Cómo funciona»: surfaces, hairlines and text scale */
   --color-console-panel: #0d3336;
   --color-console-label: #bcd3d0;
   --color-console-tag: #9ec5c2;
@@ -99,15 +99,13 @@
   --color-console-glow: #eafaf4;
   --color-console-mint: #bfe9d8;
 
-  /* Veredicto sobre fondo oscuro: aclarado para conservar el contraste en la consola */
+  /* Verdict on a dark background, lightened to keep contrast in the console */
   --color-verdict-real-on-dark: #5fe0a8;
   --color-verdict-uncertain-on-dark: #f0c479;
   --color-verdict-fake-on-dark: #f3899b;
 }
 
-/* Exportar informe a PDF vía «Imprimir → Guardar como PDF».
-   margin:0 deja a Chromium sin espacio para dibujar sus cabeceras/pies (fecha,
-   título, URL, nº de página); el margen real se recrea con padding al imprimir. */
+/* margin:0 leaves Chromium no room for its print headers and footers, so the real margin is recreated with padding when printing to PDF. */
 @page {
   margin: 0;
 }
@@ -118,7 +116,7 @@
     background: #fff !important;
   }
 
-  /* Conserva el medidor de credibilidad, la banda del veredicto y los badges. */
+  /* Keep the Credibility meter, the Verdict band and the badges. */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -185,7 +183,7 @@ html {
   animation: spinSlow 34s linear infinite;
 }
 
-/* Apertura del desplegable de filtros (custom select del historial). */
+/* Opening of the filter dropdown (the History's custom select). */
 @keyframes selectIn {
   from {
     opacity: 0;
@@ -202,7 +200,7 @@ html {
   animation: selectIn 0.15s ease;
 }
 
-/* Esqueleto de carga con barrido (shimmer) usando un único elemento. */
+/* Loading skeleton with a shimmer, using a single element. */
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
@@ -223,13 +221,13 @@ html {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Contenedor oscuro: sus esqueletos toman tonos claros translúcidos. */
+/* Dark container, whose skeletons take light translucent tones. */
 .skeleton-on-dark {
   --skeleton-base: rgb(255 255 255 / 0.08);
   --skeleton-shine: rgb(255 255 255 / 0.18);
 }
 
-/* Análisis en curso: texto de estado con brillo, avatar con pulso y puntos de escritura. */
+/* Pending Analysis: shimmering status text, pulsing avatar and typing dots. */
 @keyframes thinkingShine {
   0% {
     background-position: 150% 0;
@@ -252,7 +250,7 @@ html {
   animation: thinkingShine 2.2s linear infinite;
 }
 
-/* El anillo se escala en un pseudo-elemento: transform y opacity no repintan la página. */
+/* The ring scales on a pseudo-element, since transform and opacity do not repaint the page. */
 @keyframes pulseRing {
   0% {
     transform: scale(1);
@@ -300,7 +298,7 @@ html {
   }
 }
 
-/* Ciclo de las maquetas de agente: barra de avance y cursor de escritura. */
+/* Agent mockup cycle: progress bar and typing caret. */
 @keyframes consoleProgress {
   from {
     width: 0;

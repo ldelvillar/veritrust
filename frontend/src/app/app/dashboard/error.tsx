@@ -26,7 +26,6 @@ export default function DashboardError({ error, reset }: ErrorProps) {
       />
 
       <div className="relative overflow-hidden rounded-3xl border border-line bg-white px-10 py-20 text-center shadow-[0_1px_2px_rgba(18,33,31,.05),0_10px_30px_rgba(18,33,31,.06)] max-md:px-6 max-md:py-15">
-        {/* Dot grid background */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -41,7 +40,6 @@ export default function DashboardError({ error, reset }: ErrorProps) {
         />
 
         <div className="relative z-1 flex flex-col items-center">
-          {/* Icon */}
           <div className="mb-6.5 grid size-21 place-items-center rounded-3xl bg-[linear-gradient(155deg,var(--color-danger-g1),var(--color-danger-g2))] text-white shadow-[0_14px_30px_var(--tw-shadow-color)] shadow-danger-g2/30">
             <Warning className="size-9.5" />
           </div>
@@ -58,7 +56,6 @@ export default function DashboardError({ error, reset }: ErrorProps) {
             solo es un problema temporal de conexión con el servidor.
           </p>
 
-          {/* CTAs */}
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={reset} size="lg">
               <RefreshIcon className="size-4.5" aria-hidden />

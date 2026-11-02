@@ -25,7 +25,7 @@ const refetch = vi.fn(async () => {});
 let response: PendingResponse | null;
 let queryOptions: QueryOptions;
 
-// Simula un sondeo exitoso: actualiza data y dispara onSuccess como haría SWR.
+// Simulate a successful poll, updating data and firing onSuccess as SWR would.
 const emit = (
   rerender: () => void,
   count: number,

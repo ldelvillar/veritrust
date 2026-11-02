@@ -1,4 +1,4 @@
-/* Pie con marca que solo aparece al imprimir (PDF), no en pantalla. */
+/* Branded footer that only appears when printing (PDF), not on screen. */
 import { SITE_CONFIG } from '@/config/site';
 
 export default function PrintFooter() {

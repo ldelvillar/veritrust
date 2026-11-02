@@ -18,7 +18,7 @@ type DashboardPayload =
 
 export default async function DashboardPage() {
   const plan = await fetchPlanServer();
-  // Sin dashboard en el Plan no se llama a la API: el usuario ve la invitación, no un 403.
+  // Without a dashboard in the Plan the API is not called, so the user sees the invitation, not a 403.
   const initialData = plan.limits.dashboard
     ? await fetchJsonServer<DashboardPayload>('/dashboard/summary')
     : null;

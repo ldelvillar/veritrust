@@ -19,10 +19,10 @@ export default function TrendChart({ data }: { data: TrendPoint[] }) {
   const slot = plotW / (data.length || 1);
   const barW = slot * 0.4;
   const grid = [0, 0.25, 0.5, 0.75, 1];
-  // En rangos largos (30/90 d) hay demasiadas barras diarias para etiquetar cada una.
+  // Long ranges (30/90 d) have too many daily bars to label each one.
   const labelStep = Math.max(1, Math.ceil(data.length / 12));
 
-  // Un día sin credibilidad corta la línea en vez de hundirla a 0.
+  // A day without Credibility breaks the line instead of sinking it to 0.
   const linePts = data.flatMap((t, i) =>
     t.average_credibility === null
       ? []

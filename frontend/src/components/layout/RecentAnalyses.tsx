@@ -9,7 +9,7 @@ import {
 } from '@/components/analysis-result/format';
 import type { HistoryItem } from '@/lib/historyQuery';
 
-// En ventanas bajas solo caben estos sin empujar el pie del menú.
+// Short windows only fit this many without pushing the menu footer.
 const COMPACT_LIMIT = 3;
 
 function dotFor(item: HistoryItem): { className: string; label: string } {

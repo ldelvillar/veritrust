@@ -7,7 +7,7 @@ import WarningIcon from '@/assets/Warning';
 import Button from '@/components/Button';
 
 interface ExportDataCardProps {
-  // null si el Plan oculta parte de la History y el total no se conoce.
+  // null if the Plan hides part of the History and the total is unknown.
   totalCount: number | null;
   isExporting: boolean;
   errorMessage: string | null;

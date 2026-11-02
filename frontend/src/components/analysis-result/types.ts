@@ -9,8 +9,7 @@ export type ConfidenceLevel = NonNullable<ResultType['confidence_level']>;
 export type AnalysisStage = NonNullable<ResultType['stage']>;
 export type ErrorCode = components['schemas']['ErrorCode'];
 
-// Vista común al informe propio (autenticado) y al público compartido: este
-// último no trae datos de identidad, así que analysis_id y origin son opcionales.
+// View shared by the owner's report and the public shared one, which carries no identity data, so analysis_id and origin are optional.
 export type ReportView = Omit<
   ResultType,
   'user_id' | 'analysis_id' | 'origin'

@@ -22,7 +22,7 @@ const highlights = [
   },
 ];
 
-// Las dos afirmaciones del análisis real que muestra /ejemplo.
+// The two claims of the real Analysis /ejemplo shows.
 const claims = [
   'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común.',
   'El consumo diario de vitamina C en dosis altas refuerza el sistema inmunitario sin ningún riesgo.',

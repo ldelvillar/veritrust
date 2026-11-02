@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     'Análisis real de VeriTrust sobre un texto de prueba, para ver cómo se presenta un informe de credibilidad.',
 };
 
-// Análisis real del 14 oct 2026, copiado tal cual del API para enseñar el formato sin esperar al pipeline.
+// Real Analysis from 14 Oct 2026, copied as is from the API to show the format without waiting for the pipeline.
 const SAMPLE_REPORT: ReportView = {
   source_type: 'text',
   input_text:

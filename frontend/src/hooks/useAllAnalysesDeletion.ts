@@ -15,7 +15,7 @@ export function useAllAnalysesDeletion() {
   const { mutate, isPending, error, setError } = useApiMutation();
 
   const removeAll = useCallback(async (): Promise<boolean> => {
-    // El refresco va dentro de la mutación: el diálogo sigue ocupado hasta vaciar los listados.
+    // The refresh runs inside the mutation, so the dialog stays busy until the lists are empty.
     const data = await mutate(async () => {
       const deleted = await fetchJsonWithAuth<DeleteAllResponse>(
         getToken,

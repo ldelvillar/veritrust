@@ -31,7 +31,7 @@ export function useApiQuery<T>(
       fallbackData: options.fallbackData,
       revalidateOnMount: skipMountRefetch ? false : undefined,
       refreshInterval: options.refreshInterval,
-      // SWR mezcla la configuración con spread: un undefined explícito anularía su valor por defecto.
+      // SWR merges config with spread, so an explicit undefined would override its default.
       ...(options.revalidateIfStale !== undefined
         ? { revalidateIfStale: options.revalidateIfStale }
         : {}),

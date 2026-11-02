@@ -6,12 +6,12 @@ import { refreshPlanOnPlanError } from '@/lib/planCache';
 const CONNECTION_ERROR =
   'Sin conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
 
-// Estado y traducción de errores que comparten todas las mutaciones de la API.
+// State and error translation shared by every API mutation.
 export function useApiMutation() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Devuelve la respuesta, o null si la petición falló y el mensaje quedó en `error`.
+  // Return the response, or null if the request failed and the message is in `error`.
   const mutate = useCallback(
     async <TResponse>(
       request: () => Promise<TResponse>

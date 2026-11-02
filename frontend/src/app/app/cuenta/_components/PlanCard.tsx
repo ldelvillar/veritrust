@@ -20,7 +20,7 @@ import {
   type PlanResponse,
 } from '@/lib/plan';
 
-// El webhook de Stripe puede llegar después de la vuelta del Checkout: se sondea un rato.
+// The Stripe webhook can arrive after the return from Checkout, so it is polled for a while.
 const ACTIVATION_POLL_MS = 2000;
 const ACTIVATION_TIMEOUT_MS = 30_000;
 
@@ -267,7 +267,7 @@ export default function PlanCard() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  // El resultado del Checkout se lee una vez: recargar la página no repite el aviso ni el sondeo.
+  // The Checkout result is read once, so reloading the page repeats neither the notice nor the polling.
   const [checkout] = useState(() => searchParams.get('checkout'));
   const [timedOut, setTimedOut] = useState(false);
   const { startCheckout, openPortal, isRedirecting, error } =

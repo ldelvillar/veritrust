@@ -20,8 +20,7 @@ function notificationsSupported(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window;
 }
 
-// Avisa con una notificación del navegador cuando un análisis en curso termina
-// con la pestaña en segundo plano; en primer plano la página ya se actualiza sola.
+// Show a browser notification when a pending Analysis finishes with the tab in the background, since in the foreground the page updates itself.
 export function useCompletionNotification(id: string, status: string): void {
   const previousStatus = useRef(status);
 

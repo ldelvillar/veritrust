@@ -6,9 +6,9 @@ import WarningIcon from '@/assets/Warning';
 import { formatCount } from '@/lib/plan';
 
 interface DangerZoneCardProps {
-  // null si el Plan oculta parte de la History y el total no se conoce.
+  // null if the Plan hides part of the History and the total is unknown.
   totalCount: number | null;
-  // 'all': se borró todo sin conocer el total.
+  // 'all' means everything was deleted without knowing the total.
   deletedCount: number | 'all' | null;
   onRequestDelete: () => void;
 }

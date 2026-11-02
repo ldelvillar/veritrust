@@ -11,7 +11,7 @@ type TooltipProps = {
   children: ReactNode;
 };
 
-// Tooltip accesible (WCAG 1.4.13): se descarta con Escape, es persistente y se puede pasar el ratón por encima.
+// Accessible tooltip (WCAG 1.4.13), dismissable with Escape, persistent and hoverable.
 export default function Tooltip({
   ariaLabel,
   trigger,
@@ -30,7 +30,7 @@ export default function Tooltip({
     setOpen(true);
   };
 
-  // Cierre diferido para no perder el tooltip al cruzar el hueco hacia el panel.
+  // Delayed close so the tooltip is not lost while crossing the gap to the panel.
   const hide = () => {
     closeTimer.current = setTimeout(() => setOpen(false), 120);
   };

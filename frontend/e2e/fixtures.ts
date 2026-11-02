@@ -2,13 +2,13 @@ import { test as base, expect } from '@playwright/test';
 
 import { MOCK_API_URL } from './constants';
 
-// Plan sembrado en el mock; por defecto Pro, con toda la app disponible.
+// Plan seeded in the mock, Pro by default with the whole app available.
 export interface MockPlan {
   plan: 'free' | 'pro';
   used: number;
 }
 
-// Cada prueba parte de los datos sembrados del mock; como el estado es compartido, se corre con un solo worker.
+// Each test starts from the mock's seeded data, and since the state is shared it runs on a single worker.
 export const test = base.extend<{ mockPlan: MockPlan; resetMockApi: void }>({
   mockPlan: [{ plan: 'pro', used: 0 }, { option: true }],
   resetMockApi: [

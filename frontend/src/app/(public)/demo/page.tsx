@@ -69,7 +69,6 @@ export default function DemoPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* ===================== SUBHEAD ===================== */}
       <section className="relative overflow-hidden bg-primary pt-16 pb-30 text-center text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-size-[26px_26px] opacity-60" />
         <div className="pointer-events-none absolute -top-45 -right-40 size-130 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.16),transparent_62%)]" />
@@ -84,12 +83,10 @@ export default function DemoPage() {
         </div>
       </section>
 
-      {/* ===================== FORM CARD ===================== */}
       <section className={`${container} relative z-5 -mt-21 pb-22.5`}>
         <div className="mb-22 grid overflow-hidden rounded-xs border border-line-strong bg-white shadow-[0_24px_60px_rgba(18,33,31,0.16)] md:grid-cols-[1.35fr_0.95fr]">
           <DemoForm />
 
-          {/* benefits aside */}
           <aside className="relative order-first overflow-hidden bg-ink px-9.5 py-11 text-white md:order-0">
             <div className="pointer-events-none absolute -right-30 -bottom-30 size-80 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.14),transparent_62%)]" />
             <div className="relative z-2">

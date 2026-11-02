@@ -15,7 +15,7 @@ function buildServerUrl(path: string): string {
   return `${serverEnv.apiUrl}${normalized}`;
 }
 
-// Un token por petición: cada getToken de Clerk es una llamada a su API, y el layout y la página lo comparten.
+// One token per request, since each Clerk getToken is an API call and the layout and page share it.
 const getServerToken = cache(async () => {
   const { getToken } = await auth();
   return getToken({ template: TOKEN_TEMPLATE });
@@ -45,7 +45,7 @@ export async function fetchPublicJsonServer<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-// Una petición por render: el layout de /app y la página que lo consulte comparten el Plan.
+// One request per render, so the /app layout and the page that reads it share the Plan.
 export const fetchPlanServer = cache(() =>
   fetchJsonServer<PlanResponse>(PLAN_PATH)
 );

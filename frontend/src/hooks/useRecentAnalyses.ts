@@ -6,7 +6,7 @@ import {
   type HistoryPayload,
 } from '@/lib/historyQuery';
 
-// Últimos análisis para el menú; no sondea: lo refrescan los borrados y los cambios del indicador.
+// Latest analyses for the menu, not polled but refreshed by deletions and indicator changes.
 export function useRecentAnalyses(): HistoryItem[] {
   const { isSignedIn } = useAuth();
   const { data } = useApiQuery<HistoryPayload>(

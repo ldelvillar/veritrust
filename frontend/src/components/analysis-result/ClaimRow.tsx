@@ -87,8 +87,7 @@ export default function ClaimRow({
                   </span>
                 )}
               </div>
-              {/* Siempre en el DOM y colapsado con clases, para que el PDF
-                  (print:block) muestre toda la evidencia aunque esté oculta. */}
+              {/* Always in the DOM and collapsed with classes, so the PDF (print:block) shows all the Evidence even when hidden. */}
               <ul
                 id={panelId}
                 aria-label="Fuentes que respaldan esta afirmación"

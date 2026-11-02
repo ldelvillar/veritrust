@@ -11,7 +11,7 @@ export const contentType = 'image/png';
 type PublicReport =
   paths['/shared/{token}']['get']['responses']['200']['content']['application/json'];
 
-// Teal de marca literal: next/og renderiza fuera del DOM y no resuelve los tokens CSS.
+// Literal brand teal, since next/og renders outside the DOM and cannot resolve CSS tokens.
 const FALLBACK_BAND = '#0c4f52';
 
 export default async function OpengraphImage({

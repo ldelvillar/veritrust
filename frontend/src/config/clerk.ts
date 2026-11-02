@@ -45,7 +45,6 @@ export const clerkAppearance: ClerkAppearance = {
   },
 };
 
-// Reescribir traducciones de Clerk.
 export const clerkLocalization: typeof esES = {
   ...esES,
   formFieldLabel__emailAddress: 'Dirección de correo electrónico',
