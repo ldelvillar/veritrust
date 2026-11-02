@@ -10,7 +10,7 @@ on:
       - Caddyfile
       - .github/workflows/deploy.yml
       - .github/workflows/ci.yml
-  # Sin filtro de rutas: el check requerido "CI passed" debe reportar en todo PR.
+  # No path filter, since the required "CI passed" check must report on every PR.
   pull_request:
   workflow_dispatch:
 
@@ -223,7 +223,7 @@ jobs:
       run:
         working-directory: frontend
     env:
-      # Instancia de desarrollo de Clerk: el usuario de prueba inicia sesión de verdad.
+      # Clerk development instance, where the test user really signs in.
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
     steps:
