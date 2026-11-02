@@ -37,7 +37,7 @@ def _claims(**overrides) -> dict:
 def _configure(monkeypatch):
     """Pin Clerk's issuer and resolve the public key without network."""
     settings = Settings(
-        _env_file=None,  # type: ignore[call-arg]
+        _env_file=None,
         clerk_issuer=_ISSUER,
         clerk_jwks_url=f"{_ISSUER}/.well-known/jwks.json",
     )
@@ -111,7 +111,7 @@ async def test_returns_none_without_an_issuer(monkeypatch):
     monkeypatch.setattr(
         auth_module,
         "get_settings",
-        lambda: Settings(_env_file=None),  # type: ignore[call-arg]
+        lambda: Settings(_env_file=None),
     )
 
     assert (

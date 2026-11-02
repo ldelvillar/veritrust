@@ -38,7 +38,7 @@ def _make_settings(**overrides) -> Settings:
         "clerk_api_base_url": _CLERK_API_URL,
     }
     base.update(overrides)
-    return Settings(_env_file=None, **base)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **base)
 
 
 def _use_settings(monkeypatch, **overrides) -> Settings:

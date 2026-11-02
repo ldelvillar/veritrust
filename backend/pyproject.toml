@@ -31,9 +31,12 @@ dependencies = [
     "langchain-google-genai>=4.4.2",
     "langchain-nvidia-ai-endpoints>=1.5.0",
     "langgraph>=1.2.18",
+    "aiohttp>=3.14.3",
+    "groq>=0.37.1",
     # Web scraping
     "beautifulsoup4>=4.15.0",
     "requests>=2.34.2",
+    "urllib3>=2.6.3",
     # Utilities
     "PyYAML>=6.0",
     "pypdf>=6.21.4",

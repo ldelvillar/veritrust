@@ -215,11 +215,11 @@ async def search_history(
         async with pool.connection() as conn:
             async with conn.cursor() as cur:
                 # The SQL is built from fixed, parameterised clauses, not raw input.
-                await cur.execute(facet_query, (*VERDICT_KINDS, *facet_params))  # pyright: ignore[reportArgumentType]
+                await cur.execute(facet_query, (*VERDICT_KINDS, *facet_params))
                 facet_row = await cur.fetchone()
             async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(
-                    page_query,  # pyright: ignore[reportArgumentType]
+                    page_query,
                     (*where_params, page_size, (page - 1) * page_size),
                 )
                 rows = await cur.fetchall()
@@ -265,7 +265,7 @@ async def export_history(
     try:
         async with pool.connection() as conn:
             async with conn.cursor(row_factory=dict_row) as cur:
-                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))  # pyright: ignore[reportArgumentType]
+                await cur.execute(export_query, (*where_params, _EXPORT_MAX_ROWS))
                 rows = await cur.fetchall()
     except psycopg.Error as exc:
         raise DatabaseError(

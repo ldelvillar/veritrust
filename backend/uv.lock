@@ -3353,10 +3353,12 @@ name = "veritrust"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "arq" },
     { name = "beautifulsoup4" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "groq" },
     { name = "httpx" },
     { name = "langchain-core" },
     { name = "langchain-google-genai" },
@@ -3378,6 +3380,7 @@ dependencies = [
     { name = "requests" },
     { name = "stripe" },
     { name = "svix" },
+    { name = "urllib3" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -3400,10 +3403,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.14.3" },
     { name = "arq", specifier = ">=0.26" },
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "cryptography", specifier = ">=50.0.2" },
     { name = "fastapi", specifier = ">=0.162.0" },
+    { name = "groq", specifier = ">=0.37.1" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "langchain-core", specifier = ">=1.6.12" },
     { name = "langchain-google-genai", specifier = ">=4.4.2" },
@@ -3427,6 +3432,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.34.2" },
     { name = "stripe", specifier = ">=16.0.1" },
     { name = "svix", specifier = ">=2.9.1" },
+    { name = "urllib3", specifier = ">=2.6.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 provides-extras = ["evaluation"]
