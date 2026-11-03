@@ -126,7 +126,7 @@ If a migration **succeeds but damages data or schema**, restore the dump taken j
    rm ~/backups/deleted-users.sql
    ```
 
-   Their Stripe subscriptions were already cancelled when they deleted their account. **Fallback**, when step 2 was skipped or the restored database has no `deleted_users` table (a dump from before migration `0005`): list the restored user IDs with `vt -c "SELECT user_id FROM analysis_history UNION SELECT user_id FROM billing_customers"`, check each in the Clerk Dashboard (**Users**; a deleted user is gone), and run the same `DELETE`s with `WHERE user_id = ANY('{user_a,user_b}')`, listing the IDs Clerk no longer has.
+   Their Stripe subscriptions were already cancelled when they deleted their account. **Fallback**, when step 2 was skipped, the dump is older than 35 days (a failing backup cron skips its cleanup), or the restored database has no `deleted_users` table (a dump from before migration `0005`): list the restored user IDs with `vt -c "SELECT user_id FROM analysis_history UNION SELECT user_id FROM billing_customers"`, check each in the Clerk Dashboard (**Users**; a deleted user is gone), and run the same `DELETE`s with `WHERE user_id = ANY('{user_a,user_b}')`, listing the IDs Clerk no longer has.
 
 5. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
 
