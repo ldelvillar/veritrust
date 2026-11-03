@@ -40,19 +40,34 @@ See [backups.md](backups.md).
 
 ## Updating the app
 
-Run from the VM:
+Run from the VM. These are the steps `deploy.yml` runs.
 
-```bash
-cd ~/veritrust
-git pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
+1. Pull the code. `--ff-only` stops instead of merging if the VM checkout has diverged from `main`:
 
-This is the same command `deploy.yml` runs. The one-shot `migrate` service applies
-pending migrations before `backend` and `worker` start, and `up -d` only recreates
-containers whose image or config changed. If `migrate` fails, `up` exits non-zero
-and the error is in
-`docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`.
+   ```bash
+   cd ~/veritrust
+   git pull --ff-only
+   ```
+
+2. Back up the database, because the next step applies pending migrations. Don't continue if this prints an error. The dump uses the `pre-deploy-*` name, so the cleanup rules in [backups.md](backups.md) remove it like the workflow's own:
+
+   ```bash
+   mkdir -p ~/backups
+   docker exec "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)" \
+     sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > ~/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
+   ```
+
+3. Rebuild and start the stack. The one-shot `migrate` service applies pending migrations before `backend` and `worker` start, and `up -d` only recreates containers whose image or config changed. If `migrate` fails, `up` exits non-zero and the error is in `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   ```
+
+4. Check `worker` and `frontend` are healthy. `up -d` returns success even when they crash-loop, because nothing depends on their health. Within five minutes both should show `(healthy)`; if one doesn't, read it with `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 50 <service>`:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml ps worker frontend
+   ```
 
 Deploys never restart Caddy, so a `Caddyfile` change only applies after
 `docker compose -f docker-compose.yml -f docker-compose.prod.yml restart caddy`.
