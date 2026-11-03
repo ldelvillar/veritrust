@@ -89,7 +89,7 @@ To actually restore production from a nightly dump, follow the steps in section 
 
 ## 5. Undo a bad migration
 
-Every deploy dumps the database to `~/backups/pre-deploy-<timestamp>.dump` before the `migrate` service runs (see `.github/workflows/deploy.yml`).
+Every deploy dumps the database to `~/backups/pre-deploy-<timestamp>.dump` before the `migrate` service runs (see `.github/workflows/deploy.yml`), and so does the manual update in [ops.md](ops.md#updating-the-app).
 
 If a migration **fails**, its transaction rolls back and the deploy goes red. Compose has already replaced the API and worker containers but won't start them, so they stay down until a fixed or reverted commit deploys. There is nothing to restore.
 

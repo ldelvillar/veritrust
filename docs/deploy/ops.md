@@ -40,7 +40,7 @@ See [backups.md](backups.md).
 
 ## Updating the app
 
-Run from the VM. These are the steps `deploy.yml` runs.
+Run from the VM. These steps mirror `deploy.yml`, which also skips the backup on the very first deploy (no Postgres yet) and keeps only the newest 10 pre-deploy dumps.
 
 1. Pull the code. `--ff-only` stops instead of merging if the VM checkout has diverged from `main`:
 
@@ -49,21 +49,22 @@ Run from the VM. These are the steps `deploy.yml` runs.
    git pull --ff-only
    ```
 
-2. Back up the database, because the next step applies pending migrations. Don't continue if this prints an error. The dump uses the `pre-deploy-*` name, so the cleanup rules in [backups.md](backups.md) remove it like the workflow's own:
+2. Back up the database, because the next step applies pending migrations. The dump is written to a `.partial` file and renamed only when `pg_dump` succeeds, so a failed dump never leaves a file that looks like a backup. Don't continue if this prints an error. The dump uses the `pre-deploy-*` name, so the cleanup rules in [backups.md](backups.md) remove it like the workflow's own:
 
    ```bash
    mkdir -p ~/backups
+   f=$HOME/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
    docker exec "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)" \
-     sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > ~/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
+     sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$f.partial" && mv "$f.partial" "$f" || rm -f "$f.partial"
    ```
 
-3. Rebuild and start the stack. The one-shot `migrate` service applies pending migrations before `backend` and `worker` start, and `up -d` only recreates containers whose image or config changed. If `migrate` fails, `up` exits non-zero and the error is in `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`:
+3. Rebuild and start the stack. The one-shot `migrate` service applies pending migrations before `backend` and `worker` start, and `up -d` only recreates containers whose image or config changed. If `migrate` fails, `up` exits non-zero and the error is in `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`. Compose has already replaced `backend` and `worker` by then and leaves them stopped, so the API is down until a fixed or reverted commit is deployed; see [backups.md §5](backups.md#5-undo-a-bad-migration):
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    ```
 
-4. Check `worker` and `frontend` are healthy. `up -d` returns success even when they crash-loop, because nothing depends on their health. Within five minutes both should show `(healthy)`; if one doesn't, read it with `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 50 <service>`:
+4. Check `worker` and `frontend` are healthy. `up -d` returns success even when they crash-loop, because nothing depends on their health. Right after `up` they show `(health: starting)`, so rerun this until both show `(healthy)`. If one shows `(unhealthy)`, or is still starting after five minutes, read it with `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 50 <service>`:
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml ps worker frontend
