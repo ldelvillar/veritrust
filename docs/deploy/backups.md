@@ -89,11 +89,11 @@ To actually restore production from a nightly dump, follow the steps in section 
 
 ## 5. Undo a bad migration
 
-Every deploy dumps the database to `~/backups/pre-deploy-<timestamp>.dump` before the `migrate` service runs (see `.github/workflows/deploy.yml`).
+Every deploy dumps the database to `~/backups/pre-deploy-<timestamp>.dump` before the `migrate` service runs (see `.github/workflows/deploy.yml`), and so does the manual update in [ops.md](ops.md#updating-the-app).
 
 If a migration **fails**, its transaction rolls back and the deploy goes red. Compose has already replaced the API and worker containers but won't start them, so they stay down until a fixed or reverted commit deploys. There is nothing to restore.
 
-If a migration **succeeds but damages data or schema**, restore the dump taken just before the deploy that ran it (later dumps already contain the damage). Everything written since that deploy is lost.
+If a migration **succeeds but damages data or schema**, restore the dump taken just before the deploy that ran it (later dumps already contain the damage). Never restore a `pre-deploy-*.partial.dump`; it is an interrupted dump. Everything written since that deploy is lost.
 
 1. Stop the writers, so nothing writes during the restore and the new code never runs against the old schema:
 
