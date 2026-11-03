@@ -13,6 +13,7 @@ from typing import Any, Literal, Protocol, get_args
 from app.core.plans import PlanLimits, history_floor
 from app.core.verdict import Verdict
 from app.db import analysis_transitions as transitions
+from app.db.deleted_users import UserDeleted
 from app.db.history import HiddenAnalysis, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import (
@@ -79,6 +80,7 @@ REFUSAL_CODES: frozenset[ErrorCode] = frozenset(
         ErrorCode.PLAN_REQUIRED,
         ErrorCode.ALLOWANCE_EXHAUSTED,
         ErrorCode.TEXT_TOO_LONG_FOR_PLAN,
+        ErrorCode.INVALID_TOKEN,
     }
 )
 
@@ -136,6 +138,9 @@ class AnalysisIntake:
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
+        except UserDeleted as exc:
+            # A session token issued before the account was deleted still verifies locally.
+            raise AnalysisRefused(ErrorCode.INVALID_TOKEN) from exc
         except DatabaseError as exc:
             logger.exception("No se pudo crear el análisis pendiente")
             raise AnalysisRefused(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
@@ -176,6 +181,8 @@ class AnalysisIntake:
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
+        except UserDeleted as exc:
+            raise AnalysisRefused(ErrorCode.INVALID_TOKEN) from exc
         except DatabaseError as exc:
             logger.exception("No se pudo crear el análisis de archivo pendiente")
             raise AnalysisRefused(ErrorCode.ANALYSIS_SAVE_FAILED) from exc
@@ -244,6 +251,8 @@ class AnalysisIntake:
             )
         except transitions.AllowanceExhausted as exc:
             raise AnalysisRefused(ErrorCode.ALLOWANCE_EXHAUSTED) from exc
+        except UserDeleted as exc:
+            raise AnalysisRefused(ErrorCode.INVALID_TOKEN) from exc
         except DatabaseError as exc:
             raise AnalysisRefused(write_failed) from exc
 

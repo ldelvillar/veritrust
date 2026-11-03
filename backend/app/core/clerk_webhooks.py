@@ -9,6 +9,7 @@ from svix.webhooks import Webhook, WebhookVerificationError
 from app.core import billing
 from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.config import get_settings
+from app.db.deleted_users import mark_deleted
 from app.db.history import delete_all_user_analyses
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,9 @@ async def handle_webhook(
     if event_type == "user.deleted":
         user_id = (event.get("data") or {}).get("id")
         if user_id:
-            # Analyses go first, so a Run that closes later has no row and records no Usage.
+            # The record goes first, so every later opening or Usage write is refused and the erasure below is final.
+            await mark_deleted(user_id)
+            # Analyses go before billing, so a Run that closes later has no row and records no Usage.
             deleted = await delete_all_user_analyses(user_id=user_id)
             await intake.cancel_runs(deleted.pending_ids)
             await billing.forget_user(user_id)

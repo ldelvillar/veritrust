@@ -85,7 +85,7 @@ docker exec $cid dropdb -U veritrust restore_test
 
 It restores the newest nightly dump. `pg_restore` must finish without errors, and the two lines (migrations, analyses, feedback) must match, or production's be slightly higher if analyses finished after the dump. `-i` keeps stdin open so the file pipes in.
 
-To actually restore production from a nightly dump, follow the steps in section 5 with that dump instead of a `pre-deploy-*` one: stop the writers, `pg_restore --clean --if-exists --create`, re-apply the erasures (section 5, step 3), then start them again with `docker compose -f ~/veritrust/docker-compose.yml start backend worker`. Everything written since the dump is lost.
+To actually restore production from a nightly dump, follow the steps in section 5 with that dump instead of a `pre-deploy-*` one: stop the writers, save the record of deleted accounts (section 5, step 2), `pg_restore --clean --if-exists --create`, re-apply the erasures (section 5, step 4), then start them again with `docker compose -f ~/veritrust/docker-compose.yml start backend worker`. Everything written since the dump is lost.
 
 ## 5. Undo a bad migration
 
@@ -101,25 +101,34 @@ If a migration **succeeds but damages data or schema**, restore the dump taken j
    docker compose -f ~/veritrust/docker-compose.yml stop backend worker
    ```
 
-2. Restore the dump. `--create` drops and recreates the whole database, so tables the migration created (which aren't in the dump) go too; it connects to `postgres` because `veritrust` is the database being dropped:
+2. Save the record of deleted accounts. The `user.deleted` webhook writes every deleted account to `deleted_users`, but the restore replaces that table with the dump's older copy, so copy it out of the live database first:
+
+   ```bash
+   docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \
+     pg_dump -U veritrust -d veritrust --data-only -t public.deleted_users --inserts --on-conflict-do-nothing > ~/backups/deleted-users.sql
+   ```
+
+   If the live database can't be read (the disk or the VM is gone), skip this step and use the fallback in step 4.
+
+3. Restore the dump. `--create` drops and recreates the whole database, so tables the migration created (which aren't in the dump) go too; it connects to `postgres` because `veritrust` is the database being dropped:
 
    ```bash
    docker exec -i $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \
      pg_restore -U veritrust -d postgres --clean --if-exists --create < ~/backups/pre-deploy-20261025-120000.dump
    ```
 
-3. Re-apply the erasures. The dump can hold users who deleted their account after it was taken, and the privacy policy promises that a restore applies their erasures again. List the restored user IDs, check each in the Clerk Dashboard (**Users**; a deleted user is gone), and delete the rows of every one Clerk no longer has, with the same tables the `user.deleted` webhook clears:
+4. Re-apply the erasures. The dump can hold users who deleted their account after it was taken, and the privacy policy promises that a restore applies their erasures again. Load the saved record into the restored database, delete the rows of every account in it from the same tables the webhook clears, then delete the saved file, which no cleanup rule matches:
 
    ```bash
-   vt() { docker exec -i $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) psql -U veritrust -d veritrust "$@"; }
-   vt -c "SELECT user_id FROM analysis_history UNION SELECT user_id FROM billing_customers"
-   ids='{user_a,user_b}'  # the IDs Clerk no longer has
-   for t in analysis_history billing_customers subscriptions usage_events; do vt -c "DELETE FROM $t WHERE user_id = ANY('$ids')"; done
+   vt() { docker exec -i $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) psql -U veritrust -d veritrust -v ON_ERROR_STOP=1 "$@"; }
+   vt < ~/backups/deleted-users.sql
+   for t in analysis_history billing_customers subscriptions usage_events; do vt -c "DELETE FROM $t WHERE user_id IN (SELECT user_id FROM deleted_users)"; done
+   rm ~/backups/deleted-users.sql
    ```
 
-   Their Stripe subscriptions were already cancelled when they deleted their account. [#82](https://github.com/ldelvillar/veritrust/issues/82) would replace this manual step with a record of deleted users.
+   Their Stripe subscriptions were already cancelled when they deleted their account. **Fallback**, when step 2 was skipped or the restored database has no `deleted_users` table (a dump from before migration `0005`): list the restored user IDs with `vt -c "SELECT user_id FROM analysis_history UNION SELECT user_id FROM billing_customers"`, check each in the Clerk Dashboard (**Users**; a deleted user is gone), and run the same `DELETE`s with `WHERE user_id = ANY('{user_a,user_b}')`, listing the IDs Clerk no longer has.
 
-4. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
+5. On your machine, `git revert` the commit that added the migration and push to `main`. The restored `schema_migrations` no longer lists that migration, so the runner accepts the file being gone, and the deploy starts the API and worker again.
 
 The dump is in `pg_dump`'s custom format (compressed, includes `schema_migrations`), so restore it with `pg_restore`, not `psql`.
 

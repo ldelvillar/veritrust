@@ -30,6 +30,7 @@ from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.billing import record_evidence_search
+from app.db.deleted_users import UserDeleted
 from app.db.pool import DatabaseError, close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
@@ -162,9 +163,12 @@ async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
         for hit in entry["hits"] or []:
             hit["abstract"] = _truncate_abstract(hit["abstract"])
 
-    # Only a search with a result consumes Allowance, and the result is delivered even if recording it fails.
+    # Only a search with a result consumes Allowance, and the result is delivered even if recording it fails, unless the account is gone.
     try:
         await record_evidence_search(user_id)
+    except UserDeleted:
+        logger.info("[Worker] Búsqueda de evidencia de una cuenta ya eliminada")
+        return {"error_code": ErrorCode.INVALID_TOKEN.value}
     except DatabaseError:
         logger.exception(
             "[Worker] No se pudo anotar la búsqueda de evidencia en el Usage"

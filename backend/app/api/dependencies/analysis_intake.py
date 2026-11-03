@@ -13,6 +13,7 @@ from app.schemas.errors import ErrorCode
 
 # HTTP status of each refusal reason, which a test keeps in step with REFUSAL_CODES.
 REFUSAL_HTTP_STATUS: dict[ErrorCode, int] = {
+    ErrorCode.INVALID_TOKEN: 401,
     ErrorCode.ALLOWANCE_EXHAUSTED: 402,
     ErrorCode.PLAN_REQUIRED: 403,
     ErrorCode.ANALYSIS_NOT_FOUND: 404,
