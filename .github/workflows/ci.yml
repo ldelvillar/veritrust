@@ -27,6 +27,8 @@ jobs:
       backend_evaluation: ${{ steps.filter.outputs.backend_evaluation }}
       backend_image: ${{ steps.filter.outputs.backend_image }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      deploy_config: ${{ steps.filter.outputs.deploy_config }}
+      uncovered: ${{ steps.coverage.outputs.uncovered }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -35,6 +37,7 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v4
         with:
+          list-files: json
           filters: |
             backend_app:
               - 'backend/app/**'
@@ -42,12 +45,14 @@ jobs:
               - 'backend/tests/**'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
+              - 'backend/.python-version'
               - '.github/workflows/ci.yml'
             backend_evaluation:
               - 'backend/evaluation/**'
               - 'backend/data/**'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
+              - 'backend/.python-version'
               - '.github/workflows/ci.yml'
             backend_image:
               - 'backend/Dockerfile'
@@ -60,6 +65,49 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
+            deploy_config:
+              - 'docker-compose*.yml'
+              - 'Caddyfile'
+              - '.github/workflows/**'
+            # Files that ship nowhere, so no job has to cover them.
+            not_deployed:
+              - '**/*.md'
+              - '**/.gitignore'
+              - '**/.env.example'
+
+      # The push trigger's paths decide what reaches deploy.yml, so they are read here rather than copied.
+      - name: Read the push trigger's paths
+        id: push_paths
+        run: |
+          paths=$(yq -o json -I0 '.on.push.paths // []' .github/workflows/ci.yml)
+          # paths-filter reads '!' patterns differently from GitHub, so only a plain positive list is safe to reuse.
+          if ! jq -e 'length > 0 and all(.[]; type == "string" and (startswith("!") | not))' <<<"$paths" >/dev/null; then
+            echo "::error::on.push.paths debe ser una lista de patrones positivos para calcular la cobertura; adapta este paso si cambias el trigger."
+            exit 1
+          fi
+          {
+            echo 'filters<<EOF'
+            jq -r '"deploy_relevant:", (.[] | "  - " + @json)' <<<"$paths"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Filter deploy-relevant paths
+        id: relevant
+        uses: dorny/paths-filter@v4
+        with:
+          list-files: json
+          filters: ${{ steps.push_paths.outputs.filters }}
+
+      - name: Find deploy-relevant files that no filter covers
+        id: coverage
+        env:
+          FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
+          RELEVANT: ${{ steps.relevant.outputs.deploy_relevant_files }}
+        run: |
+          uncovered=$(jq -c --argjson relevant "$RELEVANT" '
+            $relevant - ([to_entries[] | select(.key | endswith("_files")) | .value | fromjson] | add // [])
+          ' <<<"$FILTER_OUTPUTS")
+          echo "uncovered=$uncovered" >> "$GITHUB_OUTPUT"
 
   backend_app:
     name: Backend App Tests (Python)
@@ -315,36 +363,95 @@ jobs:
             exit 1
           }
 
-  docker_images:
-    name: Docker images (build)
+  deploy_stack:
+    name: Production stack (build, boot, deploy script)
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_image == 'true' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deploy_config == 'true' || needs.changes.outputs.backend_image == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    env:
+      # Dummy values for the variables docker-compose*.yml interpolates from the root .env.
+      POSTGRES_PASSWORD: ci-postgres
+      REDIS_PASSWORD: ci-redis
+      # Well-formed but fake (base64 of "clerk.example.com$"), since Clerk parses the key at runtime.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      APP_DOMAIN: app.example.com
+      API_DOMAIN: api.example.com
+      ACME_EMAIL: ci@example.com
+      # The production stack, as deploy.yml runs it; '-f docker-compose.yml' alone selects the base file.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Lint workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+
+      - name: Check the deploy script (bash -n, shellcheck)
+        run: |
+          docker run --rm -v "$PWD:/workdir" mikefarah/yq:4.44.3 -e \
+            '.jobs.deploy.steps[] | select(.uses == "appleboy/ssh-action*") | .with.script' \
+            .github/workflows/deploy.yml > "$RUNNER_TEMP/deploy.sh"
+          bash -n "$RUNNER_TEMP/deploy.sh"
+          docker run --rm -v "$RUNNER_TEMP:/mnt" koalaman/shellcheck:v0.10.0 -s bash -S warning /mnt/deploy.sh
+
+      - name: Write dummy env files
+        run: |
+          # Enough for validate_runtime to pass with ENVIRONMENT unset, as in production.
+          cat > backend/.env <<'EOF'
+          LLM_PROVIDER=mistral
+          MISTRAL_API_KEY=ci-dummy
+          CLERK_JWKS_URL=https://clerk.example.com/.well-known/jwks.json
+          CLERK_ISSUER=https://clerk.example.com
+          CLERK_AUDIENCE=ci
+          CLERK_SECRET_KEY=sk_test_ci_placeholder
+          CLERK_WEBHOOK_SECRET=whsec_ci_placeholder
+          STRIPE_SECRET_KEY=sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET=whsec_ci_placeholder
+          STRIPE_PRICE_PRO_MONTHLY=price_ci_monthly
+          STRIPE_PRICE_PRO_YEARLY=price_ci_yearly
+          RESEND_API_KEY=re_ci_placeholder
+          RESEND_FROM_EMAIL=ci@example.com
+          CONTACT_TO_EMAIL=ci@example.com
+          EOF
+          cat > frontend/.env <<'EOF'
+          CLERK_SECRET_KEY=sk_test_ci_placeholder
+          CLERK_TELEMETRY_DISABLED=1
+          EOF
+
+      - name: Validate compose files
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml --profile ollama config --quiet
+          docker compose config --quiet
+
+      - name: Validate Caddyfile
+        run: docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build backend image
-        if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend_image == 'true'
-        uses: docker/build-push-action@v7
+      # Bake reads the build sections of the compose files, so the images match what deploy.yml's 'up --build' makes.
+      - name: Build images from the compose files
+        uses: docker/bake-action@v7
         with:
-          context: backend
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
+          source: .
+          files: |
+            docker-compose.yml
+            docker-compose.prod.yml
+          targets: backend,frontend
+          load: true
+          set: |
+            backend.cache-from=type=gha,scope=backend
+            backend.cache-to=type=gha,mode=max,scope=backend
+            frontend.cache-from=type=gha,scope=frontend
+            frontend.cache-to=type=gha,mode=max,scope=frontend
 
-      - name: Build frontend image
-        if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: frontend
-          build-args: |
-            NEXT_PUBLIC_API_URL=https://api.example.com
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ci_placeholder
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+      - name: Start migrate, backend, worker and frontend with the production config
+        run: docker compose up -d --no-build --wait --wait-timeout 300 backend worker frontend
+
+      - name: Show service logs
+        if: failure()
+        run: docker compose logs --tail 100 migrate backend worker frontend
 
   ci_ok:
     name: CI passed
@@ -356,7 +463,7 @@ jobs:
         frontend,
         frontend_e2e,
         api_contract,
-        docker_images,
+        deploy_stack,
       ]
     if: always()
     runs-on: ubuntu-latest
@@ -365,6 +472,15 @@ jobs:
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
           echo "::error::Algún job de CI falló o se canceló; no se despliega."
+          exit 1
+
+      - name: Fail if a deploy-relevant file matches no filter
+        if: github.event_name != 'workflow_dispatch' && needs.changes.outputs.uncovered != '[]'
+        env:
+          UNCOVERED: ${{ needs.changes.outputs.uncovered }}
+        run: |
+          echo "::error::Estos archivos llegan al despliegue pero ningún filtro de 'changes' los cubre, así que ningún job los probó. Añádelos al filtro del job que los ejercita, o a not_deployed si no se despliegan:"
+          jq -r '.[]' <<<"$UNCOVERED"
           exit 1
 
       - name: Report

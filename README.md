@@ -151,7 +151,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 Requires DNS `A` records for the app domain, its `www.` and the API domain, inbound 80/443, and `APP_DOMAIN`/`API_DOMAIN`/`ACME_EMAIL` in `.env`. `NEXT_PUBLIC_API_URL` is baked into the frontend at **build** time, so a domain change needs `--build`, not just a restart. Add `https://<app domain>` as an allowed origin in Clerk.
 
-**CI/CD**: every push to `main` runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VPS, dumps the database to `~/backups/`, and redeploys the stack (migrations included). Operational runbooks live in [docs/deploy/](docs/deploy/):
+**CI/CD**: every push to `main` that touches `backend/`, `frontend/`, the compose files, the `Caddyfile` or the CI/deploy workflows runs CI (`.github/workflows/ci.yml`); on success, `.github/workflows/deploy.yml` SSHes into the VPS, dumps the database to `~/backups/`, and redeploys the stack (migrations included). Operational runbooks live in [docs/deploy/](docs/deploy/):
 
 - [vps-setup.md](docs/deploy/vps-setup.md) — first-time server setup, from SSH keys to the first deploy
 - [env.md](docs/deploy/env.md) — the three production env files and how to change them
