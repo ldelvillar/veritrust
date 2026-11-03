@@ -4,7 +4,13 @@ import asyncio
 
 import pytest
 
-from app.db.deleted_users import UserDeleted, lock_live_user, mark_deleted
+from app.db.deleted_users import (
+    RETENTION_DAYS,
+    UserDeleted,
+    lock_live_user,
+    mark_deleted,
+    prune_expired,
+)
 from app.db.history import delete_all_user_analyses
 from app.schemas.analysis import AnalysisRequest
 from tests.db.seed import seed_pending
@@ -66,3 +72,18 @@ async def test_a_deletion_waits_for_a_write_in_flight_so_the_erasure_sees_it(
     assert deleted.count == 1
     with pytest.raises(UserDeleted):
         await seed_pending(user_id=USER, request=request)
+
+
+async def test_pruning_forgets_only_the_deletions_past_their_retention(db_pool):
+    async with db_pool.connection() as conn:
+        await conn.execute(
+            "INSERT INTO public.deleted_users (user_id, deleted_at) VALUES "
+            "('user-old', NOW() - make_interval(days => %s)), "
+            "('user-recent', NOW() - make_interval(days => %s))",
+            (RETENTION_DAYS + 1, RETENTION_DAYS - 1),
+        )
+
+    assert await prune_expired() == 1
+
+    assert await _deleted_at(db_pool, "user-old") == []
+    assert len(await _deleted_at(db_pool, "user-recent")) == 1

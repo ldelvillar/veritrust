@@ -261,6 +261,15 @@ async def test_run_analysis_runs_analyse_through_the_lifecycle_runner():
     assert (work.func, work.args) == (worker.analyse, (ctx,))
 
 
+async def test_prune_cron_survives_a_database_failure(monkeypatch):
+    async def broken_prune():
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(worker, "prune_expired", broken_prune)
+
+    await worker.prune_deleted_users({})
+
+
 async def test_reap_cron_delegates_to_the_lifecycle_runner():
     runner = _RecordingRunner()
 
@@ -362,7 +371,8 @@ def test_worker_settings_expose_the_queue_contract():
     evidence_fn = worker.WorkerSettings.functions[1]
     assert evidence_fn.keep_result_s == worker.EVIDENCE_RESULT_TTL_SECONDS
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
-        "cron:reap_orphaned_analyses"
+        "cron:reap_orphaned_analyses",
+        "cron:prune_deleted_users",
     ]
     # arq cuts above the internal budget, and the margin lets the failure be notified first.
     assert (

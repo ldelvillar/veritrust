@@ -101,7 +101,7 @@ If a migration **succeeds but damages data or schema**, restore the dump taken j
    docker compose -f ~/veritrust/docker-compose.yml stop backend worker
    ```
 
-2. Save the record of deleted accounts. The `user.deleted` webhook writes every deleted account to `deleted_users`, but the restore replaces that table with the dump's older copy, so copy it out of the live database first:
+2. Save the record of deleted accounts. The `user.deleted` webhook writes every deleted account to `deleted_users`, and the worker keeps each one for 35 days, longer than any dump is kept. The restore replaces that table with the dump's older copy, so copy it out of the live database first:
 
    ```bash
    docker exec $(docker compose -f ~/veritrust/docker-compose.yml ps -q postgres) \

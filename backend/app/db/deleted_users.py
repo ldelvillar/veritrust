@@ -6,6 +6,9 @@ import psycopg
 
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 
+# Longer than the backup cycle of about a month, so a restore of any kept dump still finds the deletions made after it.
+RETENTION_DAYS = 35
+
 # Serialises a user's openings, Usage writes and deletion until their transaction ends.
 _LOCK_USER = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
 
@@ -41,4 +44,22 @@ async def mark_deleted(user_id: str) -> None:
     except psycopg.Error as exc:
         raise DatabaseError(
             _build_database_error("No se pudo registrar la baja del usuario.")
+        ) from exc
+
+
+async def prune_expired() -> int:
+    """Forget the deletions older than the retention, which no kept backup predates, and return how many."""
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "DELETE FROM public.deleted_users "
+                    "WHERE deleted_at < NOW() - make_interval(days => %s)",
+                    (RETENTION_DAYS,),
+                )
+                return cur.rowcount
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudieron purgar las bajas de usuarios.")
         ) from exc

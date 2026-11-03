@@ -30,7 +30,7 @@ from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.billing import record_evidence_search
-from app.db.deleted_users import UserDeleted
+from app.db.deleted_users import UserDeleted, prune_expired
 from app.db.pool import DatabaseError, close_pool, get_pool
 from app.prompts.agents import load_prompts
 from app.schemas.errors import ErrorCode
@@ -181,6 +181,17 @@ async def reap_orphaned_analyses(ctx: dict) -> None:
     await ctx["analysis_runner"].reap_orphans()
 
 
+async def prune_deleted_users(ctx: dict) -> None:
+    """Cron that forgets the account deletions older than their retention."""
+    try:
+        pruned = await prune_expired()
+    except DatabaseError:
+        logger.exception("[Worker] No se pudieron purgar las bajas de usuarios")
+        return
+    if pruned:
+        logger.info("[Worker] Bajas de usuarios purgadas: %s", pruned)
+
+
 async def startup(ctx: dict) -> None:
     """Set up AI resources once when the worker starts."""
     settings = get_settings()
@@ -213,7 +224,10 @@ class WorkerSettings:
         # The result is kept so get_evidence can collect it even if the MCP call already expired.
         func(run_evidence_search, keep_result=EVIDENCE_RESULT_TTL_SECONDS),
     ]
-    cron_jobs = [cron(reap_orphaned_analyses, second=0)]  # About once a minute.
+    cron_jobs = [
+        cron(reap_orphaned_analyses, second=0),  # About once a minute.
+        cron(prune_deleted_users, hour=4, minute=0, second=0),  # Daily.
+    ]
     on_startup = startup
     on_shutdown = shutdown
     job_timeout = (
