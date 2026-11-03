@@ -45,10 +45,14 @@ Run from the VM:
 ```bash
 cd ~/veritrust
 git pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --no-deps backend worker frontend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-`--no-deps` avoids restarting Postgres, Redis, and Ollama unnecessarily.
+This is the same command `deploy.yml` runs. The one-shot `migrate` service applies
+pending migrations before `backend` and `worker` start, and `up -d` only recreates
+containers whose image or config changed. If `migrate` fails, `up` exits non-zero
+and the error is in
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`.
 
 Deploys never restart Caddy, so a `Caddyfile` change only applies after
 `docker compose -f docker-compose.yml -f docker-compose.prod.yml restart caddy`.
