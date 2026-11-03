@@ -16,8 +16,8 @@ Test-mode and live-mode keys are never mixed: test keys go in local `.env` files
 
 | Resource | Permission | Used for |
 | --- | --- | --- |
-| Customers | Write | creating the Stripe customer on the first checkout |
-| Checkout Sessions | Write | creating a session, and listing and expiring the customer's other open ones |
+| Customers | Write | creating the Stripe customer on the first checkout, and deleting it again if the account was deleted meanwhile |
+| Checkout Sessions | Write | creating a session, and listing and expiring the customer's other open ones, or all of them when the user deletes their account |
 | Customer portal | Write | opening portal sessions |
 | Subscriptions | Write | re-reading the Subscription on every webhook, and cancelling it when the user deletes their account (see [Account deletion](#account-deletion)) |
 
@@ -71,7 +71,7 @@ Test mode only (**Workbench → Webhooks → Test with a local listener** shows 
 
 ## Account deletion
 
-Users delete their account through Clerk, so Clerk tells the backend with a webhook: on `user.deleted`, the backend records the account in `deleted_users`, so it refuses any later analysis or Usage for it, deletes all their analyses (feedback included) and aborts their pending Runs, like `DELETE /history`, then cancels the user's Stripe Subscription at once, with no proration or refund, and deletes their rows in `billing_customers`, `subscriptions` and `usage_events`. The Stripe customer and its invoices stay in Stripe, since tax law requires keeping invoices. Without the webhook, a deleted user keeps being charged and their analyses stay in the database, which the privacy policy promises they don't.
+Users delete their account through Clerk, so Clerk tells the backend with a webhook: on `user.deleted`, the backend records the account in `deleted_users`, so it refuses any later analysis or Usage for it, deletes all their analyses (feedback included) and aborts their pending Runs, like `DELETE /history`, then expires the user's open Checkouts and cancels their Stripe Subscription at once, with no proration or refund, and deletes their rows in `billing_customers`, `subscriptions` and `usage_events`. The Stripe customer and its invoices stay in Stripe, since tax law requires keeping invoices. After that, a Checkout opened with a session token issued before the deletion is refused with 401, and a Subscription that still reaches the Stripe webhook is cancelled at once and stored nowhere. Without the webhook, a deleted user keeps being charged and their analyses stay in the database, which the privacy policy promises they don't.
 
 1. Give the fine-grained key of each mode **Subscriptions: Write** (see [API key](#api-key)); with only Read, cancelling fails and the webhook answers 503, so Clerk retries it.
 2. In the Clerk Dashboard of the **Production** instance, open **Configure → Webhooks → Add Endpoint**: URL `https://$API_DOMAIN/webhooks/clerk`, subscribed to the `user.deleted` event only.

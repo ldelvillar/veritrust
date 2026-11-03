@@ -11,6 +11,7 @@ from app.core.analysis_lifecycle import AnalysisIntake
 from app.core.errors import make_error_detail
 from app.core.plans import is_pro, limits_for, month_window, remaining
 from app.db.billing import get_user_subscription, usage_this_month
+from app.db.deleted_users import UserDeleted
 from app.db.pool import DatabaseError
 from app.schemas.billing import (
     BillingUrlResponse,
@@ -94,6 +95,11 @@ async def create_checkout(
         url = await billing.create_checkout_session(
             user_id, user.get("email"), body.interval
         )
+    except UserDeleted as exc:
+        # A token issued before the account's deletion is still valid for about a minute.
+        raise HTTPException(
+            status_code=401, detail=make_error_detail(ErrorCode.INVALID_TOKEN)
+        ) from exc
     except DatabaseError as exc:
         raise _database_failed() from exc
     except billing.BillingUnavailable as exc:

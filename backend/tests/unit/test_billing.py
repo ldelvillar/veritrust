@@ -13,6 +13,7 @@ import stripe
 
 from app.core import billing
 from app.core.plans import SubscriptionRow
+from app.db.deleted_users import UserDeleted
 from tests.support.billing import PRICE_MONTHLY, PRICE_YEARLY, WEBHOOK_SECRET
 
 USER = "user-a"
@@ -25,6 +26,7 @@ class _Service:
     def __init__(self, result=None):
         self.result = result
         self.calls: list = []
+        self.deleted: list[str] = []
         self.error: Exception | None = None
 
     async def _answer(self, call):
@@ -38,6 +40,9 @@ class _Service:
 
     async def retrieve_async(self, object_id, params=None, options=None):
         return await self._answer(object_id)
+
+    async def delete_async(self, object_id, params=None, options=None):
+        self.deleted.append(object_id)
 
 
 class _CheckoutSessions(_Service):
@@ -103,11 +108,20 @@ class _FakeBillingDb:
         self.events: dict[str, str] = {}
         self.locked: list[str] = []
         self.forgotten: list[str] = []
+        self.deleted: set[str] = set()
+
+    def _refuse_deleted(self, user_id):
+        if user_id in self.deleted:
+            raise UserDeleted(user_id)
+
+    async def is_deleted(self, user_id):
+        return user_id in self.deleted
 
     async def get_customer_id(self, user_id):
         return self.customers.get(user_id)
 
     async def insert_customer(self, user_id, stripe_customer_id):
+        self._refuse_deleted(user_id)
         return self.customers.setdefault(user_id, stripe_customer_id)
 
     async def user_id_for_customer(self, stripe_customer_id, conn=None):
@@ -116,6 +130,7 @@ class _FakeBillingDb:
         )
 
     async def upsert_subscription(self, row, conn=None):
+        self._refuse_deleted(row.user_id)
         self.subscriptions[row.stripe_subscription_id] = row
 
     async def is_event_processed(self, event_id):
@@ -174,6 +189,11 @@ def fake_stripe(stripe_settings, monkeypatch):
 def fake_db(monkeypatch):
     db = _FakeBillingDb()
     monkeypatch.setattr(billing, "billing_db", db)
+    monkeypatch.setattr(
+        billing,
+        "deleted_users",
+        SimpleNamespace(is_deleted=db.is_deleted, UserDeleted=UserDeleted),
+    )
     return db
 
 
@@ -247,6 +267,42 @@ async def test_checkout_translates_stripe_errors(fake_stripe, fake_db):
 
     with pytest.raises(billing.BillingUnavailable):
         await billing.create_checkout_session(USER, None, "month")
+
+
+async def test_checkout_of_a_deleted_account_sends_nothing_to_stripe(
+    fake_stripe, fake_db
+):
+    fake_db.deleted.add(USER)
+
+    with pytest.raises(UserDeleted):
+        await billing.create_checkout_session(USER, "a@example.com", "month")
+
+    assert fake_stripe.customers.calls == []
+    assert fake_stripe.checkout.calls == []
+    assert fake_db.customers == {}
+
+
+async def test_checkout_deleting_the_account_meanwhile_removes_the_new_customer(
+    fake_stripe, fake_db, monkeypatch
+):
+    # The deletion commits between the unlocked check and the locked insert.
+    fake_db.deleted.add(USER)
+
+    async def not_yet_deleted(user_id):
+        return False
+
+    monkeypatch.setattr(
+        billing,
+        "deleted_users",
+        SimpleNamespace(is_deleted=not_yet_deleted, UserDeleted=UserDeleted),
+    )
+
+    with pytest.raises(UserDeleted):
+        await billing.create_checkout_session(USER, "a@example.com", "month")
+
+    assert fake_stripe.customers.deleted == ["cus_new"]
+    assert fake_stripe.checkout.calls == []
+    assert fake_db.customers == {}
 
 
 async def test_portal_needs_a_stored_customer(fake_stripe, fake_db):
@@ -356,6 +412,63 @@ async def test_checkout_completed_links_the_customer_and_syncs(fake_stripe, fake
     assert fake_db.subscriptions["sub_1"].user_id == USER
 
 
+async def test_checkout_paid_after_the_deletion_cancels_and_stores_nothing(
+    fake_stripe, fake_db
+):
+    fake_db.deleted.add(USER)
+    payload, signature = _signed(
+        "checkout.session.completed",
+        {
+            "id": "cs_1",
+            "customer": "cus_1",
+            "client_reference_id": USER,
+            "subscription": "sub_1",
+        },
+    )
+
+    await billing.handle_webhook(payload, signature)
+
+    assert fake_db.customers == {}
+    assert fake_db.subscriptions == {}
+    assert fake_stripe.subscriptions.cancelled == ["sub_1"]
+    assert fake_db.events == {"evt_1": "checkout.session.completed"}
+
+
+@pytest.mark.parametrize(
+    ("status", "cancelled"),
+    [("active", ["sub_1"]), ("canceled", []), ("incomplete_expired", [])],
+)
+async def test_sync_of_a_deleted_account_cancels_only_a_live_subscription(
+    fake_stripe, fake_db, status, cancelled
+):
+    # The customer row is still there between the deletion record and the billing erasure.
+    fake_db.customers[USER] = "cus_1"
+    fake_db.deleted.add(USER)
+    fake_stripe.subscriptions.result = _subscription(status=status)
+
+    await billing.sync_subscription("sub_1")
+
+    assert fake_db.subscriptions == {}
+    assert fake_stripe.subscriptions.cancelled == cancelled
+
+
+async def test_failed_cancel_of_a_deleted_account_is_retried_by_stripe(
+    fake_stripe, fake_db, monkeypatch
+):
+    fake_db.deleted.add(USER)
+    payload, signature = _signed("customer.subscription.updated", {"id": "sub_1"})
+
+    async def cancel_fails(subscription_id, params=None, options=None):
+        raise stripe.APIConnectionError("sin red")
+
+    monkeypatch.setattr(fake_stripe.subscriptions, "cancel_async", cancel_fails)
+
+    with pytest.raises(billing.BillingUnavailable):
+        await billing.handle_webhook(payload, signature)
+
+    assert fake_db.events == {}
+
+
 async def test_invoice_event_syncs_its_parent_subscription(fake_stripe, fake_db):
     fake_db.customers[USER] = "cus_1"
     payload, signature = _signed(
@@ -458,6 +571,17 @@ async def test_forget_user_cancels_every_live_subscription_then_deletes_the_rows
     # Stripe does not allow cancelling ended ones, so they are skipped.
     assert fake_stripe.subscriptions.cancelled == ["sub_active", "sub_past_due"]
     assert fake_db.forgotten == [USER]
+
+
+async def test_forget_user_expires_the_open_checkouts_so_none_is_paid_later(
+    fake_stripe, fake_db
+):
+    fake_db.customers[USER] = "cus_1"
+    fake_stripe.checkout.open_ids = ["cs_tab_1"]
+
+    await billing.forget_user(USER)
+
+    assert fake_stripe.checkout.expired == ["cs_tab_1"]
 
 
 async def test_forget_user_without_a_customer_only_deletes_the_rows(

@@ -12,6 +12,7 @@ from app.api.dependencies.get_current_user import get_current_user
 from app.core import billing, clerk_webhooks
 from app.core.plans import MADRID
 from app.db.billing import Usage
+from app.db.deleted_users import UserDeleted
 from app.db.pool import DatabaseError
 from tests.support.billing import PRICE_YEARLY, make_subscription
 
@@ -175,6 +176,18 @@ def test_checkout_answers_503_when_stripe_fails(client, subscription, monkeypatc
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "BILLING_UNAVAILABLE"
+
+
+def test_checkout_answers_401_for_a_deleted_account(client, subscription, monkeypatch):
+    async def deleted(user_id, email, interval):
+        raise UserDeleted(user_id)
+
+    monkeypatch.setattr(billing, "create_checkout_session", deleted)
+
+    response = client.post("/billing/checkout", json={"interval": "month"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_TOKEN"
 
 
 def test_portal_returns_the_stripe_url(client, monkeypatch):

@@ -12,6 +12,7 @@ import stripe
 from app.core.config import get_settings
 from app.core.plans import BillingInterval, SubscriptionRow
 from app.db import billing as billing_db
+from app.db import deleted_users
 
 logger = logging.getLogger(__name__)
 
@@ -84,13 +85,30 @@ async def _customer_for(user_id: str, email: str | None) -> str:
             **({"email": email} if email else {}),
         }
     )
-    return await billing_db.insert_customer(user_id, customer.id)
+    try:
+        return await billing_db.insert_customer(user_id, customer.id)
+    except deleted_users.UserDeleted:
+        # The account was deleted after the check, so the new customer, still without invoices, is removed with its email.
+        await _client().v1.customers.delete_async(customer.id)
+        raise
+
+
+async def _expire_open_checkouts(customer_id: str) -> None:
+    """Expire the customer's open Checkout sessions, so none of them can be paid any more."""
+    open_sessions = await _client().v1.checkout.sessions.list_async(
+        params={"customer": customer_id, "status": "open"}
+    )
+    for open_session in open_sessions.data:
+        await _client().v1.checkout.sessions.expire_async(open_session.id)
 
 
 async def create_checkout_session(
     user_id: str, email: str | None, interval: BillingInterval
 ) -> str:
-    """Open a Stripe Checkout to subscribe to Pro and return its URL."""
+    """Open a Stripe Checkout to subscribe to Pro and return its URL, raising UserDeleted if the account is gone."""
+    # Checked before any Stripe call, so a stale token of a deleted account sends nothing to Stripe.
+    if await deleted_users.is_deleted(user_id):
+        raise deleted_users.UserDeleted(user_id)
     settings = get_settings()
     price = (
         settings.stripe_price_pro_monthly
@@ -101,11 +119,7 @@ async def create_checkout_session(
     async with _stripe_errors():
         customer_id = await _customer_for(user_id, email)
         # A Checkout open in another tab is expired so two subscriptions are never charged.
-        open_sessions = await _client().v1.checkout.sessions.list_async(
-            params={"customer": customer_id, "status": "open"}
-        )
-        for open_session in open_sessions.data:
-            await _client().v1.checkout.sessions.expire_async(open_session.id)
+        await _expire_open_checkouts(customer_id)
         session = await _client().v1.checkout.sessions.create_async(
             params={
                 "mode": "subscription",
@@ -151,7 +165,7 @@ async def create_portal_session(user_id: str) -> str:
 
 
 async def sync_subscription(subscription_id: str) -> None:
-    """Read the Subscription back from Stripe and store its current state."""
+    """Read the Subscription back from Stripe and store its current state, or cancel it if its account is gone."""
     # Without the lock, two concurrent webhooks could store a stale read after a fresh one.
     async with billing_db.subscription_lock(subscription_id) as conn:
         async with _stripe_errors():
@@ -186,25 +200,36 @@ async def sync_subscription(subscription_id: str) -> None:
         else:
             # A cancellation at period end can arrive with only the flag and no date.
             cancel_at = period_end if subscription.cancel_at_period_end else None
-        await billing_db.upsert_subscription(
-            SubscriptionRow(
-                stripe_subscription_id=subscription.id,
-                user_id=user_id,
-                status=subscription.status,
-                price_id=item.price.id,
-                billing_interval=cast(BillingInterval, recurring.interval),
-                current_period_end=period_end,
-                cancel_at=cancel_at,
-            ),
-            conn,
-        )
+        try:
+            await billing_db.upsert_subscription(
+                SubscriptionRow(
+                    stripe_subscription_id=subscription.id,
+                    user_id=user_id,
+                    status=subscription.status,
+                    price_id=item.price.id,
+                    billing_interval=cast(BillingInterval, recurring.interval),
+                    current_period_end=period_end,
+                    cancel_at=cancel_at,
+                ),
+                conn,
+            )
+        except deleted_users.UserDeleted:
+            # Storing nothing would leave Stripe charging an account that no longer exists.
+            if subscription.status not in _ENDED_STATUSES:
+                async with _stripe_errors():
+                    await _client().v1.subscriptions.cancel_async(subscription.id)
+            logger.info(
+                "Suscripción %s de un usuario eliminado no guardada", subscription.id
+            )
 
 
 async def forget_user(user_id: str) -> None:
-    """Cancel at once, without proration, the Subscriptions of a user who deleted their account and erase their billing."""
+    """Expire the open Checkouts and cancel at once, without proration, the Subscriptions of a user who deleted their account, then erase their billing."""
     customer_id = await billing_db.get_customer_id(user_id)
     if customer_id is not None:
         async with _stripe_errors():
+            # Expired first, so a Checkout left open cannot charge the account after its deletion.
+            await _expire_open_checkouts(customer_id)
             subscriptions = await _client().v1.subscriptions.list_async(
                 params={"customer": customer_id, "limit": 100}
             )
@@ -220,7 +245,11 @@ async def _handle(event_type: str, obj: Any) -> None:
     """Apply an already verified Stripe event, ignoring unhandled types."""
     if event_type == "checkout.session.completed":
         if obj.customer and obj.client_reference_id:
-            await billing_db.insert_customer(obj.client_reference_id, obj.customer)
+            try:
+                await billing_db.insert_customer(obj.client_reference_id, obj.customer)
+            except deleted_users.UserDeleted:
+                # The sync below still runs, so it cancels the Subscription paid after the deletion.
+                logger.info("Checkout completado de un usuario eliminado")
         if obj.subscription:
             await sync_subscription(obj.subscription)
     elif event_type in _SUBSCRIPTION_EVENTS:
