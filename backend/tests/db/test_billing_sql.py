@@ -19,6 +19,7 @@ from app.db.billing import (
     usage_this_month,
     user_id_for_customer,
 )
+from app.db.deleted_users import UserDeleted, mark_deleted
 from app.db.history import delete_user_analysis
 from app.schemas.analysis import AnalysisRequest
 from tests.db.seed import seed_pending, seed_usage
@@ -135,6 +136,18 @@ async def test_an_evidence_search_counts_as_usage_now(db_pool):
     async with db_pool.connection() as conn:
         cur = await conn.execute("SELECT kind, analysis_id FROM public.usage_events")
         assert await cur.fetchall() == [("evidence_search", None)]
+
+
+async def test_an_evidence_search_of_a_deleted_account_records_nothing(db_pool):
+    await mark_deleted(USER)
+
+    with pytest.raises(UserDeleted):
+        await record_evidence_search(USER)
+
+    await record_evidence_search("user-b")
+    async with db_pool.connection() as conn:
+        cur = await conn.execute("SELECT user_id FROM public.usage_events")
+        assert await cur.fetchall() == [("user-b",)]
 
 
 async def test_deleting_a_users_billing_leaves_other_users_alone(db_pool):

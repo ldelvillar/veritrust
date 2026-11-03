@@ -11,6 +11,7 @@ from typing import Any, LiteralString
 import psycopg
 
 from app.core.plans import PRO_STATUSES, SubscriptionRow
+from app.db.deleted_users import lock_live_user
 from app.db.pool import DatabaseError, _build_database_error, get_pool
 
 
@@ -204,13 +205,20 @@ async def usage_this_month(
 
 
 async def record_evidence_search(user_id: str) -> None:
-    """Record in the Usage an Evidence search that ended with a result."""
-    await _fetchone(
-        "INSERT INTO public.usage_events (user_id, kind) "
-        "VALUES (%s, 'evidence_search')",
-        (user_id,),
-        "No se pudo registrar el uso del plan.",
-    )
+    """Record in the Usage an Evidence search that ended with a result, raising UserDeleted if the account is gone."""
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn, conn.transaction():
+            await lock_live_user(conn, user_id)
+            await conn.execute(
+                "INSERT INTO public.usage_events (user_id, kind) "
+                "VALUES (%s, 'evidence_search')",
+                (user_id,),
+            )
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo registrar el uso del plan.")
+        ) from exc
 
 
 async def delete_user_billing(user_id: str) -> None:

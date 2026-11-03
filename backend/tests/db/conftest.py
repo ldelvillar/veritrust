@@ -111,7 +111,8 @@ async def db_pool(database_schema, monkeypatch):
             # CASCADE takes analysis_feedback and usage_events along, which reference the History.
             await conn.execute(
                 "TRUNCATE public.analysis_history, public.billing_customers, "
-                "public.subscriptions, public.stripe_events CASCADE"
+                "public.subscriptions, public.stripe_events, public.deleted_users "
+                "CASCADE"
             )
         yield pool
     finally:

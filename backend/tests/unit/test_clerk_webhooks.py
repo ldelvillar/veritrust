@@ -18,8 +18,11 @@ USER = "user_2abc"
 
 @pytest.fixture
 def forgotten(monkeypatch):
-    """Replace the billing cancellation and the History deletion with the list of steps taken."""
+    """Replace the deletion record, the billing cancellation and the History deletion with the list of steps taken."""
     steps: list[tuple[str, str]] = []
+
+    async def mark_deleted(user_id):
+        steps.append(("record", user_id))
 
     async def forget_user(user_id):
         steps.append(("billing", user_id))
@@ -28,6 +31,7 @@ def forgotten(monkeypatch):
         steps.append(("analyses", user_id))
         return DeletedHistory(count=2, pending_ids=["a-pending"])
 
+    monkeypatch.setattr(clerk_webhooks, "mark_deleted", mark_deleted)
     monkeypatch.setattr(clerk_webhooks.billing, "forget_user", forget_user)
     monkeypatch.setattr(
         clerk_webhooks, "delete_all_user_analyses", delete_all_user_analyses
@@ -61,14 +65,14 @@ def _user_deleted(user_id: str | None = USER) -> dict:
     return {"object": "event", "type": "user.deleted", "data": data}
 
 
-async def test_a_deleted_user_loses_their_analyses_then_their_billing(
+async def test_a_deleted_user_is_recorded_then_loses_their_analyses_then_their_billing(
     forgotten, intake
 ):
     payload, headers = _signed(_user_deleted())
 
     await clerk_webhooks.handle_webhook(payload, headers, intake)
 
-    assert forgotten == [("analyses", USER), ("billing", USER)]
+    assert forgotten == [("record", USER), ("analyses", USER), ("billing", USER)]
     assert intake.calls == [("cancel_runs", ["a-pending"])]
 
 

@@ -16,6 +16,7 @@ from app.core.analysis_lifecycle import (
 )
 from app.core.claim import Claim, with_hits
 from app.core.verdict import ClaimVerdict, Verdict
+from app.db.deleted_users import UserDeleted
 from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_file import FileExtractionError
@@ -260,6 +261,15 @@ async def test_run_analysis_runs_analyse_through_the_lifecycle_runner():
     assert (work.func, work.args) == (worker.analyse, (ctx,))
 
 
+async def test_prune_cron_survives_a_database_failure(monkeypatch):
+    async def broken_prune():
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr(worker, "prune_expired", broken_prune)
+
+    await worker.prune_deleted_users({})
+
+
 async def test_reap_cron_delegates_to_the_lifecycle_runner():
     runner = _RecordingRunner()
 
@@ -361,7 +371,8 @@ def test_worker_settings_expose_the_queue_contract():
     evidence_fn = worker.WorkerSettings.functions[1]
     assert evidence_fn.keep_result_s == worker.EVIDENCE_RESULT_TTL_SECONDS
     assert [cj.name for cj in worker.WorkerSettings.cron_jobs] == [
-        "cron:reap_orphaned_analyses"
+        "cron:reap_orphaned_analyses",
+        "cron:prune_deleted_users",
     ]
     # arq cuts above the internal budget, and the margin lets the failure be notified first.
     assert (
@@ -443,6 +454,23 @@ async def test_run_evidence_search_returns_its_result_even_if_usage_is_lost(
     result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
 
     assert result["claims"][0]["original"] == "A"
+
+
+async def test_run_evidence_search_of_a_deleted_account_returns_no_report(
+    monkeypatch,
+):
+    async def fake_ainvoke(graph, state, on_stage=None):
+        return {"claims": [with_hits(Claim(index=0, text="A", query='"a"'), [])]}
+
+    async def refused_record(user_id):
+        raise UserDeleted(user_id)
+
+    monkeypatch.setattr(worker, "ainvoke_graph", fake_ainvoke)
+    monkeypatch.setattr(worker, "record_evidence_search", refused_record)
+
+    result = await worker.run_evidence_search({"evidence_system": None}, "Texto", USER)
+
+    assert result == {"error_code": ErrorCode.INVALID_TOKEN.value}
 
 
 async def test_run_evidence_search_neutralizes_delimiters(monkeypatch):

@@ -246,7 +246,10 @@ export default function PoliticaDePrivacidadPage() {
               <li>
                 Al eliminar tu cuenta borramos tus análisis, archivos,
                 valoraciones, tu registro de uso y los datos de tu suscripción,
-                y cancelamos la suscripción en Stripe.
+                y cancelamos la suscripción en Stripe. Solo guardamos el
+                identificador interno de la cuenta durante 35 días, para que no
+                se registren datos nuevos a su nombre y para volver a aplicar la
+                supresión si restauramos una copia de seguridad.
               </li>
               <li>
                 Las facturas, con los datos de facturación que deben figurar en

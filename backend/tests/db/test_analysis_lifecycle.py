@@ -20,6 +20,7 @@ from app.core.analysis_lifecycle import (
 )
 from app.core.plans import FREE, PRO, month_window
 from app.core.verdict import ClaimVerdict, Verdict
+from app.db.deleted_users import mark_deleted
 from app.db.history import delete_user_analysis, get_user_analysis_status
 from app.db.pool import DatabaseError
 from app.schemas.analysis import AnalysisRequest, SourceType
@@ -1126,3 +1127,30 @@ async def test_a_done_run_whose_usage_cannot_be_written_is_never_done(
     row = await _row(db_pool, analysis_id)
     assert (row["status"], row["label"]) == ("failed", None)
     assert await _usage_kinds(db_pool) == []
+
+
+async def test_a_deleted_account_cannot_open_an_analysis(db_pool, intake, queue):
+    await mark_deleted(USER)
+
+    with pytest.raises(AnalysisRefused) as text_refusal:
+        await intake.submit(WEB, AnalysisRequest(text="La lejía cura la COVID"))
+    with pytest.raises(AnalysisRefused) as file_refusal:
+        await intake.submit_file(WEB, _Upload("informe.pdf", PDF))
+
+    assert text_refusal.value.code == ErrorCode.INVALID_TOKEN
+    assert file_refusal.value.code == ErrorCode.INVALID_TOKEN
+    assert await _count(db_pool) == 0
+    assert queue.enqueued == []
+
+
+async def test_a_deleted_account_cannot_reopen_an_analysis_a_restore_brought_back(
+    db_pool, intake, queue
+):
+    analysis_id = await _failed(db_pool, intake, queue)
+    await mark_deleted(USER)
+
+    with pytest.raises(AnalysisRefused) as refusal:
+        await intake.retry(WEB, analysis_id)
+
+    assert refusal.value.code == ErrorCode.INVALID_TOKEN
+    assert (await _row(db_pool, analysis_id))["status"] == "failed"

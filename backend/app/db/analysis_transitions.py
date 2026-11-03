@@ -14,10 +14,8 @@ from psycopg.types.json import Jsonb
 from app.core.plans import PlanLimits, month_window, remaining
 from app.core.verdict import Verdict
 from app.db.billing import usage_this_month
+from app.db.deleted_users import lock_live_user
 from app.db.pool import DatabaseError, _build_database_error, get_pool
-
-# Serialises one user's openings until their transaction ends.
-_LOCK_ALLOWANCE = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
 
 # An Analysis's first done Run counts as an analysis and each later one as a reanalysis.
 _RECORD_RUN_USAGE = """
@@ -49,9 +47,8 @@ async def _transaction(context: str) -> AsyncIterator[psycopg.AsyncConnection]:
 async def _claim_allowance(
     conn: psycopg.AsyncConnection, user_id: str, limits: PlanLimits
 ) -> None:
-    """Lock the user's openings and raise AllowanceExhausted if their month's Allowance is used up."""
-    async with conn.cursor() as cur:
-        await cur.execute(_LOCK_ALLOWANCE, (user_id,))
+    """Lock the user's openings and raise UserDeleted or AllowanceExhausted if they cannot open one."""
+    await lock_live_user(conn, user_id)
     start, end = month_window(datetime.now(UTC))
     usage = await usage_this_month(user_id, start, end, conn)
     if remaining(limits, usage.used, usage.pending) == 0:
