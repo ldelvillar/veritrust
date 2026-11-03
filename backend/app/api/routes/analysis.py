@@ -1,7 +1,9 @@
 """Endpoints for analyses."""
 
+from collections.abc import Awaitable
 from datetime import datetime
 from pathlib import Path
+from typing import Protocol, TypeVar
 from urllib.parse import quote
 
 from fastapi import (
@@ -42,12 +44,27 @@ from app.schemas.history import AnalysisHistoryItem
 router = APIRouter()
 
 
+_T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
+
+
+class _OwnedLookup(Protocol[_T_co]):
+    """A lookup of one of the user's own analyses, returning None when it does not exist."""
+
+    def __call__(
+        self, *, user_id: str, analysis_id: str, visible_since: datetime | None
+    ) -> Awaitable[_T_co | None]: ...
+
+
 async def _owned_analysis(
-    user_id: str, analysis_id: str, visible_since: datetime | None
-) -> AnalysisHistoryItem:
-    """Fetch an own Analysis, answering 500 when the database fails and 404 when it does not exist."""
+    read: _OwnedLookup[_T],
+    user_id: str,
+    analysis_id: str,
+    visible_since: datetime | None,
+) -> _T:
+    """Read an own Analysis through ``read``, answering 500 when the database fails and 404 when it does not exist."""
     try:
-        record = await get_user_analysis_by_id(
+        found = await read(
             user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
         )
     except DatabaseError as e:
@@ -56,12 +73,12 @@ async def _owned_analysis(
             detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
         ) from e
 
-    if not record:
+    if found is None:
         raise HTTPException(
             status_code=404,
             detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
         )
-    return record
+    return found
 
 
 _POST_ERROR_RESPONSES: dict[int | str, dict] = {
@@ -178,7 +195,9 @@ async def share_analysis(
     """Activa el enlace público de un análisis ``done`` propio y devuelve su token."""
     user_id = user["sub"]
 
-    record = await _owned_analysis(user_id, analysis_id, visible_since)
+    record = await _owned_analysis(
+        get_user_analysis_by_id, user_id, analysis_id, visible_since
+    )
 
     # Only a finished report is shared, since pending and failed have no result.
     if record.status != "done":
@@ -264,7 +283,9 @@ async def get_analysis_detail(
     """Endpoint para obtener un análisis específico del usuario autenticado."""
     user_id = user["sub"]
 
-    record = await _owned_analysis(user_id, analysis_id, visible_since)
+    record = await _owned_analysis(
+        get_user_analysis_by_id, user_id, analysis_id, visible_since
+    )
 
     # Only a finished report can have feedback, so the pending poll skips the query.
     feedback = None
@@ -293,23 +314,9 @@ async def get_analysis_status(
     visible_since: datetime | None = Depends(history_window),
 ):
     """Endpoint ligero que devuelve solo el estado y la etapa para el sondeo del detalle."""
-    try:
-        record = await get_user_analysis_status(
-            user_id=user["sub"], analysis_id=analysis_id, visible_since=visible_since
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
-
-    return record
+    return await _owned_analysis(
+        get_user_analysis_status, user["sub"], analysis_id, visible_since
+    )
 
 
 _FILE_MEDIA_TYPES = {
@@ -340,23 +347,9 @@ async def get_analysis_file_content(
     """Devuelve el archivo original de un análisis para mostrarlo en el informe."""
     user_id = user["sub"]
 
-    try:
-        stored = await get_analysis_file(
-            user_id=user_id, analysis_id=analysis_id, visible_since=visible_since
-        )
-    except DatabaseError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=make_error_detail(ErrorCode.ANALYSIS_FETCH_FAILED),
-        ) from e
-
-    if stored is None:
-        raise HTTPException(
-            status_code=404,
-            detail=make_error_detail(ErrorCode.ANALYSIS_NOT_FOUND),
-        )
-
-    data, filename = stored
+    data, filename = await _owned_analysis(
+        get_analysis_file, user_id, analysis_id, visible_since
+    )
     safe_name = filename or "documento"
     media_type = _FILE_MEDIA_TYPES.get(
         Path(safe_name).suffix.lower(), "application/octet-stream"
@@ -429,7 +422,9 @@ async def submit_analysis_feedback(
     """Guarda la valoración del veredicto de un análisis ``done`` propio."""
     user_id = user["sub"]
 
-    record = await _owned_analysis(user_id, analysis_id, visible_since)
+    record = await _owned_analysis(
+        get_user_analysis_by_id, user_id, analysis_id, visible_since
+    )
 
     # Only an existing Verdict gets feedback.
     if record.status != "done":
