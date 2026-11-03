@@ -1002,6 +1002,27 @@ def test_analisis_detail_skips_feedback_lookup_while_pending(monkeypatch):
     assert lookups == []
 
 
+def test_analisis_detail_returns_500_when_feedback_lookup_fails(monkeypatch):
+    server_module, _ = _load_server_module(monkeypatch)
+    client = TestClient(server_module.app)
+
+    async def fake_get(*, user_id, analysis_id, visible_since):
+        return _done_record()
+
+    async def fake_get_feedback(*, user_id, analysis_id):
+        raise DatabaseError("db down")
+
+    monkeypatch.setattr("app.api.routes.analysis.get_user_analysis_by_id", fake_get)
+    monkeypatch.setattr(
+        "app.api.routes.analysis.get_analysis_feedback", fake_get_feedback
+    )
+
+    response = client.get(f"/analysis/{_RETRY_ID}")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "ANALYSIS_FETCH_FAILED"
+
+
 def test_validation_errors_follow_the_structured_error_contract(monkeypatch):
     server_module, _ = _load_server_module(monkeypatch)
     client = TestClient(server_module.app)
