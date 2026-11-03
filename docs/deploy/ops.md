@@ -49,13 +49,13 @@ Run from the VM. These steps mirror `deploy.yml`, which also skips the backup on
    git pull --ff-only
    ```
 
-2. Back up the database, because the next step applies pending migrations. The dump is written to a `.partial` file and renamed only when `pg_dump` succeeds, so a failed dump never leaves a file that looks like a backup. Don't continue if this prints an error. The dump uses the `pre-deploy-*` name, so the cleanup rules in [backups.md](backups.md) remove it like the workflow's own:
+2. Back up the database, because the next step applies pending migrations. The dump is written to a `.partial.dump` file and renamed only when `pg_dump` succeeds, so a failed dump never leaves a file that looks like a complete backup. Don't continue if this prints an error. Both names match `pre-deploy-*.dump`, so the cleanup rules in [backups.md](backups.md) remove them like the workflow's own, including a `.partial.dump` left by an interrupted dump:
 
    ```bash
    mkdir -p ~/backups
-   f=$HOME/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
+   f=$HOME/backups/pre-deploy-$(date +%Y%m%d-%H%M%S)
    docker exec "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)" \
-     sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$f.partial" && mv "$f.partial" "$f" || rm -f "$f.partial"
+     sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$f.partial.dump" && mv "$f.partial.dump" "$f.dump" || rm -f "$f.partial.dump"
    ```
 
 3. Rebuild and start the stack. The one-shot `migrate` service applies pending migrations before `backend` and `worker` start, and `up -d` only recreates containers whose image or config changed. If `migrate` fails, `up` exits non-zero and the error is in `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs migrate`. Compose has already replaced `backend` and `worker` by then and leaves them stopped, so the API is down until a fixed or reverted commit is deployed; see [backups.md §5](backups.md#5-undo-a-bad-migration):

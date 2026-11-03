@@ -31,11 +31,11 @@ jobs:
             pg_cid=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q postgres)
             if [ -n "$pg_cid" ]; then
               mkdir -p ~/backups
-              f=$HOME/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump
-              # Dump to a .partial file so a failed pg_dump never leaves a file that looks like a backup.
+              f=$HOME/backups/pre-deploy-$(date +%Y%m%d-%H%M%S)
+              # A .partial.dump marks an unfinished dump yet still matches the pre-deploy-*.dump cleanup rules.
               docker exec "$pg_cid" sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-                > "$f.partial" || { rm -f "$f.partial"; exit 1; }
-              mv "$f.partial" "$f"
+                > "$f.partial.dump" || { rm -f "$f.partial.dump"; exit 1; }
+              mv "$f.partial.dump" "$f.dump"
               # Keep the 10 most recent backups, since every push to main makes a full one.
               ls -1t ~/backups/pre-deploy-*.dump | tail -n +11 | xargs -r rm --
             fi
