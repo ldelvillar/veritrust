@@ -49,6 +49,36 @@ async def test_insert_customer_keeps_the_first_one(db_pool):
     assert await user_id_for_customer("cus_2") is None
 
 
+async def test_a_deleted_account_gets_no_customer(db_pool):
+    await mark_deleted(USER)
+
+    with pytest.raises(UserDeleted):
+        await insert_customer(USER, "cus_1")
+
+    assert await get_customer_id(USER) is None
+
+
+async def test_a_deleted_account_gets_no_subscription(db_pool):
+    await mark_deleted(USER)
+
+    with pytest.raises(UserDeleted):
+        await upsert_subscription(make_subscription())
+
+    assert await get_user_subscription(USER) is None
+
+
+async def test_a_refused_subscription_leaves_the_locked_transaction_usable(db_pool):
+    await mark_deleted(USER)
+
+    async with subscription_lock("sub_1") as conn:
+        with pytest.raises(UserDeleted):
+            await upsert_subscription(make_subscription(), conn)
+        await upsert_subscription(make_subscription(user_id="user-b"), conn)
+
+    assert await get_user_subscription(USER) is None
+    assert await get_user_subscription("user-b") is not None
+
+
 async def test_upsert_subscription_replaces_every_field(db_pool):
     await upsert_subscription(make_subscription())
     updated = make_subscription(

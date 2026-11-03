@@ -7,6 +7,7 @@ import pytest
 from app.db.deleted_users import (
     RETENTION_DAYS,
     UserDeleted,
+    is_deleted,
     lock_live_user,
     mark_deleted,
     prune_expired,
@@ -28,6 +29,13 @@ async def _deleted_at(pool, user_id: str):
         )
         rows = await cur.fetchall()
     return [row[0] for row in rows]
+
+
+async def test_is_deleted_tells_only_the_recorded_accounts(db_pool):
+    await mark_deleted(USER)
+
+    assert await is_deleted(USER)
+    assert not await is_deleted("user-b")
 
 
 async def test_marking_a_deletion_twice_keeps_the_first_date(db_pool):

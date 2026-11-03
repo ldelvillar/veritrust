@@ -11,6 +11,7 @@ RETENTION_DAYS = 35
 
 # Serialises a user's openings, Usage writes and deletion until their transaction ends.
 _LOCK_USER = "SELECT pg_advisory_xact_lock(hashtext('allowance:' || %s))"
+_IS_DELETED = "SELECT 1 FROM public.deleted_users WHERE user_id = %s"
 
 
 class UserDeleted(Exception):
@@ -22,11 +23,22 @@ async def lock_live_user(conn: psycopg.AsyncConnection, user_id: str) -> None:
     async with conn.cursor() as cur:
         await cur.execute(_LOCK_USER, (user_id,))
         # Read after the lock, so a deletion that committed while this waited is seen.
-        await cur.execute(
-            "SELECT 1 FROM public.deleted_users WHERE user_id = %s", (user_id,)
-        )
+        await cur.execute(_IS_DELETED, (user_id,))
         if await cur.fetchone() is not None:
             raise UserDeleted(user_id)
+
+
+async def is_deleted(user_id: str) -> bool:
+    """Tell whether the account is recorded as deleted, without locking, for a check before a call outside the database."""
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn:
+            cur = await conn.execute(_IS_DELETED, (user_id,))
+            return await cur.fetchone() is not None
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo consultar la baja del usuario.")
+        ) from exc
 
 
 async def mark_deleted(user_id: str) -> None:

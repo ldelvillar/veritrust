@@ -62,17 +62,25 @@ async def get_customer_id(user_id: str) -> str | None:
 
 
 async def insert_customer(user_id: str, stripe_customer_id: str) -> str:
-    """Link the Stripe customer to the user and return the stored one if they already had one."""
-    row = await _fetchone(
-        """
-        INSERT INTO public.billing_customers (user_id, stripe_customer_id)
-        VALUES (%s, %s)
-        ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
-        RETURNING stripe_customer_id
-        """,
-        (user_id, stripe_customer_id),
-        "No se pudo guardar el cliente de facturación.",
-    )
+    """Link the Stripe customer to the user, return the stored one if they had one, and raise UserDeleted if the account is gone."""
+    pool = await get_pool()
+    try:
+        async with pool.connection() as conn, conn.transaction():
+            await lock_live_user(conn, user_id)
+            cur = await conn.execute(
+                """
+                INSERT INTO public.billing_customers (user_id, stripe_customer_id)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+                RETURNING stripe_customer_id
+                """,
+                (user_id, stripe_customer_id),
+            )
+            row = await cur.fetchone()
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo guardar el cliente de facturación.")
+        ) from exc
     assert row is not None
     return row[0]
 
@@ -93,34 +101,39 @@ async def user_id_for_customer(
 async def upsert_subscription(
     row: SubscriptionRow, conn: psycopg.AsyncConnection | None = None
 ) -> None:
-    """Store the Subscription, replacing all its fields with the received ones."""
-    await _fetchone(
-        """
-        INSERT INTO public.subscriptions
-            (stripe_subscription_id, user_id, status, price_id, billing_interval,
-             current_period_end, cancel_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (stripe_subscription_id) DO UPDATE SET
-            user_id = EXCLUDED.user_id,
-            status = EXCLUDED.status,
-            price_id = EXCLUDED.price_id,
-            billing_interval = EXCLUDED.billing_interval,
-            current_period_end = EXCLUDED.current_period_end,
-            cancel_at = EXCLUDED.cancel_at,
-            updated_at = NOW()
-        """,
-        (
-            row.stripe_subscription_id,
-            row.user_id,
-            row.status,
-            row.price_id,
-            row.billing_interval,
-            row.current_period_end,
-            row.cancel_at,
-        ),
-        "No se pudo guardar la suscripción.",
-        conn,
-    )
+    """Store the Subscription, replacing all its fields with the received ones, and raise UserDeleted if the account is gone."""
+    try:
+        async with _connection(conn) as active, active.transaction():
+            await lock_live_user(active, row.user_id)
+            await active.execute(
+                """
+                INSERT INTO public.subscriptions
+                    (stripe_subscription_id, user_id, status, price_id,
+                     billing_interval, current_period_end, cancel_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (stripe_subscription_id) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    status = EXCLUDED.status,
+                    price_id = EXCLUDED.price_id,
+                    billing_interval = EXCLUDED.billing_interval,
+                    current_period_end = EXCLUDED.current_period_end,
+                    cancel_at = EXCLUDED.cancel_at,
+                    updated_at = NOW()
+                """,
+                (
+                    row.stripe_subscription_id,
+                    row.user_id,
+                    row.status,
+                    row.price_id,
+                    row.billing_interval,
+                    row.current_period_end,
+                    row.cancel_at,
+                ),
+            )
+    except psycopg.Error as exc:
+        raise DatabaseError(
+            _build_database_error("No se pudo guardar la suscripción.")
+        ) from exc
 
 
 @asynccontextmanager
