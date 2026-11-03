@@ -79,9 +79,15 @@ jobs:
       - name: Read the push trigger's paths
         id: push_paths
         run: |
+          paths=$(yq -o json -I0 '.on.push.paths // []' .github/workflows/ci.yml)
+          # paths-filter reads '!' patterns differently from GitHub, so only a plain positive list is safe to reuse.
+          if ! jq -e 'length > 0 and all(.[]; type == "string" and (startswith("!") | not))' <<<"$paths" >/dev/null; then
+            echo "::error::on.push.paths debe ser una lista de patrones positivos para calcular la cobertura; adapta este paso si cambias el trigger."
+            exit 1
+          fi
           {
             echo 'filters<<EOF'
-            docker run --rm -v "$PWD:/workdir" mikefarah/yq:4.44.3 -e '{"deploy_relevant": .on.push.paths}' .github/workflows/ci.yml
+            jq -r '"deploy_relevant:", (.[] | "  - " + @json)' <<<"$paths"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
