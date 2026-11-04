@@ -122,18 +122,27 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
     assert built == [2, 1, 1]
 
 
-def test_judge_stances_fails_when_the_judge_answers_without_the_tool_call(
-    monkeypatch,
-):
-    class _ProseChain:
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # Structured output gives None when the model answers in prose instead of calling the tool.
+        None,
+        # The tool parser raises a plain ValueError when the call's arguments are not a dict.
+        ValueError("Tool arguments must be specified as a dict"),
+    ],
+    ids=["prose", "arguments-not-a-dict"],
+)
+def test_judge_stances_fails_when_the_judge_tool_call_is_unusable(monkeypatch, answer):
+    class _UnusableChain:
         def invoke(self, payload):
-            # Structured output gives None when the model answers in prose instead of calling the tool.
-            return None
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
 
     monkeypatch.setattr(
         relevance,
         "get_relevance_chain",
-        lambda prompt, sources, model=None: _ProseChain(),
+        lambda prompt, sources, model=None: _UnusableChain(),
     )
 
     assert judge_stances("p", "claim", _evidence("a", "b")) is None

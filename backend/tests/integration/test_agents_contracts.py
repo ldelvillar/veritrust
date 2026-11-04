@@ -278,7 +278,7 @@ def test_translator_returns_empty_list_when_no_statements_and_skips_llm(
 
 
 # Search in which the literature covered the only claim.
-_ONE_COVERED = EvidenceSearch(total=1, searched=1, covered=1)
+_ONE_COVERED = EvidenceSearch(total=1, covered=1)
 
 
 def _evidenced(supports: int = 0, contradicts: int = 0) -> dict:
@@ -496,7 +496,7 @@ def test_health_expert_mixed_report_names_which_claims_are_false(
         {
             "shown_claims": claims,
             "sources": source_records(claims),
-            "evidence_search": EvidenceSearch(total=2, searched=2, covered=2),
+            "evidence_search": EvidenceSearch(total=2, covered=2),
         },
         dummy_prompts,
     )

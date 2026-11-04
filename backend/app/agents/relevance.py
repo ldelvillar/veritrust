@@ -9,7 +9,7 @@ from typing import Any
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from app.agents.numbered_answers import NumberedAnswers
 from app.agents.sanitize import neutralize_delimiters
@@ -111,8 +111,8 @@ def _ask_judge(
     )
 
 
-# An answer that does not give one Stance per Source, as opposed to a provider failure, which fails the Run.
-_UNUSABLE_ANSWER = (ValidationError, OutputParserException)
+# An answer that does not give one Stance per Source, including a ValidationError, as opposed to a provider failure, which fails the Run.
+_UNUSABLE_ANSWER = (ValueError, OutputParserException)
 
 
 def judge_stances(

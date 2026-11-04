@@ -4,7 +4,7 @@ status: accepted
 
 # A Claim our services failed to check fails the Run
 
-ADR-0003 made a Claim uncertain when "its Sources or the judge fail", so an Analysis whose judge calls ran out of retries ended done as Dudoso. It used an Allowance unit, counted toward the Dudoso share, and nothing on it said the literature had never been consulted. The judge was the only agent that swallowed its provider's failures, and its parallel calls, up to 8 per Run, are the ones most likely to exceed Mistral's per-second limit. Now a Claim that one of our services failed to check fails the Run with CONNECTION, so no unit is used and Retry stays available. That covers a judge call still failing after the client's retries (a 429, a 5xx or no connection) and a searched Claim whose literature sources all failed. A Dudoso now always comes from the literature, never from our outage.
+ADR-0003 made a Claim uncertain when "its Sources or the judge fail", so an Analysis whose judge calls ran out of retries ended done as Dudoso. It used an Allowance unit, counted toward the Dudoso share, and nothing on it said the literature had never been consulted. The judge was the only agent that swallowed its provider's failures, and its parallel calls, up to 8 per Run, are the ones most likely to exceed Mistral's per-second limit. Now a Claim that one of our services failed to check fails the Run, so no unit is used and Retry stays available. That covers a judge call still failing after the client's retries and a searched Claim whose literature sources all failed. The Run fails with CONNECTION when the literature or Mistral could not be reached, or Mistral kept answering 429 or 5xx, which now holds for every agent; a development provider's own errors fail it as INTERNAL. A Dudoso now always comes from the literature, never from our outage.
 
 A judge answer that does not give one Stance per Source still leaves its Claim uncertain, since it is the model's answer rather than an outage. That Claim no longer counts toward Evidence coverage, because what the literature says of it is unknown. Claims left out by the cap of 8 or without a usable query stay uncertain as ADR-0003 says. This amends ADR-0003's rule for failures.
 
@@ -17,4 +17,4 @@ A judge answer that does not give one Stance per Source still leaves its Claim u
 ## Consequences
 
 - The MCP Evidence search has no Verdict, so it still returns a Claim whose sources all failed, marked as such. A judge provider failure fails that search too, without using a unit.
-- An evaluation sample whose recorded searches leave a Claim without sources now fails on every replay, so the harness leaves it out.
+- The evaluation harness leaves out a sample whose Run fails this way and retries it on resume, as with any failed sample. A row whose judge answer was unusable now scores like any other, since production shows its Claim as uncertain.

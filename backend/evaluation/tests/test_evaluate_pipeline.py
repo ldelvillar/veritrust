@@ -160,6 +160,16 @@ def test_format_report_excludes_abstentions_from_errors() -> None:
     assert "Veredicto incierto : 1" in report
 
 
+def test_compute_metrics_scores_a_row_with_an_unusable_judge_answer() -> None:
+    row: ep.EvalRow = {**_row("falsa", "falsa"), "judge_failures": 1}
+
+    metrics = ep.compute_metrics([row])
+
+    # Production keeps the Verdict and shows the unjudged claim as uncertain, so the row scores like any other (ADR-0006).
+    assert (metrics["tp"], metrics["evaluated"]) == (1, 1)
+    assert metrics["judge_failed"] == 1
+
+
 def test_compute_metrics_empty_rows_are_zero() -> None:
     metrics = ep.compute_metrics([])
 

@@ -68,10 +68,8 @@ def _normalize_confidence(confidence: Any) -> float:
     return value
 
 
-def _coerce_optional_fraction(value: Any) -> float | None:
-    """Convert an optional fraction to float validating [0, 1], passing ``None`` through."""
-    if value is None:
-        return None
+def _coerce_fraction(value: Any) -> float:
+    """Convert a fraction to float validating [0, 1]."""
     try:
         fraction = float(value)
     except (TypeError, ValueError) as exc:
@@ -255,7 +253,7 @@ async def complete(
 ) -> bool:
     """Move a still ``pending`` Analysis to ``done`` with its Verdict and record its Run in the Usage, True if it changed."""
     confidence_value = _normalize_confidence(verdict.confidence)
-    coverage_value = _coerce_optional_fraction(verdict.evidence_coverage)
+    coverage_value = _coerce_fraction(verdict.evidence_coverage)
     claims = [
         {"text": claim.text, "label": claim.label, "confidence": claim.confidence}
         for claim in verdict.claims

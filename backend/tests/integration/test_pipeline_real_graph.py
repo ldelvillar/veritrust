@@ -661,13 +661,9 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         _stored_source("G5", (6, "supports")),
         _stored_source("G6", (6, "supports")),
     ]
-    # 10 searchable and 8 searched, covering 0, 5, 6 and 8, the last even though the cap hides its Sources, but not the unjudged 3.
+    # 10 searchable, covering 0, 5, 6 and 8, the last even though the cap hides its Sources, but not the unjudged 3.
     evidence_search = result["evidence_search"]
-    assert (
-        evidence_search.total,
-        evidence_search.searched,
-        evidence_search.covered,
-    ) == (10, 8, 4)
+    assert (evidence_search.total, evidence_search.covered) == (10, 4)
     assert result["judge_failures"] == 1
     # Each claim keeps all its Evidence, while the Verdict only sees what the report shows.
     found, shown = result["claims"], result["shown_claims"]

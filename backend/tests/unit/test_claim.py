@@ -115,7 +115,7 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
     ("claims", "expected"),
     [
         # Without claims there is nothing to measure.
-        ([], EvidenceSearch(total=0, searched=0, covered=0)),
+        ([], EvidenceSearch(total=0, covered=0)),
         # The one without a query does not count, while the one the cap left out does.
         (
             [
@@ -123,17 +123,17 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
                 Claim(index=1, text="B", query='"b"'),
                 _judged(2, ("X", "supports")),
             ],
-            EvidenceSearch(total=2, searched=1, covered=1),
+            EvidenceSearch(total=2, covered=1),
         ),
         # Only a judged claim with Evidence covers, since what the literature says of an unjudged one is unknown.
         (
             [_found(0, "X"), _judged(1, ("Y", "supports")), _found(2)],
-            EvidenceSearch(total=3, searched=3, covered=1),
+            EvidenceSearch(total=3, covered=1),
         ),
         # The judge discarded all its Sources, so it was searched but not covered.
         (
             [_judged(0, ("Y", "unrelated"))],
-            EvidenceSearch(total=1, searched=1, covered=0),
+            EvidenceSearch(total=1, covered=0),
         ),
         # A claim whose sources all failed was searched but is not covered.
         (
@@ -141,7 +141,7 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
                 with_hits(Claim(index=0, text="A", query='"a"'), None),
                 _judged(1, ("X", "supports")),
             ],
-            EvidenceSearch(total=2, searched=2, covered=1),
+            EvidenceSearch(total=2, covered=1),
         ),
     ],
 )

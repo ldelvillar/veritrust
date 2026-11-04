@@ -354,7 +354,7 @@ async def evaluate_pipeline(
                 "sources_kept": len(result.get("sources") or []),
                 "stances": _stance_histogram(result.get("sources") or []),
                 "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
-                # Judge down, so the row measures an incident, not the pipeline.
+                # Claims whose judge answer was unusable, which the Verdict counts as uncertain.
                 "judge_failures": int(result.get("judge_failures") or 0),
                 # Full Evidence per claim, so another trim policy can be tested without rerunning.
                 "claim_evidence": [_recorded(claim) for claim in claims],
@@ -397,14 +397,10 @@ def _flags_falsehood(predicted: str | None) -> bool:
 
 def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
     """Compute the confusion matrix and metrics taking 'falsa' as positive."""
-    # With the judge down there are no Stances, so the row measures nothing and is excluded.
-    invalid = [r for r in rows if r.get("judge_failures")]
-    valid = [r for r in rows if not r.get("judge_failures")]
-
     # Abstaining ('incierta') is safe, not an error, so it is excluded from the metrics.
-    scored = [r for r in valid if not _is_abstention(r["predicted"])]
-    skipped = sum(1 for r in valid if r["predicted"] is None)
-    uncertain = len(valid) - len(scored) - skipped
+    scored = [r for r in rows if not _is_abstention(r["predicted"])]
+    skipped = sum(1 for r in rows if r["predicted"] is None)
+    uncertain = len(rows) - len(scored) - skipped
 
     tp = fp = tn = fn = 0
     for row in scored:
@@ -438,7 +434,8 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "evaluated": total,
         "uncertain": uncertain,
         "skipped": skipped,
-        "judge_failed": len(invalid),
+        # An unusable judge answer leaves its claim uncertain, as in production, so the row still scores.
+        "judge_failed": sum(1 for r in rows if r.get("judge_failures")),
     }
 
 
@@ -478,8 +475,8 @@ def format_report(
         f"Muestras evaluadas : {int(metrics['evaluated'])}",
         f"Veredicto incierto : {int(metrics['uncertain'])} (abstención, excluida de las métricas)",
         f"Sin afirmaciones   : {int(metrics['skipped'])} (excluidas de las métricas)",
-        f"Juez caído         : {int(metrics['judge_failed'])} "
-        "(evidencia sin juzgar, excluidas de las métricas)",
+        f"Juez inservible    : {int(metrics['judge_failed'])} "
+        "(afirmaciones sin juzgar, inciertas como en producción)",
         f"TP={int(metrics['tp'])} TN={int(metrics['tn'])} "
         f"FP={int(metrics['fp'])} FN={int(metrics['fn'])}",
         f"Accuracy  : {metrics['accuracy']:.2%}",
@@ -493,7 +490,6 @@ def format_report(
     errors = [
         r
         for r in rows
-        if not r.get("judge_failures")
         if not _is_abstention(r["predicted"])
         and _flags_falsehood(r["predicted"]) != (r["expected"] == "falsa")
     ]

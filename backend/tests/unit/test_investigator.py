@@ -17,7 +17,7 @@ from app.core.claim import Claim, EvidenceSearch
 from app.utils.evidence import EvidenceRetrievalError
 
 _PROMPTS = SimpleNamespace(judge=SimpleNamespace(text="judge-prompt"))
-_NOTHING_SEARCHED = EvidenceSearch(total=0, searched=0, covered=0)
+_NOTHING_SEARCHED = EvidenceSearch(total=0, covered=0)
 
 
 def _claims(
@@ -45,7 +45,7 @@ def _claims(
 
 def _search(total: int, covered: int) -> EvidenceSearch:
     """Expected counts when the cap trims no claim."""
-    return EvidenceSearch(total=total, searched=total, covered=covered)
+    return EvidenceSearch(total=total, covered=covered)
 
 
 def _patch_sources(monkeypatch, fake):
@@ -149,7 +149,6 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
     assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
     assert update["evidence_search"] == EvidenceSearch(
         total=total,
-        searched=EVIDENCE_MAX_STATEMENTS,
         covered=EVIDENCE_MAX_STATEMENTS,
     )
     assert len(update["sources"]) == EVIDENCE_MAX_STATEMENTS

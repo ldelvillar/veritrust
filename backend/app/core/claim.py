@@ -21,8 +21,6 @@ class EvidenceSearch:
 
     # Claims with a usable query, the coverage denominator.
     total: int
-    # The ones that got searched, since the cap leaves the rest out.
-    searched: int
     # The ones the literature spoke to.
     covered: int
 
@@ -101,10 +99,9 @@ def with_stances(claim: Claim, stances: Sequence[JudgeStance] | None) -> Claim:
 
 
 def evidence_search(claims: Sequence[Claim]) -> EvidenceSearch:
-    """Count, by each claim's outcome, how many could be searched, were searched and were found by the literature."""
+    """Count, by each claim's outcome, how many could be searched and how many the literature was found to speak to."""
     return EvidenceSearch(
         total=sum(claim.outcome != "unsearchable" for claim in claims),
-        searched=sum(claim.outcome in _SEARCHED for claim in claims),
         # What the literature says of an unjudged claim is unknown, so only a judged one covers.
         covered=sum(
             claim.outcome == "judged" and bool(claim.evidence) for claim in claims

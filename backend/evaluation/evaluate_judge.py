@@ -126,7 +126,9 @@ def judge_cases(
             # An unusable answer is not saved as a judgment either, so it is retried on resume.
             if stances is None:
                 logger.warning(
-                    "[%d/%d] el juez no respondió; se reintentará", i, len(pending)
+                    "[%d/%d] respuesta inservible del juez; se reintentará",
+                    i,
+                    len(pending),
                 )
                 continue
             judged = with_stances(case.claim, stances)
