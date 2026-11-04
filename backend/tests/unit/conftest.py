@@ -2,11 +2,12 @@
 
 import pytest
 
-from app.utils import pubmed
+from app.utils import llm, pacing, pubmed
+from app.utils.pacing import RequestPacer
 
 
 class FakeClock:
-    """Clock for PubMed's request pacing, where sleeping only moves time forward."""
+    """Clock for request pacing, where sleeping only moves time forward."""
 
     def __init__(self):
         self.now = 1000.0
@@ -19,10 +20,11 @@ class FakeClock:
 
 
 @pytest.fixture
-def pubmed_clock(monkeypatch):
-    """Pace PubMed's requests on a fake clock, so no test waits in real time."""
+def pacing_clock(monkeypatch):
+    """Pace PubMed's and Mistral's requests on a fake clock from fresh pacers, so no test waits in real time."""
     fake = FakeClock()
-    monkeypatch.setattr(pubmed, "monotonic", fake.monotonic)
-    monkeypatch.setattr(pubmed, "sleep", fake.sleep)
-    monkeypatch.setattr(pubmed, "_next_slot", 0.0)
+    monkeypatch.setattr(pacing, "monotonic", fake.monotonic)
+    monkeypatch.setattr(pacing, "sleep", fake.sleep)
+    monkeypatch.setattr(pubmed, "_pacer", RequestPacer())
+    monkeypatch.setattr(llm, "_mistral_pacer", RequestPacer())
     return fake

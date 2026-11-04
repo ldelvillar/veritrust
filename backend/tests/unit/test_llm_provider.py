@@ -44,6 +44,7 @@ class _FakeSettings:
     mistral_max_tokens = 2048
     mistral_request_timeout_seconds = 60
     mistral_max_retries = 5
+    mistral_requests_per_second = 1.25
     groq_extractor_model = "llama-3.3-70b-versatile"
     groq_translator_model = "llama-3.1-8b-instant"
     groq_health_expert_model = "llama-3.3-70b-versatile"
@@ -79,6 +80,12 @@ def _patch_settings(monkeypatch, settings) -> None:
     monkeypatch.setattr(llm_module, "get_settings", lambda: settings)
 
 
+@pytest.fixture(autouse=True)
+def clock(pacing_clock):
+    """Every Mistral request here is paced on the fake clock."""
+    return pacing_clock
+
+
 @pytest.mark.parametrize("role", ROLES)
 def test_build_chat_model_returns_ollama_for_every_role(monkeypatch, role) -> None:
     _patch_settings(monkeypatch, _FakeSettings("ollama"))
@@ -99,6 +106,7 @@ def test_build_chat_model_returns_mistral_for_every_role(monkeypatch, role) -> N
     assert model.model == "mistral-small-latest"
     assert model.max_tokens == 2048
     assert model.max_retries == 5
+    assert model.requests_per_second == 1.25
 
 
 @pytest.mark.parametrize("role", ROLES)
@@ -334,6 +342,24 @@ _MISTRAL_REPLY = {
 }
 
 
+def _mistral_response(status: int) -> httpx.Response:
+    if status == 200:
+        return httpx.Response(200, json=_MISTRAL_REPLY)
+    return httpx.Response(status, json={"message": "Rate limit exceeded"})
+
+
+def _mistral_client(handler) -> llm_module._RetryingChatMistralAI:
+    return llm_module._RetryingChatMistralAI(
+        api_key="clave-de-prueba",
+        max_retries=2,
+        requests_per_second=2.0,
+        client=httpx.Client(
+            base_url="https://api.mistral.ai/v1",
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+
+
 def _mistral_with_responses(monkeypatch, statuses: list[int]):
     """Return a Mistral client whose API answers with `statuses` in order, the waits it asked for and its calls."""
     calls: list[int] = []
@@ -342,20 +368,31 @@ def _mistral_with_responses(monkeypatch, statuses: list[int]):
     def handler(request: httpx.Request) -> httpx.Response:
         status = statuses[len(calls)]
         calls.append(status)
-        if status == 200:
-            return httpx.Response(200, json=_MISTRAL_REPLY)
-        return httpx.Response(status, json={"message": "Rate limit exceeded"})
+        return _mistral_response(status)
 
     monkeypatch.setattr(llm_module.time, "sleep", waits.append)
-    model = llm_module._RetryingChatMistralAI(
-        api_key="clave-de-prueba",
-        max_retries=2,
-        client=httpx.Client(
-            base_url="https://api.mistral.ai/v1",
-            transport=httpx.MockTransport(handler),
-        ),
-    )
-    return model, waits, calls
+    return _mistral_client(handler), waits, calls
+
+
+def test_mistral_requests_of_every_client_start_below_the_configured_rate(
+    monkeypatch, clock
+) -> None:
+    # The judge's calls come from several clients at once, and Mistral also counts each retry.
+    starts: list[float] = []
+    statuses = [429, 200, 200]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = statuses[len(starts)]
+        starts.append(clock.now)
+        return _mistral_response(status)
+
+    # The backoff does not move the fake clock, so only the pacing spaces the retry.
+    monkeypatch.setattr(llm_module.time, "sleep", lambda seconds: None)
+    for client in (_mistral_client(handler), _mistral_client(handler)):
+        client.invoke("hola")
+
+    assert len(starts) == 3
+    assert min(later - earlier for earlier, later in zip(starts, starts[1:])) >= 1 / 2.0
 
 
 def test_mistral_retries_a_rate_limit_and_then_answers(monkeypatch) -> None:

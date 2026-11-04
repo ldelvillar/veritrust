@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     mistral_request_timeout_seconds: int = 60
     # Retries on 429 and 5xx, since the workspace request limit cuts bursts.
     mistral_max_retries: int = 5
+    # Below the model's requests per second on the Admin Panel's Limits page, 1.67 for mistral-small-2603.
+    mistral_requests_per_second: float = 1.4
 
     # The api_key is required when llm_provider is "groq", and each role gets its own model since Groq's daily token quota is per model.
     groq_api_key: str | None = None

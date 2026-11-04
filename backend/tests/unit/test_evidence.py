@@ -24,7 +24,7 @@ def _unreachable(url):
     )
 
 
-@pytest.mark.usefixtures("pubmed_clock")
+@pytest.mark.usefixtures("pacing_clock")
 @pytest.mark.parametrize(
     "client",
     [europepmc, pubmed, openfda, cima],
