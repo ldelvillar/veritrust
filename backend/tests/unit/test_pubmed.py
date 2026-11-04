@@ -1,8 +1,8 @@
 """Tests of the PubMed (NCBI E-utilities) client with the network mocked."""
 
 import pytest
-import requests
 
+from app.core.config import get_settings
 from app.utils import pubmed
 from app.utils.evidence import EvidenceRetrievalError
 from app.utils.pubmed import search_evidence
@@ -67,10 +67,8 @@ class _FakeResponse:
         return self._payload
 
 
-def _patch_get(monkeypatch, *, esearch=None, efetch=None, exc=None):
+def _patch_get(monkeypatch, *, esearch=None, efetch=None):
     def fake_get(url, **kwargs):
-        if exc:
-            raise exc
         return esearch if "esearch" in url else efetch
 
     monkeypatch.setattr(pubmed.requests, "get", fake_get)
@@ -78,6 +76,12 @@ def _patch_get(monkeypatch, *, esearch=None, efetch=None, exc=None):
 
 def _esearch(ids):
     return _FakeResponse(payload={"esearchresult": {"idlist": ids}})
+
+
+@pytest.fixture(autouse=True)
+def clock(pubmed_clock):
+    """Every test here paces its requests on the fake clock."""
+    return pubmed_clock
 
 
 def test_search_evidence_maps_article_with_doi_url(monkeypatch):
@@ -139,11 +143,41 @@ def test_search_evidence_returns_empty_for_blank_query(monkeypatch):
     assert search_evidence("   ", max_results=3) == []
 
 
-def test_search_evidence_raises_on_request_error(monkeypatch):
-    _patch_get(monkeypatch, exc=requests.exceptions.Timeout("timeout"))
+def _gaps_between_requests(monkeypatch, clock, api_key):
+    """Seconds between the starts of the requests of three searches in a row."""
+    monkeypatch.setattr(get_settings(), "pubmed_api_key", api_key)
+    starts = []
 
-    with pytest.raises(EvidenceRetrievalError):
+    def fake_get(url, **kwargs):
+        starts.append(clock.now)
+        if "esearch" in url:
+            return _esearch(["123"])
+        return _FakeResponse(content=_EFETCH_XML)
+
+    monkeypatch.setattr(pubmed.requests, "get", fake_get)
+
+    for _ in range(3):
         search_evidence("query", max_results=3)
+
+    assert len(starts) == 6
+    return [later - earlier for earlier, later in zip(starts, starts[1:])]
+
+
+def test_requests_without_a_key_start_below_ncbi_keyless_limit(monkeypatch, clock):
+    # NCBI allows 3 requests per second per IP without an api_key.
+    gaps = _gaps_between_requests(monkeypatch, clock, None)
+
+    assert min(gaps) >= 1 / 3
+
+
+def test_requests_with_a_key_start_below_its_limit_and_faster_than_without(
+    monkeypatch, clock
+):
+    # NCBI allows 10 requests per second with an api_key, which is why env.md asks for one.
+    gaps = _gaps_between_requests(monkeypatch, clock, "dummy-key")
+
+    assert min(gaps) >= 1 / 10
+    assert max(gaps) < 1 / 3
 
 
 def test_search_evidence_raises_on_invalid_xml(monkeypatch):

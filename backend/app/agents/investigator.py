@@ -36,8 +36,10 @@ def _search_source(
     """Query one source for a claim, with ``None`` in its hits if it fails."""
     try:
         return index, search(query, max_results=EVIDENCE_RESULTS_PER_STATEMENT)
-    except EvidenceRetrievalError:
-        logger.warning("[Investigador] Fallo recuperando evidencia; se continúa")
+    except EvidenceRetrievalError as exc:
+        logger.warning(
+            "[Investigador] Fallo recuperando evidencia; se continúa: %s", exc
+        )
         return index, None
 
 
