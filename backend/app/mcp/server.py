@@ -29,6 +29,7 @@ from app.core.rate_limit import (
     enforce_sliding_window,
     user_rate_limit_key,
 )
+from app.core.report_url import build_report_url
 from app.db.billing import get_user_subscription, usage_this_month
 from app.db.history import get_user_analysis_by_id, get_user_analysis_status
 from app.db.pool import DatabaseError
@@ -158,7 +159,7 @@ def _report_url(analysis_id: str) -> str | None:
     base_url = get_settings().app_base_url
     if not base_url:
         return None
-    return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
+    return build_report_url(base_url, analysis_id)
 
 
 def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:

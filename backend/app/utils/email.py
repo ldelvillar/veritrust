@@ -6,6 +6,7 @@ from html import escape
 import httpx
 
 from app.core.config import get_settings
+from app.core.report_url import build_report_url
 from app.schemas.errors import ErrorCode
 
 logger = logging.getLogger(__name__)
@@ -27,11 +28,6 @@ class ContactEmailNotConfigured(RuntimeError):
 
 class ContactEmailError(RuntimeError):
     """The contact message could not be delivered through Resend."""
-
-
-def _build_report_url(base_url: str, analysis_id: str) -> str:
-    """Build the link to the Analysis report in the frontend."""
-    return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
 
 
 def _render_email_html(
@@ -106,7 +102,7 @@ async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None
     if not settings.app_base_url:
         return
 
-    report_url = _build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(settings.app_base_url, analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,
@@ -132,7 +128,7 @@ async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> 
     if not settings.app_base_url:
         return
 
-    report_url = _build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(settings.app_base_url, analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,
@@ -161,7 +157,7 @@ async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> Non
     if not settings.app_base_url:
         return
 
-    report_url = _build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(settings.app_base_url, analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,

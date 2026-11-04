@@ -5,6 +5,7 @@ import io
 from datetime import datetime
 
 from app.core.config import get_settings
+from app.core.report_url import build_report_url
 from app.schemas.history import HistoryExportItem
 
 # BOM so Excel detects UTF-8 when opening the CSV.
@@ -64,13 +65,6 @@ def _export_entry(record: HistoryExportItem) -> str:
     return record.input_url or record.input_text or ""
 
 
-def _build_report_url(base_url: str | None, analysis_id: str) -> str:
-    """Link to the report in the frontend, empty if APP_BASE_URL is not configured."""
-    if not base_url:
-        return ""
-    return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
-
-
 def build_history_csv(records: list[HistoryExportItem]) -> bytes:
     """Serialise the History to UTF-8 CSV with a BOM (Excel compatible)."""
     buffer = io.StringIO()
@@ -95,7 +89,7 @@ def build_history_csv(records: list[HistoryExportItem]) -> bytes:
                 credibility,
                 coverage,
                 _export_duration_seconds(record.created_at, record.completed_at),
-                _build_report_url(base_url, record.analysis_id),
+                build_report_url(base_url, record.analysis_id) if base_url else "",
             ]
         )
     return (_UTF8_BOM + buffer.getvalue()).encode("utf-8")
