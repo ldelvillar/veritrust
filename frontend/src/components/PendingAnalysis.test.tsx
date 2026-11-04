@@ -13,10 +13,10 @@ const minutesAgoIso = (minutes: number) =>
   new Date(Date.now() - minutes * 60_000).toISOString();
 
 describe('PendingAnalysis', () => {
-  it('shows the time estimate and no escape hatch within the expected window', () => {
+  it('shows the elapsed time and no escape hatch before the analysis is overdue', () => {
     render(<PendingAnalysis createdAt={minutesAgoIso(1)} stage="extractor" />);
 
-    expect(screen.getByText(/Tiempo estimado: 8 min/)).toBeInTheDocument();
+    expect(screen.getByText('1:00')).toBeInTheDocument();
     expect(screen.queryByText('Está tardando más de lo habitual')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Ir al historial' })).toBeNull();
   });
@@ -49,33 +49,14 @@ describe('PendingAnalysis', () => {
     ).toBeInTheDocument();
   });
 
-  it.each([
-    { minutes: 1, stage: 'extractor', eta: 'Quedan ~7 min' },
-    { minutes: 7.5, stage: 'investigator', eta: 'Queda ~1 min' },
-    { minutes: 9, stage: 'investigator', eta: 'Casi listo' },
-    { minutes: 1, stage: 'health_expert', eta: 'Casi listo' },
-  ] as const)(
-    'estimates "$eta" after $minutes min at the $stage stage',
-    ({ minutes, stage, eta }) => {
-      render(
-        <PendingAnalysis createdAt={minutesAgoIso(minutes)} stage={stage} />
-      );
-
-      expect(
-        screen.getByText(new RegExp(`Tiempo estimado: 8 min · ${eta}\\.`))
-      ).toBeInTheDocument();
-    }
-  );
-
   it('surfaces an escape hatch once the analysis is overdue', () => {
     render(
-      <PendingAnalysis createdAt={minutesAgoIso(11)} stage="investigator" />
+      <PendingAnalysis createdAt={minutesAgoIso(5)} stage="investigator" />
     );
 
     expect(
       screen.getByText('Está tardando más de lo habitual')
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Tiempo estimado: 8 min/)).toBeNull();
     expect(
       screen.getByRole('link', { name: 'Ir al historial' })
     ).toHaveAttribute('href', '/app/historial');
