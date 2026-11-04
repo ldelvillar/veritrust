@@ -1,4 +1,4 @@
-"""Link to an Analysis report, the only place the backend knows the frontend route."""
+"""Link to an Analysis report in the frontend, which the backend builds only here."""
 
 
 def build_report_url(base_url: str, analysis_id: str) -> str:

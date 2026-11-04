@@ -147,7 +147,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     resend_base_url: str = "https://api.resend.com"
-    # Public frontend origin, to build the report link in the email.
+    # Public frontend origin, for links back to the app.
     app_base_url: str | None = None
     # Team inbox for the contact and demo forms, required by the web process outside development.
     contact_to_email: str = ""
