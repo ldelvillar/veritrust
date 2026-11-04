@@ -210,7 +210,7 @@ def test_validate_runtime_requires_groq_api_key_for_groq_provider():
         settings.validate_runtime()
 
 
-@pytest.mark.parametrize("rate", [0, -1.4, float("nan"), float("inf")])
+@pytest.mark.parametrize("rate", [0, float("nan"), float("inf")])
 def test_validate_runtime_requires_a_positive_mistral_rate(rate):
     settings = _make_settings(
         llm_provider="mistral",

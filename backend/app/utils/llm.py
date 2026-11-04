@@ -96,7 +96,7 @@ class _RetryingChatMistralAI(ChatMistralAI):
             except httpx.HTTPStatusError as exc:
                 if not _is_transient(exc) or attempt == self.max_retries:
                     raise
-                # Jitter keeps the judge's parallel calls from retrying at the same time.
+                # Jitter spreads the retries of the processes that share the organization's limit.
                 wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()
                 attempt += 1
                 logger.warning(
