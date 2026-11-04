@@ -158,9 +158,10 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.exceptions.RequestException, ValueError) as e:
+        # Not chained, like every evidence client, since the requests error carries the URL with the query.
         raise EvidenceRetrievalError(
             f"Error al consultar CIMA: {failure_cause(e)}"
-        ) from e
+        ) from None
 
     results = payload.get("resultados") or []
     mapped = [_map_result(item, timeout=timeout) for item in results[:max_results]]

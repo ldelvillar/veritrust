@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _ESEARCH_PATH = "/esearch.fcgi"
 _EFETCH_PATH = "/efetch.fcgi"
 
-# Below NCBI's 10 requests per second with an api_key and 3 without, so network jitter cannot push a burst over.
+# Below NCBI's 10 requests per second with an api_key and 3 without, leaving a margin for network jitter.
 _REQUESTS_PER_SECOND_WITH_KEY = 8.0
 _REQUESTS_PER_SECOND_WITHOUT_KEY = 2.5
 
@@ -140,9 +140,10 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         ValueError,
         ElementTree.ParseError,
     ) as e:
+        # Not chained, since the requests error carries the URL with the query and the api_key.
         raise EvidenceRetrievalError(
             f"Error al consultar PubMed: {failure_cause(e)}"
-        ) from e
+        ) from None
 
     mapped = [_map_article(article) for article in root.findall("PubmedArticle")]
     return [item for item in mapped if item][:max_results]

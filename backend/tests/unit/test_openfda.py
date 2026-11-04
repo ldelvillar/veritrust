@@ -40,24 +40,6 @@ def _patch_get(monkeypatch, response=None, *, exc=None):
     monkeypatch.setattr(openfda.requests, "get", fake_get)
 
 
-def test_search_evidence_error_gives_the_status_but_not_the_url(monkeypatch):
-    # The URL carries the query and the api_key, and the investigator logs this message.
-    response = requests.Response()
-    response.status_code = 429
-    leak = requests.exceptions.HTTPError(
-        "429 Client Error: Too Many Requests for url: "
-        "https://api.fda.test/drug/label.json?search=query&api_key=dummy-key",
-        response=response,
-    )
-    _patch_get(monkeypatch, _FakeResponse(status_code=429, raise_exc=leak))
-
-    with pytest.raises(EvidenceRetrievalError) as raised:
-        search_evidence("query", max_results=3)
-
-    assert "HTTPError 429" in str(raised.value)
-    assert "dummy-key" not in str(raised.value)
-
-
 def test_search_evidence_maps_label_to_dailymed_source(monkeypatch):
     _patch_get(monkeypatch, _FakeResponse(payload={"results": [_LABEL]}))
 

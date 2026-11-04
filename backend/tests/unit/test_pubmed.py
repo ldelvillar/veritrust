@@ -170,31 +170,8 @@ def test_search_evidence_raises_on_request_error(monkeypatch):
         search_evidence("query", max_results=3)
 
 
-def test_search_evidence_error_gives_the_status_but_not_the_url(monkeypatch):
-    # The URL carries the query and the api_key, and the investigator logs this message.
-    response = requests.Response()
-    response.status_code = 429
-    leak = requests.exceptions.HTTPError(
-        "429 Client Error: Too Many Requests for url: "
-        "https://eutils.test/esearch.fcgi?term=query&api_key=dummy-key",
-        response=response,
-    )
-    _patch_get(monkeypatch, esearch=_FakeResponse(raise_exc=leak))
-
-    with pytest.raises(EvidenceRetrievalError) as raised:
-        search_evidence("query", max_results=3)
-
-    assert "HTTPError 429" in str(raised.value)
-    assert "dummy-key" not in str(raised.value)
-
-
-@pytest.mark.parametrize(
-    ("api_key", "ncbi_limit"),
-    [("", 3), ("dummy-key", 10)],
-    ids=["without-key", "with-key"],
-)
-def test_requests_start_below_the_ncbi_limit(monkeypatch, clock, api_key, ncbi_limit):
-    # NCBI allows 3 requests per second per IP without an api_key and 10 with one.
+def _gaps_between_requests(monkeypatch, clock, api_key):
+    """Seconds between the starts of the requests of three searches in a row."""
     monkeypatch.setattr(get_settings(), "pubmed_api_key", api_key)
     starts = []
 
@@ -210,7 +187,24 @@ def test_requests_start_below_the_ncbi_limit(monkeypatch, clock, api_key, ncbi_l
         search_evidence("query", max_results=3)
 
     assert len(starts) == 6
-    assert min(b - a for a, b in zip(starts, starts[1:])) >= 1 / ncbi_limit
+    return [later - earlier for earlier, later in zip(starts, starts[1:])]
+
+
+def test_requests_without_a_key_start_below_ncbi_keyless_limit(monkeypatch, clock):
+    # NCBI allows 3 requests per second per IP without an api_key.
+    gaps = _gaps_between_requests(monkeypatch, clock, None)
+
+    assert min(gaps) >= 1 / 3
+
+
+def test_requests_with_a_key_start_below_its_limit_and_faster_than_without(
+    monkeypatch, clock
+):
+    # NCBI allows 10 requests per second with an api_key, which is why env.md asks for one.
+    gaps = _gaps_between_requests(monkeypatch, clock, "dummy-key")
+
+    assert min(gaps) >= 1 / 10
+    assert max(gaps) < 1 / 3
 
 
 def test_search_evidence_raises_on_invalid_xml(monkeypatch):

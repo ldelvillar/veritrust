@@ -88,9 +88,10 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.exceptions.RequestException, ValueError) as e:
+        # Not chained, since the requests error carries the URL with the query and the api_key.
         raise EvidenceRetrievalError(
             f"Error al consultar openFDA: {failure_cause(e)}"
-        ) from e
+        ) from None
 
     results = payload.get("results") or []
     mapped = [_map_result(item) for item in results]
