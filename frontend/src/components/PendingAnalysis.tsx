@@ -90,12 +90,8 @@ const SOURCE_COPY: Record<
   },
 };
 
-// Usual estimate for the full pipeline, in seconds.
-const ESTIMATED_SECONDS = 480;
-const ESTIMATED_MINUTES = ESTIMATED_SECONDS / 60;
-
-// Once the estimate is passed with margin, warn and offer a way out.
-const SLOW_AFTER_SECONDS = 600;
+// Past this many seconds, warn that it is slower than usual and offer a way out.
+const SLOW_AFTER_SECONDS = 240;
 
 // The worker reports the real stage, translated here to the visible step.
 const STAGE_INDEX: Record<AnalysisStage, number> = {
@@ -314,14 +310,6 @@ export default function PendingAnalysis({
     ? 'Está tardando más de lo habitual…'
     : `${descriptionOf(activeStep).replace(/\.$/, '')}…`;
 
-  const minutesLeft = Math.ceil((ESTIMATED_SECONDS - elapsed) / 60);
-  const eta =
-    activeStep === lastStep || minutesLeft <= 0
-      ? 'Casi listo'
-      : minutesLeft === 1
-        ? 'Queda ~1 min'
-        : `Quedan ~${minutesLeft} min`;
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
       <div className="flex flex-1 flex-col gap-7">
@@ -488,9 +476,6 @@ export default function PendingAnalysis({
             El informe aparecerá aquí en cuanto termine el análisis
           </p>
           <p className="mt-0.5 text-xs leading-snug text-muted">
-            {isSlow
-              ? `Lo normal son unos ${ESTIMATED_MINUTES} min.`
-              : `Tiempo estimado: ${ESTIMATED_MINUTES} min · ${eta}.`}{' '}
             Puedes cerrar esta pestaña; lo guardamos en tu historial.
           </p>
         </div>
