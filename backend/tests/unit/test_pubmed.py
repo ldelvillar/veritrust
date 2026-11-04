@@ -79,9 +79,9 @@ def _esearch(ids):
 
 
 @pytest.fixture(autouse=True)
-def clock(pubmed_clock):
+def clock(pacing_clock):
     """Every test here paces its requests on the fake clock."""
-    return pubmed_clock
+    return pacing_clock
 
 
 def test_search_evidence_maps_article_with_doi_url(monkeypatch):

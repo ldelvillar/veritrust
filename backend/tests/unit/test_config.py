@@ -210,6 +210,18 @@ def test_validate_runtime_requires_groq_api_key_for_groq_provider():
         settings.validate_runtime()
 
 
+@pytest.mark.parametrize("rate", [0, float("nan"), float("inf")])
+def test_validate_runtime_requires_a_positive_mistral_rate(rate):
+    settings = _make_settings(
+        llm_provider="mistral",
+        mistral_api_key="clave-de-prueba",
+        mistral_requests_per_second=rate,
+    )
+
+    with pytest.raises(SettingsValidationError, match="MISTRAL_REQUESTS_PER_SECOND"):
+        settings.validate_runtime()
+
+
 def test_validate_runtime_accepts_groq_provider_with_api_key():
     settings = _make_settings(llm_provider="groq", groq_api_key="clave-de-prueba")
 

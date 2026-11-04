@@ -3,7 +3,7 @@
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -13,10 +13,11 @@ from langchain_groq import ChatGroq
 from langchain_mistralai import ChatMistralAI
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_ollama import ChatOllama
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 
 from app.core.config import get_settings
 from app.utils.ollama import ensure_ollama_available
+from app.utils.pacing import RequestPacer
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,24 @@ def _is_transient(exc: httpx.HTTPStatusError) -> bool:
     return status == 429 or status >= 500
 
 
+# Mistral counts the requests of the whole organization, so every client of the process shares one pacer.
+_mistral_pacer = RequestPacer()
+
+
 class _RetryingChatMistralAI(ChatMistralAI):
-    """ChatMistralAI that also retries 429 and 5xx, since the library only retries network failures."""
+    """ChatMistralAI that paces its sync requests under the organization's limit and also retries 429 and 5xx, since the library only retries network failures."""
+
+    requests_per_second: float
+
+    @model_validator(mode="after")
+    def pace_every_request(self) -> Self:
+        """Make every request of the sync client wait for its slot, the library's own network retries included."""
+        self.client.event_hooks["request"].append(self._wait_for_slot)
+        return self
+
+    def _wait_for_slot(self, request: httpx.Request) -> None:
+        """Wait until the organization's per-second limit lets the request start."""
+        _mistral_pacer.wait(self.requests_per_second)
 
     def completion_with_retry(
         self, run_manager: CallbackManagerForLLMRun | None = None, **kwargs: Any
@@ -79,7 +96,7 @@ class _RetryingChatMistralAI(ChatMistralAI):
             except httpx.HTTPStatusError as exc:
                 if not _is_transient(exc) or attempt == self.max_retries:
                     raise
-                # Jitter keeps the judge's parallel calls from retrying at the same time.
+                # Jitter spreads the retries of the processes that share the organization's limit.
                 wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()
                 attempt += 1
                 logger.warning(
@@ -173,6 +190,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
             max_tokens=settings.mistral_max_tokens,
             timeout=settings.mistral_request_timeout_seconds,
             max_retries=settings.mistral_max_retries,
+            requests_per_second=settings.mistral_requests_per_second,
         )
 
     if provider == "groq":

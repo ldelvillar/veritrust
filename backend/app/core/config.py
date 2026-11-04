@@ -1,5 +1,6 @@
 """Centralised application configuration, loaded and validated from the environment."""
 
+import math
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,6 +60,8 @@ class Settings(BaseSettings):
     mistral_request_timeout_seconds: int = 60
     # Retries on 429 and 5xx, since the workspace request limit cuts bursts.
     mistral_max_retries: int = 5
+    # Below the model's requests per second on the Admin Panel's Limits page, which every key of the organization shares.
+    mistral_requests_per_second: float = 1.4
 
     # The api_key is required when llm_provider is "groq", and each role gets its own model since Groq's daily token quota is per model.
     groq_api_key: str | None = None
@@ -263,6 +266,12 @@ class Settings(BaseSettings):
 
         if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
+
+        rate = self.mistral_requests_per_second
+        if provider == "mistral" and not (math.isfinite(rate) and rate > 0):
+            raise SettingsValidationError(
+                "MISTRAL_REQUESTS_PER_SECOND debe ser mayor que 0"
+            )
 
         if web and self.cors_allow_credentials and "*" in self.cors_origins():
             raise SettingsValidationError(

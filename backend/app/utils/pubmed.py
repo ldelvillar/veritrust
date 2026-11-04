@@ -1,14 +1,13 @@
 """NCBI E-utilities (PubMed) client that retrieves biomedical literature."""
 
 import logging
-import threading
-from time import monotonic, sleep
 from xml.etree import ElementTree
 
 import requests
 
 from app.core.config import get_settings
 from app.utils.evidence import raise_retrieval_error
+from app.utils.pacing import RequestPacer
 
 logger = logging.getLogger(__name__)
 
@@ -19,23 +18,14 @@ _EFETCH_PATH = "/efetch.fcgi"
 _REQUESTS_PER_SECOND_WITH_KEY = 8.0
 _REQUESTS_PER_SECOND_WITHOUT_KEY = 2.5
 
-# Earliest instant the next request may start, shared by every thread of the process.
-_next_slot = 0.0
-_slot_lock = threading.Lock()
+_pacer = RequestPacer()
 
 
 def _wait_for_slot(api_key: str | None) -> None:
     """Wait until NCBI's per-second limit lets the next request start."""
-    global _next_slot
-    rate = (
+    _pacer.wait(
         _REQUESTS_PER_SECOND_WITH_KEY if api_key else _REQUESTS_PER_SECOND_WITHOUT_KEY
     )
-    with _slot_lock:
-        now = monotonic()
-        slot = max(now, _next_slot)
-        _next_slot = slot + 1 / rate
-    # Sleeps outside the lock, so the other threads can book the following slots.
-    sleep(slot - now)
 
 
 def _extract_pmids(payload: dict, max_results: int) -> list[str]:
