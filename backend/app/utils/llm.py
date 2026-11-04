@@ -71,13 +71,13 @@ _mistral_pacer = RequestPacer()
 
 
 class _RetryingChatMistralAI(ChatMistralAI):
-    """ChatMistralAI that paces its requests under the organization's limit and also retries 429 and 5xx, since the library only retries network failures."""
+    """ChatMistralAI that paces its sync requests under the organization's limit and also retries 429 and 5xx, since the library only retries network failures."""
 
     requests_per_second: float
 
     @model_validator(mode="after")
     def pace_every_request(self) -> Self:
-        """Make every request of the client wait for its slot, the library's own network retries included."""
+        """Make every request of the sync client wait for its slot, the library's own network retries included."""
         self.client.event_hooks["request"].append(self._wait_for_slot)
         return self
 

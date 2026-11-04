@@ -1,5 +1,6 @@
 """Centralised application configuration, loaded and validated from the environment."""
 
+import math
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -266,7 +267,8 @@ class Settings(BaseSettings):
         if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
-        if provider == "mistral" and self.mistral_requests_per_second <= 0:
+        rate = self.mistral_requests_per_second
+        if provider == "mistral" and not (math.isfinite(rate) and rate > 0):
             raise SettingsValidationError(
                 "MISTRAL_REQUESTS_PER_SECOND debe ser mayor que 0"
             )
