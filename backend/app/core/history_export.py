@@ -5,6 +5,7 @@ import io
 from datetime import datetime
 
 from app.core.config import get_settings
+from app.core.report_url import build_report_url
 from app.schemas.history import HistoryExportItem
 
 # BOM so Excel detects UTF-8 when opening the CSV.
@@ -68,7 +69,7 @@ def _build_report_url(base_url: str | None, analysis_id: str) -> str:
     """Link to the report in the frontend, empty if APP_BASE_URL is not configured."""
     if not base_url:
         return ""
-    return f"{base_url.rstrip('/')}/app/analisis/{analysis_id}"
+    return build_report_url(base_url, analysis_id)
 
 
 def build_history_csv(records: list[HistoryExportItem]) -> bytes:
