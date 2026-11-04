@@ -111,9 +111,9 @@ def _ask_judge(
         )
     except (ValidationError, OutputParserException) as error:
         raise _UnusableAnswer("El juez no dio una postura válida por fuente") from error
-    # Structured output gives None when the model answers in prose instead of calling the tool.
+    # Structured output gives None when the model answers in prose or its tool call is malformed or truncated.
     if answer is None:
-        raise _UnusableAnswer("El juez respondió sin llamar a la herramienta")
+        raise _UnusableAnswer("El juez no devolvió una llamada válida a la herramienta")
     return tuple(
         judgment.stance
         for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
