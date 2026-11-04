@@ -67,7 +67,7 @@ export function getVerdictInfo(verdict: Verdict): {
     return {
       text: `Contenido ${VERDICT_LABEL.real.toLowerCase()}`,
       description:
-        'El contenido muestra alta consistencia factual con fuentes médicas reputadas y bajos indicadores de información errónea.',
+        'Las fuentes médicas del informe respaldan todas las afirmaciones del contenido.',
       band: 'linear-gradient(135deg,#2bc488,#10a566 70%,#0c9059)',
     };
   }
@@ -75,7 +75,7 @@ export function getVerdictInfo(verdict: Verdict): {
     return {
       text: `Contenido ${VERDICT_LABEL.fake.toLowerCase()}`,
       description:
-        'El contenido contiene afirmaciones que contradicen o no pueden ser verificadas con fuentes médicas reconocidas.',
+        'Las fuentes médicas del informe contradicen al menos una afirmación del contenido y no respaldan ninguna.',
       band: 'linear-gradient(135deg,#e2607a,#d23c5d 70%,#c33051)',
     };
   }
