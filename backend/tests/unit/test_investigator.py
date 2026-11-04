@@ -1,5 +1,6 @@
 """Tests of the investigator node with the evidence sources mocked."""
 
+import logging
 import threading
 from types import SimpleNamespace
 
@@ -156,6 +157,18 @@ def test_total_outage_is_reported_as_an_outage(monkeypatch):
     # Total service outage, reported as an outage and not as missing literature.
     assert update["sources"] == []
     assert update["evidence_search"] == _search(2, covered=0, outage=True)
+
+
+def test_a_failed_source_is_logged_with_its_cause(monkeypatch, caplog):
+    def fake_search(query, *, max_results):
+        raise EvidenceRetrievalError("Error al consultar PubMed: HTTPError 429")
+
+    _patch_sources(monkeypatch, fake_search)
+
+    with caplog.at_level(logging.WARNING, logger="app.agents.investigator"):
+        investigator({"claims": _claims(["A"])})
+
+    assert "Error al consultar PubMed: HTTPError 429" in caplog.text
 
 
 def test_one_source_down_still_uses_the_other(monkeypatch):

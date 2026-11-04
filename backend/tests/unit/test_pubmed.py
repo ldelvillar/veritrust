@@ -3,6 +3,7 @@
 import pytest
 import requests
 
+from app.core.config import get_settings
 from app.utils import pubmed
 from app.utils.evidence import EvidenceRetrievalError
 from app.utils.pubmed import search_evidence
@@ -80,6 +81,29 @@ def _esearch(ids):
     return _FakeResponse(payload={"esearchresult": {"idlist": ids}})
 
 
+class _Clock:
+    """Clock for the request pacing, where sleeping only moves time forward."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+@pytest.fixture(autouse=True)
+def clock(monkeypatch):
+    """Pace the requests on a fake clock, so no test waits in real time."""
+    fake = _Clock()
+    monkeypatch.setattr(pubmed, "monotonic", fake.monotonic)
+    monkeypatch.setattr(pubmed, "sleep", fake.sleep)
+    monkeypatch.setattr(pubmed, "_next_slot", 0.0)
+    return fake
+
+
 def test_search_evidence_maps_article_with_doi_url(monkeypatch):
     _patch_get(
         monkeypatch,
@@ -144,6 +168,49 @@ def test_search_evidence_raises_on_request_error(monkeypatch):
 
     with pytest.raises(EvidenceRetrievalError):
         search_evidence("query", max_results=3)
+
+
+def test_search_evidence_error_gives_the_status_but_not_the_url(monkeypatch):
+    # The URL carries the query and the api_key, and the investigator logs this message.
+    response = requests.Response()
+    response.status_code = 429
+    leak = requests.exceptions.HTTPError(
+        "429 Client Error: Too Many Requests for url: "
+        "https://eutils.test/esearch.fcgi?term=query&api_key=dummy-key",
+        response=response,
+    )
+    _patch_get(monkeypatch, esearch=_FakeResponse(raise_exc=leak))
+
+    with pytest.raises(EvidenceRetrievalError) as raised:
+        search_evidence("query", max_results=3)
+
+    assert "HTTPError 429" in str(raised.value)
+    assert "dummy-key" not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("api_key", "ncbi_limit"),
+    [("", 3), ("dummy-key", 10)],
+    ids=["without-key", "with-key"],
+)
+def test_requests_start_below_the_ncbi_limit(monkeypatch, clock, api_key, ncbi_limit):
+    # NCBI allows 3 requests per second per IP without an api_key and 10 with one.
+    monkeypatch.setattr(get_settings(), "pubmed_api_key", api_key)
+    starts = []
+
+    def fake_get(url, **kwargs):
+        starts.append(clock.now)
+        if "esearch" in url:
+            return _esearch(["123"])
+        return _FakeResponse(content=_EFETCH_XML)
+
+    monkeypatch.setattr(pubmed.requests, "get", fake_get)
+
+    for _ in range(3):
+        search_evidence("query", max_results=3)
+
+    assert len(starts) == 6
+    assert min(b - a for a, b in zip(starts, starts[1:])) >= 1 / ncbi_limit
 
 
 def test_search_evidence_raises_on_invalid_xml(monkeypatch):

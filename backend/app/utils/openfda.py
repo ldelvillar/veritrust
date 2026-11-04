@@ -5,7 +5,11 @@ import logging
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError, join_label_sections
+from app.utils.evidence import (
+    EvidenceRetrievalError,
+    failure_cause,
+    join_label_sections,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +88,9 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.exceptions.RequestException, ValueError) as e:
-        raise EvidenceRetrievalError(f"Error al consultar openFDA: {e}") from e
+        raise EvidenceRetrievalError(
+            f"Error al consultar openFDA: {failure_cause(e)}"
+        ) from e
 
     results = payload.get("results") or []
     mapped = [_map_result(item) for item in results]

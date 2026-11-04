@@ -1,17 +1,41 @@
 """NCBI E-utilities (PubMed) client that retrieves biomedical literature."""
 
 import logging
+import threading
+from time import monotonic, sleep
 from xml.etree import ElementTree
 
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError
+from app.utils.evidence import EvidenceRetrievalError, failure_cause
 
 logger = logging.getLogger(__name__)
 
 _ESEARCH_PATH = "/esearch.fcgi"
 _EFETCH_PATH = "/efetch.fcgi"
+
+# Below NCBI's 10 requests per second with an api_key and 3 without, so network jitter cannot push a burst over.
+_REQUESTS_PER_SECOND_WITH_KEY = 8.0
+_REQUESTS_PER_SECOND_WITHOUT_KEY = 2.5
+
+# Earliest instant the next request may start, shared by every thread of the process.
+_next_slot = 0.0
+_slot_lock = threading.Lock()
+
+
+def _wait_for_slot(api_key: str | None) -> None:
+    """Wait until NCBI's per-second limit lets the next request start."""
+    global _next_slot
+    rate = (
+        _REQUESTS_PER_SECOND_WITH_KEY if api_key else _REQUESTS_PER_SECOND_WITHOUT_KEY
+    )
+    with _slot_lock:
+        now = monotonic()
+        slot = max(now, _next_slot)
+        _next_slot = slot + 1 / rate
+    # Sleeps outside the lock, so the other threads can book the following slots.
+    sleep(slot - now)
 
 
 def _extract_pmids(payload: dict, max_results: int) -> list[str]:
@@ -88,6 +112,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         search_params["api_key"] = api_key
 
     try:
+        _wait_for_slot(api_key)
         search_response = requests.get(
             f"{base}{_ESEARCH_PATH}",
             params=search_params,
@@ -102,6 +127,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         fetch_params = {"db": "pubmed", "retmode": "xml", "id": ",".join(pmids)}
         if api_key:
             fetch_params["api_key"] = api_key
+        _wait_for_slot(api_key)
         fetch_response = requests.get(
             f"{base}{_EFETCH_PATH}",
             params=fetch_params,
@@ -114,7 +140,9 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         ValueError,
         ElementTree.ParseError,
     ) as e:
-        raise EvidenceRetrievalError(f"Error al consultar PubMed: {e}") from e
+        raise EvidenceRetrievalError(
+            f"Error al consultar PubMed: {failure_cause(e)}"
+        ) from e
 
     mapped = [_map_article(article) for article in root.findall("PubmedArticle")]
     return [item for item in mapped if item][:max_results]
