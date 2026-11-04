@@ -3,7 +3,7 @@
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -13,7 +13,7 @@ from langchain_groq import ChatGroq
 from langchain_mistralai import ChatMistralAI
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_ollama import ChatOllama
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 
 from app.core.config import get_settings
 from app.utils.ollama import ensure_ollama_available
@@ -75,13 +75,22 @@ class _RetryingChatMistralAI(ChatMistralAI):
 
     requests_per_second: float
 
+    @model_validator(mode="after")
+    def pace_every_request(self) -> Self:
+        """Make every request of the client wait for its slot, the library's own network retries included."""
+        self.client.event_hooks["request"].append(self._wait_for_slot)
+        return self
+
+    def _wait_for_slot(self, request: httpx.Request) -> None:
+        """Wait until the organization's per-second limit lets the request start."""
+        _mistral_pacer.wait(self.requests_per_second)
+
     def completion_with_retry(
         self, run_manager: CallbackManagerForLLMRun | None = None, **kwargs: Any
     ) -> Any:
-        """Start each attempt in a paced slot, with exponential backoff and jitter on transient HTTP errors."""
+        """Call the API with exponential backoff and jitter on transient HTTP errors."""
         attempt = 0
         while True:
-            _mistral_pacer.wait(self.requests_per_second)
             try:
                 return super().completion_with_retry(run_manager=run_manager, **kwargs)
             except httpx.HTTPStatusError as exc:

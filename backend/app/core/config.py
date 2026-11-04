@@ -266,6 +266,11 @@ class Settings(BaseSettings):
         if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
+        if provider == "mistral" and self.mistral_requests_per_second <= 0:
+            raise SettingsValidationError(
+                "MISTRAL_REQUESTS_PER_SECOND debe ser mayor que 0"
+            )
+
         if web and self.cors_allow_credentials and "*" in self.cors_origins():
             raise SettingsValidationError(
                 "CORS_ALLOWED_ORIGINS no puede contener '*' cuando "

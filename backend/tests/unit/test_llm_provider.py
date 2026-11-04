@@ -374,24 +374,26 @@ def _mistral_with_responses(monkeypatch, statuses: list[int]):
     return _mistral_client(handler), waits, calls
 
 
-def test_mistral_requests_of_every_client_start_below_the_configured_rate(
+def test_every_mistral_request_starts_below_the_configured_rate(
     monkeypatch, clock
 ) -> None:
-    # The judge's calls come from several clients at once, and Mistral also counts each retry.
+    # The judge's calls come from several clients, and Mistral counts the library's network retries and our 429 retries too.
     starts: list[float] = []
-    statuses = [429, 200, 200]
+    replies: list[int | Exception] = [httpx.ConnectError("reset"), 429, 200, 200]
 
     def handler(request: httpx.Request) -> httpx.Response:
-        status = statuses[len(starts)]
+        reply = replies[len(starts)]
         starts.append(clock.now)
-        return _mistral_response(status)
+        if isinstance(reply, Exception):
+            raise reply
+        return _mistral_response(reply)
 
-    # The backoff does not move the fake clock, so only the pacing spaces the retry.
+    # The backoffs do not move the fake clock, so only the pacing spaces the retries.
     monkeypatch.setattr(llm_module.time, "sleep", lambda seconds: None)
     for client in (_mistral_client(handler), _mistral_client(handler)):
         client.invoke("hola")
 
-    assert len(starts) == 3
+    assert len(starts) == 4
     assert min(later - earlier for earlier, later in zip(starts, starts[1:])) >= 1 / 2.0
 
 
