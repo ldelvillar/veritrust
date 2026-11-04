@@ -94,3 +94,25 @@ async def test_ainvoke_graph_translates_groq_timeout_error() -> None:
 
     with pytest.raises(OllamaConnectionError):
         await ainvoke_graph(_FakeGraph(error=error), {})
+
+
+def _mistral_status_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "https://api.mistral.ai/v1/chat/completions")
+    return httpx.HTTPStatusError(
+        f"{status}", request=request, response=httpx.Response(status, request=request)
+    )
+
+
+@pytest.mark.parametrize("status", [429, 503])
+async def test_ainvoke_graph_translates_a_rate_limit_or_server_error_after_the_retries(
+    status,
+) -> None:
+    # The client already retried them, so the provider is down or limiting us, as with a failed connection.
+    with pytest.raises(OllamaConnectionError):
+        await ainvoke_graph(_FakeGraph(error=_mistral_status_error(status)), {})
+
+
+async def test_ainvoke_graph_lets_a_client_error_through() -> None:
+    # A 400 is a fault in our request, not an outage, so it stays an internal error.
+    with pytest.raises(httpx.HTTPStatusError):
+        await ainvoke_graph(_FakeGraph(error=_mistral_status_error(400)), {})

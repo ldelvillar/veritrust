@@ -60,7 +60,7 @@ GOOGLE_MODEL_ATTR_BY_ROLE = {
 MISTRAL_RETRY_MAX_WAIT_SECONDS = 16
 
 
-def _is_transient(exc: httpx.HTTPStatusError) -> bool:
+def is_transient_http_error(exc: httpx.HTTPStatusError) -> bool:
     """Tell whether an HTTP error is transient, a rate limit or a server failure."""
     status = exc.response.status_code
     return status == 429 or status >= 500
@@ -94,7 +94,7 @@ class _RetryingChatMistralAI(ChatMistralAI):
             try:
                 return super().completion_with_retry(run_manager=run_manager, **kwargs)
             except httpx.HTTPStatusError as exc:
-                if not _is_transient(exc) or attempt == self.max_retries:
+                if not is_transient_http_error(exc) or attempt == self.max_retries:
                     raise
                 # Jitter spreads the retries of the processes that share the organization's limit.
                 wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()

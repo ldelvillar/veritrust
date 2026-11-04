@@ -114,38 +114,34 @@ def test_with_stances_without_an_answer_leaves_the_evidence_unjudged():
 @pytest.mark.parametrize(
     ("claims", "expected"),
     [
-        # Without claims there is nothing to measure and no outage to declare.
-        ([], EvidenceSearch(total=0, searched=0, covered=0, outage=False)),
+        # Without claims there is nothing to measure.
+        ([], EvidenceSearch(total=0, searched=0, covered=0)),
         # The one without a query does not count, while the one the cap left out does.
         (
             [
                 Claim(index=0, text="A"),
                 Claim(index=1, text="B", query='"b"'),
-                _found(2, "X"),
+                _judged(2, ("X", "supports")),
             ],
-            EvidenceSearch(total=2, searched=1, covered=1, outage=False),
+            EvidenceSearch(total=2, searched=1, covered=1),
         ),
-        # Whoever has Evidence, judged or not, covers, and whoever found nothing does not.
+        # Only a judged claim with Evidence covers, since what the literature says of an unjudged one is unknown.
         (
             [_found(0, "X"), _judged(1, ("Y", "supports")), _found(2)],
-            EvidenceSearch(total=3, searched=3, covered=2, outage=False),
+            EvidenceSearch(total=3, searched=3, covered=1),
         ),
         # The judge discarded all its Sources, so it was searched but not covered.
         (
             [_judged(0, ("Y", "unrelated"))],
-            EvidenceSearch(total=1, searched=1, covered=0, outage=False),
+            EvidenceSearch(total=1, searched=1, covered=0),
         ),
-        # An outage only if every searched claim hit down sources.
+        # A claim whose sources all failed was searched but is not covered.
         (
             [
                 with_hits(Claim(index=0, text="A", query='"a"'), None),
-                Claim(index=1, text="B", query='"b"'),
+                _judged(1, ("X", "supports")),
             ],
-            EvidenceSearch(total=2, searched=1, covered=0, outage=True),
-        ),
-        (
-            [with_hits(Claim(index=0, text="A", query='"a"'), None), _found(1, "X")],
-            EvidenceSearch(total=2, searched=2, covered=1, outage=False),
+            EvidenceSearch(total=2, searched=2, covered=1),
         ),
     ],
 )

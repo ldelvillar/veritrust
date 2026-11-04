@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.agents import relevance
@@ -121,31 +122,40 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
     assert built == [2, 1, 1]
 
 
-def test_judge_stances_fails_when_the_model_errors(monkeypatch):
+def test_judge_stances_fails_when_the_judge_answers_without_the_tool_call(
+    monkeypatch,
+):
+    class _ProseChain:
+        def invoke(self, payload):
+            # Structured output gives None when the model answers in prose instead of calling the tool.
+            return None
+
+    monkeypatch.setattr(
+        relevance,
+        "get_relevance_chain",
+        lambda prompt, sources, model=None: _ProseChain(),
+    )
+
+    assert judge_stances("p", "claim", _evidence("a", "b")) is None
+
+
+def test_judge_stances_raises_when_the_judge_cannot_be_reached(monkeypatch):
     built: list[int] = []
 
-    class _BoomChain:
+    class _DownChain:
         def invoke(self, payload):
-            raise RuntimeError("ollama caído")
+            raise httpx.ConnectError("mistral caído")
 
     def _get(prompt, sources, model=None):
         built.append(sources)
-        return _BoomChain()
+        return _DownChain()
 
     monkeypatch.setattr(relevance, "get_relevance_chain", _get)
 
-    assert judge_stances("p", "claim", _evidence("a", "b")) is None
-    # A provider failure is not fixed by splitting the Sources, so there is a single call.
+    # A provider failure is the Run's, as in every other agent, and splitting the Sources would not fix it.
+    with pytest.raises(httpx.ConnectError):
+        judge_stances("p", "claim", _evidence("a", "b"))
     assert built == [2]
-
-
-def test_judge_stances_fails_when_the_chain_cannot_be_built(monkeypatch):
-    def _broken(prompt, sources, model=None):
-        raise RuntimeError("proveedor mal configurado")
-
-    monkeypatch.setattr(relevance, "get_relevance_chain", _broken)
-
-    assert judge_stances("p", "claim", _evidence("a")) is None
 
 
 def test_format_candidates_includes_abstract_and_title_only():

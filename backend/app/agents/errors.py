@@ -8,6 +8,8 @@ import aiohttp
 import groq
 import httpx
 
+from app.utils.llm import is_transient_http_error
+
 
 class AgentError(Exception):
     """Base error of the agent pipeline."""
@@ -41,5 +43,10 @@ async def ainvoke_graph(
         aiohttp.ClientError,
         groq.APIConnectionError,
     ) as e:
+        raise OllamaConnectionError(str(e)) from e
+    except httpx.HTTPStatusError as e:
+        # The client already retried a 429 or 5xx, so the provider is down or limiting us.
+        if not is_transient_http_error(e):
+            raise
         raise OllamaConnectionError(str(e)) from e
     return final_state

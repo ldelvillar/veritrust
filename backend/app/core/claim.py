@@ -25,8 +25,6 @@ class EvidenceSearch:
     searched: int
     # The ones the literature spoke to.
     covered: int
-    # Every searched claim hit unreachable sources.
-    outage: bool
 
 
 @dataclass(frozen=True)
@@ -104,13 +102,13 @@ def with_stances(claim: Claim, stances: Sequence[JudgeStance] | None) -> Claim:
 
 def evidence_search(claims: Sequence[Claim]) -> EvidenceSearch:
     """Count, by each claim's outcome, how many could be searched, were searched and were found by the literature."""
-    searched = [claim for claim in claims if claim.outcome in _SEARCHED]
     return EvidenceSearch(
         total=sum(claim.outcome != "unsearchable" for claim in claims),
-        searched=len(searched),
-        covered=sum(bool(claim.evidence) for claim in searched),
-        outage=bool(searched)
-        and all(claim.outcome == "unavailable" for claim in searched),
+        searched=sum(claim.outcome in _SEARCHED for claim in claims),
+        # What the literature says of an unjudged claim is unknown, so only a judged one covers.
+        covered=sum(
+            claim.outcome == "judged" and bool(claim.evidence) for claim in claims
+        ),
     )
 
 

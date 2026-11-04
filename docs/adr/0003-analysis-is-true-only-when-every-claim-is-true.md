@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, amended by ADR-0006
 ---
 
 # An Analysis is true only when every Claim is true

@@ -29,6 +29,7 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.verdict import EvidenceUnavailable
 from app.db.billing import record_evidence_search
 from app.db.deleted_users import UserDeleted, prune_expired
 from app.db.pool import DatabaseError, close_pool, get_pool
@@ -93,6 +94,12 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
         )
     except OllamaConnectionError as exc:
         logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
+        raise AnalysisFailure(ErrorCode.CONNECTION) from exc
+    except EvidenceUnavailable as exc:
+        logger.warning(
+            "[Worker] Sin fuentes alcanzables para una afirmación de %s",
+            run.analysis_id,
+        )
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
     verdict = result.get("verdict")

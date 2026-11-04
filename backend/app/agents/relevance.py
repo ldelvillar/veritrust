@@ -103,23 +103,29 @@ def _ask_judge(
             "count": len(evidence),
         }
     )
+    if answer is None:
+        raise OutputParserException("El juez respondió sin llamar a la herramienta")
     return tuple(
         judgment.stance
         for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
     )
 
 
+# An answer that does not give one Stance per Source, as opposed to a provider failure, which fails the Run.
+_UNUSABLE_ANSWER = (ValidationError, OutputParserException)
+
+
 def judge_stances(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...] | None:
-    """Ask the judge for one Stance per candidate Source, or ``None`` if it fails or does not name each Source once."""
+    """Ask the judge for one Stance per candidate Source, or ``None`` if its answer does not name each Source once."""
     if not evidence:
         return ()
 
     try:
         try:
             return _ask_judge(prompt_text, claim, evidence)
-        except (ValidationError, OutputParserException):
+        except _UNUSABLE_ANSWER:
             if len(evidence) < 2:
                 raise
             # A long answer is the one that comes back incomplete, so each half asks for a shorter one.
@@ -127,9 +133,9 @@ def judge_stances(
             return _ask_judge(prompt_text, claim, evidence[:half]) + _ask_judge(
                 prompt_text, claim, evidence[half:]
             )
-    except Exception:
+    except _UNUSABLE_ANSWER:
         logger.warning(
-            "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",
+            "[Juez] Respuesta inservible; las fuentes quedan sin juzgar",
             exc_info=True,
         )
         return None

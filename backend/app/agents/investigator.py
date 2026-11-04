@@ -160,6 +160,12 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
     claims = gather_evidence(state.get("claims", []), prompts)
     search = evidence_search(claims)
 
+    unreached = sum(1 for claim in claims if claim.outcome == "unavailable")
+    if unreached:
+        logger.warning(
+            "[Investigador] %d afirmaciones sin fuentes alcanzables", unreached
+        )
+
     judge_failures = sum(1 for claim in claims if claim.outcome == "unjudged")
     if judge_failures:
         logger.warning(
@@ -172,11 +178,10 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
     sources = source_records(shown)
 
     logger.info(
-        "[Investigador] %d fuentes para %d/%d afirmaciones%s",
+        "[Investigador] %d fuentes para %d/%d afirmaciones",
         len(sources),
         search.covered,
         search.total,
-        " (fuentes caídas)" if search.outage else "",
     )
     return {
         "claims": claims,
