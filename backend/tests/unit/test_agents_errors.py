@@ -82,6 +82,12 @@ async def test_ainvoke_graph_translates_httpx_timeout_error() -> None:
         await ainvoke_graph(_FakeGraph(error=httpx.ReadTimeout("slow")), {})
 
 
+async def test_ainvoke_graph_translates_a_dropped_response() -> None:
+    # Mistral closing the connection mid-answer is as unreachable as never connecting.
+    with pytest.raises(OllamaConnectionError):
+        await ainvoke_graph(_FakeGraph(error=httpx.RemoteProtocolError("dropped")), {})
+
+
 async def test_ainvoke_graph_translates_groq_connection_error() -> None:
     error = groq.APIConnectionError(request=_GROQ_REQUEST)
 

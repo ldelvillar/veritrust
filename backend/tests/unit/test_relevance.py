@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from app.agents import relevance
 from app.agents.relevance import (
@@ -14,6 +15,12 @@ from app.agents.relevance import (
 )
 from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 from app.core.claim import Evidence
+from app.utils.llm import _RetryingChatMistralAI
+
+
+def _parsed(answer, error: Exception | None = None) -> dict:
+    """What the judge chain returns, where a parse failure comes back as data instead of raising."""
+    return {"raw": None, "parsed": answer, "parsing_error": error}
 
 
 def _answering(raw: dict, built: list[int] | None = None):
@@ -24,7 +31,10 @@ def _answering(raw: dict, built: list[int] | None = None):
             self._schema = EVIDENCE_JUDGMENTS.schema(sources)
 
         def invoke(self, payload):
-            return self._schema.model_validate(raw)
+            try:
+                return _parsed(self._schema.model_validate(raw))
+            except ValidationError as error:
+                return _parsed(None, error)
 
     def _get(prompt, sources, model=None):
         if built is not None:
@@ -122,30 +132,30 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
     assert built == [2, 1, 1]
 
 
-@pytest.mark.parametrize(
-    "answer",
-    [
-        # Structured output gives None when the model answers in prose instead of calling the tool.
-        None,
-        # The tool parser raises a plain ValueError when the call's arguments are not a dict.
-        ValueError("Tool arguments must be specified as a dict"),
-    ],
-    ids=["prose", "arguments-not-a-dict"],
-)
-def test_judge_stances_fails_when_the_judge_tool_call_is_unusable(monkeypatch, answer):
-    class _UnusableChain:
+def test_judge_stances_fails_when_the_judge_answers_in_prose(monkeypatch):
+    class _ProseChain:
         def invoke(self, payload):
-            if isinstance(answer, Exception):
-                raise answer
-            return answer
+            # Without a tool call there is nothing to parse, so neither an answer nor a parse error.
+            return _parsed(None)
 
     monkeypatch.setattr(
         relevance,
         "get_relevance_chain",
-        lambda prompt, sources, model=None: _UnusableChain(),
+        lambda prompt, sources, model=None: _ProseChain(),
     )
 
     assert judge_stances("p", "claim", _evidence("a", "b")) is None
+
+
+def test_judge_stances_raises_when_the_judge_cannot_be_built(monkeypatch):
+    def _misconfigured(prompt, sources, model=None):
+        raise ValueError("ajuste inválido")
+
+    monkeypatch.setattr(relevance, "get_relevance_chain", _misconfigured)
+
+    # A settings error is a ValueError like a parse error, but it is ours and must fail the Run.
+    with pytest.raises(ValueError, match="ajuste inválido"):
+        judge_stances("p", "claim", _evidence("a", "b"))
 
 
 def test_judge_stances_raises_when_the_judge_cannot_be_reached(monkeypatch):
@@ -167,6 +177,77 @@ def test_judge_stances_raises_when_the_judge_cannot_be_reached(monkeypatch):
     assert built == [2]
 
 
+def _mistral_replying(monkeypatch, reply: httpx.Response) -> None:
+    """Judge with the real chain and Mistral client, against an API that always gives ``reply``."""
+    client = httpx.Client(
+        base_url="https://api.mistral.ai/v1",
+        transport=httpx.MockTransport(lambda request: reply),
+    )
+    monkeypatch.setattr(
+        relevance,
+        "build_chat_model",
+        lambda role, model=None: _RetryingChatMistralAI(
+            api_key="clave-de-prueba",
+            max_retries=0,
+            requests_per_second=2.0,
+            client=client,
+        ),
+    )
+    monkeypatch.setattr(
+        relevance, "get_relevance_chain", get_relevance_chain.__wrapped__
+    )
+
+
+def _mistral_message(message: dict) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "id": "respuesta-de-prueba",
+            "object": "chat.completion",
+            "model": "mistral-small-latest",
+            "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "llamada01",
+                    "type": "function",
+                    "function": {
+                        "name": "EvidenceJudgments",
+                        "arguments": '{"source_1": {"finding": "f", "stance": "maybe"}}',
+                    },
+                }
+            ],
+        },
+        {"role": "assistant", "content": "No puedo juzgar estas fuentes."},
+    ],
+    ids=["schema-break", "prose"],
+)
+def test_the_real_judge_chain_leaves_an_unusable_answer_unjudged(
+    monkeypatch, pacing_clock, message
+):
+    _mistral_replying(monkeypatch, _mistral_message(message))
+
+    assert judge_stances("p", "claim", _evidence("a", "b")) is None
+
+
+def test_the_real_judge_chain_raises_what_mistral_rejects(monkeypatch, pacing_clock):
+    _mistral_replying(monkeypatch, httpx.Response(400, json={"message": "bad"}))
+
+    # The parse step only receives answers, so a provider error is never mistaken for one.
+    with pytest.raises(httpx.HTTPStatusError, match="400"):
+        judge_stances("p", "claim", _evidence("a", "b"))
+
+
 def test_format_candidates_includes_abstract_and_title_only():
     formatted = _format_candidates(
         (
@@ -185,8 +266,10 @@ def test_judge_stances_strips_forged_markers_from_claim_and_sources(monkeypatch)
     class _CapturingChain:
         def invoke(self, payload):
             captured.update(payload)
-            return EVIDENCE_JUDGMENTS.schema(1).model_validate(
-                _judged(source_1="supports")
+            return _parsed(
+                EVIDENCE_JUDGMENTS.schema(1).model_validate(
+                    _judged(source_1="supports")
+                )
             )
 
     monkeypatch.setattr(

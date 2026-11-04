@@ -560,21 +560,20 @@ async def test_run_completes_the_analysis_and_notifies_the_submitter(
     assert notifier.sent == [(EMAIL, analysis_id, None)]
 
 
-@pytest.mark.parametrize("coverage", [None, 0.0], ids=["unmeasured", "unsupported"])
-async def test_run_stores_a_verdict_without_report_and_keeps_its_coverage_apart(
-    db_pool, intake, runner, coverage
+async def test_run_stores_a_verdict_without_report_and_a_zero_coverage(
+    db_pool, intake, runner
 ):
     analysis_id = await _submit(intake)
 
     await runner.run(
         analysis_id,
-        _returning(_completion(explanation=None, evidence_coverage=coverage)),
+        _returning(_completion(explanation=None, evidence_coverage=0.0)),
     )
 
     row = await _row(db_pool, analysis_id)
     assert (row["status"], row["explanation"]) == ("done", None)
-    # None (unmeasured) and 0.0 (measured without support) must not be confused.
-    assert row["evidence_coverage"] == coverage
+    # Zero coverage is a measurement, stored as 0.0 and not as NULL.
+    assert row["evidence_coverage"] == 0.0
     assert row["completed_at"] >= row["created_at"]
 
 

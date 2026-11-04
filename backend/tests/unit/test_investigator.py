@@ -44,7 +44,7 @@ def _claims(
 
 
 def _search(total: int, covered: int) -> EvidenceSearch:
-    """Expected counts when the cap trims no claim."""
+    """Expected Evidence search counts."""
     return EvidenceSearch(total=total, covered=covered)
 
 

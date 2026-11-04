@@ -38,8 +38,8 @@ async def ainvoke_graph(
                     await on_stage(next(iter(chunk)))
     except (
         ConnectionError,
-        httpx.ConnectError,
-        httpx.TimeoutException,
+        # Connection, timeout and dropped-response errors alike, once the client's retries ran out.
+        httpx.TransportError,
         aiohttp.ClientError,
         groq.APIConnectionError,
     ) as e:

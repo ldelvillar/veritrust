@@ -6,7 +6,6 @@ from functools import lru_cache
 from itertools import count
 from typing import Any
 
-from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
@@ -64,7 +63,10 @@ def get_relevance_chain(
 ) -> Runnable[dict[str, Any], Any]:
     """Return the judging chain for ``sources`` candidates, cached by count and model."""
     llm = build_chat_model("judge", model)
-    structured_llm = llm.with_structured_output(EVIDENCE_JUDGMENTS.schema(sources))
+    # With the raw message, a parse failure comes back as data and only the provider's failures raise.
+    structured_llm = llm.with_structured_output(
+        EVIDENCE_JUDGMENTS.schema(sources), include_raw=True
+    )
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -90,6 +92,10 @@ def _format_candidates(evidence: Sequence[Evidence]) -> str:
     return "\n".join(lines)
 
 
+class _UnusableAnswer(Exception):
+    """The judge answered without one valid Stance per Source, as opposed to a provider failure, which fails the Run."""
+
+
 def _ask_judge(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...]:
@@ -103,16 +109,13 @@ def _ask_judge(
             "count": len(evidence),
         }
     )
-    if answer is None:
-        raise OutputParserException("El juez respondió sin llamar a la herramienta")
+    # Parsed is None both when the answer breaks the schema and when the model answers in prose instead of calling the tool.
+    if answer["parsed"] is None:
+        raise _UnusableAnswer from answer["parsing_error"]
     return tuple(
         judgment.stance
-        for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
+        for judgment in EVIDENCE_JUDGMENTS.in_order(answer["parsed"], len(evidence))
     )
-
-
-# An answer that does not give one Stance per Source, including a ValidationError, as opposed to a provider failure, which fails the Run.
-_UNUSABLE_ANSWER = (ValueError, OutputParserException)
 
 
 def judge_stances(
@@ -125,7 +128,7 @@ def judge_stances(
     try:
         try:
             return _ask_judge(prompt_text, claim, evidence)
-        except _UNUSABLE_ANSWER:
+        except _UnusableAnswer:
             if len(evidence) < 2:
                 raise
             # A long answer is the one that comes back incomplete, so each half asks for a shorter one.
@@ -133,7 +136,7 @@ def judge_stances(
             return _ask_judge(prompt_text, claim, evidence[:half]) + _ask_judge(
                 prompt_text, claim, evidence[half:]
             )
-    except _UNUSABLE_ANSWER:
+    except _UnusableAnswer:
         logger.warning(
             "[Juez] Respuesta inservible; las fuentes quedan sin juzgar",
             exc_info=True,

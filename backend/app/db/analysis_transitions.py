@@ -55,28 +55,15 @@ async def _claim_allowance(
         raise AllowanceExhausted(user_id)
 
 
-def _normalize_confidence(confidence: Any) -> float:
-    """Convert confidence to float and validate the [0, 1] range."""
-    try:
-        value = float(confidence)
-    except (TypeError, ValueError) as exc:
-        raise DatabaseError(f"Confidence no es numerico: {confidence!r}.") from exc
-
-    if not 0.0 <= value <= 1.0:
-        raise DatabaseError(f"Confidence fuera de rango [0, 1]: {value}.")
-
-    return value
-
-
-def _coerce_fraction(value: Any) -> float:
-    """Convert a fraction to float validating [0, 1]."""
+def _coerce_fraction(name: str, value: Any) -> float:
+    """Convert the ``name`` fraction to float and validate the [0, 1] range."""
     try:
         fraction = float(value)
     except (TypeError, ValueError) as exc:
-        raise DatabaseError(f"Fraccion no es numerica: {value!r}.") from exc
+        raise DatabaseError(f"{name} no es numerico: {value!r}.") from exc
 
     if not 0.0 <= fraction <= 1.0:
-        raise DatabaseError(f"Fraccion fuera de rango [0, 1]: {fraction}.")
+        raise DatabaseError(f"{name} fuera de rango [0, 1]: {fraction}.")
 
     return fraction
 
@@ -252,8 +239,8 @@ async def complete(
     pipeline: dict,
 ) -> bool:
     """Move a still ``pending`` Analysis to ``done`` with its Verdict and record its Run in the Usage, True if it changed."""
-    confidence_value = _normalize_confidence(verdict.confidence)
-    coverage_value = _coerce_fraction(verdict.evidence_coverage)
+    confidence_value = _coerce_fraction("Confidence", verdict.confidence)
+    coverage_value = _coerce_fraction("Evidence coverage", verdict.evidence_coverage)
     claims = [
         {"text": claim.text, "label": claim.label, "confidence": claim.confidence}
         for claim in verdict.claims
