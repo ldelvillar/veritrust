@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError, failure_cause
+from app.utils.evidence import raise_retrieval_error
 
 logger = logging.getLogger(__name__)
 
@@ -140,10 +140,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         ValueError,
         ElementTree.ParseError,
     ) as e:
-        # Not chained, since the requests error carries the URL with the query and the api_key.
-        raise EvidenceRetrievalError(
-            f"Error al consultar PubMed: {failure_cause(e)}"
-        ) from None
+        raise_retrieval_error("PubMed", e)
 
     mapped = [_map_article(article) for article in root.findall("PubmedArticle")]
     return [item for item in mapped if item][:max_results]

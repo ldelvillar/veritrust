@@ -1,11 +1,9 @@
 """Tests of the AEMPS CIMA client (summaries of product characteristics) with the network mocked."""
 
-import pytest
 import requests
 
 from app.utils import cima
 from app.utils.cima import search_evidence
-from app.utils.evidence import EvidenceRetrievalError
 from app.utils.ssrf import SSRFValidationError
 
 # 1704067200000 ms is 2024-01-01 UTC.
@@ -36,13 +34,9 @@ class _FakeResponse:
         return self._payload
 
 
-def _patch_get(
-    monkeypatch, *, search=None, ft=None, search_exc=None, ft_exc=None, resolve_exc=None
-):
+def _patch_get(monkeypatch, *, search=None, ft=None, ft_exc=None, resolve_exc=None):
     def fake_get(url, **kwargs):
         if "/medicamentos" in url:
-            if search_exc:
-                raise search_exc
             return search
         if ft_exc:
             raise ft_exc
@@ -201,10 +195,3 @@ def test_search_evidence_returns_empty_for_blank_query(monkeypatch):
     monkeypatch.setattr(cima.requests, "get", _fail)
 
     assert search_evidence("   ", max_results=3) == []
-
-
-def test_search_evidence_raises_on_search_error(monkeypatch):
-    _patch_get(monkeypatch, search_exc=requests.exceptions.Timeout("timeout"))
-
-    with pytest.raises(EvidenceRetrievalError):
-        search_evidence("ibuprofeno", max_results=3)

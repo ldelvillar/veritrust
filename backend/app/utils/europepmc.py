@@ -5,7 +5,7 @@ import logging
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import EvidenceRetrievalError, failure_cause
+from app.utils.evidence import raise_retrieval_error
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +64,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.exceptions.RequestException, ValueError) as e:
-        # Not chained, like every evidence client, since the requests error carries the URL with the query.
-        raise EvidenceRetrievalError(
-            f"Error al consultar Europe PMC: {failure_cause(e)}"
-        ) from None
+        raise_retrieval_error("Europe PMC", e)
 
     results = (payload.get("resultList") or {}).get("result") or []
     mapped = [_map_result(item) for item in results]

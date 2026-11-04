@@ -49,7 +49,7 @@ PUBMED_API_KEY=<NCBI API key>
 
 The three email values are required in production (the worker only needs the two `RESEND_*` ones): without them the backend refuses to start, its container keeps restarting and its logs name the missing variables, rather than a contact form failing when a visitor uses it. `RESEND_FROM_EMAIL` must be on a domain verified in Resend, and `CONTACT_TO_EMAIL` is the inbox the privacy policy names (the Gmail address in `SITE_CONFIG.email`).
 
-`PUBMED_API_KEY` is free, from the API Key Management section of the NCBI account settings. It raises PubMed's limit from 3 to 10 requests per second. Without it the worker paces PubMed under 3 per second, so a text with 8 Claims (16 requests) spends about 6 s waiting on PubMed instead of about 2 s.
+`PUBMED_API_KEY` is free, from the API Key Management section of the NCBI account settings. It raises PubMed's limit from 3 to 10 requests per second. Without it the worker paces PubMed under 3 per second, so a text with 8 Claims (16 requests) spends about 6 s waiting on PubMed instead of about 2 s. NCBI counts the limit per key, so local development and evaluation runs use a key of their own, never this one.
 
 `frontend/.env`:
 

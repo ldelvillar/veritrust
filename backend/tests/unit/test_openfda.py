@@ -31,10 +31,8 @@ class _FakeResponse:
         return self._payload
 
 
-def _patch_get(monkeypatch, response=None, *, exc=None):
+def _patch_get(monkeypatch, response=None):
     def fake_get(url, **kwargs):
-        if exc:
-            raise exc
         return response
 
     monkeypatch.setattr(openfda.requests, "get", fake_get)
@@ -108,13 +106,6 @@ def test_search_evidence_returns_empty_for_blank_query(monkeypatch):
     monkeypatch.setattr(openfda.requests, "get", _fail)
 
     assert search_evidence("   ", max_results=3) == []
-
-
-def test_search_evidence_raises_on_request_error(monkeypatch):
-    _patch_get(monkeypatch, exc=requests.exceptions.Timeout("timeout"))
-
-    with pytest.raises(EvidenceRetrievalError):
-        search_evidence("query", max_results=3)
 
 
 def test_search_evidence_raises_on_http_error(monkeypatch):

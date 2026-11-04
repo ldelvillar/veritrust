@@ -190,7 +190,7 @@ claims with a firm verdict `verdadera`.
 What this means for scaling:
 
 - **Adding worker replicas alone does not raise throughput** — they contend on the same Ollama container (CPU-only in this stack), and three models per run thrash a CPU instance. Scale **Ollama** first (a GPU host, or a separate Ollama per worker), _then_ add workers behind it.
-- **PubMed pacing is per worker process** — `app/utils/pubmed.py` spaces requests within one process (shared by every job when `WORKER_MAX_JOBS` > 1), but NCBI counts per IP, or per `PUBMED_API_KEY`. Two worker replicas on the VM, or a local evaluation run with the production key, send twice the paced rate and get 429s: lower the `_REQUESTS_PER_SECOND_*` rates or move the pacing to Redis before adding a worker.
+- **PubMed pacing is per worker process** — `app/utils/pubmed.py` spaces requests within one process (shared by every job when `WORKER_MAX_JOBS` > 1), but NCBI counts per IP, or per `PUBMED_API_KEY`. Two worker replicas on the VM send twice the paced rate and get 429s: lower the `_REQUESTS_PER_SECOND_*` rates or move the pacing to Redis before adding a worker.
 - The per-user rate limit (`RATE_LIMIT_MAX_REQUESTS`/`RATE_LIMIT_WINDOW_SECONDS`, default 5/60s) is abuse control, not global throughput — it is per-user, so a few users can still fill the single queue for everyone.
 
 Watch the queue backlog as the leading indicator — latency degrades by backlog long before any request fails. arq keeps queued jobs in the `arq:queue` sorted set in Redis:

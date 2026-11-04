@@ -9,27 +9,41 @@ from app.utils import cima, europepmc, openfda, pubmed
 from app.utils.evidence import EvidenceRetrievalError
 
 
+def _rate_limited(url):
+    response = requests.Response()
+    response.status_code = 429
+    return requests.exceptions.HTTPError(
+        f"429 Client Error: Too Many Requests for url: {url}?api_key=dummy-key",
+        response=response,
+    )
+
+
+def _unreachable(url):
+    return requests.exceptions.ConnectionError(
+        f"Max retries exceeded with url: {url}?api_key=dummy-key"
+    )
+
+
+@pytest.mark.usefixtures("pubmed_clock")
 @pytest.mark.parametrize(
     "client",
     [europepmc, pubmed, openfda, cima],
     ids=["europepmc", "pubmed", "openfda", "cima"],
 )
-def test_failure_gives_the_status_but_never_the_url(monkeypatch, client):
+@pytest.mark.parametrize(
+    ("error", "cause"),
+    [(_rate_limited, "HTTPError 429"), (_unreachable, "ConnectionError")],
+    ids=["http-status", "no-status"],
+)
+def test_failure_gives_the_cause_but_never_the_url(monkeypatch, client, error, cause):
     # The request URL carries the query and any api_key, so neither the message nor the traceback may show it.
-    response = requests.Response()
-    response.status_code = 429
-
     def fake_get(url, **kwargs):
-        raise requests.exceptions.HTTPError(
-            f"429 Client Error: Too Many Requests for url: {url}?api_key=dummy-key",
-            response=response,
-        )
+        raise error(url)
 
     monkeypatch.setattr(requests, "get", fake_get)
-    monkeypatch.setattr(pubmed, "sleep", lambda seconds: None)
 
     with pytest.raises(EvidenceRetrievalError) as raised:
         client.search_evidence("query", max_results=3)
 
-    assert "HTTPError 429" in str(raised.value)
+    assert str(raised.value).endswith(cause)
     assert "dummy-key" not in "".join(traceback.format_exception(raised.value))

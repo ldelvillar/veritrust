@@ -1,7 +1,6 @@
 """Tests of the PubMed (NCBI E-utilities) client with the network mocked."""
 
 import pytest
-import requests
 
 from app.core.config import get_settings
 from app.utils import pubmed
@@ -68,10 +67,8 @@ class _FakeResponse:
         return self._payload
 
 
-def _patch_get(monkeypatch, *, esearch=None, efetch=None, exc=None):
+def _patch_get(monkeypatch, *, esearch=None, efetch=None):
     def fake_get(url, **kwargs):
-        if exc:
-            raise exc
         return esearch if "esearch" in url else efetch
 
     monkeypatch.setattr(pubmed.requests, "get", fake_get)
@@ -81,27 +78,10 @@ def _esearch(ids):
     return _FakeResponse(payload={"esearchresult": {"idlist": ids}})
 
 
-class _Clock:
-    """Clock for the request pacing, where sleeping only moves time forward."""
-
-    def __init__(self):
-        self.now = 1000.0
-
-    def monotonic(self):
-        return self.now
-
-    def sleep(self, seconds):
-        self.now += seconds
-
-
 @pytest.fixture(autouse=True)
-def clock(monkeypatch):
-    """Pace the requests on a fake clock, so no test waits in real time."""
-    fake = _Clock()
-    monkeypatch.setattr(pubmed, "monotonic", fake.monotonic)
-    monkeypatch.setattr(pubmed, "sleep", fake.sleep)
-    monkeypatch.setattr(pubmed, "_next_slot", 0.0)
-    return fake
+def clock(pubmed_clock):
+    """Every test here paces its requests on the fake clock."""
+    return pubmed_clock
 
 
 def test_search_evidence_maps_article_with_doi_url(monkeypatch):
@@ -161,13 +141,6 @@ def test_search_evidence_returns_empty_for_blank_query(monkeypatch):
     monkeypatch.setattr(pubmed.requests, "get", _fail)
 
     assert search_evidence("   ", max_results=3) == []
-
-
-def test_search_evidence_raises_on_request_error(monkeypatch):
-    _patch_get(monkeypatch, exc=requests.exceptions.Timeout("timeout"))
-
-    with pytest.raises(EvidenceRetrievalError):
-        search_evidence("query", max_results=3)
 
 
 def _gaps_between_requests(monkeypatch, clock, api_key):

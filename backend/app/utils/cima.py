@@ -8,11 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.core.config import get_settings
-from app.utils.evidence import (
-    EvidenceRetrievalError,
-    failure_cause,
-    join_label_sections,
-)
+from app.utils.evidence import join_label_sections, raise_retrieval_error
 from app.utils.ssrf import SSRFValidationError, resolve_public_host
 
 logger = logging.getLogger(__name__)
@@ -158,10 +154,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.exceptions.RequestException, ValueError) as e:
-        # Not chained, like every evidence client, since the requests error carries the URL with the query.
-        raise EvidenceRetrievalError(
-            f"Error al consultar CIMA: {failure_cause(e)}"
-        ) from None
+        raise_retrieval_error("CIMA", e)
 
     results = payload.get("resultados") or []
     mapped = [_map_result(item, timeout=timeout) for item in results[:max_results]]
