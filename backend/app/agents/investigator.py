@@ -5,6 +5,7 @@ from collections import Counter
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
+from app.agents.errors import EvidenceUnavailable
 from app.agents.relevance import judge_stances
 from app.agents.state import AgentState
 from app.core.claim import (
@@ -85,7 +86,7 @@ def _search_all(claims: Sequence[Claim]) -> list[Claim]:
 
 
 def _judge_all(claims: Sequence[Claim], judge_prompt: str) -> list[Claim]:
-    """Judge every claim's Evidence at once, where one failure does not block the others."""
+    """Judge every claim's Evidence at once, where one unusable answer does not block the others."""
     judged = list(claims)
     pending = [p for p, claim in enumerate(claims) if claim.outcome == "unjudged"]
     if not pending:
@@ -160,6 +161,11 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
     claims = gather_evidence(state.get("claims", []), prompts)
     search = evidence_search(claims)
 
+    unreached = sum(1 for claim in claims if claim.outcome == "unavailable")
+    # Uncertain would blame the literature for our failure, which a Retry may fix (ADR-0006).
+    if unreached:
+        raise EvidenceUnavailable(f"{unreached} afirmaciones sin fuentes alcanzables")
+
     judge_failures = sum(1 for claim in claims if claim.outcome == "unjudged")
     if judge_failures:
         logger.warning(
@@ -172,11 +178,10 @@ def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentStat
     sources = source_records(shown)
 
     logger.info(
-        "[Investigador] %d fuentes para %d/%d afirmaciones%s",
+        "[Investigador] %d fuentes para %d/%d afirmaciones",
         len(sources),
         search.covered,
         search.total,
-        " (fuentes caídas)" if search.outage else "",
     )
     return {
         "claims": claims,

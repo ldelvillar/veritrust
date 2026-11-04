@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.core.claim import Claim, with_hits
@@ -103,10 +104,13 @@ def test_load_cases_skips_rows_without_a_single_judgeable_claim(tmp_path, row):
     assert ej.load_cases(_write(tmp_path / "pipeline.jsonl", row)) == []
 
 
-def _fake_judge(answers: dict[str, tuple | None], calls: list[str]):
+def _fake_judge(answers: dict[str, tuple | Exception | None], calls: list[str]):
     def judge(prompt_text, claim, evidence):
         calls.append(claim)
-        return answers[claim]
+        answer = answers[claim]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
 
     return judge
 
@@ -123,6 +127,7 @@ def test_judge_cases_saves_each_answer_with_the_verdict_it_decides(
                 "A EN": ("supports", "supports"),
                 "B EN": ("contradicts", "contradicts"),
                 "C EN": None,
+                "D EN": httpx.ConnectError("mistral caído"),
             },
             calls,
         ),
@@ -130,6 +135,7 @@ def test_judge_cases_saves_each_answer_with_the_verdict_it_decides(
     checkpoint = tmp_path / "judge.jsonl"
     cases = [
         _case("A", "verdadera", "1", "2"),
+        _case("D", "falsa", "6"),
         _case("B", "verdadera", "3", "4"),
         _case("C", "falsa", "5"),
     ]
@@ -145,7 +151,7 @@ def test_judge_cases_saves_each_answer_with_the_verdict_it_decides(
         {"url": "https://e.org/3", "stance": "contradicts"},
         {"url": "https://e.org/4", "stance": "contradicts"},
     ]
-    # An unanswered case is not saved, so it is retried on resume.
+    # A case without an answer, unusable or lost to the provider, is not saved, so it is retried on resume.
     saved = [json.loads(line)["text"] for line in checkpoint.read_text().splitlines()]
     assert saved == ["A", "B"]
 

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from langchain_core.exceptions import OutputParserException
 
 import app.agents.extractor as extractor_module
 import app.agents.health_expert as health_module
@@ -18,6 +19,7 @@ from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
 from app.schemas.errors import ErrorCode
 from app.utils.evidence import EvidenceRetrievalError
+from app.utils.llm import LLMUnavailableError
 from tests.support.lifecycle import FakeRun
 
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
@@ -142,7 +144,7 @@ def _failing_search(query, max_results=3):
     raise EvidenceRetrievalError("fuente caída")
 
 
-def _stub_judge(monkeypatch, stance="inconclusive", record=None):
+def _stub_judge(monkeypatch, stance="inconclusive", record=None, error=None):
     """Mock only the judge's LLM, keeping the real filtering active."""
 
     class _Chain:
@@ -150,6 +152,8 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
             self._sources = sources
 
         def invoke(self, payload):
+            if error is not None:
+                raise error
             if record is not None:
                 record.append(payload["claim"])
             return _judgments([stance] * self._sources, self._sources)
@@ -382,8 +386,10 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     assert len(result["verdict"].claims) == 2
 
 
-def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts):
-    """With every source down the coverage is unknown, our failure rather than the content's."""
+async def test_a_claim_without_reachable_sources_fails_the_run_with_connection(
+    monkeypatch, prompts
+):
+    """With every source down for a claim there is no Verdict, and the expert is never asked for a report."""
     _stub_extractor(
         monkeypatch,
         statements=["Afirmación uno"],
@@ -400,16 +406,34 @@ def test_total_evidence_outage_does_not_penalize_confidence(monkeypatch, prompts
         openfda=_failing_search,
     )
 
-    graph = create_graph(prompts)
-    result = graph.invoke(_initial_state("Texto"))
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    with pytest.raises(AnalysisFailure) as failure:
+        await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
-    assert result["sources"] == []
-    assert result["verdict"].evidence_coverage is None
-    # Without Sources there is no Stance, so it is uncertain and the outage does not attenuate.
-    assert result["verdict"].label == "incierta"
-    assert result["verdict"].confidence == pytest.approx(0.5)
-    # The expert is told not to invent references.
-    assert "No se hallaron fuentes" in captured["human"]
+    assert failure.value.code == ErrorCode.CONNECTION
+    assert captured["human"] is None
+
+
+async def test_a_judge_mistral_keeps_rate_limiting_fails_the_run(monkeypatch, prompts):
+    """A judge that cannot answer fails the Run as any other agent's LLM would, instead of leaving its claim uncertain."""
+    _stub_extractor(
+        monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
+    )
+    _stub_translator(monkeypatch, ["Claim EN"])
+    _stub_health(monkeypatch)
+    # What the Mistral client raises once its retries of a 429 run out.
+    _stub_judge(monkeypatch, error=LLMUnavailableError("429"))
+
+    def fake_europepmc(query, max_results=3):
+        return [{"title": "Estudio", "url": "https://e.org/x", "abstract": "R."}]
+
+    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+
+    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    with pytest.raises(AnalysisFailure) as failure:
+        await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
+
+    assert failure.value.code == ErrorCode.CONNECTION
 
 
 def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
@@ -537,19 +561,19 @@ def _hit(key: str) -> dict:
     }
 
 
-def _search_by_query(name: str):
-    """Mock source that answers by query, where claim 2's query brings it down."""
+def _search_by_query(name: str, down_query: str | None):
+    """Mock source that answers by query, where ``down_query`` brings it down."""
 
     def search(query, max_results=3):
-        if query == '"q2"':
+        if query == down_query:
             raise EvidenceRetrievalError("fuente caída")
         return [_hit(key) for key in _HITS_BY_SOURCE[name].get(query, [])]
 
     return search
 
 
-def _stub_outcome_scenario(monkeypatch):
-    """Mock LLMs and sources for the 11 claims of the outcomes scenario."""
+def _stub_outcome_scenario(monkeypatch, *, down_query: str | None = '"q2"'):
+    """Mock LLMs and sources for the 11 claims of the outcomes scenario, with claim 2's sources down unless told otherwise."""
     _stub_extractor(
         monkeypatch,
         statements=[f"Afirmación {i}" for i in range(11)],
@@ -560,10 +584,10 @@ def _stub_outcome_scenario(monkeypatch):
     _stub_health(monkeypatch)
     _stub_sources(
         monkeypatch,
-        europepmc=_search_by_query("europepmc"),
-        pubmed=_search_by_query("pubmed"),
-        openfda=_search_by_query("openfda"),
-        cima=_search_by_query("cima"),
+        europepmc=_search_by_query("europepmc", down_query),
+        pubmed=_search_by_query("pubmed", down_query),
+        openfda=_search_by_query("openfda", down_query),
+        cima=_search_by_query("cima", down_query),
     )
 
     class _Chain:
@@ -572,7 +596,7 @@ def _stub_outcome_scenario(monkeypatch):
 
         def invoke(self, payload):
             if payload["claim"] == "Claim 3 EN":
-                raise RuntimeError("juez caído")
+                raise OutputParserException("respuesta inservible")
             stances = _STANCES_BY_CLAIM[payload["claim"]]
             if isinstance(stances, str):
                 stances = [stances] * self._sources
@@ -604,8 +628,9 @@ def _judged_hit(key: str, stance: str) -> dict:
 
 
 async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, prompts):
-    """Pin the Sources, coverage and Verdict of an Analysis that walks through every claim outcome."""
-    _stub_outcome_scenario(monkeypatch)
+    """Pin the Sources, coverage and Verdict of an Analysis that walks through every claim outcome that leaves a Verdict."""
+    # Claim 2's sources stay up, since one whose sources all fail leaves no Verdict.
+    _stub_outcome_scenario(monkeypatch, down_query=None)
 
     result = await ainvoke_graph(
         create_graph(prompts), {"input_text": "Texto con once afirmaciones"}
@@ -626,14 +651,9 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
         _stored_source("G5", (6, "supports")),
         _stored_source("G6", (6, "supports")),
     ]
-    # 10 searchable and 8 searched, covering 0, 3, 5, 6 and 8, the last even though the cap hides its Sources.
+    # 10 searchable, covering 0, 5, 6 and 8, the last even though the cap hides its Sources, but not the unjudged 3.
     evidence_search = result["evidence_search"]
-    assert (
-        evidence_search.total,
-        evidence_search.searched,
-        evidence_search.covered,
-        evidence_search.outage,
-    ) == (10, 8, 5, False)
+    assert (evidence_search.total, evidence_search.covered) == (10, 4)
     assert result["judge_failures"] == 1
     # Each claim keeps all its Evidence, while the Verdict only sees what the report shows.
     found, shown = result["claims"], result["shown_claims"]
@@ -660,8 +680,8 @@ async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, pro
     # The true claims 0 and 6 do not offset the false claim 5, so it is partly false with its Confidence.
     assert verdict.label == "parcialmente falsa"
     assert verdict.falsehood == pytest.approx(falsehood)
-    assert verdict.evidence_coverage == 0.5
-    assert verdict.confidence == pytest.approx(0.8 * (1 - 0.25 * 0.5))
+    assert verdict.evidence_coverage == 0.4
+    assert verdict.confidence == pytest.approx(0.8 * (1 - 0.25 * 0.6))
 
 
 async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(

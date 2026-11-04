@@ -21,7 +21,7 @@ The status of an Analysis that produced a verdict with its report.
 _Avoid_: completed, finished, succeeded
 
 **Failed**:
-The status of an Analysis that ended without a verdict, carrying the reason as an error code; finding no medical claims is a failure.
+The status of an Analysis that ended without a verdict, carrying the reason as an error code; finding no medical claims, or an Evidence outage, is a failure.
 _Avoid_: error, crashed
 
 **Stage**:
@@ -83,11 +83,11 @@ How likely the content is to be true, from 0 to 100, following from the Verdict 
 _Avoid_: truth score, trust score
 
 **Evidence coverage**:
-The share of an Analysis's Claims that the literature speaks to.
+The share of an Analysis's Claims that the literature was judged to speak to; a Claim the judge could not rule on does not count.
 _Avoid_: coverage ratio, recall
 
 **Evidence outage**:
-A Run in which no literature source could be reached, so Evidence coverage is unknown rather than zero.
+A Run in which our services failed to check a searched Claim, because all its literature sources failed or the judge could not be reached; the Run fails rather than calling the Claim uncertain.
 _Avoid_: sentinel, blackout
 
 ## History

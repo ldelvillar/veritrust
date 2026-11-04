@@ -8,6 +8,7 @@ from arq import cron, func, run_worker
 from arq.connections import RedisSettings
 
 from app.agents.errors import (
+    EvidenceUnavailable,
     OllamaConnectionError,
     ainvoke_graph,
 )
@@ -93,6 +94,9 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
         )
     except OllamaConnectionError as exc:
         logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
+        raise AnalysisFailure(ErrorCode.CONNECTION) from exc
+    except EvidenceUnavailable as exc:
+        logger.warning("[Worker] %s en %s", exc, run.analysis_id)
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
     verdict = result.get("verdict")

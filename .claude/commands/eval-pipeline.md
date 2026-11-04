@@ -55,12 +55,15 @@ STEPS:
      relevance judge (stances), or the verdict rule in `app/core/verdict.py`. The
      Health Expert's LLM only writes the report, which the harness skips unless
      `--with-explanation`.
-   - Judge failures measure the judge model breaking its output schema, not
-     pipeline quality; report them separately.
+   - Judge failures count the judge model breaking its output schema. Production
+     shows those Claims as uncertain, so the rows score like any other; report
+     how many there were. A judge the provider could not serve fails the sample,
+     which the harness leaves out (ADR-0006).
    - How the run compares with the latest comparable run (same partition and
-     provider) in the notebook. Production runs Ollama, so numbers from a hosted
-     provider don't describe what users see; and prompts were tuned on the gold
-     set, so gold results are partly in-sample.
+     provider) in the notebook. Production runs the Mistral API until a GPU server
+     is bought, so numbers from another provider don't describe what users see;
+     and prompts were tuned on the gold set, so gold results are partly
+     in-sample.
 
 4. If the user wants to act on the results, first read the notebook's "Do not
    retry" and "Next steps" sections so you don't

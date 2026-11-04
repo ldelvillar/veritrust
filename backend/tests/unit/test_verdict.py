@@ -14,7 +14,7 @@ from app.core.verdict import (
 
 def _full(claims: int) -> EvidenceSearch:
     """Search in which the literature covered every claim."""
-    return EvidenceSearch(total=claims, searched=claims, covered=claims, outage=False)
+    return EvidenceSearch(total=claims, covered=claims)
 
 
 def _claim(
@@ -114,7 +114,7 @@ def test_minority_contradiction_only_lowers_the_confidence() -> None:
 
 
 def test_claims_the_literature_ignores_do_not_dilute_the_verdict() -> None:
-    search = EvidenceSearch(total=2, searched=2, covered=2, outage=False)
+    search = EvidenceSearch(total=2, covered=2)
 
     verdict = decide([_claim(contradicts=3), _claim(index=1, text="S2")], search)
 
@@ -190,13 +190,11 @@ def test_only_uncertain_claims_keep_the_analysis_uncertain() -> None:
     ("search", "coverage", "confidence"),
     [
         # All the literature found, so no attenuation.
-        (EvidenceSearch(total=2, searched=2, covered=2, outage=False), 1.0, 0.75),
+        (EvidenceSearch(total=2, covered=2), 1.0, 0.75),
         # Half coverage gives 0.75 × (1 − 0.25 × 0.5).
-        (EvidenceSearch(total=2, searched=2, covered=1, outage=False), 0.5, 0.65625),
+        (EvidenceSearch(total=2, covered=1), 0.5, 0.65625),
         # Nothing to search, so coverage 0 and maximum attenuation.
-        (EvidenceSearch(total=0, searched=0, covered=0, outage=False), 0.0, 0.5625),
-        # The cap leaves 2 of 10 unsearched, which count as uncovered.
-        (EvidenceSearch(total=10, searched=8, covered=8, outage=False), 0.8, 0.7125),
+        (EvidenceSearch(total=0, covered=0), 0.0, 0.5625),
     ],
 )
 def test_confidence_is_attenuated_by_evidence_coverage(
@@ -210,23 +208,6 @@ def test_confidence_is_attenuated_by_evidence_coverage(
     assert verdict.claims[0].confidence == pytest.approx(0.75)
     # The falsehood is the one the band saw, before attenuation.
     assert verdict.falsehood == pytest.approx(0.25)
-
-
-@pytest.mark.parametrize(
-    ("search", "confidence"),
-    [
-        # Every searched claim hits down sources, our failure, so no penalty.
-        (EvidenceSearch(total=3, searched=3, covered=0, outage=True), 0.5),
-        # Above the cap only the 2 left unsearched penalise.
-        (EvidenceSearch(total=10, searched=8, covered=0, outage=True), 0.475),
-    ],
-)
-def test_an_evidence_outage_leaves_coverage_unknown(search, confidence) -> None:
-    verdict = decide([_claim()], search)
-
-    assert verdict.evidence_coverage is None
-    assert verdict.kind == "uncertain"
-    assert verdict.confidence == pytest.approx(confidence)
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.agents import relevance
@@ -13,6 +14,7 @@ from app.agents.relevance import (
 )
 from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 from app.core.claim import Evidence
+from tests.support.mistral import mistral_client, mistral_reply
 
 
 def _answering(raw: dict, built: list[int] | None = None):
@@ -121,31 +123,65 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
     assert built == [2, 1, 1]
 
 
-def test_judge_stances_fails_when_the_model_errors(monkeypatch):
-    built: list[int] = []
+def test_judge_stances_raises_when_the_judge_cannot_be_built(monkeypatch):
+    def _misconfigured(prompt, sources, model=None):
+        raise ValueError("ajuste inválido")
 
-    class _BoomChain:
-        def invoke(self, payload):
-            raise RuntimeError("ollama caído")
+    monkeypatch.setattr(relevance, "get_relevance_chain", _misconfigured)
 
-    def _get(prompt, sources, model=None):
-        built.append(sources)
-        return _BoomChain()
+    # A settings error is a ValueError like a parse error, but it is ours and must fail the Run.
+    with pytest.raises(ValueError, match="ajuste inválido"):
+        judge_stances("p", "claim", _evidence("a", "b"))
 
-    monkeypatch.setattr(relevance, "get_relevance_chain", _get)
+
+def _mistral_replying(monkeypatch, reply: httpx.Response) -> None:
+    """Judge with the real chain and Mistral client, against an API that always gives ``reply``."""
+    # A client per model, as in production, so each model paces its own client once.
+    monkeypatch.setattr(
+        relevance,
+        "build_chat_model",
+        lambda role, model=None: mistral_client(lambda request: reply, max_retries=0),
+    )
+    monkeypatch.setattr(
+        relevance, "get_relevance_chain", get_relevance_chain.__wrapped__
+    )
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "llamada01",
+                    "type": "function",
+                    "function": {
+                        "name": "EvidenceJudgments",
+                        "arguments": '{"source_1": {"finding": "f", "stance": "maybe"}}',
+                    },
+                }
+            ],
+        },
+        {"role": "assistant", "content": "No puedo juzgar estas fuentes."},
+    ],
+    ids=["schema-break", "prose"],
+)
+def test_the_real_judge_chain_leaves_an_unusable_answer_unjudged(
+    monkeypatch, pacing_clock, message
+):
+    _mistral_replying(monkeypatch, mistral_reply(message))
 
     assert judge_stances("p", "claim", _evidence("a", "b")) is None
-    # A provider failure is not fixed by splitting the Sources, so there is a single call.
-    assert built == [2]
 
 
-def test_judge_stances_fails_when_the_chain_cannot_be_built(monkeypatch):
-    def _broken(prompt, sources, model=None):
-        raise RuntimeError("proveedor mal configurado")
+def test_the_real_judge_chain_raises_what_mistral_rejects(monkeypatch, pacing_clock):
+    _mistral_replying(monkeypatch, httpx.Response(400, json={"message": "bad"}))
 
-    monkeypatch.setattr(relevance, "get_relevance_chain", _broken)
-
-    assert judge_stances("p", "claim", _evidence("a")) is None
+    # Only the answer's own errors are caught, so a provider error is never mistaken for one.
+    with pytest.raises(httpx.HTTPStatusError, match="400"):
+        judge_stances("p", "claim", _evidence("a", "b"))
 
 
 def test_format_candidates_includes_abstract_and_title_only():

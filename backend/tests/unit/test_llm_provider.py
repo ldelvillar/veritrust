@@ -9,6 +9,7 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_ollama import ChatOllama
 
 from app.utils import llm as llm_module
+from tests.support.mistral import mistral_client, mistral_reply
 
 ROLES = ("extractor", "translator", "judge", "health_expert")
 
@@ -327,37 +328,10 @@ def test_configured_models_rejects_unknown_provider(monkeypatch) -> None:
         llm_module.configured_models()
 
 
-_MISTRAL_REPLY = {
-    "id": "respuesta-de-prueba",
-    "object": "chat.completion",
-    "model": "mistral-small-latest",
-    "choices": [
-        {
-            "index": 0,
-            "message": {"role": "assistant", "content": "hola"},
-            "finish_reason": "stop",
-        }
-    ],
-    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-}
-
-
 def _mistral_response(status: int) -> httpx.Response:
     if status == 200:
-        return httpx.Response(200, json=_MISTRAL_REPLY)
+        return mistral_reply()
     return httpx.Response(status, json={"message": "Rate limit exceeded"})
-
-
-def _mistral_client(handler) -> llm_module._RetryingChatMistralAI:
-    return llm_module._RetryingChatMistralAI(
-        api_key="clave-de-prueba",
-        max_retries=2,
-        requests_per_second=2.0,
-        client=httpx.Client(
-            base_url="https://api.mistral.ai/v1",
-            transport=httpx.MockTransport(handler),
-        ),
-    )
 
 
 def _mistral_with_responses(monkeypatch, statuses: list[int]):
@@ -371,7 +345,7 @@ def _mistral_with_responses(monkeypatch, statuses: list[int]):
         return _mistral_response(status)
 
     monkeypatch.setattr(llm_module.time, "sleep", waits.append)
-    return _mistral_client(handler), waits, calls
+    return mistral_client(handler), waits, calls
 
 
 def test_every_mistral_request_starts_below_the_configured_rate(
@@ -390,7 +364,7 @@ def test_every_mistral_request_starts_below_the_configured_rate(
 
     # The backoffs do not move the fake clock, so only the pacing spaces the retries.
     monkeypatch.setattr(llm_module.time, "sleep", lambda seconds: None)
-    for client in (_mistral_client(handler), _mistral_client(handler)):
+    for client in (mistral_client(handler), mistral_client(handler)):
         client.invoke("hola")
 
     assert len(starts) == 4
@@ -408,7 +382,8 @@ def test_mistral_retries_a_rate_limit_and_then_answers(monkeypatch) -> None:
 def test_mistral_gives_up_after_max_retries(monkeypatch) -> None:
     model, waits, calls = _mistral_with_responses(monkeypatch, [429, 429, 429])
 
-    with pytest.raises(httpx.HTTPStatusError, match="429"):
+    # Out of retries the provider is down or limiting us, which the graph reports as CONNECTION.
+    with pytest.raises(llm_module.LLMUnavailableError, match="429"):
         model.invoke("hola")
     assert len(calls) == 3
     assert len(waits) == 2

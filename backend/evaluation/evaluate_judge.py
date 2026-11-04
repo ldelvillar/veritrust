@@ -112,13 +112,23 @@ def judge_cases(
                     "Presupuesto agotado con %d casos pendientes", len(pending) - i + 1
                 )
                 break
-            stances = judge_stances(
-                prompt_text, case.claim.text_en, case.claim.evidence
-            )
-            # No answer may be the model or the connection, so it is not saved as a judgment.
+            try:
+                stances = judge_stances(
+                    prompt_text, case.claim.text_en, case.claim.evidence
+                )
+            except Exception:
+                logger.exception(
+                    "[%d/%d] fallo al juzgar; se reintentará al reanudar",
+                    i,
+                    len(pending),
+                )
+                continue
+            # An unusable answer is not saved as a judgment either, so it is retried on resume.
             if stances is None:
                 logger.warning(
-                    "[%d/%d] el juez no respondió; se reintentará", i, len(pending)
+                    "[%d/%d] respuesta inservible del juez; se reintentará",
+                    i,
+                    len(pending),
                 )
                 continue
             judged = with_stances(case.claim, stances)

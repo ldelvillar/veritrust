@@ -90,19 +90,30 @@ def _format_candidates(evidence: Sequence[Evidence]) -> str:
     return "\n".join(lines)
 
 
+class _UnusableAnswer(Exception):
+    """The judge answered without one valid Stance per Source, as opposed to a provider failure, which fails the Run."""
+
+
 def _ask_judge(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...]:
     """Make one judge call, raising if it fails or its answer does not name each Source once."""
+    # Built outside the try, so a settings error is never taken for an answer.
     chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
-    answer = chain.invoke(
-        {
-            "claim": neutralize_delimiters(claim),
-            "sources": _format_candidates(evidence),
-            # Without knowing how many there are, the judge sometimes skips the last Source.
-            "count": len(evidence),
-        }
-    )
+    try:
+        answer = chain.invoke(
+            {
+                "claim": neutralize_delimiters(claim),
+                "sources": _format_candidates(evidence),
+                # Without knowing how many there are, the judge sometimes skips the last Source.
+                "count": len(evidence),
+            }
+        )
+    except (ValidationError, OutputParserException) as error:
+        raise _UnusableAnswer("El juez no dio una postura válida por fuente") from error
+    # Structured output gives None when the model answers in prose or its tool call is malformed or truncated.
+    if answer is None:
+        raise _UnusableAnswer("El juez no devolvió una llamada válida a la herramienta")
     return tuple(
         judgment.stance
         for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
@@ -112,14 +123,14 @@ def _ask_judge(
 def judge_stances(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...] | None:
-    """Ask the judge for one Stance per candidate Source, or ``None`` if it fails or does not name each Source once."""
+    """Ask the judge for one Stance per candidate Source, or ``None`` if its answer does not name each Source once."""
     if not evidence:
         return ()
 
     try:
         try:
             return _ask_judge(prompt_text, claim, evidence)
-        except (ValidationError, OutputParserException):
+        except _UnusableAnswer:
             if len(evidence) < 2:
                 raise
             # A long answer is the one that comes back incomplete, so each half asks for a shorter one.
@@ -127,9 +138,9 @@ def judge_stances(
             return _ask_judge(prompt_text, claim, evidence[:half]) + _ask_judge(
                 prompt_text, claim, evidence[half:]
             )
-    except Exception:
+    except _UnusableAnswer:
         logger.warning(
-            "[Juez] Fallo evaluando la evidencia; se conservan las fuentes",
+            "[Juez] Respuesta inservible; las fuentes quedan sin juzgar",
             exc_info=True,
         )
         return None

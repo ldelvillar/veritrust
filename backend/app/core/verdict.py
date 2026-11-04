@@ -60,8 +60,7 @@ class Verdict:
     confidence: float
     # Mean falsehood probability of the claims with Evidence, before attenuation.
     falsehood: float
-    # None when a source outage prevented measuring it.
-    evidence_coverage: Optional[float]
+    evidence_coverage: float
     claims: tuple[ClaimVerdict, ...]
 
     @property
@@ -89,10 +88,10 @@ def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
     # Only averages the claims the literature rules on.
     falsehood = sum(evidenced) / len(evidenced) if evidenced else 0.5
     kind, confidence = _overall(claim_verdicts, falsehood, bool(evidenced))
-    penalized_coverage, evidence_coverage = _coverage(search)
+    evidence_coverage = search.covered / search.total if search.total else 0.0
     return Verdict(
         kind=kind,
-        confidence=_attenuate(confidence, penalized_coverage),
+        confidence=_attenuate(confidence, evidence_coverage),
         falsehood=falsehood,
         evidence_coverage=evidence_coverage,
         claims=tuple(claim_verdicts),
@@ -171,17 +170,6 @@ def _overall(
     if real:
         return "real", sum(real) / len(real)
     return _band(falsehood, has_evidence)
-
-
-def _coverage(search: EvidenceSearch) -> tuple[float, Optional[float]]:
-    """Return the coverage that attenuates the Confidence and the one the user sees."""
-    if not search.total:
-        return 0.0, 0.0
-    # A total outage does not penalise what was searched (our failure), but does penalise what the cap left out.
-    if search.outage:
-        return search.searched / search.total, None
-    coverage = search.covered / search.total
-    return coverage, coverage
 
 
 def _attenuate(confidence: float, coverage: float) -> float:

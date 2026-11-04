@@ -8,6 +8,8 @@ import aiohttp
 import groq
 import httpx
 
+from app.utils.llm import LLMUnavailableError
+
 
 class AgentError(Exception):
     """Base error of the agent pipeline."""
@@ -15,6 +17,10 @@ class AgentError(Exception):
 
 class OllamaConnectionError(AgentError):
     """Could not connect to the Ollama server."""
+
+
+class EvidenceUnavailable(AgentError):
+    """A searched claim's sources all failed, so the Run has no Verdict (ADR-0006)."""
 
 
 async def ainvoke_graph(
@@ -36,10 +42,13 @@ async def ainvoke_graph(
                     await on_stage(next(iter(chunk)))
     except (
         ConnectionError,
-        httpx.ConnectError,
+        # Never connecting, timing out and a dropped response alike, but not our own misconfigured request.
+        httpx.NetworkError,
         httpx.TimeoutException,
+        httpx.RemoteProtocolError,
         aiohttp.ClientError,
         groq.APIConnectionError,
+        LLMUnavailableError,
     ) as e:
         raise OllamaConnectionError(str(e)) from e
     return final_state
