@@ -162,16 +162,15 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
     )
 
 
-def _judgments(stances: list[str], sources: int) -> dict:
-    """Judge chain output, its answer validated as in production against the schema of ``sources`` Sources."""
+def _judgments(stances: list[str], sources: int):
+    """Judge answer validated, as in production, against the schema of ``sources`` Sources."""
     schema = relevance_module.EVIDENCE_JUDGMENTS.schema(sources)
-    answer = schema.model_validate(
+    return schema.model_validate(
         {
             f"source_{n}": {"finding": "hallazgo", "stance": stance}
             for n, stance in enumerate(stances, start=1)
         }
     )
-    return {"raw": None, "parsed": answer, "parsing_error": None}
 
 
 def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, prompts):
@@ -607,8 +606,7 @@ def _stub_outcome_scenario(monkeypatch, *, down_query: str | None = '"q2"'):
 
         def invoke(self, payload):
             if payload["claim"] == "Claim 3 EN":
-                error = OutputParserException("respuesta inservible")
-                return {"raw": None, "parsed": None, "parsing_error": error}
+                raise OutputParserException("respuesta inservible")
             stances = _STANCES_BY_CLAIM[payload["claim"]]
             if isinstance(stances, str):
                 stances = [stances] * self._sources

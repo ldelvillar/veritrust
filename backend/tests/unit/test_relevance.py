@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from pydantic import ValidationError
 
 from app.agents import relevance
 from app.agents.relevance import (
@@ -18,11 +17,6 @@ from app.core.claim import Evidence
 from app.utils.llm import _RetryingChatMistralAI
 
 
-def _parsed(answer, error: Exception | None = None) -> dict:
-    """What the judge chain returns, where a parse failure comes back as data instead of raising."""
-    return {"raw": None, "parsed": answer, "parsing_error": error}
-
-
 def _answering(raw: dict, built: list[int] | None = None):
     """Fake chain whose model answers ``raw``, validated like the schema the judge requested."""
 
@@ -31,10 +25,7 @@ def _answering(raw: dict, built: list[int] | None = None):
             self._schema = EVIDENCE_JUDGMENTS.schema(sources)
 
         def invoke(self, payload):
-            try:
-                return _parsed(self._schema.model_validate(raw))
-            except ValidationError as error:
-                return _parsed(None, error)
+            return self._schema.model_validate(raw)
 
     def _get(prompt, sources, model=None):
         if built is not None:
@@ -135,8 +126,8 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
 def test_judge_stances_fails_when_the_judge_answers_in_prose(monkeypatch):
     class _ProseChain:
         def invoke(self, payload):
-            # Without a tool call there is nothing to parse, so neither an answer nor a parse error.
-            return _parsed(None)
+            # Structured output gives None when the model answers in prose instead of calling the tool.
+            return None
 
     monkeypatch.setattr(
         relevance,
@@ -179,20 +170,20 @@ def test_judge_stances_raises_when_the_judge_cannot_be_reached(monkeypatch):
 
 def _mistral_replying(monkeypatch, reply: httpx.Response) -> None:
     """Judge with the real chain and Mistral client, against an API that always gives ``reply``."""
-    client = httpx.Client(
-        base_url="https://api.mistral.ai/v1",
-        transport=httpx.MockTransport(lambda request: reply),
-    )
-    monkeypatch.setattr(
-        relevance,
-        "build_chat_model",
-        lambda role, model=None: _RetryingChatMistralAI(
+
+    # A client per model, as in production, so each model paces its own client once.
+    def build(role, model=None):
+        return _RetryingChatMistralAI(
             api_key="clave-de-prueba",
             max_retries=0,
             requests_per_second=2.0,
-            client=client,
-        ),
-    )
+            client=httpx.Client(
+                base_url="https://api.mistral.ai/v1",
+                transport=httpx.MockTransport(lambda request: reply),
+            ),
+        )
+
+    monkeypatch.setattr(relevance, "build_chat_model", build)
     monkeypatch.setattr(
         relevance, "get_relevance_chain", get_relevance_chain.__wrapped__
     )
@@ -243,7 +234,7 @@ def test_the_real_judge_chain_leaves_an_unusable_answer_unjudged(
 def test_the_real_judge_chain_raises_what_mistral_rejects(monkeypatch, pacing_clock):
     _mistral_replying(monkeypatch, httpx.Response(400, json={"message": "bad"}))
 
-    # The parse step only receives answers, so a provider error is never mistaken for one.
+    # Only the answer's own errors are caught, so a provider error is never mistaken for one.
     with pytest.raises(httpx.HTTPStatusError, match="400"):
         judge_stances("p", "claim", _evidence("a", "b"))
 
@@ -266,10 +257,8 @@ def test_judge_stances_strips_forged_markers_from_claim_and_sources(monkeypatch)
     class _CapturingChain:
         def invoke(self, payload):
             captured.update(payload)
-            return _parsed(
-                EVIDENCE_JUDGMENTS.schema(1).model_validate(
-                    _judged(source_1="supports")
-                )
+            return EVIDENCE_JUDGMENTS.schema(1).model_validate(
+                _judged(source_1="supports")
             )
 
     monkeypatch.setattr(

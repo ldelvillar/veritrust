@@ -88,6 +88,14 @@ async def test_ainvoke_graph_translates_a_dropped_response() -> None:
         await ainvoke_graph(_FakeGraph(error=httpx.RemoteProtocolError("dropped")), {})
 
 
+async def test_ainvoke_graph_lets_a_misconfigured_url_through() -> None:
+    # A base URL without a scheme is our fault, so it stays an internal error with no Retry to wait for.
+    with pytest.raises(httpx.UnsupportedProtocol):
+        await ainvoke_graph(
+            _FakeGraph(error=httpx.UnsupportedProtocol("no scheme")), {}
+        )
+
+
 async def test_ainvoke_graph_translates_groq_connection_error() -> None:
     error = groq.APIConnectionError(request=_GROQ_REQUEST)
 

@@ -6,9 +6,10 @@ from functools import lru_cache
 from itertools import count
 from typing import Any
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app.agents.numbered_answers import NumberedAnswers
 from app.agents.sanitize import neutralize_delimiters
@@ -63,10 +64,7 @@ def get_relevance_chain(
 ) -> Runnable[dict[str, Any], Any]:
     """Return the judging chain for ``sources`` candidates, cached by count and model."""
     llm = build_chat_model("judge", model)
-    # With the raw message, a parse failure comes back as data and only the provider's failures raise.
-    structured_llm = llm.with_structured_output(
-        EVIDENCE_JUDGMENTS.schema(sources), include_raw=True
-    )
+    structured_llm = llm.with_structured_output(EVIDENCE_JUDGMENTS.schema(sources))
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -100,21 +98,25 @@ def _ask_judge(
     prompt_text: str, claim: str, evidence: Sequence[Evidence]
 ) -> tuple[JudgeStance, ...]:
     """Make one judge call, raising if it fails or its answer does not name each Source once."""
+    # Built outside the try, so a settings error is never taken for an answer.
     chain = get_relevance_chain(prompt_text, len(evidence), _next_judge_model())
-    answer = chain.invoke(
-        {
-            "claim": neutralize_delimiters(claim),
-            "sources": _format_candidates(evidence),
-            # Without knowing how many there are, the judge sometimes skips the last Source.
-            "count": len(evidence),
-        }
-    )
-    # Parsed is None both when the answer breaks the schema and when the model answers in prose instead of calling the tool.
-    if answer["parsed"] is None:
-        raise _UnusableAnswer from answer["parsing_error"]
+    try:
+        answer = chain.invoke(
+            {
+                "claim": neutralize_delimiters(claim),
+                "sources": _format_candidates(evidence),
+                # Without knowing how many there are, the judge sometimes skips the last Source.
+                "count": len(evidence),
+            }
+        )
+    except (ValidationError, OutputParserException) as error:
+        raise _UnusableAnswer("El juez no dio una postura válida por fuente") from error
+    # Structured output gives None when the model answers in prose instead of calling the tool.
+    if answer is None:
+        raise _UnusableAnswer("El juez respondió sin llamar a la herramienta")
     return tuple(
         judgment.stance
-        for judgment in EVIDENCE_JUDGMENTS.in_order(answer["parsed"], len(evidence))
+        for judgment in EVIDENCE_JUDGMENTS.in_order(answer, len(evidence))
     )
 
 
