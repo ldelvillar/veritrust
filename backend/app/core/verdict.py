@@ -69,15 +69,8 @@ class Verdict:
         return _LABELS[self.kind]
 
 
-class EvidenceUnavailable(Exception):
-    """A searched claim's sources all failed, so the Analysis has no Verdict."""
-
-
 def decide(claims: Sequence[Claim], search: EvidenceSearch) -> Verdict:
     """Decide the Verdict of each claim and of the Analysis from the Stance of its Evidence."""
-    # Uncertain would blame the literature for our failure, which a Retry may fix (ADR-0006).
-    if any(claim.outcome == "unavailable" for claim in claims):
-        raise EvidenceUnavailable
     claim_verdicts: list[ClaimVerdict] = []
     evidenced: list[float] = []
     for claim in claims:

@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
 from app.schemas.errors import ErrorCode
 from app.utils.evidence import EvidenceRetrievalError
+from app.utils.llm import LLMUnavailableError
 from tests.support.lifecycle import FakeRun
 
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
@@ -143,7 +144,7 @@ def _failing_search(query, max_results=3):
     raise EvidenceRetrievalError("fuente caída")
 
 
-def _stub_judge(monkeypatch, stance="inconclusive", record=None):
+def _stub_judge(monkeypatch, stance="inconclusive", record=None, error=None):
     """Mock only the judge's LLM, keeping the real filtering active."""
 
     class _Chain:
@@ -151,6 +152,8 @@ def _stub_judge(monkeypatch, stance="inconclusive", record=None):
             self._sources = sources
 
         def invoke(self, payload):
+            if error is not None:
+                raise error
             if record is not None:
                 record.append(payload["claim"])
             return _judgments([stance] * self._sources, self._sources)
@@ -411,28 +414,15 @@ async def test_a_claim_without_reachable_sources_fails_the_run_with_connection(
     assert captured["human"] is None
 
 
-async def test_a_judge_still_rate_limited_after_its_retries_fails_the_run(
-    monkeypatch, prompts
-):
+async def test_a_judge_mistral_keeps_rate_limiting_fails_the_run(monkeypatch, prompts):
     """A judge that cannot answer fails the Run as any other agent's LLM would, instead of leaving its claim uncertain."""
     _stub_extractor(
         monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
     )
     _stub_translator(monkeypatch, ["Claim EN"])
     _stub_health(monkeypatch)
-    request = httpx.Request("POST", "https://api.mistral.ai/v1/chat/completions")
-
-    class _LimitedChain:
-        def invoke(self, payload):
-            raise httpx.HTTPStatusError(
-                "429", request=request, response=httpx.Response(429, request=request)
-            )
-
-    monkeypatch.setattr(
-        relevance_module,
-        "get_relevance_chain",
-        lambda prompt_text, sources, model=None: _LimitedChain(),
-    )
+    # What the Mistral client raises once its retries of a 429 run out.
+    _stub_judge(monkeypatch, error=LLMUnavailableError("429"))
 
     def fake_europepmc(query, max_results=3):
         return [{"title": "Estudio", "url": "https://e.org/x", "abstract": "R."}]

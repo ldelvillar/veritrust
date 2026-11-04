@@ -8,7 +8,7 @@ import aiohttp
 import groq
 import httpx
 
-from app.utils.llm import is_transient_http_error
+from app.utils.llm import LLMUnavailableError
 
 
 class AgentError(Exception):
@@ -17,6 +17,10 @@ class AgentError(Exception):
 
 class OllamaConnectionError(AgentError):
     """Could not connect to the Ollama server."""
+
+
+class EvidenceUnavailable(AgentError):
+    """A searched claim's sources all failed, so the Run has no Verdict (ADR-0006)."""
 
 
 async def ainvoke_graph(
@@ -44,11 +48,7 @@ async def ainvoke_graph(
         httpx.RemoteProtocolError,
         aiohttp.ClientError,
         groq.APIConnectionError,
+        LLMUnavailableError,
     ) as e:
-        raise OllamaConnectionError(str(e)) from e
-    except httpx.HTTPStatusError as e:
-        # The client already retried a 429 or 5xx, so the provider is down or limiting us.
-        if not is_transient_http_error(e):
-            raise
         raise OllamaConnectionError(str(e)) from e
     return final_state

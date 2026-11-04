@@ -2,10 +2,9 @@
 
 import pytest
 
-from app.core.claim import Claim, Evidence, EvidenceSearch, with_hits
+from app.core.claim import Claim, Evidence, EvidenceSearch
 from app.core.verdict import (
     ClaimVerdict,
-    EvidenceUnavailable,
     confidence_level_of,
     credibility_of,
     decide,
@@ -196,8 +195,6 @@ def test_only_uncertain_claims_keep_the_analysis_uncertain() -> None:
         (EvidenceSearch(total=2, covered=1), 0.5, 0.65625),
         # Nothing to search, so coverage 0 and maximum attenuation.
         (EvidenceSearch(total=0, covered=0), 0.0, 0.5625),
-        # The cap leaves 2 of 10 unsearched, which count as uncovered.
-        (EvidenceSearch(total=10, covered=8), 0.8, 0.7125),
     ],
 )
 def test_confidence_is_attenuated_by_evidence_coverage(
@@ -211,14 +208,6 @@ def test_confidence_is_attenuated_by_evidence_coverage(
     assert verdict.claims[0].confidence == pytest.approx(0.75)
     # The falsehood is the one the band saw, before attenuation.
     assert verdict.falsehood == pytest.approx(0.25)
-
-
-def test_a_claim_whose_sources_all_failed_leaves_no_verdict() -> None:
-    unreached = with_hits(Claim(index=1, text="S2", query='"q2"'), None)
-
-    # What the literature says of it is unknown through our failure, so not even a false claim beside it decides (ADR-0006).
-    with pytest.raises(EvidenceUnavailable):
-        decide([_claim(contradicts=3), unreached], _full(2))
 
 
 @pytest.mark.parametrize(

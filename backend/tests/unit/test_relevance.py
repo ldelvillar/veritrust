@@ -14,7 +14,7 @@ from app.agents.relevance import (
 )
 from app.agents.sanitize import USER_INPUT_END, USER_INPUT_START
 from app.core.claim import Evidence
-from app.utils.llm import _RetryingChatMistralAI
+from tests.support.mistral import mistral_client, mistral_reply
 
 
 def _answering(raw: dict, built: list[int] | None = None):
@@ -123,21 +123,6 @@ def test_judge_stances_rescues_a_skipped_source_with_one_split(monkeypatch):
     assert built == [2, 1, 1]
 
 
-def test_judge_stances_fails_when_the_judge_answers_in_prose(monkeypatch):
-    class _ProseChain:
-        def invoke(self, payload):
-            # Structured output gives None when the model answers in prose instead of calling the tool.
-            return None
-
-    monkeypatch.setattr(
-        relevance,
-        "get_relevance_chain",
-        lambda prompt, sources, model=None: _ProseChain(),
-    )
-
-    assert judge_stances("p", "claim", _evidence("a", "b")) is None
-
-
 def test_judge_stances_raises_when_the_judge_cannot_be_built(monkeypatch):
     def _misconfigured(prompt, sources, model=None):
         raise ValueError("ajuste inválido")
@@ -149,56 +134,16 @@ def test_judge_stances_raises_when_the_judge_cannot_be_built(monkeypatch):
         judge_stances("p", "claim", _evidence("a", "b"))
 
 
-def test_judge_stances_raises_when_the_judge_cannot_be_reached(monkeypatch):
-    built: list[int] = []
-
-    class _DownChain:
-        def invoke(self, payload):
-            raise httpx.ConnectError("mistral caído")
-
-    def _get(prompt, sources, model=None):
-        built.append(sources)
-        return _DownChain()
-
-    monkeypatch.setattr(relevance, "get_relevance_chain", _get)
-
-    # A provider failure is the Run's, as in every other agent, and splitting the Sources would not fix it.
-    with pytest.raises(httpx.ConnectError):
-        judge_stances("p", "claim", _evidence("a", "b"))
-    assert built == [2]
-
-
 def _mistral_replying(monkeypatch, reply: httpx.Response) -> None:
     """Judge with the real chain and Mistral client, against an API that always gives ``reply``."""
-
     # A client per model, as in production, so each model paces its own client once.
-    def build(role, model=None):
-        return _RetryingChatMistralAI(
-            api_key="clave-de-prueba",
-            max_retries=0,
-            requests_per_second=2.0,
-            client=httpx.Client(
-                base_url="https://api.mistral.ai/v1",
-                transport=httpx.MockTransport(lambda request: reply),
-            ),
-        )
-
-    monkeypatch.setattr(relevance, "build_chat_model", build)
+    monkeypatch.setattr(
+        relevance,
+        "build_chat_model",
+        lambda role, model=None: mistral_client(lambda request: reply, max_retries=0),
+    )
     monkeypatch.setattr(
         relevance, "get_relevance_chain", get_relevance_chain.__wrapped__
-    )
-
-
-def _mistral_message(message: dict) -> httpx.Response:
-    return httpx.Response(
-        200,
-        json={
-            "id": "respuesta-de-prueba",
-            "object": "chat.completion",
-            "model": "mistral-small-latest",
-            "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
-            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-        },
     )
 
 
@@ -226,7 +171,7 @@ def _mistral_message(message: dict) -> httpx.Response:
 def test_the_real_judge_chain_leaves_an_unusable_answer_unjudged(
     monkeypatch, pacing_clock, message
 ):
-    _mistral_replying(monkeypatch, _mistral_message(message))
+    _mistral_replying(monkeypatch, mistral_reply(message))
 
     assert judge_stances("p", "claim", _evidence("a", "b")) is None
 

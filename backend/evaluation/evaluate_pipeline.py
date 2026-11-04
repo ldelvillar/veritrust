@@ -73,7 +73,7 @@ class EvalRow(TypedDict):
     translated: list[str]
     sources_kept: int
     stances: dict[str, int]
-    evidence_coverage: float | None
+    evidence_coverage: float
     judge_failures: int
     claim_evidence: list[RecordedClaim]
     evidence: list[EvidenceCall]

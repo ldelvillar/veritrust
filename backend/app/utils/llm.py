@@ -26,6 +26,10 @@ class LLMConfigurationError(RuntimeError):
     """The configured LLM provider is not usable."""
 
 
+class LLMUnavailableError(RuntimeError):
+    """The provider still answered 429 or 5xx after every retry, so it is down or limiting us."""
+
+
 # Prefix of each role's Ollama settings (model, num_ctx and num_predict).
 OLLAMA_PREFIX_BY_ROLE = {
     "extractor": "ollama_extractor",
@@ -60,7 +64,7 @@ GOOGLE_MODEL_ATTR_BY_ROLE = {
 MISTRAL_RETRY_MAX_WAIT_SECONDS = 16
 
 
-def is_transient_http_error(exc: httpx.HTTPStatusError) -> bool:
+def _is_transient(exc: httpx.HTTPStatusError) -> bool:
     """Tell whether an HTTP error is transient, a rate limit or a server failure."""
     status = exc.response.status_code
     return status == 429 or status >= 500
@@ -94,8 +98,10 @@ class _RetryingChatMistralAI(ChatMistralAI):
             try:
                 return super().completion_with_retry(run_manager=run_manager, **kwargs)
             except httpx.HTTPStatusError as exc:
-                if not is_transient_http_error(exc) or attempt == self.max_retries:
+                if not _is_transient(exc):
                     raise
+                if attempt == self.max_retries:
+                    raise LLMUnavailableError(str(exc)) from exc
                 # Jitter spreads the retries of the processes that share the organization's limit.
                 wait = min(MISTRAL_RETRY_MAX_WAIT_SECONDS, 2**attempt) + random.random()
                 attempt += 1

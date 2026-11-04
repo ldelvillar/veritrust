@@ -4,10 +4,10 @@ import logging
 import threading
 from types import SimpleNamespace
 
-import httpx
 import pytest
 
 from app.agents import investigator as investigator_module
+from app.agents.errors import EvidenceUnavailable
 from app.agents.investigator import (
     EVIDENCE_MAX_STATEMENTS,
     gather_evidence,
@@ -43,11 +43,6 @@ def _claims(
     ]
 
 
-def _search(total: int, covered: int) -> EvidenceSearch:
-    """Expected Evidence search counts."""
-    return EvidenceSearch(total=total, covered=covered)
-
-
 def _patch_sources(monkeypatch, fake):
     """Replace the four sources (Europe PMC, PubMed, openFDA and CIMA) with the double."""
     monkeypatch.setattr(investigator_module, "search_europepmc", fake)
@@ -66,6 +61,12 @@ def _judge_all(stance):
     return lambda prompt, claim, evidence: (stance,) * len(evidence)
 
 
+def _investigate(monkeypatch, claims: list[Claim]) -> dict:
+    """Run the investigator with a judge that finds every Source supporting."""
+    _patch_judge(monkeypatch, _judge_all("supports"))
+    return investigator({"claims": claims}, _PROMPTS)
+
+
 def test_returns_empty_without_claims():
     update = investigator({"claims": []})
     assert update == {
@@ -82,11 +83,7 @@ def test_collects_sources_and_full_coverage(monkeypatch):
         return [{"title": f"hit for {query}", "url": f"https://x/{query}"}]
 
     _patch_sources(monkeypatch, fake_search)
-    _patch_judge(monkeypatch, _judge_all("supports"))
-
-    update = investigator(
-        {"claims": _claims(["A", "B"], originals=["a", "b"])}, _PROMPTS
-    )
+    update = _investigate(monkeypatch, _claims(["A", "B"], originals=["a", "b"]))
 
     assert set(update.keys()) == {
         "claims",
@@ -95,7 +92,7 @@ def test_collects_sources_and_full_coverage(monkeypatch):
         "evidence_search",
         "judge_failures",
     }
-    assert update["evidence_search"] == _search(2, covered=2)
+    assert update["evidence_search"] == EvidenceSearch(total=2, covered=2)
     # The four sources return the same URL per claim, deduplicated to one.
     assert len(update["sources"]) == 2
     assert update["sources"][0]["statements"] == [
@@ -118,12 +115,10 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
     monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
     monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
-    _patch_judge(monkeypatch, _judge_all("supports"))
-
-    update = investigator({"claims": _claims(["A"], originals=["a"])}, _PROMPTS)
+    update = _investigate(monkeypatch, _claims(["A"], originals=["a"]))
 
     # Different results from each source are both kept for the same claim.
-    assert update["evidence_search"] == _search(1, covered=1)
+    assert update["evidence_search"] == EvidenceSearch(total=1, covered=1)
     assert {source["url"] for source in update["sources"]} == {
         "https://pmc/1",
         "https://pubmed/1",
@@ -139,11 +134,9 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
 
     _patch_sources(monkeypatch, fake_search)
 
-    _patch_judge(monkeypatch, _judge_all("supports"))
-
     total = EVIDENCE_MAX_STATEMENTS + 2
     statements = [f"S{i}" for i in range(total)]
-    update = investigator({"claims": _claims(statements)}, _PROMPTS)
+    update = _investigate(monkeypatch, _claims(statements))
 
     # Only the first N claims are searched, and the trimmed ones count as uncovered.
     assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
@@ -155,15 +148,29 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
 
 
 def test_a_failed_source_is_logged_with_its_cause(monkeypatch, caplog):
-    def fake_search(query, *, max_results):
+    def fake_pubmed(query, *, max_results):
         raise EvidenceRetrievalError("Error al consultar PubMed: HTTPError 429")
 
-    _patch_sources(monkeypatch, fake_search)
+    _patch_sources(monkeypatch, lambda query, *, max_results: [])
+    monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
 
     with caplog.at_level(logging.WARNING, logger="app.agents.investigator"):
         investigator({"claims": _claims(["A"])})
 
     assert "Error al consultar PubMed: HTTPError 429" in caplog.text
+
+
+def test_a_claim_whose_sources_all_failed_fails_the_investigation(monkeypatch):
+    def fake_search(query, *, max_results):
+        if query == "B-en":
+            raise EvidenceRetrievalError("down")
+        return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
+
+    _patch_sources(monkeypatch, fake_search)
+
+    # Uncertain would blame the literature for our failure, so the Run fails and a Retry may succeed (ADR-0006).
+    with pytest.raises(EvidenceUnavailable, match="1 afirmaciones"):
+        _investigate(monkeypatch, _claims(["A-en", "B-en"]))
 
 
 def test_one_source_down_still_uses_the_other(monkeypatch):
@@ -181,12 +188,10 @@ def test_one_source_down_still_uses_the_other(monkeypatch):
     monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
     monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
 
-    _patch_judge(monkeypatch, _judge_all("supports"))
-
-    update = investigator({"claims": _claims(["A"])}, _PROMPTS)
+    update = _investigate(monkeypatch, _claims(["A"]))
 
     # One down source does not invalidate the claim, since the others do bring Evidence.
-    assert update["evidence_search"] == _search(1, covered=1)
+    assert update["evidence_search"] == EvidenceSearch(total=1, covered=1)
     assert [source["url"] for source in update["sources"]] == ["https://pubmed/1"]
 
 
@@ -216,11 +221,9 @@ def test_runs_lookups_concurrently(monkeypatch):
         return [{"title": query, "url": f"https://x/{query}"}]
 
     _patch_sources(monkeypatch, fake_search)
-    _patch_judge(monkeypatch, _judge_all("supports"))
+    update = _investigate(monkeypatch, _claims(["A", "B", "C"]))
 
-    update = investigator({"claims": _claims(["A", "B", "C"])}, _PROMPTS)
-
-    assert update["evidence_search"] == _search(3, covered=3)
+    assert update["evidence_search"] == EvidenceSearch(total=3, covered=3)
     assert len(update["sources"]) == 3
 
 
@@ -330,7 +333,7 @@ def test_judge_runs_concurrently(monkeypatch):
         {"claims": _claims(["A", "B", "C"], originals=["a", "b", "c"])}, _PROMPTS
     )
 
-    assert update["evidence_search"] == _search(3, covered=3)
+    assert update["evidence_search"] == EvidenceSearch(total=3, covered=3)
     assert len(update["sources"]) == 3
 
 
@@ -351,7 +354,7 @@ def test_parallel_judge_isolates_one_unusable_answer(monkeypatch):
     )
 
     # The unjudged claim keeps its Evidence without Stances and does not cover, while the other is judged normally.
-    assert update["evidence_search"] == _search(2, covered=1)
+    assert update["evidence_search"] == EvidenceSearch(total=2, covered=1)
     assert [claim.outcome for claim in update["claims"]] == ["judged", "unjudged"]
     by_url = {source["url"]: source for source in update["sources"]}
     assert by_url["https://x/A-en"]["statements"] == [
@@ -362,26 +365,8 @@ def test_parallel_judge_isolates_one_unusable_answer(monkeypatch):
     ]
 
 
-def test_a_judge_that_cannot_be_reached_fails_the_investigation(monkeypatch):
-    def fake_search(query, *, max_results):
-        return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
-
-    _patch_sources(monkeypatch, fake_search)
-
-    def fake_judge(prompt, claim, evidence):
-        if claim == "B-en":
-            raise httpx.ConnectError("mistral caído")
-        return ("supports",) * len(evidence)
-
-    _patch_judge(monkeypatch, fake_judge)
-
-    # One claim left unjudged by a provider failure fails the Run, like any other agent's LLM call (ADR-0006).
-    with pytest.raises(httpx.ConnectError):
-        investigator({"claims": _claims(["A-en", "B-en"])}, _PROMPTS)
-
-
 def test_reports_judge_failures_when_sources_go_unjudged(monkeypatch):
-    """The judge fails open, so the Sources without a Stance must be counted."""
+    """An unusable judge answer leaves its Sources without a Stance, so they must be counted."""
 
     def fake_search(query, max_results):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
@@ -401,10 +386,8 @@ def test_no_judge_failures_when_every_source_is_judged(monkeypatch):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
 
     _patch_sources(monkeypatch, fake_search)
-    _patch_judge(monkeypatch, _judge_all("supports"))
-
-    update = investigator(
-        {"claims": _claims(["Claim in English"], originals=["Afirmación"])}, _PROMPTS
+    update = _investigate(
+        monkeypatch, _claims(["Claim in English"], originals=["Afirmación"])
     )
 
     assert update["judge_failures"] == 0
