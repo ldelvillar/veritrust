@@ -43,7 +43,7 @@ async def seed_done(
     explanation: str | None,
     claims: list[dict] | None = None,
     sources: list[dict] | None = None,
-    evidence_coverage: float | None = None,
+    evidence_coverage: float = 1.0,
     pipeline: dict | None = None,
 ) -> None:
     """Close a ``pending`` Analysis as ``done`` with the given Verdict."""
