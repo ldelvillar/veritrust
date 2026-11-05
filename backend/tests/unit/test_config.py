@@ -276,12 +276,11 @@ def test_validate_runtime_skips_the_mcp_url_check_for_the_worker():
     _make_settings(mcp_resource_url="a.b/mcp").validate_runtime(web=False)
 
 
-@pytest.mark.parametrize("name", ["clerk_jwks_url", "mcp_resource_url"])
+@pytest.mark.parametrize("name", ["clerk_jwks_url", "mcp_resource_url", "clerk_issuer"])
 def test_validate_runtime_rejects_a_padded_url_with_the_url_error(name):
-    settings = _make_settings(
-        clerk_issuer="https://tenant.clerk.accounts.dev",
-        **{name: "https://api.veritrust.es/mcp "},
-    )
+    overrides = {"clerk_issuer": "https://tenant.clerk.accounts.dev"}
+    overrides[name] = "https://api.veritrust.es/mcp "
+    settings = _make_settings(**overrides)
 
     with pytest.raises(SettingsValidationError, match=f"sin espacios.*{name.upper()}"):
         settings.validate_runtime()
@@ -297,6 +296,14 @@ def test_validate_runtime_rejects_a_padded_url_with_the_url_error(name):
         "http://localhost:99999",
         "http://[::1",
         "https://a b.com",
+        "https:/api.example.com",
+        "https:api.example.com",
+        "https:\\\\api.example.com",
+        "https://api.exam\nple.com",
+        "https://api.example.com/\trest",
+        "http://api.example.com:0",
+        "http://api.example.com:",
+        "http://api.example.com:/rest",
     ],
 )
 def test_validate_runtime_rejects_a_padded_or_malformed_url(url):

@@ -1,6 +1,7 @@
 """Centralised application configuration, loaded and validated from the environment."""
 
 import math
+import re
 from functools import lru_cache
 
 from pydantic import AnyHttpUrl, TypeAdapter, ValidationError, field_validator
@@ -12,17 +13,18 @@ class SettingsValidationError(RuntimeError):
 
 
 _HTTP_URL = TypeAdapter(AnyHttpUrl)
+# A literal scheme://, no whitespace or control characters, and no empty port.
+_HTTP_URL_SHAPE = re.compile(r"https?://(?![^/?#]*:(?:[/?#]|$))\S+", re.IGNORECASE)
 
 
 def _is_http_url(value: str) -> bool:
-    """Tell whether the value is an unpadded http or https URL with a host and a valid port."""
-    if value != value.strip():
+    """Tell whether the value is a strict http or https URL with a host and a valid port."""
+    if not _HTTP_URL_SHAPE.fullmatch(value):
         return False
     try:
-        _HTTP_URL.validate_python(value)
+        return _HTTP_URL.validate_python(value).port != 0
     except ValidationError:
         return False
-    return True
 
 
 class Settings(BaseSettings):
@@ -301,7 +303,7 @@ class Settings(BaseSettings):
             url_settings.append("mcp_resource_url")
         urls = {name: getattr(self, name) or "" for name in url_settings}
         if (self.clerk_issuer or "").strip():
-            urls["clerk_issuer"] = self.expected_issuer or ""
+            urls["clerk_issuer"] = self.clerk_issuer or ""
         invalid_urls = [
             name.upper() for name, url in urls.items() if not _is_http_url(url)
         ]
