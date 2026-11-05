@@ -3,6 +3,7 @@
 import math
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -165,6 +166,12 @@ class Settings(BaseSettings):
     mcp_resource_url: str | None = None
     # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
+
+    @field_validator("app_base_url")
+    @classmethod
+    def _normalise_app_base_url(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace and treat a blank value as unset."""
+        return (value or "").strip() or None
 
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""
