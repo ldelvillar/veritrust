@@ -11,7 +11,7 @@ export default function Disclaimer() {
           Herramienta orientativa
         </h4>
         <p className="mt-0.5 text-xs leading-relaxed text-warning-ink">
-          Veritrust evalúa la credibilidad de la información. No emite
+          VeriTrust evalúa la credibilidad de la información. No emite
           diagnósticos ni sustituye la consulta con un profesional sanitario.
         </p>
       </div>
