@@ -147,6 +147,34 @@ def test_validate_runtime_requires_mcp_url_to_end_in_mcp():
         settings.validate_runtime()
 
 
+def test_mcp_resource_url_drops_trailing_slashes():
+    settings = _make_settings(mcp_resource_url="https://api.veritrust.es/mcp//")
+
+    assert settings.mcp_resource_url == "https://api.veritrust.es/mcp"
+
+
+def test_validate_runtime_treats_an_mcp_url_of_only_slashes_as_missing():
+    settings = _make_settings(mcp_resource_url="///")
+
+    assert settings.mcp_resource_url == ""
+    with pytest.raises(SettingsValidationError, match="MCP_RESOURCE_URL"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_rejects_a_doubled_slash_before_mcp():
+    settings = _make_settings(mcp_resource_url="https://api.veritrust.es//mcp//")
+
+    with pytest.raises(SettingsValidationError, match="/mcp"):
+        settings.validate_runtime()
+
+
+def test_a_whitespace_only_clerk_issuer_is_rejected_not_ignored():
+    settings = _make_settings(clerk_issuer=" ")
+
+    with pytest.raises(SettingsValidationError, match="sin espacios.*CLERK_ISSUER"):
+        settings.validate_runtime()
+
+
 def test_validate_runtime_skips_web_only_settings_for_the_worker():
     settings = _make_settings(
         environment="production",

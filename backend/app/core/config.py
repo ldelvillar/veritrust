@@ -189,6 +189,12 @@ class Settings(BaseSettings):
         """Strip surrounding whitespace and the trailing slash, so a blank value is unset."""
         return value.strip().rstrip("/")
 
+    @field_validator("mcp_resource_url")
+    @classmethod
+    def _normalise_mcp_resource_url(cls, value: str | None) -> str | None:
+        """Drop the trailing slashes, so the OAuth resource identifier is one canonical string."""
+        return value.rstrip("/") if value else value
+
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""
         raw = self.cors_allowed_origins
@@ -199,11 +205,11 @@ class Settings(BaseSettings):
     @property
     def expected_issuer(self) -> str | None:
         """Expected Clerk issuer, explicit or derived from the JWKS URL."""
-        issuer = (self.clerk_issuer or "").strip()
+        issuer = self.clerk_issuer
         if issuer:
             return issuer
 
-        jwks_url = (self.clerk_jwks_url or "").strip()
+        jwks_url = self.clerk_jwks_url or ""
         suffix = "/.well-known/jwks.json"
         if jwks_url.endswith(suffix):
             return jwks_url[: -len(suffix)]
@@ -302,8 +308,8 @@ class Settings(BaseSettings):
         if web:
             url_settings.append("mcp_resource_url")
         urls = {name: getattr(self, name) or "" for name in url_settings}
-        if (self.clerk_issuer or "").strip():
-            urls["clerk_issuer"] = self.clerk_issuer or ""
+        if self.clerk_issuer:
+            urls["clerk_issuer"] = self.clerk_issuer
         invalid_urls = [
             name.upper() for name, url in urls.items() if not _is_http_url(url)
         ]
@@ -313,7 +319,7 @@ class Settings(BaseSettings):
                 "puerto válido: " + ", ".join(invalid_urls)
             )
 
-        if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
+        if web and not re.search(r"(?<!/)/mcp$", self.mcp_resource_url or ""):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
         rate = self.mistral_requests_per_second
