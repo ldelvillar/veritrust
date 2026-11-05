@@ -6,7 +6,7 @@ import { fetchJsonServer } from '@/lib/serverApi';
 import CuentaClient from './CuentaClient';
 
 export const metadata: Metadata = {
-  title: 'Datos Personales',
+  title: 'Cuenta y plan',
   description:
     'Consulta tu cuenta de VeriTrust, exporta tu historial de análisis y gestiona tus datos personales.',
 };
