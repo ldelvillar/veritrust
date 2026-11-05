@@ -2,6 +2,7 @@
 
 import math
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class SettingsValidationError(RuntimeError):
     """The application configuration is invalid or incomplete."""
+
+
+def _is_http_url(value: str) -> bool:
+    """Tell whether the value is an http or https URL with a host."""
+    try:
+        parts = urlsplit(value.strip())
+        return parts.scheme in ("http", "https") and bool(parts.hostname)
+    except ValueError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -273,6 +283,27 @@ class Settings(BaseSettings):
 
         if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
+
+        url_settings = [
+            "europepmc_base_url",
+            "pubmed_base_url",
+            "openfda_base_url",
+            "cima_base_url",
+            "clerk_api_base_url",
+            "resend_base_url",
+        ]
+        if provider == "ollama":
+            url_settings.insert(0, "ollama_base_url")
+        invalid_urls = [
+            name.upper()
+            for name in url_settings
+            if not _is_http_url(getattr(self, name))
+        ]
+        if invalid_urls:
+            raise SettingsValidationError(
+                "Estas variables deben ser una URL http(s) con host: "
+                + ", ".join(invalid_urls)
+            )
 
         rate = self.mistral_requests_per_second
         if provider == "mistral" and not (math.isfinite(rate) and rate > 0):
