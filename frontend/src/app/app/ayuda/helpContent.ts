@@ -92,13 +92,13 @@ export const STEPS = [
 export const FAQ = [
   {
     cat: 'Uso',
-    q: '¿Veritrust sustituye el consejo médico?',
-    a: 'No. Veritrust es una herramienta de verificación orientativa que evalúa la credibilidad de la información. <b>No sustituye</b> el diagnóstico ni el consejo de un profesional sanitario.',
+    q: '¿VeriTrust sustituye el consejo médico?',
+    a: 'No. VeriTrust es una herramienta de verificación orientativa que evalúa la credibilidad de la información. <b>No sustituye</b> el diagnóstico ni el consejo de un profesional sanitario.',
   },
   {
     cat: 'Privacidad',
     q: '¿Se guarda el contenido que analizo?',
-    a: 'Sí: se guarda en tu historial hasta que lo eliminas, y <b>no se usa para entrenar modelos</b>. Puedes eliminar cualquier análisis, o todo el historial, desde «Análisis anteriores».',
+    a: 'Sí: se guarda en tu historial hasta que lo eliminas, y <b>no se usa para entrenar modelos</b>. Puedes eliminar un análisis desde «Análisis anteriores», o toda tu actividad desde «Datos personales».',
   },
   {
     cat: 'Informe',
@@ -306,11 +306,19 @@ export const ARTICLES = [
     tags: ['Facturas', 'IVA', 'NIF'],
   },
   {
+    id: 'conectar-asistente-ia',
+    category: 'Cuenta y planes',
+    title: 'Conectar tu asistente de IA (MCP)',
+    summary:
+      'Con el plan Pro puedes usar VeriTrust desde Claude, ChatGPT o Claude Code. En «Datos personales», la tarjeta «Conecta tu asistente de IA» muestra la dirección del servidor y los pasos de cada asistente. Cada verificación o búsqueda de evidencia cuenta como un análisis de tu cuota mensual, y las verificaciones aparecen en tu historial.',
+    tags: ['MCP', 'Pro', 'Asistentes'],
+  },
+  {
     id: 'cerrar-cuenta',
     category: 'Cuenta y planes',
     title: 'Cerrar cuenta',
     summary:
-      'Descarga en PDF o CSV lo que quieras conservar, elimina tu historial desde «Análisis anteriores» y escríbenos con «Contactar con soporte»: cerraremos la cuenta y confirmaremos que no queda ningún dato.',
+      'Descarga lo que quieras conservar con «Exportar todos mis datos», en «Datos personales». Después abre el menú de tu perfil, entra en la gestión de la cuenta y elimínala: se borran tus análisis, valoraciones y datos de uso, y se cancela tu suscripción de Pro si la tienes. No necesitas escribirnos.',
     tags: ['Cuenta', 'Cierre', 'Datos'],
   },
   {
