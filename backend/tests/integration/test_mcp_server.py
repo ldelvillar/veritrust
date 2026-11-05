@@ -373,6 +373,20 @@ async def test_get_verification_rejects_unknown_and_invalid_ids(env, monkeypatch
     assert "INVALID_ANALYSIS_ID" in invalid.content[0].text
 
 
+async def test_get_verification_canonicalises_the_analysis_id(env, monkeypatch):
+    env.mcp_tool_wait_seconds = 0
+    _patch_db(monkeypatch, [_record("pending", stage="extractor")])
+
+    async with Client(_server()) as client:
+        result = await client.call_tool(
+            "get_verification", {"analysis_id": "{" + ANALYSIS_ID.upper() + "}"}
+        )
+
+    body = result.structured_content
+    assert body["analysis_id"] == ANALYSIS_ID
+    assert body["report_url"] == f"https://veritrust.es/app/analisis/{ANALYSIS_ID}"
+
+
 @pytest.mark.parametrize(
     "read", ["get_user_analysis_status", "get_user_analysis_by_id"]
 )

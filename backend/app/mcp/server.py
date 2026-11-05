@@ -397,7 +397,7 @@ def build_mcp_server(
         """Wait for and return the status of one of the user's MCP analyses."""
         user_id, _ = await _pro_caller()
         try:
-            UUID(analysis_id)
+            analysis_id = str(UUID(analysis_id))
         except ValueError as exc:
             raise _tool_error(ErrorCode.INVALID_ANALYSIS_ID) from exc
         return await _await_analysis(ctx, user_id=user_id, analysis_id=analysis_id)
