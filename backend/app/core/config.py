@@ -152,7 +152,7 @@ class Settings(BaseSettings):
     resend_from_email: str = ""
     resend_base_url: str = "https://api.resend.com"
     # Public frontend origin, for links back to the app.
-    app_base_url: str | None = None
+    app_base_url: str = ""
     # Team inbox for the contact and demo forms, required by the web process outside development.
     contact_to_email: str = ""
 
@@ -169,9 +169,9 @@ class Settings(BaseSettings):
 
     @field_validator("app_base_url")
     @classmethod
-    def _normalise_app_base_url(cls, value: str | None) -> str | None:
-        """Strip surrounding whitespace and treat a blank value as unset."""
-        return (value or "").strip() or None
+    def _normalise_app_base_url(cls, value: str | None) -> str:
+        """Strip surrounding whitespace and the trailing slash, so a blank value is unset."""
+        return (value or "").strip().rstrip("/")
 
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""

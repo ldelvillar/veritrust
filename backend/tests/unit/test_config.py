@@ -123,13 +123,19 @@ def test_validate_runtime_reports_missing_required_vars():
 def test_validate_runtime_rejects_a_whitespace_only_app_base_url():
     settings = _make_settings(app_base_url=" ")
 
-    assert settings.app_base_url is None
+    assert settings.app_base_url == ""
     with pytest.raises(SettingsValidationError, match="APP_BASE_URL"):
         settings.validate_runtime()
 
 
 def test_app_base_url_is_stripped_of_surrounding_whitespace():
     assert _make_settings(app_base_url=" https://veritrust.es ").app_base_url == (
+        "https://veritrust.es"
+    )
+
+
+def test_app_base_url_drops_the_trailing_slash():
+    assert _make_settings(app_base_url="https://veritrust.es/").app_base_url == (
         "https://veritrust.es"
     )
 

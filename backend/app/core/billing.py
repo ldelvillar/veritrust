@@ -71,7 +71,7 @@ async def _stripe_errors() -> AsyncIterator[None]:
 
 def _app_url() -> str:
     """Public frontend origin, without a trailing slash."""
-    return (get_settings().app_base_url or "").rstrip("/")
+    return get_settings().app_base_url
 
 
 async def _customer_for(user_id: str, email: str | None) -> str:

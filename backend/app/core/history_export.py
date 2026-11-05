@@ -4,7 +4,6 @@ import csv
 import io
 from datetime import datetime
 
-from app.core.config import get_settings
 from app.core.report_url import build_report_url
 from app.schemas.history import HistoryExportItem
 
@@ -69,7 +68,6 @@ def build_history_csv(records: list[HistoryExportItem]) -> bytes:
     """Serialise the History to UTF-8 CSV with a BOM (Excel compatible)."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    base_url = get_settings().app_base_url
     writer.writerow(_EXPORT_COLUMNS)
     for record in records:
         entrada = _neutralize_csv_formula(_export_entry(record))
@@ -89,7 +87,7 @@ def build_history_csv(records: list[HistoryExportItem]) -> bytes:
                 credibility,
                 coverage,
                 _export_duration_seconds(record.created_at, record.completed_at),
-                build_report_url(base_url, record.analysis_id) if base_url else "",
+                build_report_url(record.analysis_id),
             ]
         )
     return (_UTF8_BOM + buffer.getvalue()).encode("utf-8")
