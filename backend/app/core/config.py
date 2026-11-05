@@ -1,14 +1,30 @@
 """Centralised application configuration, loaded and validated from the environment."""
 
 import math
+import re
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import AnyHttpUrl, TypeAdapter, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SettingsValidationError(RuntimeError):
     """The application configuration is invalid or incomplete."""
+
+
+_HTTP_URL = TypeAdapter(AnyHttpUrl)
+# A literal scheme://, no whitespace or control characters, and no empty port.
+_HTTP_URL_SHAPE = re.compile(r"https?://(?![^/?#]*:(?:[/?#]|$))\S+", re.IGNORECASE)
+
+
+def _is_http_url(value: str) -> bool:
+    """Tell whether the value is a strict http or https URL with a host and a valid port."""
+    if not _HTTP_URL_SHAPE.fullmatch(value):
+        return False
+    try:
+        return _HTTP_URL.validate_python(value).port != 0
+    except ValidationError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -269,6 +285,32 @@ class Settings(BaseSettings):
         if missing:
             raise SettingsValidationError(
                 "Faltan variables de entorno obligatorias: " + ", ".join(missing)
+            )
+
+        url_settings = [
+            "europepmc_base_url",
+            "pubmed_base_url",
+            "openfda_base_url",
+            "cima_base_url",
+            "clerk_api_base_url",
+            "resend_base_url",
+            "app_base_url",
+            "clerk_jwks_url",
+        ]
+        if provider == "ollama":
+            url_settings.insert(0, "ollama_base_url")
+        if web:
+            url_settings.append("mcp_resource_url")
+        urls = {name: getattr(self, name) or "" for name in url_settings}
+        if (self.clerk_issuer or "").strip():
+            urls["clerk_issuer"] = self.clerk_issuer or ""
+        invalid_urls = [
+            name.upper() for name, url in urls.items() if not _is_http_url(url)
+        ]
+        if invalid_urls:
+            raise SettingsValidationError(
+                "Estas variables deben ser una URL http(s) sin espacios, con host y "
+                "puerto válido: " + ", ".join(invalid_urls)
             )
 
         if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):

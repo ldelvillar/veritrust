@@ -223,6 +223,118 @@ def test_validate_runtime_rejects_wildcard_origin_with_credentials():
         settings.validate_runtime()
 
 
+@pytest.mark.parametrize("url", ["localhost:11434", "//localhost:11434", "http://", ""])
+def test_validate_runtime_rejects_an_ollama_url_without_scheme_or_host(url):
+    settings = _make_settings(llm_provider="ollama", ollama_base_url=url)
+
+    with pytest.raises(SettingsValidationError, match="OLLAMA_BASE_URL"):
+        settings.validate_runtime()
+
+
+def test_validate_runtime_ignores_the_ollama_url_for_other_providers():
+    settings = _make_settings(
+        llm_provider="groq", groq_api_key="clave-de-prueba", ollama_base_url="x"
+    )
+
+    settings.validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "europepmc_base_url",
+        "pubmed_base_url",
+        "openfda_base_url",
+        "cima_base_url",
+        "clerk_api_base_url",
+        "resend_base_url",
+        "app_base_url",
+        "clerk_jwks_url",
+        "mcp_resource_url",
+        "clerk_issuer",
+    ],
+)
+def test_validate_runtime_rejects_a_service_url_without_scheme_or_host(name):
+    overrides = {"clerk_issuer": "https://tenant.clerk.accounts.dev", name: "a.b/mcp"}
+    settings = _make_settings(**overrides)
+
+    with pytest.raises(SettingsValidationError, match=name.upper()):
+        settings.validate_runtime()
+
+
+@pytest.mark.parametrize("name", ["app_base_url", "clerk_jwks_url"])
+def test_validate_runtime_checks_the_worker_urls_too(name):
+    settings = _make_settings(
+        clerk_issuer="https://tenant.clerk.accounts.dev", **{name: "a.b/x"}
+    )
+
+    with pytest.raises(SettingsValidationError, match=name.upper()):
+        settings.validate_runtime(web=False)
+
+
+def test_validate_runtime_skips_the_mcp_url_check_for_the_worker():
+    _make_settings(mcp_resource_url="a.b/mcp").validate_runtime(web=False)
+
+
+@pytest.mark.parametrize("name", ["clerk_jwks_url", "mcp_resource_url", "clerk_issuer"])
+def test_validate_runtime_rejects_a_padded_url_with_the_url_error(name):
+    overrides = {"clerk_issuer": "https://tenant.clerk.accounts.dev"}
+    overrides[name] = "https://api.veritrust.es/mcp "
+    settings = _make_settings(**overrides)
+
+    with pytest.raises(SettingsValidationError, match=f"sin espacios.*{name.upper()}"):
+        settings.validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        " https://api.example.com",
+        "https://api.example.com ",
+        "ftp://api.example.com",
+        "http://localhost:abc",
+        "http://localhost:99999",
+        "http://[::1",
+        "https://a b.com",
+        "https:/api.example.com",
+        "https:api.example.com",
+        "https:\\\\api.example.com",
+        "https://api.exam\nple.com",
+        "https://api.example.com/\trest",
+        "http://api.example.com:0",
+        "http://api.example.com:",
+        "http://api.example.com:/rest",
+    ],
+)
+def test_validate_runtime_rejects_a_padded_or_malformed_url(url):
+    settings = _make_settings(pubmed_base_url=url)
+
+    with pytest.raises(SettingsValidationError, match="PUBMED_BASE_URL"):
+        settings.validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "HTTPS://api.example.com/rest",
+        "http://localhost:11434",
+        "https://api.example.com/rest/v1",
+    ],
+)
+def test_validate_runtime_accepts_a_well_formed_http_url(url):
+    _make_settings(pubmed_base_url=url).validate_runtime()
+
+
+def test_validate_runtime_reports_every_invalid_url_at_once():
+    settings = _make_settings(ollama_base_url="x", pubmed_base_url="y")
+
+    with pytest.raises(SettingsValidationError) as exc:
+        settings.validate_runtime()
+
+    assert "OLLAMA_BASE_URL" in str(exc.value)
+    assert "PUBMED_BASE_URL" in str(exc.value)
+
+
 def test_validate_runtime_requires_groq_api_key_for_groq_provider():
     settings = _make_settings(llm_provider="GROQ", groq_api_key="  ")
 
