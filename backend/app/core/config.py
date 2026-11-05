@@ -3,6 +3,7 @@
 import math
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -166,6 +167,12 @@ class Settings(BaseSettings):
     # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
 
+    @field_validator("app_base_url")
+    @classmethod
+    def _normalise_app_base_url(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace and treat a blank value as unset."""
+        return (value or "").strip() or None
+
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""
         raw = self.cors_allowed_origins
@@ -236,7 +243,7 @@ class Settings(BaseSettings):
             missing.append("CLERK_SECRET_KEY")
         if web and not self.is_development() and not self.cors_origins():
             missing.append("CORS_ALLOWED_ORIGINS")
-        if not (self.app_base_url or "").strip():
+        if not self.app_base_url:
             missing.append("APP_BASE_URL")
         # Without Resend, analysis notices would be silently lost and the forms would answer 503.
         if not self.is_development():
