@@ -13,12 +13,17 @@ class SettingsValidationError(RuntimeError):
 
 
 def _is_http_url(value: str) -> bool:
-    """Tell whether the value is an http or https URL with a host."""
+    """Tell whether the value is an unpadded http or https URL with a host and a valid port."""
     try:
-        parts = urlsplit(value.strip())
-        return parts.scheme in ("http", "https") and bool(parts.hostname)
+        parts = urlsplit(value)
+        parts.port  # noqa: B018 - raises ValueError on an invalid port.
     except ValueError:
         return False
+    return (
+        value == value.strip()
+        and parts.scheme in ("http", "https")
+        and bool(parts.hostname)
+    )
 
 
 class Settings(BaseSettings):
@@ -291,13 +296,17 @@ class Settings(BaseSettings):
             "cima_base_url",
             "clerk_api_base_url",
             "resend_base_url",
+            "app_base_url",
+            "clerk_jwks_url",
         ]
         if provider == "ollama":
             url_settings.insert(0, "ollama_base_url")
+        if web:
+            url_settings.append("mcp_resource_url")
         invalid_urls = [
             name.upper()
             for name in url_settings
-            if not _is_http_url(getattr(self, name))
+            if not _is_http_url(getattr(self, name) or "")
         ]
         if invalid_urls:
             raise SettingsValidationError(

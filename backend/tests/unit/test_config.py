@@ -248,13 +248,53 @@ def test_validate_runtime_ignores_the_ollama_url_for_other_providers():
         "cima_base_url",
         "clerk_api_base_url",
         "resend_base_url",
+        "app_base_url",
+        "clerk_jwks_url",
+        "mcp_resource_url",
     ],
 )
 def test_validate_runtime_rejects_a_service_url_without_scheme_or_host(name):
-    settings = _make_settings(**{name: "api.example.com/rest"})
+    settings = _make_settings(
+        clerk_issuer="https://tenant.clerk.accounts.dev",
+        **{name: "api.example.com/mcp"},
+    )
 
     with pytest.raises(SettingsValidationError, match=name.upper()):
         settings.validate_runtime()
+
+
+def test_validate_runtime_skips_the_mcp_url_scheme_check_for_the_worker():
+    _make_settings(mcp_resource_url="api.example.com/mcp").validate_runtime(web=False)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        " https://api.example.com",
+        "https://api.example.com ",
+        "ftp://api.example.com",
+        "http://localhost:abc",
+        "http://localhost:99999",
+        "http://[::1",
+    ],
+)
+def test_validate_runtime_rejects_a_padded_or_malformed_url(url):
+    settings = _make_settings(pubmed_base_url=url)
+
+    with pytest.raises(SettingsValidationError, match="PUBMED_BASE_URL"):
+        settings.validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "HTTPS://api.example.com/rest",
+        "http://localhost:11434",
+        "https://api.example.com/rest/v1",
+    ],
+)
+def test_validate_runtime_accepts_a_well_formed_http_url(url):
+    _make_settings(pubmed_base_url=url).validate_runtime()
 
 
 def test_validate_runtime_reports_every_invalid_url_at_once():
