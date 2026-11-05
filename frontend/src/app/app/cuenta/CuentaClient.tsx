@@ -12,6 +12,7 @@ import AccountSummaryCard from './_components/AccountSummaryCard';
 import ExportDataCard from './_components/ExportDataCard';
 import DangerZoneCard from './_components/DangerZoneCard';
 import DeleteAllDialog from './_components/DeleteAllDialog';
+import McpCard from './_components/McpCard';
 import PlanCard from './_components/PlanCard';
 
 interface CuentaClientProps {
@@ -102,6 +103,8 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
 
       <div className="flex flex-col gap-5">
         <PlanCard />
+
+        <McpCard />
 
         <AccountSummaryCard totalCount={count} historyDays={historyDays} />
 
