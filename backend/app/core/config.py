@@ -2,9 +2,8 @@
 
 import math
 from functools import lru_cache
-from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import AnyHttpUrl, TypeAdapter, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,18 +11,18 @@ class SettingsValidationError(RuntimeError):
     """The application configuration is invalid or incomplete."""
 
 
+_HTTP_URL = TypeAdapter(AnyHttpUrl)
+
+
 def _is_http_url(value: str) -> bool:
     """Tell whether the value is an unpadded http or https URL with a host and a valid port."""
-    try:
-        parts = urlsplit(value)
-        parts.port  # noqa: B018 - raises ValueError on an invalid port.
-    except ValueError:
+    if value != value.strip():
         return False
-    return (
-        value == value.strip()
-        and parts.scheme in ("http", "https")
-        and bool(parts.hostname)
-    )
+    try:
+        _HTTP_URL.validate_python(value)
+    except ValidationError:
+        return False
+    return True
 
 
 class Settings(BaseSettings):
@@ -286,9 +285,6 @@ class Settings(BaseSettings):
                 "Faltan variables de entorno obligatorias: " + ", ".join(missing)
             )
 
-        if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
-            raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
-
         url_settings = [
             "europepmc_base_url",
             "pubmed_base_url",
@@ -303,16 +299,20 @@ class Settings(BaseSettings):
             url_settings.insert(0, "ollama_base_url")
         if web:
             url_settings.append("mcp_resource_url")
+        urls = {name: getattr(self, name) or "" for name in url_settings}
+        if (self.clerk_issuer or "").strip():
+            urls["clerk_issuer"] = self.expected_issuer or ""
         invalid_urls = [
-            name.upper()
-            for name in url_settings
-            if not _is_http_url(getattr(self, name) or "")
+            name.upper() for name, url in urls.items() if not _is_http_url(url)
         ]
         if invalid_urls:
             raise SettingsValidationError(
-                "Estas variables deben ser una URL http(s) con host: "
-                + ", ".join(invalid_urls)
+                "Estas variables deben ser una URL http(s) sin espacios, con host y "
+                "puerto válido: " + ", ".join(invalid_urls)
             )
+
+        if web and not (self.mcp_resource_url or "").rstrip("/").endswith("/mcp"):
+            raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
         rate = self.mistral_requests_per_second
         if provider == "mistral" and not (math.isfinite(rate) and rate > 0):

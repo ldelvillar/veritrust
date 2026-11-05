@@ -251,20 +251,40 @@ def test_validate_runtime_ignores_the_ollama_url_for_other_providers():
         "app_base_url",
         "clerk_jwks_url",
         "mcp_resource_url",
+        "clerk_issuer",
     ],
 )
 def test_validate_runtime_rejects_a_service_url_without_scheme_or_host(name):
-    settings = _make_settings(
-        clerk_issuer="https://tenant.clerk.accounts.dev",
-        **{name: "api.example.com/mcp"},
-    )
+    overrides = {"clerk_issuer": "https://tenant.clerk.accounts.dev", name: "a.b/mcp"}
+    settings = _make_settings(**overrides)
 
     with pytest.raises(SettingsValidationError, match=name.upper()):
         settings.validate_runtime()
 
 
-def test_validate_runtime_skips_the_mcp_url_scheme_check_for_the_worker():
-    _make_settings(mcp_resource_url="api.example.com/mcp").validate_runtime(web=False)
+@pytest.mark.parametrize("name", ["app_base_url", "clerk_jwks_url"])
+def test_validate_runtime_checks_the_worker_urls_too(name):
+    settings = _make_settings(
+        clerk_issuer="https://tenant.clerk.accounts.dev", **{name: "a.b/x"}
+    )
+
+    with pytest.raises(SettingsValidationError, match=name.upper()):
+        settings.validate_runtime(web=False)
+
+
+def test_validate_runtime_skips_the_mcp_url_check_for_the_worker():
+    _make_settings(mcp_resource_url="a.b/mcp").validate_runtime(web=False)
+
+
+@pytest.mark.parametrize("name", ["clerk_jwks_url", "mcp_resource_url"])
+def test_validate_runtime_rejects_a_padded_url_with_the_url_error(name):
+    settings = _make_settings(
+        clerk_issuer="https://tenant.clerk.accounts.dev",
+        **{name: "https://api.veritrust.es/mcp "},
+    )
+
+    with pytest.raises(SettingsValidationError, match=f"sin espacios.*{name.upper()}"):
+        settings.validate_runtime()
 
 
 @pytest.mark.parametrize(
@@ -276,6 +296,7 @@ def test_validate_runtime_skips_the_mcp_url_scheme_check_for_the_worker():
         "http://localhost:abc",
         "http://localhost:99999",
         "http://[::1",
+        "https://a b.com",
     ],
 )
 def test_validate_runtime_rejects_a_padded_or_malformed_url(url):
