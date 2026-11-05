@@ -319,7 +319,7 @@ class Settings(BaseSettings):
                 "puerto válido: " + ", ".join(invalid_urls)
             )
 
-        if web and not re.search(r"(?<!/)/mcp\Z", self.mcp_resource_url or ""):
+        if web and not re.search(r"(?<!/)/mcp$", self.mcp_resource_url or ""):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
         rate = self.mistral_requests_per_second

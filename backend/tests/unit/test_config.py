@@ -167,6 +167,12 @@ def test_clerk_issuer_drops_trailing_slashes():
     assert settings.expected_issuer == "https://tenant.clerk.accounts.dev"
 
 
+def test_a_clerk_issuer_of_only_slashes_falls_back_to_the_jwks_url():
+    settings = _make_settings(clerk_issuer="///")
+
+    assert settings.expected_issuer == "https://tenant.clerk.accounts.dev"
+
+
 def test_validate_runtime_rejects_a_doubled_slash_before_mcp():
     settings = _make_settings(mcp_resource_url="https://api.veritrust.es//mcp//")
 
