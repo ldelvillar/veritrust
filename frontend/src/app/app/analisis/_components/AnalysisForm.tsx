@@ -40,8 +40,6 @@ const EXAMPLE_TEXT_1 =
   'El consumo diario de vitamina C en dosis altas previene por completo el resfriado común y refuerza el sistema inmunitario sin ningún riesgo, según un estudio reciente.';
 const EXAMPLE_TEXT_2 =
   'Tomar el sol 20 minutos al día sin protección es suficiente para obtener toda la vitamina D que el cuerpo necesita.';
-const EXAMPLE_URL_1 = 'www.20minutos.es/salud/actualidad/estudio-vitamina-c';
-const EXAMPLE_URL_2 = 'www.larazon.es/salud/asi-influye-la-vitamina-d';
 
 // '.pdf' becomes 'PDF' for the accepted-type labels.
 const suffixLabel = (suffix: string): string =>
@@ -468,26 +466,6 @@ export default function AnalysisForm({
             className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
           >
             Sol y vitamina D
-          </button>
-        </div>
-      )}
-
-      {inputMethod === 'url' && (
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-xs font-bold text-faint">Sugerencias:</span>
-          <button
-            type="button"
-            onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_1 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-          >
-            20minutos.es
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormData({ ...formData, url: EXAMPLE_URL_2 })}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-body transition-all hover:border-primary hover:bg-surface hover:text-primary-strong"
-          >
-            larazon.es
           </button>
         </div>
       )}
