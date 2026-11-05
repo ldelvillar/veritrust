@@ -18,9 +18,7 @@ class VerificationResult(BaseModel):
 
     status: Literal["pending", "done", "failed"]
     analysis_id: str
-    report_url: Optional[str] = Field(
-        default=None, description="Full report in the VeriTrust web app."
-    )
+    report_url: str = Field(description="Full report in the VeriTrust web app.")
     stage: Optional[str] = Field(
         default=None, description="Pipeline agent running while status is pending."
     )

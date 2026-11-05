@@ -11,6 +11,7 @@ from mcp.server.auth.provider import AccessToken
 from redis.exceptions import RedisError
 
 import app.mcp.server as server_module
+from app.core import report_url
 from app.core.analysis_lifecycle import Submitter
 from app.core.config import Settings
 from app.core.errors import make_error_detail
@@ -147,6 +148,7 @@ def env(monkeypatch, plan):
     """Configure settings, OAuth identity and fast polling for the tools."""
     settings = _settings()
     monkeypatch.setattr(server_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(report_url, "get_settings", lambda: settings)
     monkeypatch.setattr(server_module, "_POLL_INTERVAL_SECONDS", 0.01)
     monkeypatch.setattr(
         server_module,

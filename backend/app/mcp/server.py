@@ -154,14 +154,6 @@ async def _consume_rate_limit(redis: Any, user_id: str) -> None:
         raise _tool_error(exc.code) from exc
 
 
-def _report_url(analysis_id: str) -> str | None:
-    """Link to the full report on the web, in the same format as the emails."""
-    base_url = get_settings().app_base_url
-    if not base_url:
-        return None
-    return build_report_url(base_url, analysis_id)
-
-
 def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:
     """Translate the History row into the result the MCP client sees."""
     done = record.status == "done"
@@ -171,7 +163,7 @@ def _to_verification(record: AnalysisHistoryItem) -> VerificationResult:
     return VerificationResult(
         status=status,
         analysis_id=record.analysis_id,
-        report_url=_report_url(record.analysis_id),
+        report_url=build_report_url(record.analysis_id),
         stage=record.stage if status == "pending" else None,
         label=record.label if done else None,
         verdict=record.verdict if done else None,
@@ -232,7 +224,7 @@ async def _await_analysis(
             return VerificationResult(
                 status="pending",
                 analysis_id=analysis_id,
-                report_url=_report_url(analysis_id),
+                report_url=build_report_url(analysis_id),
                 stage=state.stage,
                 message=(
                     "The analysis is still running. Call get_verification with "

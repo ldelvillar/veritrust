@@ -34,7 +34,7 @@ def _render_email_html(
     *, base_url: str, report_url: str, heading: str, body_text: str, cta_label: str
 ) -> str:
     """Compose the email HTML with tables and inline styles that mail clients support."""
-    logo_url = f"{base_url.rstrip('/')}{_LOGO_PATH}"
+    logo_url = f"{base_url}{_LOGO_PATH}"
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         'style="background:#f4f4f7;padding:32px 0;'
@@ -99,10 +99,7 @@ async def _send_email(
 async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None:
     """Notify that an Analysis finished and link to its report."""
     settings = get_settings()
-    if not settings.app_base_url:
-        return
-
-    report_url = build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,
@@ -125,10 +122,7 @@ async def send_analysis_ready_email(*, to: str | None, analysis_id: str) -> None
 async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> None:
     """Notify, in a neutral tone, that the text had no verifiable medical claims."""
     settings = get_settings()
-    if not settings.app_base_url:
-        return
-
-    report_url = build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,
@@ -154,10 +148,7 @@ async def send_analysis_no_claims_email(*, to: str | None, analysis_id: str) -> 
 async def send_analysis_failed_email(*, to: str | None, analysis_id: str) -> None:
     """Notify that an Analysis could not complete and link to its status."""
     settings = get_settings()
-    if not settings.app_base_url:
-        return
-
-    report_url = build_report_url(settings.app_base_url, analysis_id)
+    report_url = build_report_url(analysis_id)
     html = _render_email_html(
         base_url=settings.app_base_url,
         report_url=report_url,

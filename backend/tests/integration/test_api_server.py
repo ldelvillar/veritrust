@@ -1401,7 +1401,7 @@ def test_historial_export_returns_csv(monkeypatch):
         "app.api.routes.history.export_user_history", fake_export_history
     )
     monkeypatch.setattr(
-        "app.core.history_export.get_settings",
+        "app.core.report_url.get_settings",
         lambda: types.SimpleNamespace(app_base_url="https://veritrust.test"),
     )
 

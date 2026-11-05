@@ -5,6 +5,7 @@ import types
 import httpx
 import pytest
 
+from app.core import report_url
 from app.schemas.errors import ErrorCode
 from app.utils import email
 
@@ -54,6 +55,7 @@ def _configure(
         app_base_url=app_base_url,
     )
     monkeypatch.setattr(email, "get_settings", lambda: settings)
+    monkeypatch.setattr(report_url, "get_settings", lambda: settings)
 
 
 def _patch_client(monkeypatch, recorder, *, post_exc=None, response=None):
@@ -158,21 +160,6 @@ async def test_no_send_without_recipient(monkeypatch):
     _patch_client(monkeypatch, recorder)
 
     await email.send_analysis_ready_email(to=None, analysis_id=ANALYSIS_ID)
-
-    assert recorder == []
-
-
-async def test_no_send_without_app_base_url(monkeypatch):
-    _configure(monkeypatch, app_base_url=None)
-    recorder: list[dict] = []
-    _patch_client(monkeypatch, recorder)
-
-    await email.send_analysis_ready_email(
-        to="user@example.com", analysis_id=ANALYSIS_ID
-    )
-    await email.send_analysis_failed_email(
-        to="user@example.com", analysis_id=ANALYSIS_ID
-    )
 
     assert recorder == []
 
