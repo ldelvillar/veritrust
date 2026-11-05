@@ -120,6 +120,13 @@ def test_validate_runtime_reports_missing_required_vars():
     assert "STRIPE_PRICE_PRO_YEARLY" in message
 
 
+def test_validate_runtime_rejects_a_whitespace_only_app_base_url():
+    settings = _make_settings(app_base_url=" ")
+
+    with pytest.raises(SettingsValidationError, match="APP_BASE_URL"):
+        settings.validate_runtime()
+
+
 def test_validate_runtime_requires_mcp_url_to_end_in_mcp():
     settings = _make_settings(mcp_resource_url="https://api.veritrust.es/tools")
 

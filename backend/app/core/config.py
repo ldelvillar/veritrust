@@ -236,7 +236,7 @@ class Settings(BaseSettings):
             missing.append("CLERK_SECRET_KEY")
         if web and not self.is_development() and not self.cors_origins():
             missing.append("CORS_ALLOWED_ORIGINS")
-        if not self.app_base_url:
+        if not (self.app_base_url or "").strip():
             missing.append("APP_BASE_URL")
         # Without Resend, analysis notices would be silently lost and the forms would answer 503.
         if not self.is_development():
