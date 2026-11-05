@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 import requests
 
 from app.core.config import get_settings
-from app.utils.evidence import raise_retrieval_error
+from app.utils.evidence import EvidenceRetrievalError, raise_retrieval_error
 from app.utils.pacing import RequestPacer
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,13 @@ def _wait_for_slot(api_key: str | None) -> None:
     _pacer.wait(
         _REQUESTS_PER_SECOND_WITH_KEY if api_key else _REQUESTS_PER_SECOND_WITHOUT_KEY
     )
+
+
+def _reject_ncbi_error(failed: bool) -> None:
+    """Raise ``EvidenceRetrievalError`` when NCBI reported a failure inside an HTTP 200 reply."""
+    # The NCBI message is left out, since it can echo the query.
+    if failed:
+        raise EvidenceRetrievalError("Error al consultar PubMed: respuesta con ERROR")
 
 
 def _extract_pmids(payload: dict, max_results: int) -> list[str]:
@@ -110,7 +117,11 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
             headers={"Accept": "application/json"},
         )
         search_response.raise_for_status()
-        pmids = _extract_pmids(search_response.json(), max_results)
+        search_payload = search_response.json()
+        _reject_ncbi_error(
+            bool((search_payload.get("esearchresult") or {}).get("ERROR"))
+        )
+        pmids = _extract_pmids(search_payload, max_results)
         if not pmids:
             return []
 
@@ -125,6 +136,7 @@ def search_evidence(query: str, *, max_results: int) -> list[dict]:
         )
         fetch_response.raise_for_status()
         root = ElementTree.fromstring(fetch_response.content)
+        _reject_ncbi_error(root.tag == "ERROR")
     except (
         requests.exceptions.RequestException,
         ValueError,

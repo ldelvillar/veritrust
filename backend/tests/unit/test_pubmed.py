@@ -189,3 +189,27 @@ def test_search_evidence_raises_on_invalid_xml(monkeypatch):
 
     with pytest.raises(EvidenceRetrievalError):
         search_evidence("query", max_results=3)
+
+
+def test_search_evidence_raises_on_esearch_error_inside_a_200(monkeypatch):
+    # An empty idlist beside the ERROR would otherwise read as no literature found.
+    _patch_get(
+        monkeypatch,
+        esearch=_FakeResponse(
+            payload={"esearchresult": {"ERROR": "Search Backend failed", "idlist": []}}
+        ),
+    )
+
+    with pytest.raises(EvidenceRetrievalError):
+        search_evidence("query", max_results=3)
+
+
+def test_search_evidence_raises_on_efetch_error_root(monkeypatch):
+    _patch_get(
+        monkeypatch,
+        esearch=_esearch(["123"]),
+        efetch=_FakeResponse(content=b"<ERROR>Unable to obtain query #1</ERROR>"),
+    )
+
+    with pytest.raises(EvidenceRetrievalError):
+        search_evidence("query", max_results=3)
