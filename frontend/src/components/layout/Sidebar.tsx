@@ -25,7 +25,7 @@ const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
   { href: '/app/historial', label: 'Análisis anteriores', Icon: HistoryIcon },
   { href: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { href: '/app/cuenta', label: 'Datos personales', Icon: UserIcon },
+  { href: '/app/cuenta', label: 'Cuenta y plan', Icon: UserIcon },
   { href: '/app/ayuda', label: 'Ayuda', Icon: QuestionIcon },
 ];
 
@@ -163,7 +163,7 @@ function SidebarContent({
             <UserButton userProfileProps={{ apiKeysProps: { hide: true } }}>
               <UserButton.MenuItems>
                 <UserButton.Link
-                  label="Datos personales"
+                  label="Cuenta y plan"
                   labelIcon={<UserIcon className="size-4" />}
                   href="/app/cuenta"
                 />

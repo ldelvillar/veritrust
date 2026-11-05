@@ -96,7 +96,7 @@ export default function CuentaClient({ initialCount }: CuentaClientProps) {
       <div className="mb-7">
         <PageHeader
           eyebrow="Datos"
-          title="Datos personales"
+          title="Cuenta y plan"
           subtitle="Consulta tu cuenta y gestiona tus datos personales. Tienes control total sobre la información que VeriTrust guarda sobre ti."
         />
       </div>

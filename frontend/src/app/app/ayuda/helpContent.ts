@@ -98,7 +98,7 @@ export const FAQ = [
   {
     cat: 'Privacidad',
     q: '¿Se guarda el contenido que analizo?',
-    a: 'Sí: se guarda en tu historial hasta que lo eliminas, y <b>no se usa para entrenar modelos</b>. Puedes eliminar un análisis desde «Análisis anteriores», o toda tu actividad desde «Datos personales».',
+    a: 'Sí: se guarda en tu historial hasta que lo eliminas, y <b>no se usa para entrenar modelos</b>. Puedes eliminar un análisis desde «Análisis anteriores», o toda tu actividad desde «Cuenta y plan».',
   },
   {
     cat: 'Informe',
@@ -278,7 +278,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Planes de pago',
     summary:
-      'El plan Gratis incluye 10 análisis al mes de texto y enlaces y un historial de 30 días. Pro cuesta 29 € al mes o 290 € al año, IVA incluido, y añade 300 análisis al mes, archivos, historial completo con dashboard, PDF, CSV, enlaces públicos y MCP. Suscríbete desde «Datos personales». El plan Equipo sigue en acceso anticipado.',
+      'El plan Gratis incluye 10 análisis al mes de texto y enlaces y un historial de 30 días. Pro cuesta 29 € al mes o 290 € al año, IVA incluido, y añade 300 análisis al mes, archivos, historial completo con dashboard, PDF, CSV, enlaces públicos y MCP. Suscríbete desde «Cuenta y plan». El plan Equipo sigue en acceso anticipado.',
     tags: ['Plan', 'Pro', 'Equipo'],
   },
   {
@@ -294,7 +294,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Cambiar o cancelar la suscripción',
     summary:
-      'En «Datos personales», pulsa «Gestionar suscripción» para abrir el portal de pagos: cambia entre pago mensual y anual, actualiza tu tarjeta o cancela. Si cancelas, mantienes Pro hasta el final del periodo pagado y después pasas al plan Gratis sin perder ningún análisis.',
+      'En «Cuenta y plan», pulsa «Gestionar suscripción» para abrir el portal de pagos: cambia entre pago mensual y anual, actualiza tu tarjeta o cancela. Si cancelas, mantienes Pro hasta el final del periodo pagado y después pasas al plan Gratis sin perder ningún análisis.',
     tags: ['Suscripción', 'Cancelar', 'Pago'],
   },
   {
@@ -302,7 +302,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Facturas',
     summary:
-      'Cada pago genera una factura con el IVA desglosado. Descárgalas desde el portal de pagos («Datos personales» › «Gestionar suscripción»). Si indicaste tu NIF al suscribirte, aparece en la factura.',
+      'Cada pago genera una factura con el IVA desglosado. Descárgalas desde el portal de pagos («Cuenta y plan» › «Gestionar suscripción»). Si indicaste tu NIF al suscribirte, aparece en la factura.',
     tags: ['Facturas', 'IVA', 'NIF'],
   },
   {
@@ -310,7 +310,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Conectar tu asistente de IA (MCP)',
     summary:
-      'Con el plan Pro puedes usar VeriTrust desde Claude, ChatGPT o Claude Code. En «Datos personales», la tarjeta «Conecta tu asistente de IA» muestra la dirección del servidor y los pasos de cada asistente. Cada verificación o búsqueda de evidencia cuenta como un análisis de tu cuota mensual, y las verificaciones aparecen en tu historial.',
+      'Con el plan Pro puedes usar VeriTrust desde Claude, ChatGPT o Claude Code. En «Cuenta y plan», la tarjeta «Conecta tu asistente de IA» muestra la dirección del servidor y los pasos de cada asistente. Cada verificación o búsqueda de evidencia cuenta como un análisis de tu cuota mensual, y las verificaciones aparecen en tu historial.',
     tags: ['MCP', 'Pro', 'Asistentes'],
   },
   {
@@ -318,7 +318,7 @@ export const ARTICLES = [
     category: 'Cuenta y planes',
     title: 'Cerrar cuenta',
     summary:
-      'Descarga lo que quieras conservar con «Exportar todos mis datos», en «Datos personales». Después abre el menú de tu perfil, entra en la gestión de la cuenta y elimínala: se borran tus análisis, valoraciones y datos de uso, y se cancela tu suscripción de Pro si la tienes. No necesitas escribirnos.',
+      'Descarga lo que quieras conservar con «Exportar todos mis datos», en «Cuenta y plan». Después abre el menú de tu perfil, entra en la gestión de la cuenta y elimínala: se borran tus análisis, valoraciones y datos de uso, y se cancela tu suscripción de Pro si la tienes. No necesitas escribirnos.',
     tags: ['Cuenta', 'Cierre', 'Datos'],
   },
   {
