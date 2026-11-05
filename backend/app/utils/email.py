@@ -34,7 +34,7 @@ def _render_email_html(
     *, base_url: str, report_url: str, heading: str, body_text: str, cta_label: str
 ) -> str:
     """Compose the email HTML with tables and inline styles that mail clients support."""
-    logo_url = f"{base_url.rstrip('/')}{_LOGO_PATH}"
+    logo_url = f"{base_url}{_LOGO_PATH}"
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         'style="background:#f4f4f7;padding:32px 0;'

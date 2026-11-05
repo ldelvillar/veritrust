@@ -169,9 +169,9 @@ class Settings(BaseSettings):
 
     @field_validator("app_base_url")
     @classmethod
-    def _normalise_app_base_url(cls, value: str | None) -> str:
+    def _normalise_app_base_url(cls, value: str) -> str:
         """Strip surrounding whitespace and the trailing slash, so a blank value is unset."""
-        return (value or "").strip().rstrip("/")
+        return value.strip().rstrip("/")
 
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""
