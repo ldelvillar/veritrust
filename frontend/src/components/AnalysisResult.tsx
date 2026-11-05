@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import ClockIcon from '@/assets/Clock';
 import DownloadIcon from '@/assets/Download';
 import Button from './Button';
 import PageHeader from './PageHeader';
@@ -18,6 +17,10 @@ import PrintHeader from './analysis-result/PrintHeader';
 import ResultBand from './analysis-result/ResultBand';
 import { formatDuration } from './analysis-result/format';
 import type { ReportView } from './analysis-result/types';
+
+function pluralize(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
 
 interface ResultProps {
   result: ReportView;
@@ -86,6 +89,15 @@ export default function AnalysisResult({
     minute: '2-digit',
   });
   const duration = formatDuration(result.created_at, result.completed_at);
+  const runFacts = [
+    `Analizado el ${analyzedAt}`,
+    pluralize(claims.length, 'afirmación', 'afirmaciones'),
+    pluralize(sources.length, 'fuente', 'fuentes'),
+    duration && `duró ${duration}`,
+    result.origin === 'mcp' && 'desde un asistente de IA (MCP)',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   // Export opens the browser's print dialog, where the user saves the report as a PDF.
   const handleExport = () => {
@@ -110,7 +122,7 @@ export default function AnalysisResult({
 
       <PageHeader
         title="Resultado del análisis"
-        subtitle="Resultado global combinado del sistema multiagente, con la explicación médica y el desglose afirmación por afirmación."
+        subtitle={runFacts}
         actionsClassName="print:hidden"
         actions={
           <>
@@ -158,13 +170,6 @@ export default function AnalysisResult({
           </Button>
         </div>
       )}
-
-      <p className="flex items-center gap-1.5 text-xs text-faint print:hidden">
-        <ClockIcon className="size-3.5" />
-        Analizado el {analyzedAt}
-        {duration && ` · duró ${duration}`}
-        {result.origin === 'mcp' && ' · desde un asistente de IA (MCP)'}
-      </p>
 
       <PrintFooter />
     </div>
