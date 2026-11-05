@@ -25,6 +25,8 @@ const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
   { href: '/app/historial', label: 'Análisis anteriores', Icon: HistoryIcon },
   { href: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
+  { href: '/app/cuenta', label: 'Datos personales', Icon: UserIcon },
+  { href: '/app/ayuda', label: 'Ayuda', Icon: QuestionIcon },
 ];
 
 function Brand({
@@ -265,7 +267,7 @@ export default function Sidebar() {
             />
           )}
         </button>
-        <Link href="/app/dashboard" className="flex items-center">
+        <Link href="/app/analisis" className="flex items-center">
           <Wordmark className="text-base" />
         </Link>
       </div>
