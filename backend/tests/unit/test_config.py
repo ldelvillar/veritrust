@@ -161,6 +161,12 @@ def test_validate_runtime_treats_an_mcp_url_of_only_slashes_as_missing():
         settings.validate_runtime()
 
 
+def test_clerk_issuer_drops_trailing_slashes():
+    settings = _make_settings(clerk_issuer="https://tenant.clerk.accounts.dev//")
+
+    assert settings.expected_issuer == "https://tenant.clerk.accounts.dev"
+
+
 def test_validate_runtime_rejects_a_doubled_slash_before_mcp():
     settings = _make_settings(mcp_resource_url="https://api.veritrust.es//mcp//")
 

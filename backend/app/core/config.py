@@ -189,10 +189,10 @@ class Settings(BaseSettings):
         """Strip surrounding whitespace and the trailing slash, so a blank value is unset."""
         return value.strip().rstrip("/")
 
-    @field_validator("mcp_resource_url")
+    @field_validator("mcp_resource_url", "clerk_issuer")
     @classmethod
-    def _normalise_mcp_resource_url(cls, value: str | None) -> str | None:
-        """Drop the trailing slashes, so the OAuth resource identifier is one canonical string."""
+    def _drop_trailing_slashes(cls, value: str | None) -> str | None:
+        """Drop the trailing slashes, so the OAuth resource and the token issuer are canonical strings."""
         return value.rstrip("/") if value else value
 
     def cors_origins(self) -> list[str]:
@@ -319,7 +319,7 @@ class Settings(BaseSettings):
                 "puerto válido: " + ", ".join(invalid_urls)
             )
 
-        if web and not re.search(r"(?<!/)/mcp$", self.mcp_resource_url or ""):
+        if web and not re.search(r"(?<!/)/mcp\Z", self.mcp_resource_url or ""):
             raise SettingsValidationError("MCP_RESOURCE_URL debe terminar en /mcp")
 
         rate = self.mistral_requests_per_second
