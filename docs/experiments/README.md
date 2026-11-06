@@ -30,6 +30,9 @@ uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipe
 - **Changes to the extractor or translator**: the queries change and those searches go
   live. The report line `Evidencia : N/M búsquedas reproducidas` says how many were
   replayed; if few were, the comparison is not paired on Evidence.
+- **Long texts do not repeat**: on articles the extractor on Mistral returns different
+  Claims at temperature 0, so a rerun of the same config replays only about a third of
+  the searches (2026-11-06, extractor v6, in [2026-11.md](2026-11.md)).
 - **It does not pin the judge**: with the Evidence frozen, the variation left between
   runs is the LLM's own, which is part of what is being measured.
 
@@ -125,6 +128,9 @@ through prompting and through scaffolding:
    per article, so 17 exceed the 8-Claim cap and none can be `verdadera`, and 8 of 14
    news articles come out `parcialmente falsa` on study-specific Claims matched to
    off-point Sources (2026-11-06 in [2026-11.md](2026-11.md)). Measure on that set.
+   A first try (extractor v6, keep the 8 central Claims) removed the cap but could not be
+   told from noise: two runs of the same config differ on 5 of 23 article Verdicts. Make
+   article runs reproducible first.
 
 ## No longer levers
 
@@ -183,3 +189,4 @@ closed era:
 
 - 2026-11-06 Multi-Claim articles: the Source cap, the 8-Claim cap and false Claims in sound articles
 - 2026-11-06 Two contradicting Sources before a false Claim — rejected
+- 2026-11-06 Extractor v6: the 8 central Claims of an article — not adopted
