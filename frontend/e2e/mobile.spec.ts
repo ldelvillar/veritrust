@@ -15,8 +15,8 @@ test('the mobile menu shows the navigation and the signed-in account', async ({
     drawer.getByRole('link', { name: 'Análisis anteriores' })
   ).toBeVisible();
   await expect(drawer.getByText(E2E_USER_EMAIL)).toBeVisible();
-  await drawer.getByRole('link', { name: 'Cuenta y plan' }).click();
-  await expect(page).toHaveURL(/\/app\/cuenta$/);
+  await drawer.getByRole('link', { name: 'Ayuda' }).click();
+  await expect(page).toHaveURL(/\/app\/ayuda$/);
 });
 
 test('the mobile logo and the app index open a new analysis', async ({
