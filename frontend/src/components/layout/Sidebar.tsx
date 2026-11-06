@@ -25,7 +25,6 @@ const navItems = [
   { href: '/app/analisis', label: 'Nuevo análisis', Icon: NewIcon },
   { href: '/app/historial', label: 'Análisis anteriores', Icon: HistoryIcon },
   { href: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { href: '/app/cuenta', label: 'Cuenta y plan', Icon: UserIcon },
   { href: '/app/ayuda', label: 'Ayuda', Icon: QuestionIcon },
 ];
 
