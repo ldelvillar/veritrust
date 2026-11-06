@@ -84,6 +84,10 @@ OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend --extra evaluation pyth
   error bars (SE 4.7 → 3.3 when doubling n). If more rows are written, make them a
   **held-out** set: extractor v4, judge v3 and translator v3 were tuned looking at this
   set, so the 71 is partly in-sample.
+- **Requiring two contradicting Sources before a Claim is false**: on gold every false
+  Verdict resting on one `contradicts` was right, and recall on false falls from 36 to 22
+  of 50. A count cannot separate a loose Source from a sound one. See 2026-11-06 in
+  [2026-11.md](2026-11.md).
 
 ## Next steps
 
@@ -117,6 +121,10 @@ through prompting and through scaffolding:
    Claims, and «vaccines cause autism» comes out `verdadera` (2026-10-13 in
    [2026-10.md](2026-10.md)). Not a decisiveness prompt; measure a fix on a set built for
    it.
+5. **Which Claims the extractor keeps from an article** — on 23 real articles it takes 13
+   per article, so 17 exceed the 8-Claim cap and none can be `verdadera`, and 8 of 14
+   news articles come out `parcialmente falsa` on study-specific Claims matched to
+   off-point Sources (2026-11-06 in [2026-11.md](2026-11.md)). Measure on that set.
 
 ## No longer levers
 
@@ -170,3 +178,8 @@ closed era:
 - 2026-10-12 Analysis Verdict from Claim Verdicts: `parcialmente falsa` — adopted
 - 2026-10-13 Full pipeline on Mistral pay-as-you-go, the production config — 70/100, flat
 - 2026-10-14 Explainer v6: grounded in the abstracts — adopted
+
+[2026-11.md](2026-11.md):
+
+- 2026-11-06 Multi-Claim articles: the Source cap, the 8-Claim cap and false Claims in sound articles
+- 2026-11-06 Two contradicting Sources before a false Claim — rejected
