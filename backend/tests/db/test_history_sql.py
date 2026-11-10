@@ -34,17 +34,17 @@ pytestmark = pytest.mark.db
 USER = "user-a"
 
 
-async def _pending(text: str = "La vitamina C previene el resfriado") -> str:
-    return await seed_pending(user_id=USER, request=AnalysisRequest(text=text))
+async def _pending(
+    text: str = "La vitamina C previene el resfriado", origin: str = "web"
+) -> str:
+    return await seed_pending(
+        user_id=USER, request=AnalysisRequest(text=text), origin=origin
+    )
 
 
 async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     """The claims and the Sources JSONB come back exactly as the worker stored them."""
-    analysis_id = await seed_pending(
-        user_id=USER,
-        request=AnalysisRequest(text="La vitamina C previene el resfriado"),
-        origin="mcp",
-    )
+    analysis_id = await _pending(origin="mcp")
     claims = [
         {
             "text": "Afirmación con eñes y tildes: ñá",
@@ -164,6 +164,11 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
         user_id=USER, analysis_id=analysis_id, visible_since=None
     )
     assert (status.status, status.stage) == ("pending", "translator")
+    # The full read reports the same stage, which the MCP result shows as progress.
+    record = await get_user_analysis_by_id(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
+    assert record is not None and record.stage == "translator"
 
     await seed_failed(analysis_id=analysis_id, error_code="CONNECTION")
     failed = await get_user_analysis_status(

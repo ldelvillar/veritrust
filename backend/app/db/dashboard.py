@@ -189,7 +189,7 @@ def _build_alerts(alert_rows: Sequence[Sequence[Any]]) -> list[DashboardAlertIte
 
 
 async def get_user_dashboard_summary(
-    *, user_id: str, trend_days: int = 14, alert_limit: int = 5
+    *, user_id: str, trend_days: int = 14
 ) -> DashboardSummaryResponse:
     """Fetch aggregated metrics for the user's dashboard."""
     pool = await get_pool()
@@ -269,7 +269,7 @@ async def get_user_dashboard_summary(
           AND status = 'done'
           AND verdict IN ('fake', 'mixed')
         ORDER BY created_at DESC
-        LIMIT %s
+        LIMIT 5
     """
 
     trend_start_date = datetime.now(timezone.utc).date() - timedelta(
@@ -291,7 +291,7 @@ async def get_user_dashboard_summary(
                 await cur.execute(domain_query, (user_id,))
                 domain_rows = await cur.fetchall()
 
-                await cur.execute(alerts_query, (user_id, alert_limit))
+                await cur.execute(alerts_query, (user_id,))
                 alert_rows = await cur.fetchall()
     except psycopg.Error as exc:
         logger.exception(
