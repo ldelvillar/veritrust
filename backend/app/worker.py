@@ -31,6 +31,7 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.tracing import langfuse
 from app.db.billing import record_evidence_search
 from app.db.deleted_users import UserDeleted, prune_expired
 from app.db.pool import DatabaseError, close_pool, get_pool
@@ -219,8 +220,9 @@ async def startup(ctx: dict) -> None:
 
 
 async def shutdown() -> None:
-    """Close the database pool when the worker stops."""
+    """Close the database pool and send pending traces when the worker stops."""
     await close_pool()
+    await asyncio.to_thread(langfuse.flush)
 
 
 class WorkerSettings:
