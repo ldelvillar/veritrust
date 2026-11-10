@@ -94,6 +94,7 @@ def test_build_chat_model_returns_ollama_for_every_role(monkeypatch, role) -> No
     model = llm_module.build_chat_model(role)
 
     assert isinstance(model, ChatOllama)
+    assert model.name == role
     assert model.base_url == "http://localhost:11434"
 
 
@@ -104,6 +105,7 @@ def test_build_chat_model_returns_mistral_for_every_role(monkeypatch, role) -> N
     model = llm_module.build_chat_model(role)
 
     assert isinstance(model, ChatMistralAI)
+    assert model.name == role
     assert model.model == "mistral-small-latest"
     assert model.max_tokens == 2048
     assert model.max_retries == 5
@@ -117,6 +119,7 @@ def test_build_chat_model_returns_groq_for_every_role(monkeypatch, role) -> None
     model = llm_module.build_chat_model(role)
 
     assert isinstance(model, ChatGroq)
+    assert model.name == role
     assert model.max_tokens == 2048
 
 
@@ -228,6 +231,7 @@ def test_build_chat_model_returns_google_for_every_role(monkeypatch, role) -> No
     model = llm_module.build_chat_model(role)
 
     assert isinstance(model, ChatGoogleGenerativeAI)
+    assert model.name == role
     assert model.max_output_tokens == 2048
 
 
@@ -270,6 +274,7 @@ def test_build_chat_model_returns_nvidia_for_every_role(monkeypatch, role) -> No
     model = llm_module.build_chat_model(role)
 
     assert isinstance(model, ChatNVIDIA)
+    assert model.name == role
     assert model.model_kwargs == {"chat_template_kwargs": {"enable_thinking": False}}
 
 

@@ -188,9 +188,11 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
         # The override allows rotating models without touching the role's configuration.
         return model or str(getattr(settings, attr_by_role[role]))
 
+    # Every model is named after its role, so traces show the agent instead of the class.
     if provider == "mistral":
         return _RetryingChatMistralAI(
             model_name=_model_for(MISTRAL_MODEL_ATTR_BY_ROLE),
+            name=role,
             temperature=0,
             api_key=SecretStr(_mistral_api_key()),
             max_tokens=settings.mistral_max_tokens,
@@ -202,6 +204,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     if provider == "groq":
         return ChatGroq(
             model=_model_for(GROQ_MODEL_ATTR_BY_ROLE),
+            name=role,
             temperature=0,
             api_key=SecretStr(_groq_api_key()),
             max_tokens=settings.groq_max_tokens,
@@ -212,6 +215,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     if provider == "google":
         return ChatGoogleGenerativeAI(
             model=_model_for(GOOGLE_MODEL_ATTR_BY_ROLE),
+            name=role,
             temperature=0,
             api_key=SecretStr(_google_api_key()),
             max_tokens=settings.google_max_tokens,
@@ -222,6 +226,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     if provider == "nvidia":
         return ChatNVIDIA(
             model=_model_for(NVIDIA_MODEL_ATTR_BY_ROLE),
+            name=role,
             temperature=0,
             api_key=_nvidia_api_key(),
             max_completion_tokens=settings.nvidia_max_tokens,
@@ -238,6 +243,7 @@ def build_chat_model(role: str, model: str | None = None) -> BaseChatModel:
     prefix = OLLAMA_PREFIX_BY_ROLE[role]
     return ChatOllama(
         model=model or str(getattr(settings, f"{prefix}_model")),
+        name=role,
         temperature=0,
         base_url=settings.ollama_base_url,
         num_ctx=getattr(settings, f"{prefix}_num_ctx"),
