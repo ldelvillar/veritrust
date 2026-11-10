@@ -686,6 +686,10 @@ class _FakeLangfuse:
     def get_dataset(self, name: str) -> SimpleNamespace:
         return self.dataset
 
+    @staticmethod
+    def create_trace_id(*, seed: str) -> str:
+        return f"id:{seed}"
+
     def run_experiment(
         self, *, data: list, task, evaluators: list, **kwargs
     ) -> SimpleNamespace:
@@ -710,7 +714,7 @@ class _FakeLangfuse:
                 **kwargs,
             }
         )
-        return SimpleNamespace(experiment_id=f"exp:{kwargs['run_name']}")
+        return SimpleNamespace(experiment_id=kwargs["experiment_id"])
 
     def create_score(self, *, score_id: str, **fields) -> None:
         self.scores[score_id] = fields
@@ -763,7 +767,7 @@ def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) 
     assert rota["scores"] == []
     assert nueva["run_name"] == "mistral-v2"
     assert nueva["metadata"] == {"provider": "mistral", "models": '{"judge": "m"}'}
-    assert experiment.experiment_id == "exp:mistral-v2"
+    assert nueva["experiment_id"] == rota["experiment_id"] == "id:gold-es/mistral-v2"
     # The checkpoint still keeps the rows, so the run resumes and reports as before.
     assert [row["text"] for row in rows] == ["vieja", "nueva"]
     assert "nueva" in ep.load_checkpoint(path)
@@ -882,23 +886,33 @@ def test_a_resumed_langfuse_run_updates_its_metrics_in_the_same_experiment() -> 
     resumed.record_metrics({**metrics, "accuracy": 0.75})
 
     assert len(client.scores) == len(ep.RUN_SCORES)
-    assert client.scores["exp:mistral-v2-accuracy"] == {
-        "dataset_run_id": "exp:mistral-v2",
+    assert client.scores["id:gold-es/mistral-v2-accuracy"] == {
+        "dataset_run_id": "id:gold-es/mistral-v2",
         "name": "accuracy",
         "value": 0.75,
     }
     assert client.flushed
 
 
-def test_a_langfuse_run_with_nothing_pending_scores_no_experiment() -> None:
+def test_a_resume_with_nothing_pending_still_records_the_run_scores() -> None:
     client = _FakeLangfuse(["nueva"])
     experiment = ep.LangfuseExperiment(client, "gold-es", [], "r", {})
 
     asyncio.run(experiment([], None))  # type: ignore[arg-type]
     experiment.record_metrics({name: 1.0 for name in ep.RUN_SCORES})
 
+    # A run killed before its scores were sent gets them on the next resume.
     assert client.experiments == []
-    assert client.scores == {}
+    assert set(client.scores) == {f"id:gold-es/r-{name}" for name in ep.RUN_SCORES}
+
+
+def test_each_langfuse_run_keeps_its_own_default_checkpoint() -> None:
+    plain = ep.default_checkpoint("gold")
+
+    assert plain.name == "eval_pipeline_gold.jsonl"
+    assert ep.default_checkpoint("gold", "mistral-v2") == plain.with_name(
+        "eval_pipeline_gold_mistral-v2.jsonl"
+    )
 
 
 def test_main_turns_the_explanation_off_even_with_settings_already_loaded(

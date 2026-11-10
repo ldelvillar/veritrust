@@ -349,12 +349,8 @@ class MissingDatasetItemsError(ValueError):
 RUN_SCORES = ("accuracy", "coverage", "precision", "recall", "f1_score")
 
 
-def score_sample(
-    *, output: dict | None, expected_output: dict, **_: Any
-) -> list[Evaluation]:
+def score_sample(*, output: dict, expected_output: dict, **_: Any) -> list[Evaluation]:
     """Score a sample's Verdict against its label, with correctness only for a firm Verdict, as compute_metrics counts it."""
-    if output is None:
-        return []
     abstained = _is_abstention(output["label"])
     scores = [
         Evaluation(name="abstained", value=float(abstained), data_type="BOOLEAN"),
@@ -405,8 +401,8 @@ class LangfuseExperiment:
             for key, value in run.items()
             if value is not None
         }
-        # Set by the first sample that runs, since Langfuse derives it from the dataset and run name.
-        self.experiment_id: str | None = None
+        # Fixed by the dataset and run name, so every sample and a resume share one experiment without asking Langfuse.
+        self.experiment_id = client.create_trace_id(seed=f"{dataset_name}/{run_name}")
 
     async def __call__(self, pending: list[Sample], evaluate: EvaluateSample) -> None:
         """Evaluate the pending samples one at a time, each under its dataset item."""
@@ -434,6 +430,7 @@ class LangfuseExperiment:
                 self._client.run_experiment,
                 name=f"pipeline-{self._dataset_name}",
                 run_name=self._run_name,
+                experiment_id=self.experiment_id,
                 data=[self._items[sample["text"]]],
                 task=task,
                 evaluators=[score_sample],
@@ -441,19 +438,16 @@ class LangfuseExperiment:
             )
         )
         try:
-            result = await asyncio.shield(running)
+            await asyncio.shield(running)
         except asyncio.CancelledError:
             # A thread cannot be cancelled, so the sample finishes before the checkpoint closes.
             await running
             raise
-        self.experiment_id = result.experiment_id
         if unexpected:
             raise unexpected[0]
 
     def record_metrics(self, metrics: dict[str, float]) -> None:
         """Score the experiment with the metrics of all its rows, resumed ones included."""
-        if self.experiment_id is None:
-            return
         for name in RUN_SCORES:
             self._client.create_score(
                 dataset_run_id=self.experiment_id,
@@ -676,6 +670,16 @@ def format_report(
     return "\n".join(lines)
 
 
+def default_checkpoint(source: str, langfuse_run: str | None = None) -> Path:
+    """Path of a set's checkpoint under results/, one per Langfuse run so switching runs never needs --fresh."""
+    suffix = f"_{langfuse_run}" if langfuse_run else ""
+    return (
+        Path(__file__).resolve().parents[1]
+        / "results"
+        / f"eval_pipeline_{source}{suffix}.jsonl"
+    )
+
+
 def main() -> dict[str, float]:
     """Script entry point that runs the evaluation and prints the report."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -747,11 +751,10 @@ def main() -> dict[str, float]:
     data = Path(args.data) if args.data else None
     # The set is named after its file when it is not a repo partition.
     source = data.stem if data else args.partition
-    default_dir = Path(__file__).resolve().parents[1] / "results"
     checkpoint_path = (
         Path(args.checkpoint)
         if args.checkpoint
-        else default_dir / f"eval_pipeline_{source}.jsonl"
+        else default_checkpoint(source, args.langfuse_run)
     )
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
