@@ -18,7 +18,7 @@ class _FakeGraph:
         self._error = error
         self.closed = False
 
-    async def astream(self, state, stream_mode=None):
+    async def astream(self, state, stream_mode=None, config=None):
         if self._error is not None:
             raise self._error
         try:

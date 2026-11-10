@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
+from langfuse import observe
 
 from app.core.config import get_settings
 from app.utils.evidence import join_label_sections, raise_retrieval_error
@@ -135,6 +136,7 @@ def _map_result(result: dict, *, timeout: int) -> dict | None:
     }
 
 
+@observe(name="cima", as_type="retriever")
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
     """Search CIMA medicines by name or active ingredient (in Spanish), raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()

@@ -3,7 +3,8 @@
 import logging
 from collections import Counter
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor
+
+from langchain_core.runnables.config import ContextThreadPoolExecutor
 
 from app.agents.errors import EvidenceUnavailable
 from app.agents.relevance import judge_stances
@@ -60,7 +61,7 @@ def _search_all(claims: Sequence[Claim]) -> list[Claim]:
             tasks.append((position, claim.drug_term, search_cima))
             per_claim_attempts[position] += 1
 
-    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+    with ContextThreadPoolExecutor(max_workers=len(tasks)) as pool:
         outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
 
     # Regroup by claim, where a claim only fails when ALL its queried sources fail.
@@ -91,7 +92,7 @@ def _judge_all(claims: Sequence[Claim], judge_prompt: str) -> list[Claim]:
     pending = [p for p, claim in enumerate(claims) if claim.outcome == "unjudged"]
     if not pending:
         return judged
-    with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+    with ContextThreadPoolExecutor(max_workers=len(pending)) as pool:
         answers = list(
             pool.map(
                 lambda p: judge_stances(

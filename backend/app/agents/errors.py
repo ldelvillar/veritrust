@@ -8,6 +8,7 @@ import aiohttp
 import groq
 import httpx
 
+from app.core.tracing import langfuse, langfuse_handler
 from app.utils.llm import LLMUnavailableError
 
 
@@ -31,18 +32,22 @@ async def ainvoke_graph(
     """Stream the graph, report each finished agent and translate connection errors."""
     final_state = state
     try:
-        # aclosing closes the stream at once when on_stage cuts the Run short.
-        async with aclosing(
-            graph.astream(state, stream_mode=["updates", "values"])
-        ) as stream:
-            async for mode, chunk in stream:
-                if mode == "values":
-                    final_state = chunk
-                elif mode == "updates" and on_stage is not None:
-                    await on_stage(next(iter(chunk)))
+        # One current span, so @observe spans and LangChain's land in the same trace.
+        with langfuse.start_as_current_observation(name="pipeline", as_type="chain"):
+            async with aclosing(
+                graph.astream(
+                    state,
+                    stream_mode=["updates", "values"],
+                    config={"callbacks": [langfuse_handler]},
+                )
+            ) as stream:
+                async for mode, chunk in stream:
+                    if mode == "values":
+                        final_state = chunk
+                    elif mode == "updates" and on_stage is not None:
+                        await on_stage(next(iter(chunk)))
     except (
         ConnectionError,
-        # Never connecting, timing out and a dropped response alike, but not our own misconfigured request.
         httpx.NetworkError,
         httpx.TimeoutException,
         httpx.RemoteProtocolError,

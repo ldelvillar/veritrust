@@ -43,6 +43,7 @@ dependencies = [
     "mcp>=2.3.0",
     "stripe>=16.1.0",
     "svix>=2.9.1",
+    "langfuse>=5.2.0",
 ]
 
 [project.optional-dependencies]

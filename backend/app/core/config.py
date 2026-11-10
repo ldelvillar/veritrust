@@ -183,6 +183,11 @@ class Settings(BaseSettings):
     # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
 
+    # Langfuse tracing, off unless both keys are set.
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+
     @field_validator("app_base_url")
     @classmethod
     def _normalise_app_base_url(cls, value: str) -> str:

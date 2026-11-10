@@ -4,6 +4,7 @@ import logging
 from xml.etree import ElementTree
 
 import requests
+from langfuse import observe
 
 from app.core.config import get_settings
 from app.utils.evidence import EvidenceRetrievalError, raise_retrieval_error
@@ -88,6 +89,7 @@ def _map_article(article: ElementTree.Element) -> dict | None:
     }
 
 
+@observe(name="pubmed", as_type="retriever")
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
     """Search PubMed articles for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()

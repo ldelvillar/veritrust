@@ -3,6 +3,7 @@
 import logging
 
 import requests
+from langfuse import observe
 
 from app.core.config import get_settings
 from app.utils.evidence import join_label_sections, raise_retrieval_error
@@ -60,6 +61,7 @@ def _map_result(result: dict) -> dict:
     }
 
 
+@observe(name="openfda", as_type="retriever")
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
     """Search openFDA drug labels for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()
