@@ -37,7 +37,7 @@ def test_claim_items_keep_only_binary_labels_with_the_pipeline_eval_labels() -> 
         }
     )
 
-    items = claim_items(df, "claim_id")
+    items = claim_items(df)
 
     assert [(i["key"], i["input"], i["expected_output"]) for i in items] == [
         (7, {"text": "Verdad cierta"}, {"label": "verdadera"}),
@@ -84,9 +84,9 @@ def test_uploading_again_updates_the_same_items_without_clashing_across_sets() -
     client = FakeLangfuse()
     df = pd.DataFrame({"claim_id": [1], "claim": ["Bulo"], "label": [1]})
 
-    upload(client, "gold-es", "Oro", claim_items(df, "claim_id"))
-    upload(client, "gold-es", "Oro", claim_items(df, "claim_id"))
-    upload(client, "negations-es", "Negaciones", claim_items(df, "claim_id"))
+    upload(client, "gold-es", "Oro", claim_items(df))
+    upload(client, "gold-es", "Oro", claim_items(df))
+    upload(client, "negations-es", "Negaciones", claim_items(df))
 
     assert set(client.items) == {"gold-es-1", "negations-es-1"}
     assert client.items["gold-es-1"]["expected_output"] == {"label": "falsa"}

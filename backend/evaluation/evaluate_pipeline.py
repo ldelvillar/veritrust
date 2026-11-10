@@ -8,6 +8,7 @@ import os
 import subprocess
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
+from itertools import count
 from pathlib import Path
 from time import time
 from typing import Any, TypedDict, cast
@@ -177,6 +178,14 @@ def _stance_histogram(sources: list[dict]) -> dict[str, int]:
     return counts
 
 
+def binary_claims(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep the claims with a binary label and a text, adding the cleaned text and expected label the eval and its datasets share."""
+    df = df[df["label"].isin(LABEL_BY_CODE)].copy()
+    df["expected"] = df["label"].map(LABEL_BY_CODE)
+    df["text"] = df["claim"].astype(str).str.replace("\xa0", " ").str.strip()
+    return df[df["text"] != ""]
+
+
 def load_samples(
     partition: str = "test",
     limit: int = 30,
@@ -184,9 +193,7 @@ def load_samples(
     data: Path | None = None,
 ) -> list[Sample]:
     """Load a balanced binary sample from a partition, or from the JSONL ``data`` if given, for evaluation."""
-    df = load_jsonl(str(data)) if data else load_dataset(partition)
-    df = df[df["label"].isin(LABEL_BY_CODE)].copy()
-    df["expected"] = df["label"].map(LABEL_BY_CODE)
+    df = binary_claims(load_jsonl(str(data)) if data else load_dataset(partition))
 
     # Sample each class equally so the metrics are not biased.
     per_class = max(1, limit // 2)
@@ -196,12 +203,10 @@ def load_samples(
     ]
     sampled = pd.concat(frames).sample(frac=1, random_state=seed).head(limit)
 
-    samples: list[Sample] = []
-    for _, row in sampled.iterrows():
-        text = str(row["claim"]).replace("\xa0", " ").strip()
-        if text:
-            samples.append({"text": text, "expected": str(row["expected"])})
-    return samples
+    return [
+        {"text": str(row["text"]), "expected": str(row["expected"])}
+        for _, row in sampled.iterrows()
+    ]
 
 
 def _build_initial_state(text: str) -> dict[str, object]:
@@ -443,15 +448,14 @@ async def evaluate_pipeline(
     total = len(pending)
     if done:
         logger.info("Reanudando: %d ya evaluadas, %d pendientes", len(done), total)
-    started_count = 0
+    # Numbers the log lines in the order the samples start.
+    started_numbers = count(1)
 
     # Only completed samples are persisted, so a failing one is retried on resume.
     handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
 
     async def evaluate(sample: Sample) -> EvalRow | None:
-        nonlocal started_count
-        started_count += 1
-        i = started_count
+        i = next(started_numbers)
         tape = EvidenceTape((replay or {}).get(sample["text"]))
         started = time()
         try:

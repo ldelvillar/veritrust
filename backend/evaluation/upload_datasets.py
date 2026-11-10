@@ -1,20 +1,17 @@
 """Upload the labelled evaluation sets to Langfuse as datasets, so eval runs can be linked to their items."""
 
 import logging
-import os
 from collections.abc import Callable
-from typing import Any, Protocol, TypedDict
+from typing import Any, TypedDict
 
 import pandas as pd
 
 from app.core.config import get_settings
 from app.core.tracing import langfuse
-from evaluation.evaluate_pipeline import LABEL_BY_CODE, LANGFUSE_DATASETS
-from evaluation.load_data import BASE_DIR, load_dataset, load_jsonl
+from evaluation.evaluate_pipeline import LANGFUSE_DATASETS, binary_claims
+from evaluation.load_data import STANCES_PATH, load_dataset, load_jsonl
 
 logger = logging.getLogger(__name__)
-
-STANCES_PATH = os.path.join(BASE_DIR, "data", "judge_stances_es.jsonl")
 
 
 class DatasetItem(TypedDict):
@@ -26,36 +23,20 @@ class DatasetItem(TypedDict):
     metadata: dict[str, Any]
 
 
-class DatasetClient(Protocol):
-    """The part of the Langfuse client that writes datasets."""
-
-    def create_dataset(self, *, name: str, description: str | None = None) -> Any:
-        """Create or update a dataset by name."""
-
-    def create_dataset_item(
-        self,
-        *,
-        dataset_name: str,
-        input: Any = None,
-        expected_output: Any = None,
-        metadata: Any = None,
-        id: str | None = None,
-    ) -> Any:
-        """Create or update a dataset item by id."""
-
-
-def claim_items(df: pd.DataFrame, key: str) -> list[DatasetItem]:
-    """Turn a labelled claim set into items, leaving out the claims with no binary label, as the pipeline eval does."""
-    df = df[df["label"].isin(LABEL_BY_CODE)]
+def claim_items(df: pd.DataFrame) -> list[DatasetItem]:
+    """Turn a labelled claim set into items, keeping the same claims and text the pipeline eval samples."""
     return [
         {
-            "key": row[key],
-            # Same cleanup as load_samples, so a run can match its samples to the items.
-            "input": {"text": str(row["claim"]).replace("\xa0", " ").strip()},
-            "expected_output": {"label": LABEL_BY_CODE[row["label"]]},
-            "metadata": {k: v for k, v in row.items() if k not in ("claim", "label")},
+            "key": row["claim_id"],
+            "input": {"text": row["text"]},
+            "expected_output": {"label": row["expected"]},
+            "metadata": {
+                k: v
+                for k, v in row.items()
+                if k not in ("claim", "label", "text", "expected")
+            },
         }
-        for row in df.to_dict("records")
+        for row in binary_claims(df).to_dict("records")
     ]
 
 
@@ -79,15 +60,15 @@ def stance_items(df: pd.DataFrame) -> list[DatasetItem]:
 DATASETS: dict[str, tuple[str, Callable[[], list[DatasetItem]]]] = {
     LANGFUSE_DATASETS["gold"]: (
         "Afirmaciones médicas en español escritas y etiquetadas a mano.",
-        lambda: claim_items(load_dataset("gold"), "claim_id"),
+        lambda: claim_items(load_dataset("gold")),
     ),
     LANGFUSE_DATASETS["negations"]: (
         "Pares de afirmación y su negación sobre la misma literatura.",
-        lambda: claim_items(load_dataset("negations"), "claim_id"),
+        lambda: claim_items(load_dataset("negations")),
     ),
     LANGFUSE_DATASETS["test"]: (
         "Partición de test de HealthVer, sin las afirmaciones NEI.",
-        lambda: claim_items(load_dataset("test"), "claim_id"),
+        lambda: claim_items(load_dataset("test")),
     ),
     "judge-stances-es": (
         "Posturas etiquetadas a mano de una fuente frente a una afirmación.",
@@ -96,9 +77,7 @@ DATASETS: dict[str, tuple[str, Callable[[], list[DatasetItem]]]] = {
 }
 
 
-def upload(
-    client: DatasetClient, name: str, description: str, items: list[DatasetItem]
-) -> None:
+def upload(client: Any, name: str, description: str, items: list[DatasetItem]) -> None:
     """Create the dataset and upsert its items, so uploading again updates them instead of duplicating."""
     client.create_dataset(name=name, description=description)
     for item in items:
