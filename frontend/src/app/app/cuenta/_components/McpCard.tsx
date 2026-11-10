@@ -1,21 +1,14 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import CheckIcon from '@/assets/Check';
 import ClipboardIcon from '@/assets/Clipboard';
 import McpIcon from '@/assets/Mcp';
 import Button from '@/components/Button';
 import { clientEnv } from '@/env/client';
+import { COPY_LABEL, useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { usePlan } from '@/hooks/usePlan';
-
-type CopyState = 'idle' | 'copied' | 'error';
-
-const COPY_LABEL: Record<CopyState, string> = {
-  idle: 'Copiar',
-  copied: 'Copiado',
-  error: 'No se pudo copiar',
-};
 
 const TOOLS = [
   {
@@ -103,21 +96,11 @@ function buildClients(
 
 export default function McpCard() {
   const { limits } = usePlan();
-  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const { state: copyState, copy } = useCopyToClipboard();
 
   if (!limits) return null;
 
   const serverUrl = `${clientEnv.apiUrl}/mcp`;
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(serverUrl);
-      setCopyState('copied');
-    } catch {
-      setCopyState('error');
-    }
-    setTimeout(() => setCopyState('idle'), 2000);
-  };
 
   return (
     <section
@@ -154,7 +137,7 @@ export default function McpCard() {
               <code className="min-w-50 flex-1 rounded-xl border border-line bg-surface-subtle px-3.5 py-2.5 font-mono text-sm break-all text-ink">
                 {serverUrl}
               </code>
-              <Button variant="ghost" onClick={() => void handleCopy()}>
+              <Button variant="ghost" onClick={() => void copy(serverUrl)}>
                 {copyState === 'copied' ? (
                   <CheckIcon className="size-4" aria-hidden />
                 ) : (
