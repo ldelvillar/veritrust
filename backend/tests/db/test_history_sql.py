@@ -164,11 +164,6 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
         user_id=USER, analysis_id=analysis_id, visible_since=None
     )
     assert (status.status, status.stage) == ("pending", "translator")
-    # The full read reports the same stage, which the MCP result shows as progress.
-    record = await get_user_analysis_by_id(
-        user_id=USER, analysis_id=analysis_id, visible_since=None
-    )
-    assert record is not None and record.stage == "translator"
 
     await seed_failed(analysis_id=analysis_id, error_code="CONNECTION")
     failed = await get_user_analysis_status(
@@ -182,6 +177,19 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
         )
         is None
     )
+
+
+async def test_full_read_reports_the_stage_of_a_running_analysis(db_pool):
+    """The MCP result shows the running stage as progress, read from the full record."""
+    analysis_id = await _pending()
+    await seed_stage(analysis_id=analysis_id, stage="translator")
+
+    record = await get_user_analysis_by_id(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
+
+    assert record is not None
+    assert (record.status, record.stage) == ("pending", "translator")
 
 
 async def test_rows_are_isolated_per_user(db_pool):
