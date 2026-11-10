@@ -220,11 +220,12 @@ async def startup(ctx: dict) -> None:
 
 
 async def shutdown(ctx: dict) -> None:
-    """Send pending traces and close the database pool when the worker stops."""
+    """Close the database pool and send pending traces when the worker stops."""
     try:
-        await asyncio.to_thread(langfuse.flush)
-    finally:
         await close_pool()
+    finally:
+        # Last, so a slow Langfuse can only lose traces, never leave the pool open.
+        await asyncio.to_thread(langfuse.flush)
 
 
 class WorkerSettings:

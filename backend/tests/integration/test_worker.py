@@ -319,6 +319,21 @@ async def test_shutdown_closes_db_pool(monkeypatch):
     assert closed == [True]
 
 
+async def test_shutdown_flushes_traces_even_when_closing_the_pool_fails(monkeypatch):
+    flushed = []
+
+    async def failing_close_pool():
+        raise RuntimeError("pool already gone")
+
+    monkeypatch.setattr(worker, "close_pool", failing_close_pool)
+    monkeypatch.setattr(worker.langfuse, "flush", lambda: flushed.append(True))
+
+    with pytest.raises(RuntimeError):
+        await worker.shutdown({})
+
+    assert flushed == [True]
+
+
 def test_main_starts_arq_worker_with_configured_redis(monkeypatch):
     """The entry point starts arq with WorkerSettings and the Redis DSN from Settings."""
     seen: dict = {}

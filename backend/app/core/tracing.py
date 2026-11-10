@@ -10,12 +10,8 @@ _settings = get_settings()
 tracing_enabled = _settings.langfuse_enabled()
 
 # A placeholder key registers a disabled client, so @observe reuses it instead of building one per call.
-_public_key = (
-    _settings.langfuse_public_key.strip() if tracing_enabled else "tracing-disabled"
-)
-_secret_key = (
-    _settings.langfuse_secret_key.strip() if tracing_enabled else "tracing-disabled"
-)
+_public_key = _settings.langfuse_public_key if tracing_enabled else "tracing-disabled"
+_secret_key = _settings.langfuse_secret_key if tracing_enabled else "tracing-disabled"
 
 langfuse = Langfuse(
     public_key=_public_key,

@@ -130,6 +130,16 @@ def test_validate_runtime_reports_a_langfuse_key_without_its_pair(secret_key):
         settings.validate_runtime()
 
 
+def test_validate_runtime_rejects_a_bad_langfuse_base_url_only_when_tracing():
+    keys = {"langfuse_public_key": "pk-lf-dummy", "langfuse_secret_key": "sk-lf-dummy"}
+    _make_settings(langfuse_base_url="cloud.langfuse.com").validate_runtime()
+
+    settings = _make_settings(langfuse_base_url="cloud.langfuse.com", **keys)
+
+    with pytest.raises(SettingsValidationError, match="LANGFUSE_BASE_URL"):
+        settings.validate_runtime()
+
+
 def test_validate_runtime_rejects_a_whitespace_only_app_base_url():
     settings = _make_settings(app_base_url=" ")
 
