@@ -13,6 +13,7 @@ from time import time
 from typing import Any, TypedDict, cast
 
 import pandas as pd
+from langfuse import Evaluation
 
 from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
@@ -328,27 +329,67 @@ class MissingDatasetItemsError(ValueError):
     """Some samples have no item in the Langfuse dataset, which is missing or out of date."""
 
 
-def langfuse_experiment(
-    client: Any, dataset_name: str, samples: list[Sample], run_name: str, run: dict
-) -> RunPending:
-    """Run the pending samples as a Langfuse experiment, so each sample's trace is linked to its dataset item."""
-    items = {
-        item.input["text"]: item for item in client.get_dataset(dataset_name).items
-    }
-    missing = sum(1 for sample in samples if sample["text"] not in items)
-    if missing:
-        raise MissingDatasetItemsError(
-            f"{missing} muestras no están en el dataset {dataset_name} de Langfuse; "
-            "súbelo con python -m evaluation.upload_datasets."
-        )
-    # Langfuse takes metadata as strings only.
-    metadata = {
-        key: value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        for key, value in run.items()
-        if value is not None
-    }
+# Run-level metrics recorded as the experiment's scores, so runs can be compared.
+RUN_SCORES = ("accuracy", "coverage", "precision", "recall", "f1_score")
 
-    async def run_pending(pending: list[Sample], evaluate: EvaluateSample) -> None:
+
+def score_sample(
+    *, output: dict | None, expected_output: dict, **_: Any
+) -> list[Evaluation]:
+    """Score a sample's Verdict against its label, with correctness only for a firm Verdict, as compute_metrics counts it."""
+    if output is None:
+        return []
+    abstained = _is_abstention(output["label"])
+    scores = [
+        Evaluation(name="abstained", value=float(abstained), data_type="BOOLEAN"),
+        Evaluation(name="confidence", value=output["confidence"]),
+    ]
+    if not abstained:
+        correct = _flags_falsehood(output["label"]) == (
+            expected_output["label"] == "falsa"
+        )
+        scores.append(
+            Evaluation(name="correct", value=float(correct), data_type="BOOLEAN")
+        )
+    return scores
+
+
+class LangfuseExperiment:
+    """Run the pending samples as a scored Langfuse experiment, so each sample's trace is linked to its dataset item."""
+
+    def __init__(
+        self,
+        client: Any,
+        dataset_name: str,
+        samples: list[Sample],
+        run_name: str,
+        run: dict,
+    ) -> None:
+        self._client = client
+        self._dataset_name = dataset_name
+        self._run_name = run_name
+        self._items = {
+            item.input["text"]: item for item in client.get_dataset(dataset_name).items
+        }
+        missing = sum(1 for sample in samples if sample["text"] not in self._items)
+        if missing:
+            raise MissingDatasetItemsError(
+                f"{missing} muestras no están en el dataset {dataset_name} de Langfuse; "
+                "súbelo con python -m evaluation.upload_datasets."
+            )
+        # Langfuse takes metadata as strings only.
+        self._metadata = {
+            key: value
+            if isinstance(value, str)
+            else json.dumps(value, ensure_ascii=False)
+            for key, value in run.items()
+            if value is not None
+        }
+        # Derived from the run's name, so a resumed run adds to the same experiment.
+        self.experiment_id = client.create_trace_id(seed=f"{dataset_name}/{run_name}")
+
+    async def __call__(self, pending: list[Sample], evaluate: EvaluateSample) -> None:
+        """Evaluate the pending samples, each under its dataset item."""
         by_text = {sample["text"]: sample for sample in pending}
 
         async def task(*, item: Any, **_: Any) -> dict | None:
@@ -362,17 +403,29 @@ def langfuse_experiment(
 
         # run_experiment starts its own event loop, so it runs in a thread.
         await asyncio.to_thread(
-            client.run_experiment,
-            name=f"pipeline-{dataset_name}",
-            run_name=run_name,
-            data=[items[sample["text"]] for sample in pending],
+            self._client.run_experiment,
+            name=f"pipeline-{self._dataset_name}",
+            run_name=self._run_name,
+            experiment_id=self.experiment_id,
+            data=[self._items[sample["text"]] for sample in pending],
             task=task,
+            evaluators=[score_sample],
             # The tape swaps the investigator's searches for the whole module, so samples cannot overlap.
             max_concurrency=1,
-            metadata=metadata,
+            metadata=self._metadata,
         )
 
-    return run_pending
+    def record_metrics(self, metrics: dict[str, float]) -> None:
+        """Score the experiment with the metrics of all its rows, resumed ones included."""
+        for name in RUN_SCORES:
+            self._client.create_score(
+                dataset_run_id=self.experiment_id,
+                # A fixed id per metric, so a resumed run updates its score instead of adding one.
+                score_id=f"{self.experiment_id}-{name}",
+                name=name,
+                value=metrics[name],
+            )
+        self._client.flush()
 
 
 async def evaluate_pipeline(
@@ -701,10 +754,10 @@ def main() -> dict[str, float]:
     samples = load_samples(args.partition, args.limit, args.seed, data)
     logger.info("Evaluando %d muestras de '%s'", len(samples), source)
 
-    run_pending: RunPending = run_in_order
+    experiment: LangfuseExperiment | None = None
     if args.langfuse_run:
         try:
-            run_pending = langfuse_experiment(
+            experiment = LangfuseExperiment(
                 langfuse,
                 LANGFUSE_DATASETS[args.partition],
                 samples,
@@ -716,9 +769,13 @@ def main() -> dict[str, float]:
 
     start = time()
     rows = asyncio.run(
-        evaluate_pipeline(samples, graph, checkpoint_path, replay, run_pending)
+        evaluate_pipeline(
+            samples, graph, checkpoint_path, replay, experiment or run_in_order
+        )
     )
     metrics = compute_metrics(rows)
+    if experiment is not None:
+        experiment.record_metrics(metrics)
 
     print(format_report(metrics, rows, run))
     failed = len(samples) - len(rows)

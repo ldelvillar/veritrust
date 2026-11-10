@@ -669,6 +669,7 @@ class _Item:
 
     def __init__(self, text: str) -> None:
         self.input = {"text": text}
+        self.expected_output = {"label": "falsa"}
 
 
 class _FakeLangfuse:
@@ -677,17 +678,39 @@ class _FakeLangfuse:
     def __init__(self, texts: list[str]) -> None:
         self.dataset = SimpleNamespace(items=[_Item(text) for text in texts])
         self.experiments: list[dict] = []
+        self.scores: dict[str, dict] = {}
+        self.flushed = False
 
     def get_dataset(self, name: str) -> SimpleNamespace:
         self.dataset_name = name
         return self.dataset
 
-    def run_experiment(self, *, data: list, task, **kwargs) -> None:
+    @staticmethod
+    def create_trace_id(*, seed: str) -> str:
+        return f"id:{seed}"
+
+    def run_experiment(self, *, data: list, task, evaluators: list, **kwargs) -> None:
         async def run_all() -> list:
             return [await task(item=item) for item in data]
 
         outputs = asyncio.run(run_all())
-        self.experiments.append({"data": data, "outputs": outputs, **kwargs})
+        evaluations = [
+            [
+                (e.name, e.value)
+                for evaluator in evaluators
+                for e in evaluator(output=output, expected_output=item.expected_output)
+            ]
+            for item, output in zip(data, outputs, strict=True)
+        ]
+        self.experiments.append(
+            {"data": data, "outputs": outputs, "evaluations": evaluations, **kwargs}
+        )
+
+    def create_score(self, *, score_id: str, **fields) -> None:
+        self.scores[score_id] = fields
+
+    def flush(self) -> None:
+        self.flushed = True
 
 
 class _VerdictGraph:
@@ -708,7 +731,7 @@ def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) 
         {"text": text, "expected": "falsa"} for text in ("vieja", "nueva", "rota")
     ]
     client = _FakeLangfuse(["vieja", "nueva", "rota", "otra"])
-    run_pending = ep.langfuse_experiment(
+    experiment = ep.LangfuseExperiment(
         client,
         "gold-es",
         samples,
@@ -717,25 +740,76 @@ def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) 
     )
 
     rows = asyncio.run(
-        ep.evaluate_pipeline(samples, _VerdictGraph(), path, run_pending=run_pending)
+        ep.evaluate_pipeline(samples, _VerdictGraph(), path, run_pending=experiment)
     )
 
-    [experiment] = client.experiments
+    [run] = client.experiments
     # Only the pending samples run, each under its own item, and one at a time for the tape.
-    assert [item.input["text"] for item in experiment["data"]] == ["nueva", "rota"]
-    assert experiment["outputs"] == [{"label": "falsa", "confidence": 0.8}, None]
-    assert (experiment["run_name"], experiment["max_concurrency"]) == ("mistral-v2", 1)
-    assert experiment["metadata"] == {"provider": "mistral", "models": '{"judge": "m"}'}
+    assert [item.input["text"] for item in run["data"]] == ["nueva", "rota"]
+    assert run["outputs"] == [{"label": "falsa", "confidence": 0.8}, None]
+    assert (run["run_name"], run["max_concurrency"]) == ("mistral-v2", 1)
+    assert run["metadata"] == {"provider": "mistral", "models": '{"judge": "m"}'}
     # The checkpoint still keeps the rows, so the run resumes and reports as before.
     assert [row["text"] for row in rows] == ["vieja", "nueva"]
     assert "nueva" in ep.load_checkpoint(path)
+    assert run["experiment_id"] == experiment.experiment_id
+    assert run["evaluations"] == [
+        [("abstained", 0.0), ("confidence", 0.8), ("correct", 1.0)],
+        [],
+    ]
+
+
+def test_a_langfuse_run_scores_each_sample_as_compute_metrics_counts_it() -> None:
+    falsa = {"label": "falsa"}
+    verdadera = {"label": "verdadera"}
+
+    def scores(output: dict | None, expected: dict) -> dict:
+        return {
+            e.name: e.value
+            for e in ep.score_sample(output=output, expected_output=expected)
+        }
+
+    assert scores({"label": "falsa", "confidence": 0.8}, falsa) == {
+        "abstained": 0.0,
+        "confidence": 0.8,
+        "correct": 1.0,
+    }
+    assert scores({"label": "falsa", "confidence": 0.7}, verdadera)["correct"] == 0.0
+    # An abstention scores no correctness, and a failed sample scores nothing.
+    assert scores({"label": "incierta", "confidence": 0.0}, falsa) == {
+        "abstained": 1.0,
+        "confidence": 0.0,
+    }
+    assert scores({"label": None, "confidence": 0.0}, falsa)["abstained"] == 1.0
+    assert scores(None, falsa) == {}
+
+
+def test_a_resumed_langfuse_run_updates_its_metrics_in_the_same_experiment() -> None:
+    samples: list[ep.Sample] = [{"text": "nueva", "expected": "falsa"}]
+    client = _FakeLangfuse(["nueva"])
+    first = ep.LangfuseExperiment(client, "gold-es", samples, "mistral-v2", {})
+    resumed = ep.LangfuseExperiment(client, "gold-es", samples, "mistral-v2", {})
+    metrics = {name: 0.5 for name in ep.RUN_SCORES}
+
+    first.record_metrics(metrics)
+    resumed.record_metrics({**metrics, "accuracy": 0.75})
+
+    assert first.experiment_id == resumed.experiment_id
+    assert len(client.scores) == len(ep.RUN_SCORES)
+    accuracy = client.scores[f"{first.experiment_id}-accuracy"]
+    assert accuracy == {
+        "dataset_run_id": first.experiment_id,
+        "name": "accuracy",
+        "value": 0.75,
+    }
+    assert client.flushed
 
 
 def test_a_langfuse_run_refuses_samples_its_dataset_lacks() -> None:
     samples: list[ep.Sample] = [{"text": "nueva", "expected": "falsa"}]
 
     with pytest.raises(ep.MissingDatasetItemsError, match="1 muestras"):
-        ep.langfuse_experiment(_FakeLangfuse(["otra"]), "gold-es", samples, "r", {})
+        ep.LangfuseExperiment(_FakeLangfuse(["otra"]), "gold-es", samples, "r", {})
 
 
 def test_a_langfuse_run_needs_a_partition_with_a_dataset(monkeypatch) -> None:
