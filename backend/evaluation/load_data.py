@@ -19,6 +19,9 @@ GOLD_PATH = os.path.join(BASE_DIR, "data", "gold_es.jsonl")
 # Claim and negation pairs over the same literature, which isolate the judge's polarity.
 NEGATIONS_PATH = os.path.join(BASE_DIR, "data", "negations_es.jsonl")
 
+# Hand-labelled Stances of a Source against a claim, which score the judge.
+STANCES_PATH = os.path.join(BASE_DIR, "data", "judge_stances_es.jsonl")
+
 
 def load_dataset(partition: str = "train") -> pd.DataFrame:
     """Load one partition of the dataset."""

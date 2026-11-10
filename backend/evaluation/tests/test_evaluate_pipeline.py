@@ -1,14 +1,19 @@
 """Unit tests for the multi-agent pipeline evaluation."""
 
+import argparse
 import asyncio
 import json
+import threading
+import time
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
 from app.agents import investigator as investigator_module
 from app.core.claim import Claim, Evidence
+from app.core.config import get_settings
 from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
 from evaluation import evaluate_pipeline as ep
@@ -660,6 +665,287 @@ def test_format_report_says_how_much_evidence_was_replayed() -> None:
 
     assert "Evidencia : 1/2 búsquedas reproducidas de base.jsonl" in report
     assert "Evidencia" not in ep.format_report(ep.compute_metrics(rows), rows, _run())
+
+
+class _Item:
+    """A Langfuse dataset item, with the input and expected output the uploader gives it."""
+
+    def __init__(self, text: str) -> None:
+        self.input = {"text": text}
+        self.expected_output = {"label": "falsa"}
+
+
+class _FakeLangfuse:
+    """Serve a dataset and run experiments on their own event loop, logging task errors as Langfuse does."""
+
+    def __init__(self, texts: list[str]) -> None:
+        self.dataset = SimpleNamespace(items=[_Item(text) for text in texts])
+        self.experiments: list[dict] = []
+        self.scores: dict[str, dict] = {}
+        self.flushed = False
+
+    def get_dataset(self, name: str) -> SimpleNamespace:
+        return self.dataset
+
+    @staticmethod
+    def create_trace_id(*, seed: str) -> str:
+        return f"id:{seed}"
+
+    def run_experiment(
+        self, *, data: list, task, evaluators: list, **kwargs
+    ) -> SimpleNamespace:
+        async def run_item(item: _Item) -> tuple:
+            try:
+                output = await task(item=item)
+            except Exception as exc:
+                return f"Error: {exc}", []
+            scores = [
+                (e.name, e.value)
+                for evaluator in evaluators
+                for e in evaluator(output=output, expected_output=item.expected_output)
+            ]
+            return output, scores
+
+        [(output, scores)] = [asyncio.run(run_item(item)) for item in data]
+        self.experiments.append(
+            {
+                "item": data[0].input["text"],
+                "output": output,
+                "scores": scores,
+                **kwargs,
+            }
+        )
+        return SimpleNamespace(experiment_id=kwargs["experiment_id"])
+
+    def create_score(self, *, score_id: str, **fields) -> None:
+        self.scores[score_id] = fields
+
+    def flush(self) -> None:
+        self.flushed = True
+
+
+class _VerdictGraph:
+    async def astream(
+        self, state: dict, stream_mode: object = None, config: object = None
+    ):
+        if state["input_text"] == "rota":
+            raise RuntimeError("caída")
+        yield ("values", {"verdict": _verdict("fake", 0.8)})
+
+
+def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    path.write_text(
+        json.dumps({"text": "vieja", "predicted": "falsa"}) + "\n", encoding="utf-8"
+    )
+    samples: list[ep.Sample] = [
+        {"text": text, "expected": "falsa"} for text in ("vieja", "nueva", "rota")
+    ]
+    client = _FakeLangfuse(["vieja", "nueva", "rota", "otra"])
+    experiment = ep.LangfuseExperiment(
+        client,
+        "gold-es",
+        samples,
+        "mistral-v2",
+        {"provider": "mistral", "models": {"judge": "m"}, "git": None},
+    )
+
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, _VerdictGraph(), path, run_pending=experiment)
+    )
+
+    nueva, rota = client.experiments
+    # Only the pending samples run, each under its own item.
+    assert (nueva["item"], rota["item"]) == ("nueva", "rota")
+    assert nueva["output"] == {"label": "falsa", "confidence": 0.8}
+    assert nueva["scores"] == [
+        ("abstained", 0.0),
+        ("confidence", 0.8),
+        ("correct", 1.0),
+    ]
+    # A failed sample shows as an error item, and the run carries on.
+    assert rota["output"].startswith("Error:")
+    assert rota["scores"] == []
+    assert nueva["run_name"] == "mistral-v2"
+    assert nueva["metadata"] == {"provider": "mistral", "models": '{"judge": "m"}'}
+    assert nueva["experiment_id"] == rota["experiment_id"] == "id:gold-es/mistral-v2"
+    # The checkpoint still keeps the rows, so the run resumes and reports as before.
+    assert [row["text"] for row in rows] == ["vieja", "nueva"]
+    assert "nueva" in ep.load_checkpoint(path)
+
+
+def test_a_langfuse_run_stops_on_an_error_langfuse_would_only_log() -> None:
+    samples: list[ep.Sample] = [
+        {"text": text, "expected": "falsa"} for text in ("una", "otra")
+    ]
+    client = _FakeLangfuse(["una", "otra"])
+    experiment = ep.LangfuseExperiment(client, "gold-es", samples, "r", {})
+
+    async def broken(sample: ep.Sample) -> ep.EvalRow | None:
+        raise KeyError("verdict")
+
+    with pytest.raises(KeyError, match="verdict"):
+        asyncio.run(experiment(samples, broken))
+
+    # The bug surfaces at the first sample instead of failing every one.
+    assert [run["item"] for run in client.experiments] == ["una"]
+
+
+def test_cancelling_a_langfuse_run_lets_the_running_sample_finish() -> None:
+    samples: list[ep.Sample] = [{"text": "una", "expected": "falsa"}]
+    started = threading.Event()
+    finished: list[str] = []
+
+    class _SlowLangfuse(_FakeLangfuse):
+        def run_experiment(self, *, experiment_id: str, **kwargs) -> None:
+            started.set()
+            time.sleep(0.2)
+            finished.append(experiment_id)
+
+    experiment = ep.LangfuseExperiment(
+        _SlowLangfuse(["una"]), "gold-es", samples, "r", {}
+    )
+
+    async def cancel_mid_sample() -> None:
+        running = asyncio.create_task(experiment(samples, None))  # type: ignore[arg-type]
+        await asyncio.to_thread(started.wait)
+        running.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await running
+
+    asyncio.run(cancel_mid_sample())
+
+    # The checkpoint closes only after the thread's sample is done.
+    assert finished == ["id:gold-es/r"]
+
+
+def test_a_langfuse_run_refuses_samples_its_dataset_lacks() -> None:
+    samples: list[ep.Sample] = [{"text": "nueva", "expected": "falsa"}]
+
+    with pytest.raises(ep.MissingDatasetItemsError, match="1 muestras"):
+        ep.LangfuseExperiment(_FakeLangfuse(["otra"]), "gold-es", samples, "r", {})
+
+
+def test_a_langfuse_run_needs_a_partition_with_a_dataset(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv", ["evaluate_pipeline", "--partition", "train", "--langfuse-run", "r"]
+    )
+
+    with pytest.raises(SystemExit, match="--langfuse-run"):
+        ep.main()
+
+
+def test_prepare_checkpoint_rejects_resuming_under_another_langfuse_run(
+    tmp_path,
+) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    ep.prepare_checkpoint(path, _run())
+
+    # Its run scores would otherwise count rows the experiment never ran.
+    with pytest.raises(ep.CheckpointMismatchError):
+        ep.prepare_checkpoint(path, _run(langfuse_run="mistral-v2"))
+
+
+def test_a_langfuse_run_scores_each_sample_as_compute_metrics_counts_it() -> None:
+    falsa = {"label": "falsa"}
+    verdadera = {"label": "verdadera"}
+
+    def scores(output: dict | None, expected: dict) -> dict:
+        return {
+            e.name: e.value
+            for e in ep.score_sample(output=output, expected_output=expected)
+        }
+
+    assert scores({"label": "falsa", "confidence": 0.8}, falsa) == {
+        "abstained": 0.0,
+        "confidence": 0.8,
+        "correct": 1.0,
+    }
+    assert scores({"label": "falsa", "confidence": 0.7}, verdadera)["correct"] == 0.0
+    # An abstention scores no correctness.
+    assert scores({"label": "incierta", "confidence": 0.0}, falsa) == {
+        "abstained": 1.0,
+        "confidence": 0.0,
+    }
+    assert scores({"label": None, "confidence": 0.0}, falsa)["abstained"] == 1.0
+
+
+def test_a_resumed_langfuse_run_updates_its_metrics_in_the_same_experiment() -> None:
+    samples: list[ep.Sample] = [{"text": "nueva", "expected": "falsa"}]
+    client = _FakeLangfuse(["nueva"])
+    metrics = {name: 0.5 for name in ep.RUN_SCORES}
+
+    async def evaluate(sample: ep.Sample) -> ep.EvalRow:
+        return {**_row("falsa", "falsa"), "text": sample["text"]}
+
+    first = ep.LangfuseExperiment(client, "gold-es", samples, "mistral-v2", {})
+    asyncio.run(first(samples, evaluate))
+    first.record_metrics(metrics)
+    resumed = ep.LangfuseExperiment(client, "gold-es", samples, "mistral-v2", {})
+    asyncio.run(resumed(samples, evaluate))
+    resumed.record_metrics({**metrics, "accuracy": 0.75})
+
+    assert len(client.scores) == len(ep.RUN_SCORES)
+    assert client.scores["id:gold-es/mistral-v2-accuracy"] == {
+        "dataset_run_id": "id:gold-es/mistral-v2",
+        "name": "accuracy",
+        "value": 0.75,
+    }
+    assert client.flushed
+
+
+def test_a_resume_with_nothing_pending_still_records_the_run_scores() -> None:
+    client = _FakeLangfuse(["nueva"])
+    experiment = ep.LangfuseExperiment(client, "gold-es", [], "r", {})
+
+    asyncio.run(experiment([], None))  # type: ignore[arg-type]
+    experiment.record_metrics({name: 1.0 for name in ep.RUN_SCORES})
+
+    # A run killed before its scores were sent gets them on the next resume.
+    assert client.experiments == []
+    assert set(client.scores) == {f"id:gold-es/r-{name}" for name in ep.RUN_SCORES}
+
+
+@pytest.mark.parametrize("name", ["mistral/v2", "run:2026-11", "a b"])
+def test_a_langfuse_run_name_must_be_safe_in_a_file_name(name: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        ep.langfuse_run_name(name)
+
+    assert ep.langfuse_run_name("mistral-small_v2.1") == "mistral-small_v2.1"
+
+
+def test_each_langfuse_run_keeps_its_own_default_checkpoint() -> None:
+    plain = ep.default_checkpoint("gold")
+
+    assert plain.name == "eval_pipeline_gold.jsonl"
+    assert ep.default_checkpoint("gold", "mistral-v2") == plain.with_name(
+        "eval_pipeline_gold_mistral-v2.jsonl"
+    )
+
+
+def test_main_turns_the_explanation_off_even_with_settings_already_loaded(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("HEALTH_EXPERT_EXPLANATION_ENABLED", "true")
+    get_settings.cache_clear()
+    assert get_settings().health_expert_explanation_enabled
+
+    class Stop(Exception):
+        pass
+
+    def stop() -> None:
+        raise Stop
+
+    monkeypatch.setattr(ep, "ensure_llm_available", stop)
+    monkeypatch.setattr(
+        "sys.argv", ["evaluate_pipeline", "--checkpoint", str(tmp_path / "c.jsonl")]
+    )
+
+    with pytest.raises(Stop):
+        ep.main()
+
+    assert not get_settings().health_expert_explanation_enabled
+    get_settings.cache_clear()
 
 
 if __name__ == "__main__":
