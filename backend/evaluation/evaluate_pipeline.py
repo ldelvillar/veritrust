@@ -651,6 +651,8 @@ def main() -> dict[str, float]:
     # The report is ~1/3 of the tokens per sample and does not affect the metric.
     if not args.with_explanation:
         os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
+        # Importing the tracing module already loaded the settings, so they are read again.
+        get_settings.cache_clear()
 
     # results/ is git-ignored, and the checkpoint lets a long evaluation resume.
     data = Path(args.data) if args.data else None

@@ -10,6 +10,7 @@ import pytest
 
 from app.agents import investigator as investigator_module
 from app.core.claim import Claim, Evidence
+from app.core.config import get_settings
 from app.core.verdict import Verdict
 from app.utils.evidence import EvidenceRetrievalError
 from evaluation import evaluate_pipeline as ep
@@ -744,6 +745,31 @@ def test_a_langfuse_run_needs_a_partition_with_a_dataset(monkeypatch) -> None:
 
     with pytest.raises(SystemExit, match="--langfuse-run"):
         ep.main()
+
+
+def test_main_turns_the_explanation_off_even_with_settings_already_loaded(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("HEALTH_EXPERT_EXPLANATION_ENABLED", "true")
+    get_settings.cache_clear()
+    assert get_settings().health_expert_explanation_enabled
+
+    class Stop(Exception):
+        pass
+
+    def stop() -> None:
+        raise Stop
+
+    monkeypatch.setattr(ep, "ensure_llm_available", stop)
+    monkeypatch.setattr(
+        "sys.argv", ["evaluate_pipeline", "--checkpoint", str(tmp_path / "c.jsonl")]
+    )
+
+    with pytest.raises(Stop):
+        ep.main()
+
+    assert not get_settings().health_expert_explanation_enabled
+    get_settings.cache_clear()
 
 
 if __name__ == "__main__":
