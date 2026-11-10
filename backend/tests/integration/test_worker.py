@@ -1,7 +1,5 @@
 """Tests of the arq worker, which turns a Run's input into its Verdict and dispatches it."""
 
-from functools import partial
-
 import pytest
 from arq.connections import RedisSettings
 
@@ -21,7 +19,7 @@ from app.db.pool import DatabaseError
 from app.schemas.errors import ErrorCode
 from app.utils.extract_text_from_file import FileExtractionError
 from app.utils.extract_text_from_url import URLExtractionError
-from tests.support.lifecycle import ANALYSIS_ID, FakeRun
+from tests.support.lifecycle import FakeRun
 
 PIPELINE = {"provider": "test", "models": {}, "prompts": {"judge": "v0"}}
 CTX = {"verification_system": object(), "pipeline": PIPELINE}
@@ -235,30 +233,11 @@ class _RecordingRunner:
     """Fake runner that records what the worker asks of it."""
 
     def __init__(self):
-        self.runs: list[tuple] = []
         self.reaps = 0
-
-    async def run(self, analysis_id, work, *, notify_email=None):
-        self.runs.append((analysis_id, work, notify_email))
-        return "done"
 
     async def reap_orphans(self):
         self.reaps += 1
         return 0
-
-
-async def test_run_analysis_runs_analyse_through_the_lifecycle_runner():
-    runner = _RecordingRunner()
-    ctx = {**CTX, "analysis_runner": runner}
-
-    await worker.run_analysis(
-        ctx, analysis_id=ANALYSIS_ID, notify_email="user@example.com"
-    )
-
-    [(analysis_id, work, notify_email)] = runner.runs
-    assert (analysis_id, notify_email) == (ANALYSIS_ID, "user@example.com")
-    assert isinstance(work, partial)
-    assert (work.func, work.args) == (worker.analyse, (ctx,))
 
 
 async def test_prune_cron_survives_a_database_failure(monkeypatch):

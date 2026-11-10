@@ -77,7 +77,7 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         file_filename=row["file_filename"],
         share_token=row["share_token"],
         # stage is not in _HISTORY_COLUMNS because the by-id query adds it separately.
-        stage=row.get("stage"),
+        stage=row["stage"],
     )
 
 

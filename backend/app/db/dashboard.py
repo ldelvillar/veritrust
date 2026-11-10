@@ -24,13 +24,6 @@ from app.schemas.dashboard import (
 logger = logging.getLogger(__name__)
 
 
-def _sanitize_dashboard_params(*, trend_days: int, alert_limit: int) -> tuple[int, int]:
-    """Normalise dashboard parameters to keep safe limits."""
-    safe_trend_days = max(7, min(trend_days, 90))
-    safe_alert_limit = max(1, min(alert_limit, 20))
-    return safe_trend_days, safe_alert_limit
-
-
 def _extract_kpis_values(
     kpi_row: Sequence[Any] | None,
 ) -> tuple[int, float | None, int, int, int, int, float, int]:
@@ -200,10 +193,6 @@ async def get_user_dashboard_summary(
 ) -> DashboardSummaryResponse:
     """Fetch aggregated metrics for the user's dashboard."""
     pool = await get_pool()
-    safe_trend_days, safe_alert_limit = _sanitize_dashboard_params(
-        trend_days=trend_days,
-        alert_limit=alert_limit,
-    )
 
     kpis_query = f"""
         SELECT
@@ -284,7 +273,7 @@ async def get_user_dashboard_summary(
     """
 
     trend_start_date = datetime.now(timezone.utc).date() - timedelta(
-        days=safe_trend_days - 1
+        days=trend_days - 1
     )
 
     try:
@@ -302,7 +291,7 @@ async def get_user_dashboard_summary(
                 await cur.execute(domain_query, (user_id,))
                 domain_rows = await cur.fetchall()
 
-                await cur.execute(alerts_query, (user_id, safe_alert_limit))
+                await cur.execute(alerts_query, (user_id, alert_limit))
                 alert_rows = await cur.fetchall()
     except psycopg.Error as exc:
         logger.exception(
@@ -348,7 +337,7 @@ async def get_user_dashboard_summary(
     trend_points = _build_trend_points(
         trend_rows=trend_rows,
         trend_start_date=trend_start_date,
-        trend_days=safe_trend_days,
+        trend_days=trend_days,
     )
     source_breakdown = _build_source_breakdown(source_rows)
     domain_breakdown = _build_domain_breakdown(domain_rows=domain_rows, limit=5)

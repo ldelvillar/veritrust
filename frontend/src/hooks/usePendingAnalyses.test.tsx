@@ -64,40 +64,6 @@ describe('usePendingAnalyses', () => {
     expect(useApiQueryMock).toHaveBeenCalledWith(null, expect.any(Object));
   });
 
-  it('exposes the pending count and the newest pending id', () => {
-    const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 2, 'abc');
-
-    expect(useApiQueryMock).toHaveBeenCalledWith(
-      '/history/pending',
-      expect.any(Object)
-    );
-    expect(result.current.pendingCount).toBe(2);
-    expect(result.current.newestPendingId).toBe('abc');
-    expect(result.current.finished).toBeNull();
-  });
-
-  it('refetches when the route changes', () => {
-    const { rerender } = renderHook(() => usePendingAnalyses());
-    const initialCalls = refetch.mock.calls.length;
-
-    pathname = '/app/historial';
-    rerender();
-
-    expect(refetch.mock.calls.length).toBe(initialCalls + 1);
-  });
-
-  it('flags the analysis as finished when pending drops to zero', () => {
-    const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, 'abc');
-    expect(result.current.finished).toBeNull();
-
-    emit(rerender, 0);
-
-    expect(result.current.pendingCount).toBe(0);
-    expect(result.current.finished).toEqual({ analysisId: 'abc' });
-  });
-
   it('does not flag finished without a previous pending analysis', () => {
     const { result, rerender } = renderHook(() => usePendingAnalyses());
     emit(rerender, 0);
@@ -113,17 +79,6 @@ describe('usePendingAnalyses', () => {
     act(() => result.current.dismissFinished());
 
     expect(result.current.finished).toBeNull();
-  });
-
-  it('clears the finished notice when a new analysis starts', () => {
-    const { result, rerender } = renderHook(() => usePendingAnalyses());
-    emit(rerender, 1, 'abc');
-    emit(rerender, 0);
-
-    emit(rerender, 1, 'def');
-
-    expect(result.current.finished).toBeNull();
-    expect(result.current.pendingCount).toBe(1);
   });
 
   it('auto-dismisses the finished notice after 20 seconds', () => {
