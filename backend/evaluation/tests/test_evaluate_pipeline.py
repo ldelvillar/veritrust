@@ -92,7 +92,9 @@ def test_evaluate_pipeline_records_the_raw_falsehood_the_band_saw() -> None:
     samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
 
     class FakeGraph:
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             yield ("values", {"verdict": _verdict("fake", 0.5425, falsehood=0.62)})
 
     [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
@@ -121,7 +123,9 @@ def test_evaluate_pipeline_records_every_claim_evidence_before_the_report_cap() 
     ]
 
     class FakeGraph:
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             # The report only showed the first Source and the row keeps both.
             shown = [replace(found[0], evidence=found[0].evidence[:1]), *found[1:]]
             yield (
@@ -235,7 +239,9 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
 
     # ainvoke_graph consumes the graph by streaming (astream), not ainvoke.
     class FakeGraph:
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             if "sin" in state["input_text"]:
                 yield ("values", {"verdict": None, "medical_explanation": ""})
             else:
@@ -258,7 +264,9 @@ def test_evaluate_pipeline_records_the_explanation() -> None:
     samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
 
     class FakeGraph:
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             yield (
                 "values",
                 {"verdict": _verdict("fake", 0.8), "medical_explanation": "informe"},
@@ -334,7 +342,9 @@ def test_evaluate_pipeline_resumes_and_appends(tmp_path) -> None:
         def __init__(self) -> None:
             self.seen: list[str] = []
 
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             self.seen.append(state["input_text"])
             yield (
                 "values",
@@ -361,7 +371,9 @@ def test_evaluate_pipeline_skips_failed_samples_for_retry(tmp_path) -> None:
     ]
 
     class FakeGraph:
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             if state["input_text"] == "rompe":
                 raise RuntimeError("boom")
             yield (
@@ -590,7 +602,9 @@ def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(
         def __init__(self) -> None:
             self.hits: list[dict] = []
 
-        async def astream(self, state: dict, stream_mode: object = None):
+        async def astream(
+            self, state: dict, stream_mode: object = None, config: object = None
+        ):
             self.hits = investigator_module.search_pubmed("q", max_results=3)
             yield ("values", {"verdict": _verdict("fake", 0.8)})
 

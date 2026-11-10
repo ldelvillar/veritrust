@@ -159,6 +159,7 @@ Requires DNS `A` records for the app domain, its `www.` and the API domain, inbo
 - [monitoring.md](docs/deploy/monitoring.md) — uptime checks + alerting
 - [ops.md](docs/deploy/ops.md) — hardening, log rotation, day-2 operations
 - [stripe.md](docs/deploy/stripe.md) — Stripe Dashboard setup, local billing development and webhook operations
+- [langfuse-pricing.md](docs/deploy/langfuse-pricing.md) — model prices so Langfuse traces show LLM costs
 
 ## Development
 

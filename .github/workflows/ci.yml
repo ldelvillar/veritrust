@@ -43,6 +43,7 @@ jobs:
               - 'backend/app/**'
               - 'backend/db/**'
               - 'backend/tests/**'
+              - 'backend/conftest.py'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
               - 'backend/.python-version'
@@ -50,6 +51,7 @@ jobs:
             backend_evaluation:
               - 'backend/evaluation/**'
               - 'backend/data/**'
+              - 'backend/conftest.py'
               - 'backend/uv.lock'
               - 'backend/pyproject.toml'
               - 'backend/.python-version'

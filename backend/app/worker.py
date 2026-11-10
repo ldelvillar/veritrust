@@ -6,6 +6,7 @@ from functools import partial
 
 from arq import cron, func, run_worker
 from arq.connections import RedisSettings
+from langfuse import propagate_attributes
 
 from app.agents.errors import (
     EvidenceUnavailable,
@@ -30,6 +31,7 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.tracing import langfuse
 from app.db.billing import record_evidence_search
 from app.db.deleted_users import UserDeleted, prune_expired
 from app.db.pool import DatabaseError, close_pool, get_pool
@@ -89,9 +91,11 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
 
     await run.stage_finished("preparing")
     try:
-        result = await ainvoke_graph(
-            ctx["verification_system"], initial_state, on_stage=run.stage_finished
-        )
+        # The Analysis id is the session, so every Run of one Analysis groups together.
+        with propagate_attributes(session_id=run.analysis_id):
+            result = await ainvoke_graph(
+                ctx["verification_system"], initial_state, on_stage=run.stage_finished
+            )
     except OllamaConnectionError as exc:
         logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
@@ -215,9 +219,13 @@ async def startup(ctx: dict) -> None:
     logger.info("[Worker] Listo para procesar análisis")
 
 
-async def shutdown() -> None:
-    """Close the database pool when the worker stops."""
-    await close_pool()
+async def shutdown(ctx: dict) -> None:
+    """Close the database pool and send pending traces when the worker stops."""
+    try:
+        await close_pool()
+    finally:
+        # Last, so a slow Langfuse can only lose traces, never leave the pool open.
+        await asyncio.to_thread(langfuse.flush)
 
 
 class WorkerSettings:

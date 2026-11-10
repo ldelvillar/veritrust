@@ -183,6 +183,11 @@ class Settings(BaseSettings):
     # How long an MCP call waits before answering that the work is still pending.
     mcp_tool_wait_seconds: int = 240
 
+    # Langfuse tracing, off unless both keys are set.
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+
     @field_validator("app_base_url")
     @classmethod
     def _normalise_app_base_url(cls, value: str) -> str:
@@ -194,6 +199,12 @@ class Settings(BaseSettings):
     def _drop_trailing_slashes(cls, value: str | None) -> str | None:
         """Drop the trailing slashes, so the OAuth resource and the token issuer are canonical strings."""
         return value.rstrip("/") if value else value
+
+    @field_validator("langfuse_public_key", "langfuse_secret_key")
+    @classmethod
+    def _strip_langfuse_keys(cls, value: str) -> str:
+        """Strip surrounding whitespace, so a blank key is unset."""
+        return value.strip()
 
     def cors_origins(self) -> list[str]:
         """List of allowed origins, falling back to localhost only in development."""
@@ -234,6 +245,10 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Tell whether the process runs with ENVIRONMENT=development."""
         return self.environment.strip().lower() == "development"
+
+    def langfuse_enabled(self) -> bool:
+        """Tell whether both Langfuse keys are set, so traces are sent."""
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
 
     def llm_provider_name(self) -> str:
         """Return the LLM provider normalised to lowercase."""
@@ -287,6 +302,12 @@ class Settings(BaseSettings):
                     missing.append(name.upper())
         if web and not (self.mcp_resource_url or "").strip():
             missing.append("MCP_RESOURCE_URL")
+        # One Langfuse key without the other would silently leave tracing off.
+        has_public = bool(self.langfuse_public_key)
+        if has_public != bool(self.langfuse_secret_key):
+            missing.append(
+                "LANGFUSE_SECRET_KEY" if has_public else "LANGFUSE_PUBLIC_KEY"
+            )
 
         if missing:
             raise SettingsValidationError(
@@ -307,6 +328,8 @@ class Settings(BaseSettings):
             url_settings.insert(0, "ollama_base_url")
         if web:
             url_settings.append("mcp_resource_url")
+        if self.langfuse_enabled():
+            url_settings.append("langfuse_base_url")
         urls = {name: getattr(self, name) or "" for name in url_settings}
         if self.clerk_issuer:
             urls["clerk_issuer"] = self.clerk_issuer
