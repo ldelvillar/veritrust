@@ -6,6 +6,7 @@ from functools import partial
 
 from arq import cron, func, run_worker
 from arq.connections import RedisSettings
+from langfuse import propagate_attributes
 
 from app.agents.errors import (
     EvidenceUnavailable,
@@ -89,9 +90,11 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
 
     await run.stage_finished("preparing")
     try:
-        result = await ainvoke_graph(
-            ctx["verification_system"], initial_state, on_stage=run.stage_finished
-        )
+        # The Analysis id is the session, so every Run of one Analysis groups together.
+        with propagate_attributes(session_id=run.analysis_id):
+            result = await ainvoke_graph(
+                ctx["verification_system"], initial_state, on_stage=run.stage_finished
+            )
     except OllamaConnectionError as exc:
         logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
