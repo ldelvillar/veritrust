@@ -248,7 +248,13 @@ def load_recorded_evidence(path: Path) -> dict[str, list[EvidenceCall]]:
 
 
 # Run identity, since resuming with other values would mix configurations under one header.
-_RUN_IDENTITY_KEYS = ("provider", "models", "prompts", "replay_evidence")
+_RUN_IDENTITY_KEYS = (
+    "provider",
+    "models",
+    "prompts",
+    "replay_evidence",
+    "langfuse_run",
+)
 
 
 class CheckpointMismatchError(ValueError):
@@ -277,6 +283,7 @@ def describe_run(
     partition: str,
     seed: int,
     replay_evidence: str | None = None,
+    langfuse_run: str | None = None,
 ) -> dict:
     """Summarise the pipeline configuration that produces a checkpoint's rows."""
     return {
@@ -285,6 +292,8 @@ def describe_run(
         "seed": seed,
         "git": git_describe(),
         "replay_evidence": replay_evidence,
+        # Part of the identity, so an experiment's run scores only count its own rows.
+        "langfuse_run": langfuse_run,
     }
 
 
@@ -309,7 +318,9 @@ def prepare_checkpoint(path: Path, run: dict) -> dict:
         )
         return run
     recorded = read_checkpoint_run(path)
-    if recorded is None or any(recorded.get(k) != run[k] for k in _RUN_IDENTITY_KEYS):
+    if recorded is None or any(
+        recorded.get(k) != run.get(k) for k in _RUN_IDENTITY_KEYS
+    ):
         raise CheckpointMismatchError(
             f"El checkpoint {path} se generó con otra configuración o no la registra; "
             "usa --fresh u otro --checkpoint para no mezclar resultados."
@@ -359,6 +370,10 @@ def score_sample(
     return scores
 
 
+class SampleFailedError(RuntimeError):
+    """The sample failed and is left for the resume, which Langfuse shows as an error item."""
+
+
 class LangfuseExperiment:
     """Run the pending samples as a scored Langfuse experiment, so each sample's trace is linked to its dataset item."""
 
@@ -390,38 +405,55 @@ class LangfuseExperiment:
             for key, value in run.items()
             if value is not None
         }
-        # Derived from the run's name, so a resumed run adds to the same experiment.
-        self.experiment_id = client.create_trace_id(seed=f"{dataset_name}/{run_name}")
+        # Set by the first sample that runs, since Langfuse derives it from the dataset and run name.
+        self.experiment_id: str | None = None
 
     async def __call__(self, pending: list[Sample], evaluate: EvaluateSample) -> None:
-        """Evaluate the pending samples, each under its dataset item."""
-        by_text = {sample["text"]: sample for sample in pending}
+        """Evaluate the pending samples one at a time, each under its dataset item."""
+        for sample in pending:
+            await self._run_one(sample, evaluate)
 
-        async def task(*, item: Any, **_: Any) -> dict | None:
-            row = await evaluate(by_text[item.input["text"]])
+    async def _run_one(self, sample: Sample, evaluate: EvaluateSample) -> None:
+        """Evaluate one sample as an experiment item and raise any error Langfuse would only log."""
+        unexpected: list[Exception] = []
+
+        async def task(*, item: Any, **_: Any) -> dict:
+            try:
+                row = await evaluate(sample)
+            except Exception as exc:
+                unexpected.append(exc)
+                raise
+            if row is None:
+                raise SampleFailedError("La muestra falló; se reintentará al reanudar.")
             # The full row stays in the checkpoint, and the trace already shows the Evidence.
-            return (
-                {"label": row["predicted"], "confidence": row["confidence"]}
-                if row
-                else None
-            )
+            return {"label": row["predicted"], "confidence": row["confidence"]}
 
         # run_experiment starts its own event loop, so it runs in a thread.
-        await asyncio.to_thread(
-            self._client.run_experiment,
-            name=f"pipeline-{self._dataset_name}",
-            run_name=self._run_name,
-            experiment_id=self.experiment_id,
-            data=[self._items[sample["text"]] for sample in pending],
-            task=task,
-            evaluators=[score_sample],
-            # The tape swaps the investigator's searches for the whole module, so samples cannot overlap.
-            max_concurrency=1,
-            metadata=self._metadata,
+        running = asyncio.ensure_future(
+            asyncio.to_thread(
+                self._client.run_experiment,
+                name=f"pipeline-{self._dataset_name}",
+                run_name=self._run_name,
+                data=[self._items[sample["text"]]],
+                task=task,
+                evaluators=[score_sample],
+                metadata=self._metadata,
+            )
         )
+        try:
+            result = await asyncio.shield(running)
+        except asyncio.CancelledError:
+            # A thread cannot be cancelled, so the sample finishes before the checkpoint closes.
+            await running
+            raise
+        self.experiment_id = result.experiment_id
+        if unexpected:
+            raise unexpected[0]
 
     def record_metrics(self, metrics: dict[str, float]) -> None:
         """Score the experiment with the metrics of all its rows, resumed ones included."""
+        if self.experiment_id is None:
+            return
         for name in RUN_SCORES:
             self._client.create_score(
                 dataset_run_id=self.experiment_id,
@@ -749,6 +781,7 @@ def main() -> dict[str, float]:
                 partition=source,
                 seed=args.seed,
                 replay_evidence=str(replay_path) if replay_path else None,
+                langfuse_run=args.langfuse_run,
             ),
         )
     except CheckpointMismatchError as exc:
