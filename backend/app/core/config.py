@@ -187,8 +187,6 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_base_url: str = "https://cloud.langfuse.com"
-    # Redact span content so traces carry no submitted text, off only where the text is not users'.
-    langfuse_mask_content: bool = True
 
     @field_validator("app_base_url")
     @classmethod
@@ -241,6 +239,12 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Tell whether the process runs with ENVIRONMENT=development."""
         return self.environment.strip().lower() == "development"
+
+    def langfuse_enabled(self) -> bool:
+        """Tell whether both Langfuse keys are set, so traces are sent."""
+        return bool(
+            self.langfuse_public_key.strip() and self.langfuse_secret_key.strip()
+        )
 
     def llm_provider_name(self) -> str:
         """Return the LLM provider normalised to lowercase."""
@@ -295,11 +299,10 @@ class Settings(BaseSettings):
         if web and not (self.mcp_resource_url or "").strip():
             missing.append("MCP_RESOURCE_URL")
         # One Langfuse key without the other would silently leave tracing off.
-        if bool(self.langfuse_public_key) != bool(self.langfuse_secret_key):
+        has_public = bool(self.langfuse_public_key.strip())
+        if has_public != bool(self.langfuse_secret_key.strip()):
             missing.append(
-                "LANGFUSE_SECRET_KEY"
-                if self.langfuse_public_key
-                else "LANGFUSE_PUBLIC_KEY"
+                "LANGFUSE_SECRET_KEY" if has_public else "LANGFUSE_PUBLIC_KEY"
             )
 
         if missing:

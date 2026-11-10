@@ -314,7 +314,7 @@ async def test_shutdown_closes_db_pool(monkeypatch):
 
     monkeypatch.setattr(worker, "close_pool", fake_close_pool)
 
-    await worker.shutdown()
+    await worker.shutdown({})
 
     assert closed == [True]
 

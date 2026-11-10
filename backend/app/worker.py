@@ -219,10 +219,12 @@ async def startup(ctx: dict) -> None:
     logger.info("[Worker] Listo para procesar análisis")
 
 
-async def shutdown() -> None:
-    """Close the database pool and send pending traces when the worker stops."""
-    await asyncio.to_thread(langfuse.flush)
-    await close_pool()
+async def shutdown(ctx: dict) -> None:
+    """Send pending traces and close the database pool when the worker stops."""
+    try:
+        await asyncio.to_thread(langfuse.flush)
+    finally:
+        await close_pool()
 
 
 class WorkerSettings:
