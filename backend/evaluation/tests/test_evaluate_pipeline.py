@@ -1,5 +1,6 @@
 """Unit tests for the multi-agent pipeline evaluation."""
 
+import argparse
 import asyncio
 import json
 import threading
@@ -793,14 +794,13 @@ def test_a_langfuse_run_stops_on_an_error_langfuse_would_only_log() -> None:
 def test_cancelling_a_langfuse_run_lets_the_running_sample_finish() -> None:
     samples: list[ep.Sample] = [{"text": "una", "expected": "falsa"}]
     started = threading.Event()
-    finished: list[bool] = []
+    finished: list[str] = []
 
     class _SlowLangfuse(_FakeLangfuse):
-        def run_experiment(self, **kwargs) -> SimpleNamespace:
+        def run_experiment(self, *, experiment_id: str, **kwargs) -> None:
             started.set()
             time.sleep(0.2)
-            finished.append(True)
-            return SimpleNamespace(experiment_id="exp")
+            finished.append(experiment_id)
 
     experiment = ep.LangfuseExperiment(
         _SlowLangfuse(["una"]), "gold-es", samples, "r", {}
@@ -816,7 +816,7 @@ def test_cancelling_a_langfuse_run_lets_the_running_sample_finish() -> None:
     asyncio.run(cancel_mid_sample())
 
     # The checkpoint closes only after the thread's sample is done.
-    assert finished == [True]
+    assert finished == ["id:gold-es/r"]
 
 
 def test_a_langfuse_run_refuses_samples_its_dataset_lacks() -> None:
@@ -904,6 +904,14 @@ def test_a_resume_with_nothing_pending_still_records_the_run_scores() -> None:
     # A run killed before its scores were sent gets them on the next resume.
     assert client.experiments == []
     assert set(client.scores) == {f"id:gold-es/r-{name}" for name in ep.RUN_SCORES}
+
+
+@pytest.mark.parametrize("name", ["mistral/v2", "run:2026-11", "a b"])
+def test_a_langfuse_run_name_must_be_safe_in_a_file_name(name: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        ep.langfuse_run_name(name)
+
+    assert ep.langfuse_run_name("mistral-small_v2.1") == "mistral-small_v2.1"
 
 
 def test_each_langfuse_run_keeps_its_own_default_checkpoint() -> None:

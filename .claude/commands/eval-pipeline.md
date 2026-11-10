@@ -26,8 +26,9 @@ STEPS:
    When `$ARGUMENTS` names no `--partition`, add `--partition gold`; every other
    flag keeps the harness default. If it fails on a missing
    prerequisite, report exactly which one and stop.
-   - It resumes from its checkpoint (`backend/results/eval_pipeline_<partition>.jsonl`
-     unless `--checkpoint` names another). If it refuses because the checkpoint
+   - It resumes from its checkpoint (`backend/results/eval_pipeline_<partition>.jsonl`,
+     or `eval_pipeline_<partition>_<run>.jsonl` with `--langfuse-run`, unless
+     `--checkpoint` names another). If it refuses because the checkpoint
      was written with another configuration, rerun with a new `--checkpoint`
      path; `--fresh` deletes the old checkpoint, which may be the baseline of a
      paired comparison, so pass it only when the user asks.

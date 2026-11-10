@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import subprocess
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
@@ -670,6 +671,15 @@ def format_report(
     return "\n".join(lines)
 
 
+def langfuse_run_name(value: str) -> str:
+    """Accept a Langfuse run name that is also safe inside the checkpoint's file name."""
+    if not re.fullmatch(r"[\w.-]+", value, flags=re.ASCII):
+        raise argparse.ArgumentTypeError(
+            "usa solo letras, dígitos, '.', '_' y '-' en el nombre de la corrida."
+        )
+    return value
+
+
 def default_checkpoint(source: str, langfuse_run: str | None = None) -> Path:
     """Path of a set's checkpoint under results/, one per Langfuse run so switching runs never needs --fresh."""
     suffix = f"_{langfuse_run}" if langfuse_run else ""
@@ -704,7 +714,7 @@ def main() -> dict[str, float]:
     parser.add_argument(
         "--checkpoint",
         default=None,
-        help="Ruta del checkpoint JSONL (por defecto results/eval_pipeline_<partición>.jsonl).",
+        help="Ruta del checkpoint JSONL (por defecto results/eval_pipeline_<partición>.jsonl, o eval_pipeline_<partición>_<corrida>.jsonl con --langfuse-run).",
     )
     parser.add_argument(
         "--fresh",
@@ -725,8 +735,9 @@ def main() -> dict[str, float]:
     parser.add_argument(
         "--langfuse-run",
         default=None,
+        type=langfuse_run_name,
         metavar="NOMBRE",
-        help="Registra la corrida como experimento de Langfuse con este nombre, sobre el dataset de la partición.",
+        help="Registra la corrida como experimento de Langfuse con este nombre, sobre el dataset de la partición; usa un nombre nuevo por corrida desde cero.",
     )
     args = parser.parse_args()
 
@@ -814,7 +825,8 @@ def main() -> dict[str, float]:
         )
     )
     metrics = compute_metrics(rows)
-    if experiment is not None:
+    # With no row the metrics are all zero, which would score a run that never got a Verdict.
+    if experiment is not None and rows:
         experiment.record_metrics(metrics)
 
     print(format_report(metrics, rows, run))
