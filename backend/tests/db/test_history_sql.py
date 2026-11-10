@@ -34,13 +34,17 @@ pytestmark = pytest.mark.db
 USER = "user-a"
 
 
-async def _pending(text: str = "La vitamina C previene el resfriado") -> str:
-    return await seed_pending(user_id=USER, request=AnalysisRequest(text=text))
+async def _pending(
+    text: str = "La vitamina C previene el resfriado", origin: str = "web"
+) -> str:
+    return await seed_pending(
+        user_id=USER, request=AnalysisRequest(text=text), origin=origin
+    )
 
 
 async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
     """The claims and the Sources JSONB come back exactly as the worker stored them."""
-    analysis_id = await _pending()
+    analysis_id = await _pending(origin="mcp")
     claims = [
         {
             "text": "Afirmación con eñes y tildes: ñá",
@@ -75,7 +79,8 @@ async def test_completed_analysis_round_trips_claims_and_sources(db_pool):
         user_id=USER, analysis_id=analysis_id, visible_since=None
     )
     assert record is not None
-    assert record.status == "done"
+    assert (record.status, record.origin) == ("done", "mcp")
+    assert record.completed_at is not None
     assert record.label == "falsa"
     assert record.confidence == pytest.approx(0.91)
     assert record.evidence_coverage == pytest.approx(0.5)
@@ -114,6 +119,10 @@ async def test_share_token_issued_only_for_done_rows(db_pool):
     assert (
         await set_analysis_share_token(user_id=USER, analysis_id=analysis_id) == token
     )
+    record = await get_user_analysis_by_id(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
+    assert record is not None and record.share_token == token
 
     shared = await get_shared_analysis_by_token(token=token)
     assert shared is not None
@@ -168,6 +177,19 @@ async def test_status_poll_reads_only_the_owners_status_and_stage(db_pool):
         )
         is None
     )
+
+
+async def test_full_read_reports_the_stage_of_a_running_analysis(db_pool):
+    """The MCP result shows the running stage as progress, read from the full record."""
+    analysis_id = await _pending()
+    await seed_stage(analysis_id=analysis_id, stage="translator")
+
+    record = await get_user_analysis_by_id(
+        user_id=USER, analysis_id=analysis_id, visible_since=None
+    )
+
+    assert record is not None
+    assert (record.status, record.stage) == ("pending", "translator")
 
 
 async def test_rows_are_isolated_per_user(db_pool):

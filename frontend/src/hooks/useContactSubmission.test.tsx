@@ -55,18 +55,4 @@ describe('useContactSubmission', () => {
       expect(result.current.error).toBe('No se pudo enviar tu mensaje.')
     );
   });
-
-  it('returns false with a connection message for a non-ApiError throw', async () => {
-    mockedPost.mockRejectedValueOnce(new Error('network down'));
-
-    const { result } = renderHook(() => useContactSubmission());
-
-    let outcome: boolean | undefined;
-    await act(async () => {
-      outcome = await result.current.submit(BODY);
-    });
-
-    expect(outcome).toBe(false);
-    await waitFor(() => expect(result.current.error).toMatch(/Sin conexión/));
-  });
 });

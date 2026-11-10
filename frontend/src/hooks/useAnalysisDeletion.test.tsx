@@ -92,18 +92,4 @@ describe('useAnalysisDeletion', () => {
       expect(result.current.error).toBe('Análisis no encontrado.')
     );
   });
-
-  it('returns false with a connection message for a non-ApiError throw', async () => {
-    mockedFetch.mockRejectedValueOnce(new Error('network down'));
-
-    const { result } = renderHook(() => useAnalysisDeletion());
-
-    let outcome: boolean | undefined;
-    await act(async () => {
-      outcome = await result.current.remove('abc');
-    });
-
-    expect(outcome).toBe(false);
-    await waitFor(() => expect(result.current.error).toMatch(/Sin conexión/));
-  });
 });

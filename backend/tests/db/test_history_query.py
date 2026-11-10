@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.db.history import set_analysis_share_token
 from app.db.history_query import (
     HISTORY_LIST_TEXT_CHARS,
     HistoryPage,
@@ -351,6 +352,17 @@ async def test_list_truncates_the_input_text_and_omits_the_report(db_pool):
     assert not hasattr(row, "claims")
 
 
+async def test_list_carries_the_share_token(db_pool):
+    """The table draws the "Compartido" badge from each row's share token."""
+    analysis_id = await _done("Un análisis compartido", "falsa")
+    token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
+    assert token
+
+    page = await _search()
+
+    assert page.items[0].share_token == token
+
+
 async def test_list_reports_the_stage_of_a_running_analysis(db_pool):
     """The History's pending row shows how far the pipeline has got."""
     analysis_id = await _pending("Un análisis todavía en marcha")
@@ -399,5 +411,3 @@ async def test_export_carries_the_verdict_but_not_the_report(db_pool):
     assert not hasattr(record, "explanation")
     assert not hasattr(record, "claims")
     assert not hasattr(record, "sources")
-    # The Export does not select stage, which is not a CSV column.
-    assert record.stage is None

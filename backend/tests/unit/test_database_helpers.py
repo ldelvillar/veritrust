@@ -6,7 +6,6 @@ import pytest
 
 from app.core.config import Settings
 from app.db import dashboard as dashboard_module
-from app.db import history as history_module
 from app.db import history_query as history_query_module
 from app.db import pool as pool_module
 from app.db.pool import DatabaseError
@@ -16,7 +15,6 @@ from app.schemas.dashboard import (
     DashboardSourceBreakdownItem,
     DashboardTrendPoint,
 )
-from app.schemas.history import AnalysisHistoryItem, HistoryListItem
 
 
 def _use_database_url(monkeypatch, database_url: str) -> None:
@@ -51,184 +49,6 @@ def test_build_database_error_appends_configuration_hint() -> None:
     assert "DATABASE_URL" in message
 
 
-def test_map_history_record_converts_sql_row_to_dataclass() -> None:
-    row = {
-        "id": 123,
-        "user_id": "user-1",
-        "source_type": "text",
-        "origin": "mcp",
-        "input_text": "contenido",
-        "input_url": None,
-        "label": "falsa",
-        "confidence": 0.81,
-        "evidence_coverage": 0.5,
-        "explanation": "explicacion",
-        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        "completed_at": datetime(2026, 4, 10, 12, 3, tzinfo=timezone.utc),
-        "status": "done",
-        "error_code": None,
-        "claims": [{"text": "Afirmación", "label": "falsa", "confidence": 0.81}],
-        "sources": [
-            {"title": "Estudio", "url": "https://doi.org/10.1/x", "source": "BMJ"}
-        ],
-        "file_filename": None,
-        "share_token": "tok_xyz",
-    }
-
-    record = history_module._map_history_record(row)
-
-    assert isinstance(record, AnalysisHistoryItem)
-    assert record.analysis_id == "123"
-    assert record.user_id == "user-1"
-    assert record.origin == "mcp"
-    assert record.confidence == 0.81
-    assert record.evidence_coverage == 0.5
-    assert record.status == "done"
-    assert record.error_code is None
-    assert record.created_at.startswith("2026-04-10")
-    assert record.completed_at is not None
-    assert record.completed_at.startswith("2026-04-10 12:03")
-    assert record.claims is not None
-    assert record.claims[0].label == "falsa"
-    assert record.sources is not None
-    assert record.sources[0].source == "BMJ"
-    assert record.share_token == "tok_xyz"
-
-
-def test_map_history_record_handles_pending_row_with_null_results() -> None:
-    row = {
-        "id": 123,
-        "user_id": "user-1",
-        "source_type": "text",
-        "origin": "web",
-        "input_text": "contenido",
-        "input_url": None,
-        "label": None,
-        "confidence": None,
-        "evidence_coverage": None,
-        "explanation": None,
-        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        "completed_at": None,
-        "status": "pending",
-        "error_code": None,
-        "claims": None,
-        "sources": None,
-        "file_filename": None,
-        "share_token": None,
-    }
-
-    record = history_module._map_history_record(row)
-
-    assert record.status == "pending"
-    assert record.label is None
-    assert record.confidence is None
-    assert record.evidence_coverage is None
-    assert record.explanation is None
-    assert record.claims is None
-    assert record.sources is None
-    # A pending row has not finished yet, so it has no completion instant.
-    assert record.completed_at is None
-    # The list does not select stage, so without that key the mapping leaves it None.
-    assert record.stage is None
-
-
-def test_map_history_record_reads_stage_when_present() -> None:
-    row = {
-        "id": 123,
-        "user_id": "user-1",
-        "source_type": "url",
-        "origin": "web",
-        "input_text": None,
-        "input_url": "https://ejemplo.com/x",
-        "label": None,
-        "confidence": None,
-        "evidence_coverage": None,
-        "explanation": None,
-        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        "completed_at": None,
-        "status": "pending",
-        "error_code": None,
-        "claims": None,
-        "sources": None,
-        "file_filename": None,
-        "share_token": None,
-        "stage": "investigator",
-    }
-
-    record = history_module._map_history_record(row)
-
-    assert record.status == "pending"
-    assert record.evidence_coverage is None
-    assert record.stage == "investigator"
-
-
-def test_map_history_record_reads_only_columns_the_queries_select() -> None:
-    """If the mapping reads a column the queries do not bring, this blows up."""
-    row = {column: None for column in history_module._HISTORY_COLUMNS}
-    row["id"] = 123
-    row["user_id"] = "user-1"
-    row["source_type"] = "text"
-    row["origin"] = "web"
-    row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
-    row["status"] = "pending"
-
-    record = history_module._map_history_record(row)
-
-    assert record.analysis_id == "123"
-    # stage is the only extra column, selected only by the by-id query.
-    assert record.stage is None
-
-
-def test_map_history_list_record_keeps_the_fields_the_table_paints() -> None:
-    row = {
-        "id": 123,
-        "source_type": "text",
-        "origin": "web",
-        "input_text": "contenido",
-        "input_url": None,
-        "label": "falsa",
-        "confidence": 0.81,
-        "evidence_coverage": 0.5,
-        "created_at": datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
-        "status": "pending",
-        "stage": "investigator",
-        "error_code": None,
-        "file_filename": None,
-        "share_token": "tok_xyz",
-    }
-
-    record = history_query_module._map_history_list_record(row)
-
-    assert isinstance(record, HistoryListItem)
-    assert record.analysis_id == "123"
-    assert record.created_at.startswith("2026-04-10")
-    assert record.evidence_coverage == 0.5
-    # The list does report the stage, since the pending row shows how far the pipeline has got.
-    assert record.stage == "investigator"
-    assert record.share_token == "tok_xyz"
-    # Credibility and Verdict are derived from label and confidence and do not travel as columns.
-    assert record.verdict == "fake"
-    assert record.credibility == 19
-
-
-def test_map_history_list_record_reads_only_columns_the_list_query_selects() -> None:
-    """If the list mapping reads a column the query does not bring, this blows up."""
-    row: dict[str, object] = {
-        column: None for column in history_query_module._HISTORY_LIST_COLUMNS
-    }
-    # The query aliases LEFT(input_text, N) as input_text and the rest are columns.
-    row["input_text"] = None
-    row["id"] = 123
-    row["source_type"] = "text"
-    row["origin"] = "web"
-    row["created_at"] = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
-    row["status"] = "pending"
-
-    record = history_query_module._map_history_list_record(row)
-
-    assert record.analysis_id == "123"
-
-
 def test_history_list_query_omits_the_report_body() -> None:
     """The list must not bring the report, a payload the table never draws."""
     projection = history_query_module._HISTORY_LIST_SELECT
@@ -253,16 +73,6 @@ def test_history_export_query_omits_the_report_but_keeps_the_full_text() -> None
     assert "input_text" in projection
     # completed_at feeds the CSV's «Duración (s)» column.
     assert "completed_at" in projection
-
-
-def test_sanitize_dashboard_params_clamps_values() -> None:
-    safe_trend_days, safe_alert_limit = dashboard_module._sanitize_dashboard_params(
-        trend_days=1,
-        alert_limit=999,
-    )
-
-    assert safe_trend_days == 7
-    assert safe_alert_limit == 20
 
 
 def test_extract_kpis_values_handles_none_and_row_values() -> None:

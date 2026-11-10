@@ -18,7 +18,7 @@ from app.schemas.history import (
     PublicAnalysisReport,
 )
 
-# Columns _map_history_record feeds on, where only the by-id query brings the whole report.
+# Columns the by-id query selects for _map_history_record.
 _HISTORY_COLUMNS = (
     "id",
     "user_id",
@@ -38,6 +38,7 @@ _HISTORY_COLUMNS = (
     "sources",
     "file_filename",
     "share_token",
+    "stage",
 )
 _HISTORY_SELECT = ", ".join(_HISTORY_COLUMNS)
 
@@ -76,8 +77,7 @@ def _map_history_record(row: dict[str, Any]) -> AnalysisHistoryItem:
         sources=row["sources"],
         file_filename=row["file_filename"],
         share_token=row["share_token"],
-        # stage is not in _HISTORY_COLUMNS because the by-id query adds it separately.
-        stage=row.get("stage"),
+        stage=row["stage"],
     )
 
 
@@ -118,7 +118,7 @@ async def get_user_analysis_by_id(
     pool = await get_pool()
 
     query = f"""
-        SELECT {_HISTORY_SELECT}, stage, {_HIDDEN_SELECT}
+        SELECT {_HISTORY_SELECT}, {_HIDDEN_SELECT}
         FROM public.analysis_history
         WHERE user_id = %s AND id = %s
         LIMIT 1

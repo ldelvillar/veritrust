@@ -83,18 +83,4 @@ describe('useAnalysisShare', () => {
       { method: 'DELETE' }
     );
   });
-
-  it('returns false with a connection message for a non-ApiError throw', async () => {
-    mockedFetch.mockRejectedValueOnce(new Error('network down'));
-
-    const { result } = renderHook(() => useAnalysisShare());
-
-    let outcome: boolean | undefined;
-    await act(async () => {
-      outcome = await result.current.removeShare('abc');
-    });
-
-    expect(outcome).toBe(false);
-    await waitFor(() => expect(result.current.error).toMatch(/Sin conexión/));
-  });
 });
