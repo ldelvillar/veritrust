@@ -8,7 +8,7 @@ import aiohttp
 import groq
 import httpx
 
-from app.core.tracing import langfuse, langfuse_handler
+from app.core.tracing import langfuse, langfuse_handler, tracing_enabled
 from app.utils.llm import LLMUnavailableError
 
 
@@ -38,7 +38,9 @@ async def ainvoke_graph(
                 graph.astream(
                     state,
                     stream_mode=["updates", "values"],
-                    config={"callbacks": [langfuse_handler]},
+                    config={"callbacks": [langfuse_handler]}
+                    if tracing_enabled
+                    else None,
                 )
             ) as stream:
                 async for mode, chunk in stream:

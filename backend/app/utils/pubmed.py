@@ -89,7 +89,7 @@ def _map_article(article: ElementTree.Element) -> dict | None:
     }
 
 
-@observe(name="pubmed", as_type="retriever")
+@observe(name="pubmed", as_type="retriever", capture_output=False)
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
     """Search PubMed articles for ``query``, raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()

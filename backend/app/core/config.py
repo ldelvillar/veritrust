@@ -187,6 +187,8 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_base_url: str = "https://cloud.langfuse.com"
+    # Redact span content so traces carry no submitted text, off only where the text is not users'.
+    langfuse_mask_content: bool = True
 
     @field_validator("app_base_url")
     @classmethod
@@ -292,6 +294,13 @@ class Settings(BaseSettings):
                     missing.append(name.upper())
         if web and not (self.mcp_resource_url or "").strip():
             missing.append("MCP_RESOURCE_URL")
+        # One Langfuse key without the other would silently leave tracing off.
+        if bool(self.langfuse_public_key) != bool(self.langfuse_secret_key):
+            missing.append(
+                "LANGFUSE_SECRET_KEY"
+                if self.langfuse_public_key
+                else "LANGFUSE_PUBLIC_KEY"
+            )
 
         if missing:
             raise SettingsValidationError(

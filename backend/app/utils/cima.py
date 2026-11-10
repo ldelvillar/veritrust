@@ -136,7 +136,7 @@ def _map_result(result: dict, *, timeout: int) -> dict | None:
     }
 
 
-@observe(name="cima", as_type="retriever")
+@observe(name="cima", as_type="retriever", capture_output=False)
 def search_evidence(query: str, *, max_results: int) -> list[dict]:
     """Search CIMA medicines by name or active ingredient (in Spanish), raising ``EvidenceRetrievalError`` on network failures or unparseable responses."""
     cleaned = query.strip()

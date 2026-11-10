@@ -120,6 +120,13 @@ def test_validate_runtime_reports_missing_required_vars():
     assert "STRIPE_PRICE_PRO_YEARLY" in message
 
 
+def test_validate_runtime_reports_a_langfuse_key_without_its_pair():
+    settings = _make_settings(langfuse_public_key="pk-lf-dummy")
+
+    with pytest.raises(SettingsValidationError, match="LANGFUSE_SECRET_KEY"):
+        settings.validate_runtime()
+
+
 def test_validate_runtime_rejects_a_whitespace_only_app_base_url():
     settings = _make_settings(app_base_url=" ")
 

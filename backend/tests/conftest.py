@@ -1,7 +1,5 @@
 """Fixtures shared by every test suite."""
 
-import os
-
 import pytest
 
 from app.core.config import get_settings
@@ -11,13 +9,6 @@ from tests.support.billing import (
     PRICE_YEARLY,
     WEBHOOK_SECRET,
 )
-
-
-def pytest_configure(config):
-    """Blank the Langfuse keys before any test imports the tracing client."""
-    os.environ["LANGFUSE_PUBLIC_KEY"] = ""
-    os.environ["LANGFUSE_SECRET_KEY"] = ""
-    get_settings.cache_clear()
 
 
 @pytest.fixture
