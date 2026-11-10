@@ -319,19 +319,22 @@ async def test_shutdown_closes_db_pool(monkeypatch):
     assert closed == [True]
 
 
-async def test_shutdown_flushes_traces_even_when_closing_the_pool_fails(monkeypatch):
-    flushed = []
+async def test_shutdown_flushes_traces_after_closing_the_pool_even_if_it_fails(
+    monkeypatch,
+):
+    calls = []
 
     async def failing_close_pool():
+        calls.append("close")
         raise RuntimeError("pool already gone")
 
     monkeypatch.setattr(worker, "close_pool", failing_close_pool)
-    monkeypatch.setattr(worker.langfuse, "flush", lambda: flushed.append(True))
+    monkeypatch.setattr(worker.langfuse, "flush", lambda: calls.append("flush"))
 
     with pytest.raises(RuntimeError):
         await worker.shutdown({})
 
-    assert flushed == [True]
+    assert calls == ["close", "flush"]
 
 
 def test_main_starts_arq_worker_with_configured_redis(monkeypatch):
