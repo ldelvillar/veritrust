@@ -6,11 +6,11 @@ import json
 import logging
 import os
 import subprocess
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from time import time
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 
 import pandas as pd
 
@@ -18,6 +18,8 @@ from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
 from app.agents.main import create_graph, describe_pipeline
 from app.core.claim import Claim
+from app.core.config import get_settings
+from app.core.tracing import langfuse
 from app.core.verdict import Verdict, kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
@@ -309,11 +311,76 @@ def prepare_checkpoint(path: Path, run: dict) -> dict:
     return recorded
 
 
+# Evaluates one sample and returns its row, or None if it failed and is left for the resume.
+EvaluateSample = Callable[[Sample], Awaitable[EvalRow | None]]
+
+# Runs every pending sample through the evaluation, in order unless an experiment drives it.
+RunPending = Callable[[list[Sample], EvaluateSample], Awaitable[None]]
+
+
+async def run_in_order(pending: list[Sample], evaluate: EvaluateSample) -> None:
+    """Evaluate the pending samples one after another."""
+    for sample in pending:
+        await evaluate(sample)
+
+
+class MissingDatasetItemsError(ValueError):
+    """Some samples have no item in the Langfuse dataset, which is missing or out of date."""
+
+
+def langfuse_experiment(
+    client: Any, dataset_name: str, samples: list[Sample], run_name: str, run: dict
+) -> RunPending:
+    """Run the pending samples as a Langfuse experiment, so each sample's trace is linked to its dataset item."""
+    items = {
+        item.input["text"]: item for item in client.get_dataset(dataset_name).items
+    }
+    missing = sum(1 for sample in samples if sample["text"] not in items)
+    if missing:
+        raise MissingDatasetItemsError(
+            f"{missing} muestras no están en el dataset {dataset_name} de Langfuse; "
+            "súbelo con python -m evaluation.upload_datasets."
+        )
+    # Langfuse takes metadata as strings only.
+    metadata = {
+        key: value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        for key, value in run.items()
+        if value is not None
+    }
+
+    async def run_pending(pending: list[Sample], evaluate: EvaluateSample) -> None:
+        by_text = {sample["text"]: sample for sample in pending}
+
+        async def task(*, item: Any, **_: Any) -> dict | None:
+            row = await evaluate(by_text[item.input["text"]])
+            # The full row stays in the checkpoint, and the trace already shows the Evidence.
+            return (
+                {"label": row["predicted"], "confidence": row["confidence"]}
+                if row
+                else None
+            )
+
+        # run_experiment starts its own event loop, so it runs in a thread.
+        await asyncio.to_thread(
+            client.run_experiment,
+            name=f"pipeline-{dataset_name}",
+            run_name=run_name,
+            data=[items[sample["text"]] for sample in pending],
+            task=task,
+            # The tape swaps the investigator's searches for the whole module, so samples cannot overlap.
+            max_concurrency=1,
+            metadata=metadata,
+        )
+
+    return run_pending
+
+
 async def evaluate_pipeline(
     samples: list[Sample],
     graph: object,
     checkpoint_path: Path | None = None,
     replay: dict[str, list[EvidenceCall]] | None = None,
+    run_pending: RunPending = run_in_order,
 ) -> list[EvalRow]:
     """Run the graph on each sample, with optional checkpoint, resume and recorded Evidence."""
     done: dict[str, EvalRow] = (
@@ -323,67 +390,75 @@ async def evaluate_pipeline(
     total = len(pending)
     if done:
         logger.info("Reanudando: %d ya evaluadas, %d pendientes", len(done), total)
+    started_count = 0
 
     # Only completed samples are persisted, so a failing one is retried on resume.
     handle = checkpoint_path.open("a", encoding="utf-8") if checkpoint_path else None
-    try:
-        for i, sample in enumerate(pending, start=1):
-            tape = EvidenceTape((replay or {}).get(sample["text"]))
-            started = time()
-            try:
-                with tape.install():
-                    result = await ainvoke_graph(
-                        graph, _build_initial_state(sample["text"])
-                    )
-            except Exception:
-                logger.exception(
-                    "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
-                )
-                continue
-            duration = time() - started
 
-            # No Verdict because the text had no verifiable medical claims.
-            verdict: Verdict | None = result.get("verdict")
-            claims: list[Claim] = result.get("claims") or []
-            row: EvalRow = {
-                "text": sample["text"],
-                "expected": sample["expected"],
-                "predicted": verdict.label if verdict else None,
-                "confidence": verdict.confidence if verdict else 0.0,
-                # Raw fake_avg so the global band can be swept without rerunning.
-                "fake_avg": verdict.falsehood if verdict else None,
-                # Cost per sample, which sets the affordable n in later evaluations.
-                "duration_seconds": round(duration, 3),
-                # Lets extractor and translator polarity inversions be detected.
-                "extracted": [claim.text for claim in claims],
-                "translated": [claim.text_en for claim in claims],
-                # Diagnostic that tells "nothing was retrieved" apart from "the judge will not commit".
-                "sources_kept": len(result.get("sources") or []),
-                "stances": _stance_histogram(result.get("sources") or []),
-                "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
-                # Claims whose judge answer was unusable, which the Verdict counts as uncertain.
-                "judge_failures": int(result.get("judge_failures") or 0),
-                # Full Evidence per claim, so another trim policy can be tested without rerunning.
-                "claim_evidence": [_recorded(claim) for claim in claims],
-                # Raw hits per search, which another run replays with --replay-evidence.
-                "evidence": tape.calls,
-                # Searches the recording did not cover, which measure the mismatch with --replay-evidence.
-                "evidence_live": tape.live,
-                # Expert report (empty without --with-explanation), to evaluate how well it is grounded.
-                "explanation": str(result.get("medical_explanation") or ""),
-            }
-            done[sample["text"]] = row
-            if handle is not None:
-                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-                handle.flush()
-            logger.info(
-                "[%d/%d] esperado=%s predicho=%s (%.1f s)",
-                i,
-                total,
-                sample["expected"],
-                row["predicted"] or "sin_afirmaciones",
-                duration,
+    async def evaluate(sample: Sample) -> EvalRow | None:
+        nonlocal started_count
+        started_count += 1
+        i = started_count
+        tape = EvidenceTape((replay or {}).get(sample["text"]))
+        started = time()
+        try:
+            with tape.install():
+                result = await ainvoke_graph(
+                    graph, _build_initial_state(sample["text"])
+                )
+        except Exception:
+            logger.exception(
+                "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
             )
+            return None
+        duration = time() - started
+
+        # No Verdict because the text had no verifiable medical claims.
+        verdict: Verdict | None = result.get("verdict")
+        claims: list[Claim] = result.get("claims") or []
+        row: EvalRow = {
+            "text": sample["text"],
+            "expected": sample["expected"],
+            "predicted": verdict.label if verdict else None,
+            "confidence": verdict.confidence if verdict else 0.0,
+            # Raw fake_avg so the global band can be swept without rerunning.
+            "fake_avg": verdict.falsehood if verdict else None,
+            # Cost per sample, which sets the affordable n in later evaluations.
+            "duration_seconds": round(duration, 3),
+            # Lets extractor and translator polarity inversions be detected.
+            "extracted": [claim.text for claim in claims],
+            "translated": [claim.text_en for claim in claims],
+            # Diagnostic that tells "nothing was retrieved" apart from "the judge will not commit".
+            "sources_kept": len(result.get("sources") or []),
+            "stances": _stance_histogram(result.get("sources") or []),
+            "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
+            # Claims whose judge answer was unusable, which the Verdict counts as uncertain.
+            "judge_failures": int(result.get("judge_failures") or 0),
+            # Full Evidence per claim, so another trim policy can be tested without rerunning.
+            "claim_evidence": [_recorded(claim) for claim in claims],
+            # Raw hits per search, which another run replays with --replay-evidence.
+            "evidence": tape.calls,
+            # Searches the recording did not cover, which measure the mismatch with --replay-evidence.
+            "evidence_live": tape.live,
+            # Expert report (empty without --with-explanation), to evaluate how well it is grounded.
+            "explanation": str(result.get("medical_explanation") or ""),
+        }
+        done[sample["text"]] = row
+        if handle is not None:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            handle.flush()
+        logger.info(
+            "[%d/%d] esperado=%s predicho=%s (%.1f s)",
+            i,
+            total,
+            sample["expected"],
+            row["predicted"] or "sin_afirmaciones",
+            duration,
+        )
+        return row
+
+    try:
+        await run_pending(pending, evaluate)
     finally:
         if handle is not None:
             handle.close()
@@ -554,7 +629,24 @@ def main() -> dict[str, float]:
         metavar="CKPT",
         help="Reproduce la evidencia bruta grabada en otro checkpoint; solo busca en vivo lo que no esté grabado.",
     )
+    parser.add_argument(
+        "--langfuse-run",
+        default=None,
+        metavar="NOMBRE",
+        help="Registra la corrida como experimento de Langfuse con este nombre, sobre el dataset de la partición.",
+    )
     args = parser.parse_args()
+
+    if args.langfuse_run:
+        if args.data or args.partition not in LANGFUSE_DATASETS:
+            raise SystemExit(
+                "--langfuse-run solo admite las particiones "
+                f"{', '.join(LANGFUSE_DATASETS)}, que tienen dataset en Langfuse."
+            )
+        if not get_settings().langfuse_enabled():
+            raise SystemExit(
+                "--langfuse-run exige LANGFUSE_PUBLIC_KEY y LANGFUSE_SECRET_KEY."
+            )
 
     # The report is ~1/3 of the tokens per sample and does not affect the metric.
     if not args.with_explanation:
@@ -607,8 +699,23 @@ def main() -> dict[str, float]:
     samples = load_samples(args.partition, args.limit, args.seed, data)
     logger.info("Evaluando %d muestras de '%s'", len(samples), source)
 
+    run_pending: RunPending = run_in_order
+    if args.langfuse_run:
+        try:
+            run_pending = langfuse_experiment(
+                langfuse,
+                LANGFUSE_DATASETS[args.partition],
+                samples,
+                args.langfuse_run,
+                run,
+            )
+        except MissingDatasetItemsError as exc:
+            raise SystemExit(str(exc)) from exc
+
     start = time()
-    rows = asyncio.run(evaluate_pipeline(samples, graph, checkpoint_path, replay))
+    rows = asyncio.run(
+        evaluate_pipeline(samples, graph, checkpoint_path, replay, run_pending)
+    )
     metrics = compute_metrics(rows)
 
     print(format_report(metrics, rows, run))

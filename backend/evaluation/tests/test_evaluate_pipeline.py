@@ -3,6 +3,7 @@
 import asyncio
 import json
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -660,6 +661,89 @@ def test_format_report_says_how_much_evidence_was_replayed() -> None:
 
     assert "Evidencia : 1/2 búsquedas reproducidas de base.jsonl" in report
     assert "Evidencia" not in ep.format_report(ep.compute_metrics(rows), rows, _run())
+
+
+class _Item:
+    """A Langfuse dataset item, with the input the uploader gives it."""
+
+    def __init__(self, text: str) -> None:
+        self.input = {"text": text}
+
+
+class _FakeLangfuse:
+    """Serve a dataset and run an experiment's tasks on its own event loop, as Langfuse does."""
+
+    def __init__(self, texts: list[str]) -> None:
+        self.dataset = SimpleNamespace(items=[_Item(text) for text in texts])
+        self.experiments: list[dict] = []
+
+    def get_dataset(self, name: str) -> SimpleNamespace:
+        self.dataset_name = name
+        return self.dataset
+
+    def run_experiment(self, *, data: list, task, **kwargs) -> None:
+        async def run_all() -> list:
+            return [await task(item=item) for item in data]
+
+        outputs = asyncio.run(run_all())
+        self.experiments.append({"data": data, "outputs": outputs, **kwargs})
+
+
+class _VerdictGraph:
+    async def astream(
+        self, state: dict, stream_mode: object = None, config: object = None
+    ):
+        if state["input_text"] == "rota":
+            raise RuntimeError("caída")
+        yield ("values", {"verdict": _verdict("fake", 0.8)})
+
+
+def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) -> None:
+    path = tmp_path / "ckpt.jsonl"
+    path.write_text(
+        json.dumps({"text": "vieja", "predicted": "falsa"}) + "\n", encoding="utf-8"
+    )
+    samples: list[ep.Sample] = [
+        {"text": text, "expected": "falsa"} for text in ("vieja", "nueva", "rota")
+    ]
+    client = _FakeLangfuse(["vieja", "nueva", "rota", "otra"])
+    run_pending = ep.langfuse_experiment(
+        client,
+        "gold-es",
+        samples,
+        "mistral-v2",
+        {"provider": "mistral", "models": {"judge": "m"}, "git": None},
+    )
+
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, _VerdictGraph(), path, run_pending=run_pending)
+    )
+
+    [experiment] = client.experiments
+    # Only the pending samples run, each under its own item, and one at a time for the tape.
+    assert [item.input["text"] for item in experiment["data"]] == ["nueva", "rota"]
+    assert experiment["outputs"] == [{"label": "falsa", "confidence": 0.8}, None]
+    assert (experiment["run_name"], experiment["max_concurrency"]) == ("mistral-v2", 1)
+    assert experiment["metadata"] == {"provider": "mistral", "models": '{"judge": "m"}'}
+    # The checkpoint still keeps the rows, so the run resumes and reports as before.
+    assert [row["text"] for row in rows] == ["vieja", "nueva"]
+    assert "nueva" in ep.load_checkpoint(path)
+
+
+def test_a_langfuse_run_refuses_samples_its_dataset_lacks() -> None:
+    samples: list[ep.Sample] = [{"text": "nueva", "expected": "falsa"}]
+
+    with pytest.raises(ep.MissingDatasetItemsError, match="1 muestras"):
+        ep.langfuse_experiment(_FakeLangfuse(["otra"]), "gold-es", samples, "r", {})
+
+
+def test_a_langfuse_run_needs_a_partition_with_a_dataset(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sys.argv", ["evaluate_pipeline", "--partition", "train", "--langfuse-run", "r"]
+    )
+
+    with pytest.raises(SystemExit, match="--langfuse-run"):
+        ep.main()
 
 
 if __name__ == "__main__":
