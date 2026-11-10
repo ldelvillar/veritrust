@@ -29,6 +29,13 @@ logger = logging.getLogger(__name__)
 # Map HealthVer to the system's binary labels, leaving NEI (2) out of the metric.
 LABEL_BY_CODE = {0: "verdadera", 1: "falsa"}
 
+# Langfuse dataset of each repo partition, which evaluation.upload_datasets creates.
+LANGFUSE_DATASETS = {
+    "gold": "gold-es",
+    "negations": "negations-es",
+    "test": "healthver-test",
+}
+
 
 class Sample(TypedDict):
     """A labelled sample ready to evaluate."""
