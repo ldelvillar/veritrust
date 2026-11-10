@@ -18,7 +18,7 @@ from app.schemas.history import (
     PublicAnalysisReport,
 )
 
-# Columns the by-id query selects for _map_history_record, the only read of the whole report.
+# Columns the by-id query selects for _map_history_record.
 _HISTORY_COLUMNS = (
     "id",
     "user_id",

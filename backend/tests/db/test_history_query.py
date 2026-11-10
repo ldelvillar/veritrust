@@ -356,6 +356,7 @@ async def test_list_carries_the_share_token(db_pool):
     """The table draws the "Compartido" badge from each row's share token."""
     analysis_id = await _done("Un análisis compartido", "falsa")
     token = await set_analysis_share_token(user_id=USER, analysis_id=analysis_id)
+    assert token
 
     page = await _search()
 
