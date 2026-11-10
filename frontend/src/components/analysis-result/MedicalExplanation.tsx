@@ -1,18 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { MarkdownHooks } from 'react-markdown';
 import CheckIcon from '@/assets/Check';
 import ClipboardIcon from '@/assets/Clipboard';
 import MedicalCross from '@/assets/MedicalCross';
-
-type CopyState = 'idle' | 'copied' | 'error';
-
-const COPY_LABEL: Record<CopyState, string> = {
-  idle: 'Copiar',
-  copied: 'Copiado',
-  error: 'No se pudo copiar',
-};
+import {
+  COPY_LABEL,
+  useCopyToClipboard,
+  type CopyState,
+} from '@/hooks/useCopyToClipboard';
 
 // No links or images in the report.
 const ALLOWED_ELEMENTS = [
@@ -51,17 +47,7 @@ export default function MedicalExplanation({
 }: {
   explanation: string;
 }) {
-  const [copyState, setCopyState] = useState<CopyState>('idle');
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(explanation);
-      setCopyState('copied');
-    } catch {
-      setCopyState('error');
-    }
-    setTimeout(() => setCopyState('idle'), 2000);
-  };
+  const { state: copyState, copy } = useCopyToClipboard();
 
   return (
     <div className="rounded-xl border border-line bg-white shadow-sm">
@@ -83,7 +69,7 @@ export default function MedicalExplanation({
         <div className="pointer-events-none sticky top-20 z-10 mb-1 flex h-9 justify-end print:hidden">
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => void copy(explanation)}
             title="Copiar la explicación"
             className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm transition focus:ring-2 focus:ring-primary/20 focus:outline-none ${COPY_STYLE[copyState]}`}
           >

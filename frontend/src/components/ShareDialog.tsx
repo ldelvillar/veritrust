@@ -6,6 +6,7 @@ import Check from '@/assets/Check';
 import LinkIcon from '@/assets/Link';
 import Button from '@/components/Button';
 import UpgradePrompt from '@/components/UpgradePrompt';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 interface ShareDialogProps {
   open: boolean;
@@ -31,7 +32,7 @@ export default function ShareDialog({
   const titleId = useId();
   const descriptionId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [copied, setCopied] = useState(false);
+  const { state: copyState, copy, reset: resetCopy } = useCopyToClipboard();
 
   useEffect(() => {
     if (!open) return;
@@ -50,21 +51,10 @@ export default function ShareDialog({
   const [trackedUrl, setTrackedUrl] = useState(shareUrl);
   if (trackedUrl !== shareUrl) {
     setTrackedUrl(shareUrl);
-    setCopied(false);
+    resetCopy();
   }
 
   if (!open) return null;
-
-  const handleCopy = async () => {
-    if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   return (
     <div
@@ -132,8 +122,8 @@ export default function ShareDialog({
                 onFocus={event => event.target.select()}
                 className="min-w-0 flex-1 rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-body focus:border-primary focus:outline-none"
               />
-              <Button onClick={handleCopy} className="shrink-0">
-                {copied ? (
+              <Button onClick={() => void copy(shareUrl)} className="shrink-0">
+                {copyState === 'copied' ? (
                   <>
                     <Check className="size-4" />
                     Copiado
