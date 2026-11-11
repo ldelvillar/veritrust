@@ -319,12 +319,13 @@ jobs:
       - name: Evaluate main
         working-directory: main/backend
         run: |
+          read -ra eval_args <<< "$EVAL_ARGS"
           lf=()
           if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}-pr${PR_NUMBER}"); fi
           # A failed first pass only warns, since the second resumes whatever it left out and must succeed.
-          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline "${eval_args[@]}" \
             --checkpoint "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de main falló; se reanuda."
-          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline "${eval_args[@]}" \
             --checkpoint "$RESULTS/main.jsonl" "${lf[@]}"
 
       - name: Save main's evaluation
@@ -338,17 +339,19 @@ jobs:
       - name: Evaluate the PR on main's evidence
         working-directory: pr/backend
         run: |
+          read -ra eval_args <<< "$EVAL_ARGS"
           lf=()
           if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
-          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline "${eval_args[@]}" \
             --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de la PR falló; se reanuda."
-          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+          uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline "${eval_args[@]}" \
             --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}"
 
       - name: Gate the PR on main's metrics
         working-directory: pr/backend
         run: |
-          uv run --frozen --extra evaluation python -m evaluation.eval_gate $EVAL_ARGS \
+          read -ra eval_args <<< "$EVAL_ARGS"
+          uv run --frozen --extra evaluation python -m evaluation.eval_gate "${eval_args[@]}" \
             --base "$RESULTS/main.jsonl" --head "$RESULTS/pr.jsonl" --report "$RESULTS/report.md" \
             --commit "${HEAD_SHA::7}"
 
