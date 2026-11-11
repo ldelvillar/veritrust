@@ -8,11 +8,11 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     # API
-    "fastapi>=0.162.0",
+    "fastapi>=0.162.2",
     "uvicorn[standard]>=0.54.0",
     "python-multipart>=0.0.33",
     "python-dotenv>=1.2.4",
-    "pydantic>=2.14.2",
+    "pydantic>=2.14.3",
     "pydantic-settings>=2.16.2",
     "httpx>=0.28",
     # Auth
@@ -24,13 +24,13 @@ dependencies = [
     "arq>=0.26",
     "redis>=5",
     # LLM / Agents
-    "langchain-core>=1.7.3",
+    "langchain-core>=1.7.6",
     "langchain-ollama>=1.1.0",
     "langchain-mistralai>=1.1",
     "langchain-groq>=1.0",
-    "langchain-google-genai>=4.4.2",
+    "langchain-google-genai>=4.4.3",
     "langchain-nvidia-ai-endpoints>=1.5.0",
-    "langgraph>=1.2.19",
+    "langgraph>=1.2.20",
     "aiohttp>=3.14.5",
     "groq>=0.37.1",
     # Web scraping
@@ -49,8 +49,8 @@ dependencies = [
 [project.optional-dependencies]
 # Data deps of the eval harness (pyarrow reads the HealthVer parquet splits). Install with: uv sync --extra evaluation
 evaluation = [
-    "pandas>=3.1.0",
-    "pyarrow>=26.0.0",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
 ]
 
 [dependency-groups]
@@ -58,8 +58,8 @@ dev = [
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1",
     "pytest-cov>=7.1",
-    "coverage>=7.17.0",
-    "ruff>=0.17.3",
+    "coverage>=7.17.2",
+    "ruff>=0.17.4",
     "mypy>=2.4.1",
     "fakeredis[lua]>=2.40.0",
 ]
