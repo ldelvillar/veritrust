@@ -91,6 +91,10 @@ OLLAMA_JUDGE_MODEL=gemma4:12b uv run --directory backend --extra evaluation pyth
   Verdict resting on one `contradicts` was right, and recall on false falls from 36 to 22
   of 50. A count cannot separate a loose Source from a sound one. See 2026-11-06 in
   [2026-11.md](2026-11.md).
+- **A fact-check source (Google Fact Check Tools) for retrieval**: on real wellness pages
+  it states the exact point of 3 of 143 Claims; fact-checks rate overstated versions of
+  what pages claim, so a semantic index over them would not help. See 2026-11-11 in
+  [2026-11.md](2026-11.md).
 
 ## Next steps
 
@@ -104,6 +108,8 @@ through prompting and through scaffolding:
    plain language summaries, MedlinePlus, NHS Health A–Z — not a prompt. It is
    architecture work, not text work. MedlinePlus is ruled out: 2 of 11 such Claims
    get an on-point page, none of the false ones (2026-11-11 in [2026-11.md](2026-11.md)).
+   Fact-check sources are ruled out too: they match 3 of 143 Claims on real wellness
+   pages, since they rate the overstatement and the pages hedge (same file).
 
    Risk to declare before picking a source: a _fact-checking_ API (Google Fact Check
    Tools, used in `ml/evaluation/evaluate_factcheck.py` until it was deleted) indexes
@@ -192,3 +198,4 @@ closed era:
 - 2026-11-06 Two contradicting Sources before a false Claim — rejected
 - 2026-11-06 Extractor v6: the 8 central Claims of an article — not adopted
 - 2026-11-11 Gold misses by cause, and MedlinePlus for hoaxes — MedlinePlus rejected
+- 2026-11-11 Fact Check Tools on real articles — rejected
