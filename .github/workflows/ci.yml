@@ -302,13 +302,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "*/backend/uv.lock"
 
-      # Main's run is reused across pushes to this PR, since GitHub scopes a PR's cache to the PR, and a partial one resumes.
+      # Reused across pushes to this PR and keyed by the Langfuse switch, since a checkpoint only resumes under its own run name.
       - name: Restore main's evaluation
         uses: actions/cache/restore@v6
         with:
           path: eval-results/main.jsonl
-          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
-          restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ env.LANGFUSE_ON }}-${{ github.run_id }}
+          restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ env.LANGFUSE_ON }}-
 
       # Idempotent, so the gold dataset holds main's gold set, including one a gold-set-only PR changed.
       - name: Upload the gold dataset to Langfuse
@@ -333,7 +333,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: eval-results/main.jsonl
-          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ env.LANGFUSE_ON }}-${{ github.run_id }}
 
       # Replaying main's evidence leaves the PR's own change as the only difference between the arms.
       - name: Evaluate the PR on main's evidence
