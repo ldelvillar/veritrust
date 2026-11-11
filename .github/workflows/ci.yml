@@ -25,6 +25,7 @@ jobs:
     outputs:
       backend_app: ${{ steps.filter.outputs.backend_app }}
       backend_evaluation: ${{ steps.filter.outputs.backend_evaluation }}
+      pipeline: ${{ steps.filter.outputs.pipeline }}
       backend_image: ${{ steps.filter.outputs.backend_image }}
       frontend: ${{ steps.filter.outputs.frontend }}
       deploy_config: ${{ steps.filter.outputs.deploy_config }}
@@ -56,6 +57,21 @@ jobs:
               - 'backend/pyproject.toml'
               - 'backend/.python-version'
               - '.github/workflows/ci.yml'
+            # What can move a Verdict on the gold set, which the eval gate re-measures against main.
+            pipeline:
+              - 'backend/app/agents/**'
+              - 'backend/app/prompts/**'
+              - 'backend/app/core/claim.py'
+              - 'backend/app/core/verdict.py'
+              - 'backend/app/utils/llm.py'
+              - 'backend/app/utils/evidence.py'
+              - 'backend/app/utils/pubmed.py'
+              - 'backend/app/utils/europepmc.py'
+              - 'backend/app/utils/openfda.py'
+              - 'backend/app/utils/cima.py'
+              - 'backend/evaluation/evaluate_pipeline.py'
+              - 'backend/evaluation/eval_gate.py'
+              - 'backend/data/gold_es.jsonl'
             backend_image:
               - 'backend/Dockerfile'
               - 'backend/.dockerignore'
@@ -216,6 +232,124 @@ jobs:
             backend/test-results/pytest-evaluation.xml
             backend/test-results/coverage-evaluation.xml
             backend/test-results/htmlcov-evaluation
+          if-no-files-found: warn
+
+  pipeline_eval:
+    name: Pipeline eval gate (gold set vs main)
+    needs: changes
+    # Pull requests only, since the gate measures the PR against its base branch.
+    if: github.event_name == 'pull_request' && needs.changes.outputs.pipeline == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      LLM_PROVIDER: mistral
+      MISTRAL_API_KEY: ${{ secrets.EVAL_MISTRAL_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com' }}
+      UV_CACHE_DIR: /tmp/.uv-cache
+      # Both arms and the gate must sample the same set.
+      EVAL_ARGS: --partition gold --limit 100 --seed 42
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      RESULTS: ${{ github.workspace }}/eval-results
+    steps:
+      - name: Check the eval secret
+        run: |
+          if [ -z "$MISTRAL_API_KEY" ]; then
+            echo "::error::Falta el secreto EVAL_MISTRAL_API_KEY, así que la puerta de evaluación no puede medir la PR."
+            exit 1
+          fi
+          mkdir -p "$RESULTS"
+
+      # The merge commit, so the PR is measured as it would land on main.
+      - name: Checkout the PR
+        uses: actions/checkout@v7
+        with:
+          path: pr
+
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: main
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "*/backend/uv.lock"
+
+      # Main's run is reused across pushes to every PR on the same base, and a partial one resumes.
+      - name: Restore main's evaluation
+        uses: actions/cache/restore@v6
+        with:
+          path: eval-results/main.jsonl
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
+          restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-
+
+      - name: Evaluate main
+        id: main_eval
+        working-directory: main/backend
+        run: |
+          lf=()
+          if [ -n "$LANGFUSE_PUBLIC_KEY" ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}"); fi
+          # The second pass resumes only the samples a provider error left out.
+          for pass in 1 2; do
+            uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+              --checkpoint "$RESULTS/main.jsonl" "${lf[@]}"
+          done
+
+      - name: Save main's evaluation
+        if: always() && hashFiles('eval-results/main.jsonl') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: eval-results/main.jsonl
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
+
+      # Replaying main's evidence leaves the PR's own change as the only difference between the arms.
+      - name: Evaluate the PR on main's evidence
+        working-directory: pr/backend
+        run: |
+          lf=()
+          if [ -n "$LANGFUSE_PUBLIC_KEY" ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
+          for pass in 1 2; do
+            uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
+              --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}"
+          done
+
+      - name: Gate the PR on main's metrics
+        working-directory: pr/backend
+        run: |
+          uv run --frozen --extra evaluation python -m evaluation.eval_gate $EVAL_ARGS \
+            --base "$RESULTS/main.jsonl" --head "$RESULTS/pr.jsonl" --report "$RESULTS/report.md"
+
+      - name: Post the report on the PR
+        if: always() && hashFiles('eval-results/report.md') != ''
+        working-directory: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat "$RESULTS/report.md" >> "$GITHUB_STEP_SUMMARY"
+          # The gate edits its own earlier comment, found by its marker, instead of adding one per push.
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- eval-gate -->")) | .id' | tail -n1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$RESULTS/report.md" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RESULTS/report.md"
+          fi
+
+      - name: Upload the eval checkpoints
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pipeline-eval
+          path: eval-results
           if-no-files-found: warn
 
   frontend:
@@ -462,6 +596,7 @@ jobs:
         changes,
         backend_app,
         backend_evaluation,
+        pipeline_eval,
         frontend,
         frontend_e2e,
         api_contract,
