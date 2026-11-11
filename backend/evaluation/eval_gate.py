@@ -70,7 +70,9 @@ def _describe(name: str, arm: Arm) -> str:
     )
 
 
-def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
+def evaluate_gate(
+    samples: list[Sample], base: Arm, head: Arm, commit: str | None = None
+) -> GateResult:
     """Score both arms on the samples each completed and fail on a regression beyond its tolerance."""
     texts = [sample["text"] for sample in samples]
     shared = [t for t in texts if t in base.rows and t in head.rows]
@@ -78,12 +80,8 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
         "main": sum(t not in base.rows for t in texts),
         "PR": sum(t not in head.rows for t in texts),
     }
-    # Labels come from the samples, so a relabelled gold claim scores the same in both arms.
-    expected = {sample["text"]: sample["expected"] for sample in samples}
-    before = compute_metrics(
-        [{**base.rows[t], "expected": expected[t]} for t in shared]
-    )
-    after = compute_metrics([{**head.rows[t], "expected": expected[t]} for t in shared])
+    before = compute_metrics([base.rows[t] for t in shared])
+    after = compute_metrics([head.rows[t] for t in shared])
 
     # The epsilon keeps a drop of exactly the tolerance from failing on float rounding.
     regressed = {
@@ -96,7 +94,8 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
 
     lines = [
         MARKER,
-        f"### Puerta de evaluación: {'✅ pasa' if passed else '❌ falla'}",
+        f"### Puerta de evaluación{f' para `{commit}`' if commit else ''}: "
+        f"{'✅ pasa' if passed else '❌ falla'}",
         "",
         f"Gold set, {len(shared)} de {len(texts)} muestras evaluadas en ambas ramas, "
         "con la evidencia de main reproducida en la PR.",
@@ -130,7 +129,7 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
     for arm, n in incomplete.items():
         lines.append(
             f"\n**{arm} perdió {n} muestras** (máximo {MAX_MISSING}); "
-            "relanza el job; si vuelve a fallar, las ramas muestrean conjuntos distintos."
+            "relanza el job y, si vuelve a fallar, mira en el log qué muestras fallan."
         )
     return GateResult(passed, "\n".join(lines))
 
@@ -143,13 +142,18 @@ def main() -> None:
     parser.add_argument(
         "--report", type=Path, required=True, help="Markdown de salida."
     )
+    parser.add_argument(
+        "--commit", default=None, help="Commit de la PR para el título."
+    )
     parser.add_argument("--partition", default="gold")
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     samples = load_samples(args.partition, args.limit, args.seed)
-    result = evaluate_gate(samples, Arm.load(args.base), Arm.load(args.head))
+    result = evaluate_gate(
+        samples, Arm.load(args.base), Arm.load(args.head), args.commit
+    )
     args.report.write_text(result.report + "\n", encoding="utf-8")
     print(result.report)
     sys.exit(0 if result.passed else 1)

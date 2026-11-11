@@ -25,7 +25,8 @@ jobs:
     outputs:
       backend_app: ${{ steps.filter.outputs.backend_app }}
       backend_evaluation: ${{ steps.filter.outputs.backend_evaluation }}
-      pipeline: ${{ steps.filter.outputs.pipeline }}
+      pipeline_code: ${{ steps.filter.outputs.pipeline_code }}
+      gold_set: ${{ steps.filter.outputs.gold_set }}
       backend_image: ${{ steps.filter.outputs.backend_image }}
       frontend: ${{ steps.filter.outputs.frontend }}
       deploy_config: ${{ steps.filter.outputs.deploy_config }}
@@ -57,8 +58,8 @@ jobs:
               - 'backend/pyproject.toml'
               - 'backend/.python-version'
               - '.github/workflows/ci.yml'
-            # What can move a Verdict on the gold set, which the eval gate re-measures against main.
-            pipeline:
+            # Code that can move a Verdict on the gold set, which the eval gate re-measures against main.
+            pipeline_code:
               - 'backend/app/agents/**'
               - 'backend/app/prompts/**'
               - 'backend/app/core/claim.py'
@@ -72,6 +73,7 @@ jobs:
               - 'backend/evaluation/evaluate_pipeline.py'
               - 'backend/evaluation/eval_gate.py'
               - 'backend/evaluation/load_data.py'
+            gold_set:
               - 'backend/data/gold_es.jsonl'
             backend_image:
               - 'backend/Dockerfile'
@@ -238,8 +240,8 @@ jobs:
   pipeline_eval:
     name: Pipeline eval gate (gold set vs main)
     needs: changes
-    # Pull requests only, since the gate measures the PR against its base branch.
-    if: github.event_name == 'pull_request' && needs.changes.outputs.pipeline == 'true'
+    # Pull requests only, since the gate measures the PR against its base branch; a gold-set-only PR has nothing to gate.
+    if: github.event_name == 'pull_request' && needs.changes.outputs.pipeline_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -271,26 +273,26 @@ jobs:
           ref: ${{ env.BASE_SHA }}
           path: main
 
-      - name: Check the eval secret
+      # Arms sampled from different gold sets are not comparable, so a gold-set change must land in its own PR.
+      - name: Require the gold set to change in its own PR
+        env:
+          GOLD_SET_CHANGED: ${{ needs.changes.outputs.gold_set }}
         run: |
           mkdir -p "$RESULTS"
+          if [ "$GOLD_SET_CHANGED" = true ]; then
+            printf '%s\n' '<!-- eval-gate -->' "### Puerta de evaluación para \`${HEAD_SHA::7}\`: ❌ falla" '' \
+              'Esta PR cambia el gold set y también código del pipeline, así que main y la PR no se pueden comparar. Separa el cambio del gold set en su propia PR y, tras fusionarla, vuelve a subir el dataset con `python -m evaluation.upload_datasets`.' \
+              > "$RESULTS/report.md"
+            echo "::error::Separa el cambio del gold set en su propia PR."
+            exit 1
+          fi
+
+      - name: Check the eval secret
+        run: |
           if [ -z "$MISTRAL_API_KEY" ]; then
             echo "::error::Falta el secreto EVAL_MISTRAL_API_KEY, así que la puerta de evaluación no puede medir la PR."
             exit 1
           fi
-
-      # Both arms sample the PR's gold set, and Langfuse is off when it changed since its dataset lacks the new claims.
-      - name: Measure both arms on the PR's gold set
-        id: gold
-        run: |
-          langfuse=false
-          if cmp -s main/backend/data/gold_es.jsonl pr/backend/data/gold_es.jsonl; then
-            if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then langfuse=true; fi
-          else
-            cp pr/backend/data/gold_es.jsonl main/backend/data/gold_es.jsonl
-            echo "::notice::La PR cambia el gold set; main se mide sobre el set de la PR y sin Langfuse."
-          fi
-          echo "langfuse=$langfuse" >> "$GITHUB_OUTPUT"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -299,21 +301,18 @@ jobs:
           cache-dependency-glob: "*/backend/uv.lock"
 
       # Main's run is reused across pushes to this PR, since GitHub scopes a PR's cache to the PR, and a partial one resumes.
-      # The key holds the Langfuse switch, since a checkpoint only resumes under the run name it was started with.
       - name: Restore main's evaluation
         uses: actions/cache/restore@v6
         with:
           path: eval-results/main.jsonl
-          key: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ steps.gold.outputs.langfuse }}-${{ github.run_id }}
-          restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ steps.gold.outputs.langfuse }}-
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
+          restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-
 
       - name: Evaluate main
         working-directory: main/backend
-        env:
-          LANGFUSE_ON: ${{ steps.gold.outputs.langfuse }}
         run: |
           lf=()
-          if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}-pr${PR_NUMBER}"); fi
+          if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}-pr${PR_NUMBER}"); fi
           # A failed first pass only warns, since the second resumes whatever it left out and must succeed.
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
             --checkpoint "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de main falló; se reanuda."
@@ -325,16 +324,14 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: eval-results/main.jsonl
-          key: pipeline-eval-main-${{ env.BASE_SHA }}-lf-${{ steps.gold.outputs.langfuse }}-${{ github.run_id }}
+          key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
 
       # Replaying main's evidence leaves the PR's own change as the only difference between the arms.
       - name: Evaluate the PR on main's evidence
         working-directory: pr/backend
-        env:
-          LANGFUSE_ON: ${{ steps.gold.outputs.langfuse }}
         run: |
           lf=()
-          if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
+          if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
             --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de la PR falló; se reanuda."
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
@@ -344,22 +341,16 @@ jobs:
         working-directory: pr/backend
         run: |
           uv run --frozen --extra evaluation python -m evaluation.eval_gate $EVAL_ARGS \
-            --base "$RESULTS/main.jsonl" --head "$RESULTS/pr.jsonl" --report "$RESULTS/report.md"
+            --base "$RESULTS/main.jsonl" --head "$RESULTS/pr.jsonl" --report "$RESULTS/report.md" \
+            --commit "${HEAD_SHA::7}"
 
-      # A run cancelled by a newer push stays silent, so it never overwrites the newer run's verdict.
+      # The report names its commit and the required check holds the verdict, so a comment from an older push reads as old.
       - name: Post the report on the PR
-        if: ${{ !cancelled() }}
+        if: always() && hashFiles('eval-results/report.md') != ''
         working-directory: pr
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$RESULTS"
-          # Without a report the run broke before the gate, which replaces the last push's verdict so it is not read as current.
-          if [ ! -f "$RESULTS/report.md" ]; then
-            printf '%s\n' '<!-- eval-gate -->' '### Puerta de evaluación: ⚠️ no terminó' '' \
-              "La evaluación de \`${HEAD_SHA::7}\` falló antes de la puerta; mira el log del job." \
-              > "$RESULTS/report.md"
-          fi
           cat "$RESULTS/report.md" >> "$GITHUB_STEP_SUMMARY"
           # The gate edits its own earlier comment, found by its marker, instead of adding one per push.
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
