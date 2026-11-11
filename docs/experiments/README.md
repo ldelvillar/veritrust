@@ -102,7 +102,8 @@ through prompting and through scaffolding:
    and Europe PMC do not index refutations of popular beliefs (carrots and myopia, wet
    hair and colds, 10% of the brain). It needs a source that does cover them — Cochrane
    plain language summaries, MedlinePlus, NHS Health A–Z — not a prompt. It is
-   architecture work, not text work.
+   architecture work, not text work. MedlinePlus is ruled out: 2 of 11 such Claims
+   get an on-point page, none of the false ones (2026-11-11 in [2026-11.md](2026-11.md)).
 
    Risk to declare before picking a source: a _fact-checking_ API (Google Fact Check
    Tools, used in `ml/evaluation/evaluate_factcheck.py` until it was deleted) indexes
@@ -190,3 +191,4 @@ closed era:
 - 2026-11-06 Multi-Claim articles: the Source cap, the 8-Claim cap and false Claims in sound articles
 - 2026-11-06 Two contradicting Sources before a false Claim — rejected
 - 2026-11-06 Extractor v6: the 8 central Claims of an article — not adopted
+- 2026-11-11 Gold misses by cause, and MedlinePlus for hoaxes — MedlinePlus rejected
