@@ -347,7 +347,14 @@ class MissingDatasetItemsError(ValueError):
 
 
 # Run-level metrics recorded as the experiment's scores, so runs can be compared.
-RUN_SCORES = ("accuracy", "coverage", "precision", "recall", "f1_score")
+RUN_SCORES = (
+    "accuracy",
+    "coverage",
+    "claims_found",
+    "precision",
+    "recall",
+    "f1_score",
+)
 
 
 def score_sample(*, output: dict, expected_output: dict, **_: Any) -> list[Evaluation]:
@@ -602,6 +609,8 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "skipped": skipped,
         # An unusable judge answer leaves its claim uncertain, as in production, so the row still scores.
         "judge_failed": sum(1 for r in rows if r.get("judge_failures")),
+        # Share of samples with claims, since a sample without them counts in no other metric.
+        "claims_found": 1 - skipped / len(rows) if rows else 0.0,
     }
 
 

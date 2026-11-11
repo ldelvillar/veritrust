@@ -70,13 +70,6 @@ def _describe(name: str, arm: Arm) -> str:
     )
 
 
-def _metrics(rows: list[EvalRow]) -> dict[str, float]:
-    """Compute the eval metrics plus the share of samples with claims, which no other metric counts."""
-    metrics = compute_metrics(rows)
-    metrics["claims_found"] = 1 - metrics["skipped"] / len(rows) if rows else 0.0
-    return metrics
-
-
 def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
     """Score both arms on the samples each completed and fail on a regression beyond its tolerance."""
     texts = [sample["text"] for sample in samples]
@@ -85,8 +78,12 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
         "main": sum(t not in base.rows for t in texts),
         "PR": sum(t not in head.rows for t in texts),
     }
-    before = _metrics([base.rows[t] for t in shared])
-    after = _metrics([head.rows[t] for t in shared])
+    # Labels come from the samples, so a relabelled gold claim scores the same in both arms.
+    expected = {sample["text"]: sample["expected"] for sample in samples}
+    before = compute_metrics(
+        [{**base.rows[t], "expected": expected[t]} for t in shared]
+    )
+    after = compute_metrics([{**head.rows[t], "expected": expected[t]} for t in shared])
 
     # The epsilon keeps a drop of exactly the tolerance from failing on float rounding.
     regressed = {
@@ -133,7 +130,7 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
     for arm, n in incomplete.items():
         lines.append(
             f"\n**{arm} perdió {n} muestras** (máximo {MAX_MISSING}); "
-            "relanza el job para reintentarlas."
+            "relanza el job; si vuelve a fallar, las ramas muestrean conjuntos distintos."
         )
     return GateResult(passed, "\n".join(lines))
 

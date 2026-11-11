@@ -94,6 +94,20 @@ def test_finding_no_claims_in_more_samples_fails() -> None:
     assert "| claims_found | 100.0% | 90.0% | -10.0 pp | -5 pp | ❌ |" in result.report
 
 
+def test_labels_come_from_the_samples_not_the_rows() -> None:
+    samples = _samples(20)
+
+    # Main's cached rows predate a relabel, so their 'expected' disagrees with the gold set the PR samples.
+    base = _arm(samples)
+    relabelled = samples[0]["text"]
+    base.rows[relabelled]["expected"] = "falsa"
+
+    result = gate.evaluate_gate(samples, base, _arm(samples))
+
+    assert result.passed
+    assert "| accuracy | 100.0% | 100.0% |" in result.report
+
+
 def test_samples_one_arm_lacks_are_left_out_of_both() -> None:
     samples = _samples(20)
 
