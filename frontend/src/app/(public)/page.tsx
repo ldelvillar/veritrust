@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Detector de Desinformación Médica Impulsado por IA',
   alternates: { canonical: '/' },
   description:
-    'Detector de desinformación en salud con IA. Verifica afirmaciones médicas una a una, con fuentes científicas citadas.',
+    'Detector de desinformación médica con IA. Verifica afirmaciones médicas una a una, con fuentes científicas citadas.',
   keywords: [
     'detector de desinformación médica',
     'detector de noticias falsas de salud',
