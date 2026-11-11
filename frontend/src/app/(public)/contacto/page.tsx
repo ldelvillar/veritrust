@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Contacto',
   alternates: { canonical: '/contacto' },
   description:
-    'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de noticias falsas de salud con IA.',
+    'Ponte en contacto con el equipo de VeriTrust. Soporte, prensa, alianzas y ventas para el detector de desinformación médica con IA.',
 };
 
 const container = 'mx-auto w-full max-w-345 px-5 md:px-8';

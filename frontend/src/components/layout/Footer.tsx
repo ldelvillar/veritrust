@@ -50,7 +50,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="mt-4 max-w-70 text-sm leading-relaxed text-white/60">
-              El detector de noticias falsas de salud impulsado por un sistema
+              El detector de desinformación médica impulsado por un sistema
               multiagente de IA. Verifica con rigor, cita tus fuentes.
             </p>
           </div>
