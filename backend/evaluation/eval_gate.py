@@ -80,6 +80,13 @@ def evaluate_gate(
         "main": sum(t not in base.rows for t in texts),
         "PR": sum(t not in head.rows for t in texts),
     }
+    # A row labelled unlike its sample means the arms sampled different sets, which no metric can compare.
+    expected = {sample["text"]: sample["expected"] for sample in samples}
+    relabelled = sum(
+        base.rows[t]["expected"] != expected[t]
+        or head.rows[t]["expected"] != expected[t]
+        for t in shared
+    )
     before = compute_metrics([base.rows[t] for t in shared])
     after = compute_metrics([head.rows[t] for t in shared])
 
@@ -90,7 +97,7 @@ def evaluate_gate(
         if before[name] - after[name] > tolerance + 1e-9
     }
     incomplete = {arm: n for arm, n in missing.items() if n > MAX_MISSING}
-    passed = not regressed and not incomplete
+    passed = not regressed and not incomplete and not relabelled
 
     lines = [
         MARKER,
@@ -129,7 +136,13 @@ def evaluate_gate(
     for arm, n in incomplete.items():
         lines.append(
             f"\n**{arm} perdió {n} muestras** (máximo {MAX_MISSING}); "
-            "relanza el job y, si vuelve a fallar, mira en el log qué muestras fallan."
+            "relanza el job y, si vuelve a fallar, mira en el log qué muestras fallan "
+            "o si las ramas muestrean conjuntos distintos."
+        )
+    if relabelled:
+        lines.append(
+            f"\n**{relabelled} muestras tienen otra etiqueta en main o en la PR**: "
+            "las ramas muestrean conjuntos distintos, así que no se pueden comparar."
         )
     return GateResult(passed, "\n".join(lines))
 

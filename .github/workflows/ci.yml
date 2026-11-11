@@ -253,6 +253,8 @@ jobs:
       LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com' }}
+      # Decided once, so both arms are traced or neither is.
+      LANGFUSE_ON: ${{ secrets.LANGFUSE_PUBLIC_KEY != '' && secrets.LANGFUSE_SECRET_KEY != '' }}
       UV_CACHE_DIR: /tmp/.uv-cache
       # Both arms and the gate must sample the same set.
       EVAL_ARGS: --partition gold --limit 100 --seed 42
@@ -308,11 +310,17 @@ jobs:
           key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
           restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-
 
+      # Idempotent, so the Langfuse datasets always hold the gold set both arms sample, including one a gold-set-only PR changed.
+      - name: Upload the eval datasets to Langfuse
+        if: env.LANGFUSE_ON == 'true'
+        working-directory: main/backend
+        run: uv run --frozen --extra evaluation python -m evaluation.upload_datasets
+
       - name: Evaluate main
         working-directory: main/backend
         run: |
           lf=()
-          if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}-pr${PR_NUMBER}"); fi
+          if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-main-${BASE_SHA::7}-pr${PR_NUMBER}"); fi
           # A failed first pass only warns, since the second resumes whatever it left out and must succeed.
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
             --checkpoint "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de main falló; se reanuda."
@@ -331,7 +339,7 @@ jobs:
         working-directory: pr/backend
         run: |
           lf=()
-          if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
+          if [ "$LANGFUSE_ON" = true ]; then lf=(--langfuse-run "ci-pr${PR_NUMBER}-${HEAD_SHA::7}-a${GITHUB_RUN_ATTEMPT}"); fi
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
             --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}" || echo "::warning::La primera pasada de la PR falló; se reanuda."
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline $EVAL_ARGS \
@@ -346,7 +354,7 @@ jobs:
 
       # The report names its commit and the required check holds the verdict, so a comment from an older push reads as old.
       - name: Post the report on the PR
-        if: always() && hashFiles('eval-results/report.md') != ''
+        if: ${{ !cancelled() && hashFiles('eval-results/report.md') != '' }}
         working-directory: pr
         env:
           GH_TOKEN: ${{ github.token }}
