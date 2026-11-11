@@ -119,17 +119,19 @@ def test_an_arm_that_lost_too_many_samples_fails() -> None:
     assert f"PR perdió {gate.MAX_MISSING + 1} muestras" in result.report
 
 
-def test_arms_labelled_unlike_the_samples_fail_as_incomparable() -> None:
+@pytest.mark.parametrize("side", ["base", "head"])
+def test_arms_labelled_unlike_the_samples_fail_as_incomparable(side: str) -> None:
     samples = _samples(20)
 
-    # Main's rows carry a label the PR's sampling no longer gives, as when labelling code changes.
-    base = _arm(samples)
-    base.rows[samples[0]["text"]]["expected"] = "falsa"
+    # One arm's rows carry a label the gate's sampling no longer gives, as when labelling code changes.
+    arms = {"base": _arm(samples), "head": _arm(samples)}
+    arms[side].rows[samples[0]["text"]]["expected"] = "falsa"
 
-    result = gate.evaluate_gate(samples, base, _arm(samples))
+    result = gate.evaluate_gate(samples, arms["base"], arms["head"])
 
     assert not result.passed
     assert "1 muestras tienen otra etiqueta" in result.report
+    assert "| Métrica |" not in result.report
 
 
 def test_main_writes_the_report_and_exits_non_zero_on_a_regression(

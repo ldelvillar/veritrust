@@ -107,6 +107,15 @@ def evaluate_gate(
         f"Gold set, {len(shared)} de {len(texts)} muestras evaluadas en ambas ramas, "
         "con la evidencia de main reproducida en la PR.",
         "",
+    ]
+    # Metrics over arms that sampled different sets would read as a verdict, so only the reason is shown.
+    if relabelled:
+        lines.append(
+            f"**{relabelled} muestras tienen otra etiqueta en main o en la PR**: "
+            "las ramas muestrean conjuntos distintos, así que no se pueden comparar."
+        )
+        return GateResult(False, "\n".join(lines))
+    lines += [
         "| Métrica | main | PR | Δ | Tolerancia | |",
         "|---|---|---|---|---|---|",
     ]
@@ -138,11 +147,6 @@ def evaluate_gate(
             f"\n**{arm} perdió {n} muestras** (máximo {MAX_MISSING}); "
             "relanza el job y, si vuelve a fallar, mira en el log qué muestras fallan "
             "o si las ramas muestrean conjuntos distintos."
-        )
-    if relabelled:
-        lines.append(
-            f"\n**{relabelled} muestras tienen otra etiqueta en main o en la PR**: "
-            "las ramas muestrean conjuntos distintos, así que no se pueden comparar."
         )
     return GateResult(passed, "\n".join(lines))
 

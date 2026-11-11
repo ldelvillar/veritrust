@@ -1,5 +1,6 @@
 """Unit tests for uploading the evaluation sets to Langfuse."""
 
+from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
@@ -99,4 +100,19 @@ def test_every_repo_set_loads_into_items() -> None:
 
 def test_main_refuses_to_run_without_langfuse_keys() -> None:
     with pytest.raises(SystemExit, match="LANGFUSE_PUBLIC_KEY"):
-        upload_datasets.main()
+        upload_datasets.main([])
+
+
+def test_main_uploads_only_the_named_datasets(monkeypatch) -> None:
+    client = FakeLangfuse()
+    monkeypatch.setattr(upload_datasets, "langfuse", client)
+    monkeypatch.setattr(
+        upload_datasets,
+        "get_settings",
+        lambda: SimpleNamespace(langfuse_enabled=lambda: True),
+    )
+
+    upload_datasets.main(["gold-es"])
+
+    assert client.items
+    assert all(item_id.startswith("gold-es-") for item_id in client.items)

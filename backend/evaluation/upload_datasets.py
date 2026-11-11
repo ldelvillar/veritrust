@@ -1,5 +1,6 @@
 """Upload the labelled evaluation sets to Langfuse as datasets, so eval runs can be linked to their items."""
 
+import argparse
 import logging
 from collections.abc import Callable
 from typing import Any, TypedDict
@@ -91,15 +92,27 @@ def upload(client: Any, name: str, description: str, items: list[DatasetItem]) -
         )
 
 
-def main() -> None:
-    """Script entry point that uploads every evaluation set to the configured Langfuse project."""
+def main(argv: list[str] | None = None) -> None:
+    """Script entry point that uploads the named evaluation sets, or all of them, to the configured Langfuse project."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    # Checked by hand, since argparse rejects an empty nargs="*" list that has choices.
+    parser.add_argument(
+        "datasets",
+        nargs="*",
+        help=f"Datasets a subir ({', '.join(DATASETS)}); por defecto, todos.",
+    )
+    args = parser.parse_args(argv)
+    unknown = set(args.datasets) - set(DATASETS)
+    if unknown:
+        parser.error(f"datasets desconocidos: {', '.join(sorted(unknown))}")
     logging.basicConfig(level=logging.INFO)
     if not get_settings().langfuse_enabled():
         raise SystemExit(
             "Configura LANGFUSE_PUBLIC_KEY y LANGFUSE_SECRET_KEY para subir los datasets."
         )
 
-    for name, (description, load_items) in DATASETS.items():
+    for name in args.datasets or DATASETS:
+        description, load_items = DATASETS[name]
         items = load_items()
         upload(langfuse, name, description, items)
         logger.info("Dataset %s: %d ítems", name, len(items))

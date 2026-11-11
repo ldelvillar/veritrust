@@ -283,7 +283,7 @@ jobs:
           mkdir -p "$RESULTS"
           if [ "$GOLD_SET_CHANGED" = true ]; then
             printf '%s\n' '<!-- eval-gate -->' "### Puerta de evaluación para \`${HEAD_SHA::7}\`: ❌ falla" '' \
-              'Esta PR cambia el gold set y también código del pipeline, así que main y la PR no se pueden comparar. Separa el cambio del gold set en su propia PR y, tras fusionarla, vuelve a subir el dataset con `python -m evaluation.upload_datasets`.' \
+              'Esta PR cambia el gold set y también código del pipeline, así que main y la PR no se pueden comparar. Separa el cambio del gold set en su propia PR; la puerta sube el dataset nuevo a Langfuse en la siguiente PR del pipeline.' \
               > "$RESULTS/report.md"
             echo "::error::Separa el cambio del gold set en su propia PR."
             exit 1
@@ -310,11 +310,11 @@ jobs:
           key: pipeline-eval-main-${{ env.BASE_SHA }}-${{ github.run_id }}
           restore-keys: pipeline-eval-main-${{ env.BASE_SHA }}-
 
-      # Idempotent, so the Langfuse datasets always hold the gold set both arms sample, including one a gold-set-only PR changed.
-      - name: Upload the eval datasets to Langfuse
+      # Idempotent, so the gold dataset holds main's gold set, including one a gold-set-only PR changed.
+      - name: Upload the gold dataset to Langfuse
         if: env.LANGFUSE_ON == 'true'
         working-directory: main/backend
-        run: uv run --frozen --extra evaluation python -m evaluation.upload_datasets
+        run: uv run --frozen --extra evaluation python -m evaluation.upload_datasets gold-es
 
       - name: Evaluate main
         working-directory: main/backend
