@@ -24,7 +24,7 @@ export default function Hero() {
       >
         <div>
           <h1 className="mt-5 mb-5 pr-1 font-display text-display-sm font-normal tracking-[-0.01em] text-white sm:text-display-md md:text-display-lg">
-            El detector de desinformación en salud{' '}
+            El detector de desinformación médica{' '}
             <em className="pr-1 italic">impulsado por IA</em>
           </h1>
           <p className="max-w-140 text-lg leading-relaxed font-normal text-white/90">

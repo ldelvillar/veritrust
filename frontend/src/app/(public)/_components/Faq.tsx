@@ -3,7 +3,7 @@ import { container } from './container';
 
 export const faqEntries = [
   {
-    q: '¿Qué es un detector de noticias falsas de salud?',
+    q: '¿Qué es un detector de desinformación médica?',
     a: (
       <>
         Es una herramienta que analiza contenido sanitario —texto, enlaces o
@@ -102,7 +102,7 @@ export default function Faq() {
             Preguntas frecuentes
           </span>
           <h2 className="my-4 font-display text-display-sm font-normal tracking-[-0.005em] text-ink md:text-display-md">
-            Todo sobre el detector de noticias falsas de salud
+            Todo sobre el detector de desinformación médica
           </h2>
         </div>
         <div className="mx-auto flex max-w-195 flex-col gap-3.5">

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: 'Solicitar Demo',
   alternates: { canonical: '/demo' },
   description:
-    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
+    'Solicita una demo de VeriTrust, el detector de desinformación médica con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
 };
 
 const container = 'mx-auto w-full max-w-345 px-5 md:px-8';
@@ -48,7 +48,7 @@ const jsonLd = {
   url: `${SITE_CONFIG.domain}/demo`,
   name: 'Solicitar Demo de VeriTrust',
   description:
-    'Solicita una demo de VeriTrust, el detector de noticias falsas de salud con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
+    'Solicita una demo de VeriTrust, el detector de desinformación médica con IA. Te mostramos cómo verificar afirmaciones médicas para tu redacción o institución.',
   isPartOf: {
     '@id': `${SITE_CONFIG.domain}/#website`,
   },

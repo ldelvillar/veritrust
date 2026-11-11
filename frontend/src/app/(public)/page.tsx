@@ -11,11 +11,12 @@ import UseCases from './_components/UseCases';
 import { SITE_CONFIG } from '@/config/site';
 
 export const metadata: Metadata = {
-  title: 'Detector de Noticias Falsas de Salud Impulsado por IA',
+  title: 'Detector de Desinformación Médica Impulsado por IA',
   alternates: { canonical: '/' },
   description:
-    'Detector de desinformación en salud con IA. Verifica afirmaciones médicas una a una, con fuentes científicas citadas.',
+    'Detector de desinformación médica con IA. Verifica afirmaciones médicas una a una, con fuentes científicas citadas.',
   keywords: [
+    'detector de desinformación médica',
     'detector de noticias falsas de salud',
     'verificar bulos médicos',
     'fact-checking médico',
@@ -34,7 +35,7 @@ const jsonLd = {
       url: SITE_CONFIG.domain,
       name: SITE_CONFIG.name,
       description:
-        'Detector de noticias falsas de salud impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos con fuentes científicas.',
+        'Detector de desinformación médica impulsado por un sistema multiagente de IA. Verifica textos, enlaces y documentos médicos con fuentes científicas.',
       inLanguage: 'es-ES',
       publisher: {
         '@id': `${SITE_CONFIG.domain}/#organization`,
