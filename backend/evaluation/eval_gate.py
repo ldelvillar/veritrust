@@ -12,10 +12,11 @@ from evaluation.evaluate_pipeline import (
     load_checkpoint,
     load_samples,
     read_checkpoint_run,
+    replay_counts,
 )
 
 # Largest drop each metric may take below main, a few samples wide since n=100 leaves ~5 points of noise.
-GATED = {"accuracy": 0.05, "recall": 0.05, "coverage": 0.10}
+GATED = {"accuracy": 0.05, "recall": 0.05, "coverage": 0.10, "claims_found": 0.05}
 
 # Metrics shown beside the gated ones without failing the gate.
 REPORTED = ("precision", "f1_score")
@@ -69,6 +70,13 @@ def _describe(name: str, arm: Arm) -> str:
     )
 
 
+def _metrics(rows: list[EvalRow]) -> dict[str, float]:
+    """Compute the eval metrics plus the share of samples with claims, which no other metric counts."""
+    metrics = compute_metrics(rows)
+    metrics["claims_found"] = 1 - metrics["skipped"] / len(rows) if rows else 0.0
+    return metrics
+
+
 def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
     """Score both arms on the samples each completed and fail on a regression beyond its tolerance."""
     texts = [sample["text"] for sample in samples]
@@ -77,8 +85,8 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
         "main": sum(t not in base.rows for t in texts),
         "PR": sum(t not in head.rows for t in texts),
     }
-    before = compute_metrics([base.rows[t] for t in shared])
-    after = compute_metrics([head.rows[t] for t in shared])
+    before = _metrics([base.rows[t] for t in shared])
+    after = _metrics([head.rows[t] for t in shared])
 
     # The epsilon keeps a drop of exactly the tolerance from failing on float rounding.
     regressed = {
@@ -110,11 +118,10 @@ def evaluate_gate(samples: list[Sample], base: Arm, head: Arm) -> GateResult:
             f"| {name} | {_pct(before[name])} | {_pct(after[name])} | "
             f"{_delta(after[name] - before[name])} | — | |"
         )
-    for name in ("fn", "fp", "uncertain"):
+    for name in ("fn", "fp", "uncertain", "skipped"):
         lines.append(f"| {name} | {int(before[name])} | {int(after[name])} | | — | |")
 
-    searches = sum(len(head.rows[t].get("evidence") or []) for t in shared)
-    live = sum(head.rows[t].get("evidence_live") or 0 for t in shared)
+    searches, live = replay_counts([head.rows[t] for t in shared])
     lines += [
         "",
         f"Evidencia de la PR: {searches - live}/{searches} búsquedas reproducidas de main "

@@ -617,12 +617,18 @@ def _format_run(run: dict) -> list[str]:
     ]
 
 
+def replay_counts(rows: list[EvalRow]) -> tuple[int, int]:
+    """Count the rows' evidence searches and how many of them went live instead of to the recording."""
+    searches = sum(len(row.get("evidence") or []) for row in rows)
+    live = sum(row.get("evidence_live") or 0 for row in rows)
+    return searches, live
+
+
 def _format_replay(run: dict | None, rows: list[EvalRow]) -> list[str]:
     """Report line that says how much Evidence was replayed from the recording."""
     if not run or not run.get("replay_evidence"):
         return []
-    searches = sum(len(row.get("evidence") or []) for row in rows)
-    live = sum(row.get("evidence_live") or 0 for row in rows)
+    searches, live = replay_counts(rows)
     source = Path(run["replay_evidence"]).name
     return [
         f"Evidencia : {searches - live}/{searches} búsquedas reproducidas de {source}"

@@ -18,16 +18,22 @@ def _samples(n: int) -> list[ep.Sample]:
 
 
 def _arm(
-    samples: list[ep.Sample], wrong: int = 0, drop: int = 0, uncertain: int = 0
+    samples: list[ep.Sample],
+    wrong: int = 0,
+    drop: int = 0,
+    uncertain: int = 0,
+    no_claims: int = 0,
 ) -> gate.Arm:
-    """Arm that misjudges the first `wrong` samples, abstains on the next `uncertain` and lacks the last `drop`."""
+    """Arm that misjudges the first `wrong` samples, abstains on the next `uncertain`, finds no claims in the next `no_claims` and lacks the last `drop`."""
     rows: dict[str, ep.EvalRow] = {}
     for i, sample in enumerate(samples[: len(samples) - drop]):
         flipped = "verdadera" if sample["expected"] == "falsa" else "falsa"
         if i < wrong:
-            predicted = flipped
+            predicted: str | None = flipped
         elif i < wrong + uncertain:
             predicted = "incierta"
+        elif i < wrong + uncertain + no_claims:
+            predicted = None
         else:
             predicted = sample["expected"]
         rows[sample["text"]] = {
@@ -76,6 +82,16 @@ def test_abstaining_more_fails_on_coverage() -> None:
 
     assert not result.passed
     assert "| coverage | 100.0% | 85.0% | -15.0 pp | -10 pp | ❌ |" in result.report
+
+
+def test_finding_no_claims_in_more_samples_fails() -> None:
+    samples = _samples(20)
+
+    # Samples with no claims leave accuracy and coverage untouched, so only this gate sees them.
+    result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, no_claims=2))
+
+    assert not result.passed
+    assert "| claims_found | 100.0% | 90.0% | -10.0 pp | -5 pp | ❌ |" in result.report
 
 
 def test_samples_one_arm_lacks_are_left_out_of_both() -> None:
