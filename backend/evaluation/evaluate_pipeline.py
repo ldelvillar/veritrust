@@ -347,7 +347,14 @@ class MissingDatasetItemsError(ValueError):
 
 
 # Run-level metrics recorded as the experiment's scores, so runs can be compared.
-RUN_SCORES = ("accuracy", "coverage", "precision", "recall", "f1_score")
+RUN_SCORES = (
+    "accuracy",
+    "coverage",
+    "claims_found",
+    "precision",
+    "recall",
+    "f1_score",
+)
 
 
 def score_sample(*, output: dict, expected_output: dict, **_: Any) -> list[Evaluation]:
@@ -602,6 +609,8 @@ def compute_metrics(rows: list[EvalRow]) -> dict[str, float]:
         "skipped": skipped,
         # An unusable judge answer leaves its claim uncertain, as in production, so the row still scores.
         "judge_failed": sum(1 for r in rows if r.get("judge_failures")),
+        # Share of samples with claims, since a sample without them counts in no other metric.
+        "claims_found": 1 - skipped / len(rows) if rows else 0.0,
     }
 
 
@@ -617,12 +626,18 @@ def _format_run(run: dict) -> list[str]:
     ]
 
 
+def replay_counts(rows: list[EvalRow]) -> tuple[int, int]:
+    """Count the rows' evidence searches and how many of them went live instead of to the recording."""
+    searches = sum(len(row.get("evidence") or []) for row in rows)
+    live = sum(row.get("evidence_live") or 0 for row in rows)
+    return searches, live
+
+
 def _format_replay(run: dict | None, rows: list[EvalRow]) -> list[str]:
     """Report line that says how much Evidence was replayed from the recording."""
     if not run or not run.get("replay_evidence"):
         return []
-    searches = sum(len(row.get("evidence") or []) for row in rows)
-    live = sum(row.get("evidence_live") or 0 for row in rows)
+    searches, live = replay_counts(rows)
     source = Path(run["replay_evidence"]).name
     return [
         f"Evidencia : {searches - live}/{searches} búsquedas reproducidas de {source}"
