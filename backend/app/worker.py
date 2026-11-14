@@ -8,18 +8,14 @@ from arq import cron, func, run_worker
 from arq.connections import RedisSettings
 from langfuse import propagate_attributes
 
-from app.agents.errors import (
-    EvidenceUnavailable,
-    OllamaConnectionError,
-    ainvoke_graph,
-)
+from app.agents.errors import AgentError
 from app.agents.literature_sources import live_literature_sources
 from app.agents.main import (
     create_evidence_graph,
     create_graph,
     describe_pipeline,
 )
-from app.agents.sanitize import neutralize_delimiters
+from app.agents.pipeline import check_text, find_evidence
 from app.core.analysis_jobs import ArqAnalysisQueue
 from app.core.analysis_lifecycle import (
     AnalysisFailure,
@@ -82,40 +78,31 @@ async def _input_text(run: AnalysisRun) -> str:
 
 async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
     """Turn the input of a pending Analysis into its Verdict with the multi-agent graph."""
-    text = neutralize_delimiters(await _input_text(run))
-    initial_state: dict[str, object] = {
-        "input_text": text,
-        "claims": [],
-        "sources": [],
-        "medical_explanation": "",
-    }
+    text = await _input_text(run)
 
     await run.stage_finished("preparing")
     try:
         # The Analysis id is the session, so every Run of one Analysis groups together.
         with propagate_attributes(session_id=run.analysis_id):
-            result = await ainvoke_graph(
-                ctx["verification_system"], initial_state, on_stage=run.stage_finished
+            checked = await check_text(
+                ctx["verification_system"], text, on_stage=run.stage_finished
             )
-    except OllamaConnectionError as exc:
-        logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
-        raise AnalysisFailure(ErrorCode.CONNECTION) from exc
-    except EvidenceUnavailable as exc:
-        logger.warning("[Worker] %s en %s", exc, run.analysis_id)
+    except AgentError as exc:
+        logger.exception(
+            "[Worker] Nuestros servicios no pudieron comprobar %s", run.analysis_id
+        )
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
-    verdict = result.get("verdict")
-    if verdict is None:
+    if checked.verdict is None:
         raise AnalysisFailure(ErrorCode.NO_MEDICAL_CLAIMS)
 
-    explanation = result.get("medical_explanation") or None
-    if not explanation:
+    if not checked.explanation:
         logger.warning("[Worker] Análisis %s sin informe del experto", run.analysis_id)
 
     return Completion(
-        verdict=verdict,
-        explanation=explanation,
-        sources=result.get("sources") or [],
+        verdict=checked.verdict,
+        explanation=checked.explanation or None,
+        sources=checked.sources,
         pipeline=ctx["pipeline"],
     )
 
@@ -144,27 +131,22 @@ def _truncate_abstract(text: str | None) -> str | None:
 async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
     """Search and judge a claim's Evidence without a Verdict and return a serialisable dict."""
     logger.info("[Worker] Procesando búsqueda de evidencia")
-    initial_state: dict[str, object] = {
-        "input_text": neutralize_delimiters(claim),
-        "claims": [],
-    }
-
     try:
-        result = await asyncio.wait_for(
-            ainvoke_graph(ctx["evidence_system"], initial_state),
+        claims = await asyncio.wait_for(
+            find_evidence(ctx["evidence_system"], claim),
             timeout=get_settings().analysis_job_timeout_seconds,
         )
     except TimeoutError:
         logger.warning("[Worker] La búsqueda de evidencia agotó el tiempo")
         return {"error_code": ErrorCode.SERVICE_UNAVAILABLE.value}
-    except OllamaConnectionError:
+    except AgentError:
         logger.exception("[Worker] No se pudo conectar al LLM en la búsqueda")
         return {"error_code": ErrorCode.CONNECTION.value}
     except Exception:
         logger.exception("[Worker] Error inesperado en la búsqueda de evidencia")
         return {"error_code": ErrorCode.INTERNAL.value}
 
-    report = evidence_report(result.get("claims") or [])
+    report = evidence_report(claims)
     if not report["claims"]:
         return {"error_code": ErrorCode.NO_MEDICAL_CLAIMS.value}
 

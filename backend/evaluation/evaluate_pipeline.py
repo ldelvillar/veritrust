@@ -17,17 +17,17 @@ from typing import Any, TypedDict, cast
 import pandas as pd
 from langfuse import Evaluation
 
-from app.agents.errors import ainvoke_graph
 from app.agents.literature_sources import (
     LiteratureSources,
     Search,
     live_literature_sources,
 )
 from app.agents.main import create_graph, describe_pipeline
+from app.agents.pipeline import check_text
 from app.core.claim import Claim
 from app.core.config import get_settings
 from app.core.tracing import langfuse
-from app.core.verdict import Verdict, kind_of
+from app.core.verdict import kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
 from app.utils.llm import ensure_llm_available
@@ -198,15 +198,6 @@ def load_samples(
         {"text": str(row["text"]), "expected": str(row["expected"])}
         for _, row in sampled.iterrows()
     ]
-
-
-def _build_initial_state(text: str) -> dict[str, object]:
-    """Build the graph's initial state for an input text."""
-    return {
-        "input_text": text,
-        "claims": [],
-        "medical_explanation": "",
-    }
 
 
 def load_checkpoint(path: Path) -> dict[str, EvalRow]:
@@ -488,7 +479,7 @@ async def evaluate_pipeline(
         graph = build_graph(tape.over(literature))
         started = time()
         try:
-            result = await ainvoke_graph(graph, _build_initial_state(sample["text"]))
+            checked = await check_text(graph, sample["text"])
         except Exception:
             logger.exception(
                 "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
@@ -497,8 +488,7 @@ async def evaluate_pipeline(
         duration = time() - started
 
         # No Verdict because the text had no verifiable medical claims.
-        verdict: Verdict | None = result.get("verdict")
-        claims: list[Claim] = result.get("claims") or []
+        verdict, claims = checked.verdict, checked.claims
         row: EvalRow = {
             "text": sample["text"],
             "expected": sample["expected"],
@@ -512,11 +502,11 @@ async def evaluate_pipeline(
             "extracted": [claim.text for claim in claims],
             "translated": [claim.text_en for claim in claims],
             # Diagnostic that tells "nothing was retrieved" apart from "the judge will not commit".
-            "sources_kept": len(result.get("sources") or []),
-            "stances": _stance_histogram(result.get("sources") or []),
+            "sources_kept": len(checked.sources),
+            "stances": _stance_histogram(checked.sources),
             "evidence_coverage": verdict.evidence_coverage if verdict else 0.0,
             # Claims whose judge answer was unusable, which the Verdict counts as uncertain.
-            "judge_failures": int(result.get("judge_failures") or 0),
+            "judge_failures": checked.judge_failures,
             # Full Evidence per claim, so another trim policy can be tested without rerunning.
             "claim_evidence": [_recorded(claim) for claim in claims],
             # Raw hits per search, which another run replays with --replay-evidence.
@@ -524,7 +514,7 @@ async def evaluate_pipeline(
             # Searches the recording did not cover, which measure the mismatch with --replay-evidence.
             "evidence_live": tape.live,
             # Expert report (empty without --with-explanation), to evaluate how well it is grounded.
-            "explanation": str(result.get("medical_explanation") or ""),
+            "explanation": checked.explanation,
         }
         done[sample["text"]] = row
         if handle is not None:

@@ -329,14 +329,6 @@ def test_format_report_lists_misclassifications() -> None:
     assert "Errores de clasificación (1)" in report
 
 
-def test_build_initial_state_has_pipeline_keys() -> None:
-    state = ep._build_initial_state("hola")
-
-    assert state["input_text"] == "hola"
-    assert state["claims"] == []
-    assert state["medical_explanation"] == ""
-
-
 def test_load_checkpoint_reads_rows_and_ignores_corrupt(tmp_path) -> None:
     path = tmp_path / "ckpt.jsonl"
     good = {"text": "a", "expected": "falsa", "predicted": "falsa", "confidence": 0.9}

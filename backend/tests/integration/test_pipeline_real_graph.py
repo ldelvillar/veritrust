@@ -14,6 +14,7 @@ import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
 from app.agents.literature_sources import LiteratureSources
 from app.agents.main import create_evidence_graph, create_graph
+from app.agents.pipeline import check_text
 from app.core.analysis_lifecycle import AnalysisFailure, TextContent
 from app.core.config import Settings
 from app.prompts.agents import PromptItem, Prompts, load_prompts
@@ -34,16 +35,6 @@ def prompts():
         # The expert renders the YAML templates, so the real prompt goes here.
         health_expert=load_prompts().health_expert,
     )
-
-
-def _initial_state(text: str) -> dict:
-    """Replicate the exact initial state the worker sends to the graph."""
-    return {
-        "input_text": text,
-        "claims": [],
-        "sources": [],
-        "medical_explanation": "",
-    }
 
 
 def _stub_extractor(monkeypatch, statements, queries, drug_terms=None):
@@ -178,7 +169,9 @@ def _judgments(stances: list[str], sources: int):
     )
 
 
-def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, prompts):
+async def test_full_pipeline_carries_claims_from_extraction_to_verdict(
+    monkeypatch, prompts
+):
     """Claims flow extractor, translator, investigator and expert without getting lost."""
     _stub_extractor(
         monkeypatch,
@@ -227,14 +220,14 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
     _stub_judge(monkeypatch, stance="supports", record=judged)
 
     graph = create_graph(prompts, literature)
-    result = graph.invoke(_initial_state("El ibuprofeno cura la gripe..."))
+    result = await check_text(graph, "El ibuprofeno cura la gripe...")
 
     # The judge evaluates the translations, never the original Spanish text.
     assert judged == [
         "Ibuprofen cures the flu",
         "Vitamin C prevents the common cold",
     ]
-    verdict = result["verdict"]
+    verdict = result.verdict
     # Per-claim Verdicts keep the original Spanish text.
     assert [c.text for c in verdict.claims] == [
         "El ibuprofeno cura la gripe",
@@ -244,12 +237,12 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
     # Supporting Evidence (2 and 1 Sources) gives a mean falsehood of (1/4 + 1/3) / 2 = 7/24.
     assert verdict.confidence == pytest.approx(17 / 24)
     assert verdict.evidence_coverage == 1.0
-    assert result["medical_explanation"] == "Informe médico integrado"
+    assert result.explanation == "Informe médico integrado"
 
     # The merged Sources link each original claim they support.
-    urls = {s["url"] for s in result["sources"]}
+    urls = {s["url"] for s in result.sources}
     assert "https://cima.aemps.es/ibuprofeno" in urls
-    linked = {st["text"] for s in result["sources"] for st in s["statements"]}
+    linked = {st["text"] for s in result.sources for st in s["statements"]}
     assert linked == {
         "El ibuprofeno cura la gripe",
         "La vitamina C previene el resfriado",
@@ -327,7 +320,9 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
     assert completion.explanation is None
 
 
-def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prompts):
+async def test_missing_search_queries_fall_back_to_translated_claims(
+    monkeypatch, prompts
+):
     """If the extractor leaves a claim's query empty, it is searched with the translation."""
     _stub_extractor(
         monkeypatch,
@@ -354,14 +349,14 @@ def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prom
     literature = _stub_sources(europepmc=recording_europepmc)
 
     graph = create_graph(prompts, literature)
-    result = graph.invoke(_initial_state("Texto"))
+    result = await check_text(graph, "Texto")
 
     # The claim without a focused query is investigated with its English translation, in no guaranteed order since searches run in a thread pool.
     assert set(europepmc_queries) == {'"query one"', "Claim two EN"}
-    assert result["verdict"].evidence_coverage == 1.0
+    assert result.verdict.evidence_coverage == 1.0
 
 
-def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
+async def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     """A translator that leaves translations empty must not break the following agents."""
     _stub_extractor(
         monkeypatch,
@@ -382,14 +377,14 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
     literature = _stub_sources(europepmc=fake_europepmc)
 
     graph = create_graph(prompts, literature)
-    result = graph.invoke(_initial_state("Texto"))
+    result = await check_text(graph, "Texto")
 
     # The claims stay untranslated and the pipeline keeps going.
-    assert [claim.text_en for claim in result["claims"]] == ["", ""]
+    assert [claim.text_en for claim in result.claims] == ["", ""]
     # Without a translation the relevance judge gets the query as a fallback.
     assert judged_claims == ['"query one"', '"query two"']
-    assert result["verdict"].label == "verdadera"
-    assert len(result["verdict"].claims) == 2
+    assert result.verdict.label == "verdadera"
+    assert len(result.verdict.claims) == 2
 
 
 async def test_a_claim_without_reachable_sources_fails_the_run_with_connection(
@@ -447,7 +442,7 @@ async def test_a_judge_mistral_keeps_rate_limiting_fails_the_run(monkeypatch, pr
     assert failure.value.code == ErrorCode.CONNECTION
 
 
-def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
+async def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts):
     """Evidence found but irrelevant is discarded by the judge and coverage drops to 0."""
     _stub_extractor(
         monkeypatch, statements=["Afirmación"], queries=['"q"'], drug_terms=[]
@@ -462,12 +457,12 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
     literature = _stub_sources(europepmc=fake_europepmc)
 
     graph = create_graph(prompts, literature)
-    result = graph.invoke(_initial_state("Texto"))
+    result = await check_text(graph, "Texto")
 
     # The judge's real filtering empties the Sources and penalises the Confidence to the maximum.
-    assert result["sources"] == []
-    assert result["verdict"].evidence_coverage == 0.0
-    assert result["verdict"].confidence == pytest.approx(0.5 * 0.75)
+    assert result.sources == []
+    assert result.verdict.evidence_coverage == 0.0
+    assert result.verdict.confidence == pytest.approx(0.5 * 0.75)
 
 
 async def test_midgraph_transport_failure_surfaces_with_partial_stages(
@@ -489,7 +484,7 @@ async def test_midgraph_transport_failure_surfaces_with_partial_stages(
 
     graph = create_graph(prompts, literature)
     with pytest.raises(OllamaConnectionError):
-        await ainvoke_graph(graph, _initial_state("Texto"), on_stage=on_stage)
+        await check_text(graph, "Texto", on_stage=on_stage)
 
     # The expert never finished, so the stages reflect the real partial progress.
     assert stages == ["extractor", "translator", "investigator"]
