@@ -12,6 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agents.extractor import extractor
 from app.agents.health_expert import health_expert
 from app.agents.investigator import gather_evidence, investigator
+from app.agents.literature_sources import LiteratureSources
 from app.agents.state import AgentState, ClaimsState
 from app.agents.translator import translator
 from app.core.config import get_settings
@@ -62,15 +63,17 @@ def describe_pipeline(prompts: Prompts) -> dict:
     }
 
 
-def create_graph(prompts: Prompts) -> CompiledStateGraph:
-    """Build and wire the multi-agent workflow."""
+def create_graph(prompts: Prompts, literature: LiteratureSources) -> CompiledStateGraph:
+    """Build and wire the multi-agent workflow over the given Literature sources."""
+
+    def investigate(state: AgentState, prompts: Prompts) -> AgentState:
+        return investigator(state, literature, prompts)
+
     workflow = StateGraph(AgentState)
 
     workflow.add_node("extractor", _timed_node("extractor", extractor, prompts))
     workflow.add_node("translator", _timed_node("translator", translator, prompts))
-    workflow.add_node(
-        "investigator", _timed_node("investigator", investigator, prompts)
-    )
+    workflow.add_node("investigator", _timed_node("investigator", investigate, prompts))
     workflow.add_node(
         "health_expert", _timed_node("health_expert", health_expert, prompts)
     )
@@ -86,18 +89,20 @@ def create_graph(prompts: Prompts) -> CompiledStateGraph:
     return app
 
 
-def _evidence_node(state: ClaimsState, prompts: Prompts) -> ClaimsState:
-    """Evidence graph node that searches and judges each claim's Sources."""
-    return {"claims": gather_evidence(state.get("claims", []), prompts)}
+def create_evidence_graph(
+    prompts: Prompts, literature: LiteratureSources
+) -> CompiledStateGraph:
+    """Build the evidence-only workflow over the given Literature sources, with no Verdict or explanation."""
 
+    def evidence(state: ClaimsState, prompts: Prompts) -> ClaimsState:
+        """Evidence graph node that searches and judges each claim's Sources."""
+        return {"claims": gather_evidence(state.get("claims", []), literature, prompts)}
 
-def create_evidence_graph(prompts: Prompts) -> CompiledStateGraph:
-    """Build the evidence-only workflow, with no Verdict or explanation."""
     workflow = StateGraph(ClaimsState)
 
     workflow.add_node("extractor", _timed_node("extractor", extractor, prompts))
     workflow.add_node("translator", _timed_node("translator", translator, prompts))
-    workflow.add_node("evidence", _timed_node("evidence", _evidence_node, prompts))
+    workflow.add_node("evidence", _timed_node("evidence", evidence, prompts))
 
     workflow.add_edge(START, "extractor")
     workflow.add_edge("extractor", "translator")

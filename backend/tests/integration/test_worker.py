@@ -261,6 +261,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     """startup leaves the compiled graph under the ctx key run_analysis reads."""
     sentinel_prompts = object()
     sentinel_graph = object()
+    sentinel_literature = object()
     calls: list[str] = []
     validated: dict = {}
 
@@ -271,8 +272,9 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
         def validate_runtime(self, *, web=True):
             validated["web"] = web
 
-    def fake_create_graph(prompts):
+    def fake_create_graph(prompts, literature):
         assert prompts is sentinel_prompts
+        assert literature is sentinel_literature
         return sentinel_graph
 
     async def fake_get_pool():
@@ -281,9 +283,12 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     monkeypatch.setattr(worker, "get_settings", lambda: _FakeSettings())
     monkeypatch.setattr(worker, "ensure_llm_available", lambda: calls.append("llm"))
     monkeypatch.setattr(worker, "load_prompts", lambda: sentinel_prompts)
+    monkeypatch.setattr(worker, "live_literature_sources", lambda: sentinel_literature)
     monkeypatch.setattr(worker, "create_graph", fake_create_graph)
     monkeypatch.setattr(
-        worker, "create_evidence_graph", lambda prompts: ("evidence", prompts)
+        worker,
+        "create_evidence_graph",
+        lambda prompts, literature: ("evidence", prompts, literature),
     )
     monkeypatch.setattr(worker, "describe_pipeline", lambda prompts: ("run", prompts))
     monkeypatch.setattr(worker, "get_pool", fake_get_pool)
@@ -298,7 +303,11 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     # The worker serves no web requests, so it must not require CORS or the MCP URL.
     assert validated == {"web": False}
     assert ctx["verification_system"] is sentinel_graph
-    assert ctx["evidence_system"] == ("evidence", sentinel_prompts)
+    assert ctx["evidence_system"] == (
+        "evidence",
+        sentinel_prompts,
+        sentinel_literature,
+    )
     # The recorded configuration describes the same prompts the graph was built with.
     assert ctx["pipeline"] == ("run", sentinel_prompts)
     # run_analysis and the reaper use the same lifecycle runner.

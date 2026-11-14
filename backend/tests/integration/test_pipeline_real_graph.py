@@ -8,11 +8,11 @@ from langchain_core.exceptions import OutputParserException
 
 import app.agents.extractor as extractor_module
 import app.agents.health_expert as health_module
-import app.agents.investigator as investigator_module
 import app.agents.relevance as relevance_module
 import app.agents.translator as translator_module
 import app.worker as worker_module
 from app.agents.errors import OllamaConnectionError, ainvoke_graph
+from app.agents.literature_sources import LiteratureSources
 from app.agents.main import create_evidence_graph, create_graph
 from app.core.analysis_lifecycle import AnalysisFailure, TextContent
 from app.core.config import Settings
@@ -126,18 +126,20 @@ def _guard_health(monkeypatch):
     monkeypatch.setattr(health_module, "get_health_expert_llm", _fail)
 
 
-def _stub_sources(monkeypatch, europepmc=None, pubmed=None, openfda=None, cima=None):
-    """Replace the four evidence sources, where None means returning nothing."""
+def _stub_sources(europepmc=None, pubmed=None, openfda=None, cima=None):
+    """Build the four Literature sources, where None means returning nothing."""
 
     def _as_search(impl):
         if impl is None:
             return lambda query, max_results=3: []
         return impl
 
-    monkeypatch.setattr(investigator_module, "search_europepmc", _as_search(europepmc))
-    monkeypatch.setattr(investigator_module, "search_pubmed", _as_search(pubmed))
-    monkeypatch.setattr(investigator_module, "search_openfda", _as_search(openfda))
-    monkeypatch.setattr(investigator_module, "search_cima", _as_search(cima))
+    return LiteratureSources(
+        europepmc=_as_search(europepmc),
+        pubmed=_as_search(pubmed),
+        openfda=_as_search(openfda),
+        cima=_as_search(cima),
+    )
 
 
 def _failing_search(query, max_results=3):
@@ -215,8 +217,7 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
         ]
 
     # PubMed and openFDA are down, so the pipeline must go on with the live sources.
-    _stub_sources(
-        monkeypatch,
+    literature = _stub_sources(
         europepmc=fake_europepmc,
         pubmed=_failing_search,
         openfda=_failing_search,
@@ -225,7 +226,7 @@ def test_full_pipeline_carries_claims_from_extraction_to_verdict(monkeypatch, pr
     judged: list[str] = []
     _stub_judge(monkeypatch, stance="supports", record=judged)
 
-    graph = create_graph(prompts)
+    graph = create_graph(prompts, literature)
     result = graph.invoke(_initial_state("El ibuprofeno cura la gripe..."))
 
     # The judge evaluates the translations, never the original Spanish text.
@@ -268,15 +269,17 @@ async def test_pipeline_with_no_claims_ends_as_no_medical_claims_row(
     def _no_search(query, max_results=3):
         raise AssertionError("El investigador no debe buscar sin afirmaciones")
 
-    _stub_sources(
-        monkeypatch,
+    literature = _stub_sources(
         europepmc=_no_search,
         pubmed=_no_search,
         openfda=_no_search,
         cima=_no_search,
     )
 
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    ctx = {
+        "verification_system": create_graph(prompts, literature),
+        "pipeline": PIPELINE,
+    }
     with pytest.raises(AnalysisFailure) as failure:
         await worker_module.analyse(
             ctx, FakeRun(TextContent("Hoy hace un día soleado en Madrid"))
@@ -309,10 +312,13 @@ async def test_pipeline_with_explanation_disabled_still_completes(monkeypatch, p
             }
         ]
 
-    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+    literature = _stub_sources(europepmc=fake_europepmc)
     _stub_judge(monkeypatch, stance="contradicts")
 
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    ctx = {
+        "verification_system": create_graph(prompts, literature),
+        "pipeline": PIPELINE,
+    }
     completion = await worker_module.analyse(
         ctx, FakeRun(TextContent("La vitamina C previene el resfriado"))
     )
@@ -345,9 +351,9 @@ def test_missing_search_queries_fall_back_to_translated_claims(monkeypatch, prom
             }
         ]
 
-    _stub_sources(monkeypatch, europepmc=recording_europepmc)
+    literature = _stub_sources(europepmc=recording_europepmc)
 
-    graph = create_graph(prompts)
+    graph = create_graph(prompts, literature)
     result = graph.invoke(_initial_state("Texto"))
 
     # The claim without a focused query is investigated with its English translation, in no guaranteed order since searches run in a thread pool.
@@ -373,9 +379,9 @@ def test_empty_translator_output_still_produces_a_verdict(monkeypatch, prompts):
             {"title": f"Hit {query}", "url": f"https://e.org/{query}", "abstract": "R."}
         ]
 
-    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+    literature = _stub_sources(europepmc=fake_europepmc)
 
-    graph = create_graph(prompts)
+    graph = create_graph(prompts, literature)
     result = graph.invoke(_initial_state("Texto"))
 
     # The claims stay untranslated and the pipeline keeps going.
@@ -399,14 +405,16 @@ async def test_a_claim_without_reachable_sources_fails_the_run_with_connection(
     _stub_translator(monkeypatch, ["Claim one EN"])
     captured = _stub_health(monkeypatch)
     _stub_judge(monkeypatch)
-    _stub_sources(
-        monkeypatch,
+    literature = _stub_sources(
         europepmc=_failing_search,
         pubmed=_failing_search,
         openfda=_failing_search,
     )
 
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    ctx = {
+        "verification_system": create_graph(prompts, literature),
+        "pipeline": PIPELINE,
+    }
     with pytest.raises(AnalysisFailure) as failure:
         await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
@@ -427,9 +435,12 @@ async def test_a_judge_mistral_keeps_rate_limiting_fails_the_run(monkeypatch, pr
     def fake_europepmc(query, max_results=3):
         return [{"title": "Estudio", "url": "https://e.org/x", "abstract": "R."}]
 
-    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+    literature = _stub_sources(europepmc=fake_europepmc)
 
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    ctx = {
+        "verification_system": create_graph(prompts, literature),
+        "pipeline": PIPELINE,
+    }
     with pytest.raises(AnalysisFailure) as failure:
         await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
@@ -448,9 +459,9 @@ def test_judge_rejecting_all_sources_leaves_claim_uncovered(monkeypatch, prompts
     def fake_europepmc(query, max_results=3):
         return [{"title": "Otro tema", "url": "https://e.org/x", "abstract": "R."}]
 
-    _stub_sources(monkeypatch, europepmc=fake_europepmc)
+    literature = _stub_sources(europepmc=fake_europepmc)
 
-    graph = create_graph(prompts)
+    graph = create_graph(prompts, literature)
     result = graph.invoke(_initial_state("Texto"))
 
     # The judge's real filtering empties the Sources and penalises the Confidence to the maximum.
@@ -469,14 +480,14 @@ async def test_midgraph_transport_failure_surfaces_with_partial_stages(
     _stub_translator(monkeypatch, ["Claim EN"])
     _stub_health(monkeypatch, llm_error=httpx.ConnectError("ollama down"))
     _stub_judge(monkeypatch)
-    _stub_sources(monkeypatch)
+    literature = _stub_sources()
 
     stages: list[str] = []
 
     async def on_stage(node: str) -> None:
         stages.append(node)
 
-    graph = create_graph(prompts)
+    graph = create_graph(prompts, literature)
     with pytest.raises(OllamaConnectionError):
         await ainvoke_graph(graph, _initial_state("Texto"), on_stage=on_stage)
 
@@ -494,9 +505,12 @@ async def test_worker_maps_real_graph_transport_failure_to_connection_row(
     _stub_translator(monkeypatch, ["Claim EN"])
     _stub_health(monkeypatch, llm_error=httpx.ConnectError("ollama down"))
     _stub_judge(monkeypatch)
-    _stub_sources(monkeypatch)
+    literature = _stub_sources()
 
-    ctx = {"verification_system": create_graph(prompts), "pipeline": PIPELINE}
+    ctx = {
+        "verification_system": create_graph(prompts, literature),
+        "pipeline": PIPELINE,
+    }
     with pytest.raises(AnalysisFailure) as failure:
         await worker_module.analyse(ctx, FakeRun(TextContent("Texto")))
 
@@ -572,7 +586,9 @@ def _search_by_query(name: str, down_query: str | None):
     return search
 
 
-def _stub_outcome_scenario(monkeypatch, *, down_query: str | None = '"q2"'):
+def _stub_outcome_scenario(
+    monkeypatch, *, down_query: str | None = '"q2"'
+) -> LiteratureSources:
     """Mock LLMs and sources for the 11 claims of the outcomes scenario, with claim 2's sources down unless told otherwise."""
     _stub_extractor(
         monkeypatch,
@@ -582,13 +598,6 @@ def _stub_outcome_scenario(monkeypatch, *, down_query: str | None = '"q2"'):
     )
     _stub_translator(monkeypatch, _CLAIM_TRANSLATIONS)
     _stub_health(monkeypatch)
-    _stub_sources(
-        monkeypatch,
-        europepmc=_search_by_query("europepmc", down_query),
-        pubmed=_search_by_query("pubmed", down_query),
-        openfda=_search_by_query("openfda", down_query),
-        cima=_search_by_query("cima", down_query),
-    )
 
     class _Chain:
         def __init__(self, sources):
@@ -606,6 +615,12 @@ def _stub_outcome_scenario(monkeypatch, *, down_query: str | None = '"q2"'):
         relevance_module,
         "get_relevance_chain",
         lambda prompt_text, sources, model=None: _Chain(sources),
+    )
+    return _stub_sources(
+        europepmc=_search_by_query("europepmc", down_query),
+        pubmed=_search_by_query("pubmed", down_query),
+        openfda=_search_by_query("openfda", down_query),
+        cima=_search_by_query("cima", down_query),
     )
 
 
@@ -630,10 +645,10 @@ def _judged_hit(key: str, stance: str) -> dict:
 async def test_every_claim_outcome_reaches_the_report_unchanged(monkeypatch, prompts):
     """Pin the Sources, coverage and Verdict of an Analysis that walks through every claim outcome that leaves a Verdict."""
     # Claim 2's sources stay up, since one whose sources all fail leaves no Verdict.
-    _stub_outcome_scenario(monkeypatch, down_query=None)
+    literature = _stub_outcome_scenario(monkeypatch, down_query=None)
 
     result = await ainvoke_graph(
-        create_graph(prompts), {"input_text": "Texto con once afirmaciones"}
+        create_graph(prompts, literature), {"input_text": "Texto con once afirmaciones"}
     )
 
     # Only 12 Sources are stored, so G7 and claim 8's two are left out.
@@ -688,7 +703,7 @@ async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
     monkeypatch, prompts
 ):
     """Pin the evidence job's result for each claim outcome."""
-    _stub_outcome_scenario(monkeypatch)
+    literature = _stub_outcome_scenario(monkeypatch)
     recorded: list[str] = []
 
     async def record_evidence_search(user_id):
@@ -697,7 +712,7 @@ async def test_every_claim_outcome_reaches_the_evidence_job_unchanged(
     monkeypatch.setattr(worker_module, "record_evidence_search", record_evidence_search)
 
     result = await worker_module.run_evidence_search(
-        {"evidence_system": create_evidence_graph(prompts)},
+        {"evidence_system": create_evidence_graph(prompts, literature)},
         "Texto con once afirmaciones",
         "user-a",
     )

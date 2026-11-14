@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -13,6 +14,7 @@ from app.agents.investigator import (
     gather_evidence,
     investigator,
 )
+from app.agents.literature_sources import LiteratureSources
 from app.core.claim import Claim, EvidenceSearch
 from app.utils.evidence import EvidenceRetrievalError
 
@@ -43,12 +45,17 @@ def _claims(
     ]
 
 
-def _patch_sources(monkeypatch, fake):
-    """Replace the four sources (Europe PMC, PubMed, openFDA and CIMA) with the double."""
-    monkeypatch.setattr(investigator_module, "search_europepmc", fake)
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake)
-    monkeypatch.setattr(investigator_module, "search_openfda", fake)
-    monkeypatch.setattr(investigator_module, "search_cima", fake)
+def _sources(fake) -> LiteratureSources:
+    """The four Literature sources (Europe PMC, PubMed, openFDA and CIMA) answered by the double."""
+    return LiteratureSources(europepmc=fake, pubmed=fake, openfda=fake, cima=fake)
+
+
+def _never_searched(query, *, max_results):
+    raise AssertionError("sin afirmaciones no se busca evidencia")
+
+
+# Literature sources of the tests that have nothing to search.
+_UNSEARCHED = _sources(_never_searched)
 
 
 def _patch_judge(monkeypatch, judge):
@@ -61,14 +68,16 @@ def _judge_all(stance):
     return lambda prompt, claim, evidence: (stance,) * len(evidence)
 
 
-def _investigate(monkeypatch, claims: list[Claim]) -> dict:
+def _investigate(
+    monkeypatch, literature: LiteratureSources, claims: list[Claim]
+) -> dict:
     """Run the investigator with a judge that finds every Source supporting."""
     _patch_judge(monkeypatch, _judge_all("supports"))
-    return investigator({"claims": claims}, _PROMPTS)
+    return investigator({"claims": claims}, literature, _PROMPTS)
 
 
 def test_returns_empty_without_claims():
-    update = investigator({"claims": []})
+    update = investigator({"claims": []}, _UNSEARCHED)
     assert update == {
         "claims": [],
         "shown_claims": [],
@@ -82,8 +91,10 @@ def test_collects_sources_and_full_coverage(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": f"hit for {query}", "url": f"https://x/{query}"}]
 
-    _patch_sources(monkeypatch, fake_search)
-    update = _investigate(monkeypatch, _claims(["A", "B"], originals=["a", "b"]))
+    literature = _sources(fake_search)
+    update = _investigate(
+        monkeypatch, literature, _claims(["A", "B"], originals=["a", "b"])
+    )
 
     assert set(update.keys()) == {
         "claims",
@@ -110,12 +121,14 @@ def test_merges_distinct_hits_from_both_sources(monkeypatch):
     def fake_empty(query, *, max_results):
         return []
 
-    monkeypatch.setattr(investigator_module, "search_europepmc", fake_europepmc)
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
-    monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
-    monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
+    literature = LiteratureSources(
+        europepmc=fake_europepmc,
+        pubmed=fake_pubmed,
+        openfda=fake_empty,
+        cima=fake_empty,
+    )
 
-    update = _investigate(monkeypatch, _claims(["A"], originals=["a"]))
+    update = _investigate(monkeypatch, literature, _claims(["A"], originals=["a"]))
 
     # Different results from each source are both kept for the same claim.
     assert update["evidence_search"] == EvidenceSearch(total=1, covered=1)
@@ -132,11 +145,11 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
         queried.add(query)
         return [{"title": query, "url": f"https://x/{query}"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
 
     total = EVIDENCE_MAX_STATEMENTS + 2
     statements = [f"S{i}" for i in range(total)]
-    update = _investigate(monkeypatch, _claims(statements))
+    update = _investigate(monkeypatch, literature, _claims(statements))
 
     # Only the first N claims are searched, and the trimmed ones count as uncovered.
     assert queried == set(statements[:EVIDENCE_MAX_STATEMENTS])
@@ -147,15 +160,14 @@ def test_cap_drops_extra_statements_and_counts_them_uncovered(monkeypatch):
     assert len(update["sources"]) == EVIDENCE_MAX_STATEMENTS
 
 
-def test_a_failed_source_is_logged_with_its_cause(monkeypatch, caplog):
+def test_a_failed_source_is_logged_with_its_cause(caplog):
     def fake_pubmed(query, *, max_results):
         raise EvidenceRetrievalError("Error al consultar PubMed: HTTPError 429")
 
-    _patch_sources(monkeypatch, lambda query, *, max_results: [])
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
+    literature = replace(_sources(lambda query, *, max_results: []), pubmed=fake_pubmed)
 
     with caplog.at_level(logging.WARNING, logger="app.agents.investigator"):
-        investigator({"claims": _claims(["A"])})
+        investigator({"claims": _claims(["A"])}, literature)
 
     assert "Error al consultar PubMed: HTTPError 429" in caplog.text
 
@@ -166,11 +178,11 @@ def test_a_claim_whose_sources_all_failed_fails_the_investigation(monkeypatch):
             raise EvidenceRetrievalError("down")
         return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
 
     # Uncertain would blame the literature for our failure, so the Run fails and a Retry may succeed (ADR-0006).
     with pytest.raises(EvidenceUnavailable, match="1 afirmaciones"):
-        _investigate(monkeypatch, _claims(["A-en", "B-en"]))
+        _investigate(monkeypatch, literature, _claims(["A-en", "B-en"]))
 
 
 def test_one_source_down_still_uses_the_other(monkeypatch):
@@ -183,19 +195,21 @@ def test_one_source_down_still_uses_the_other(monkeypatch):
     def fake_empty(query, *, max_results):
         return []
 
-    monkeypatch.setattr(investigator_module, "search_europepmc", fake_europepmc)
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake_pubmed)
-    monkeypatch.setattr(investigator_module, "search_openfda", fake_empty)
-    monkeypatch.setattr(investigator_module, "search_cima", fake_empty)
+    literature = LiteratureSources(
+        europepmc=fake_europepmc,
+        pubmed=fake_pubmed,
+        openfda=fake_empty,
+        cima=fake_empty,
+    )
 
-    update = _investigate(monkeypatch, _claims(["A"]))
+    update = _investigate(monkeypatch, literature, _claims(["A"]))
 
     # One down source does not invalidate the claim, since the others do bring Evidence.
     assert update["evidence_search"] == EvidenceSearch(total=1, covered=1)
     assert [source["url"] for source in update["sources"]] == ["https://pubmed/1"]
 
 
-def test_blank_translations_skip_lookups(monkeypatch):
+def test_blank_translations_skip_lookups():
     called = False
 
     def fake_search(query, *, max_results):
@@ -203,10 +217,10 @@ def test_blank_translations_skip_lookups(monkeypatch):
         called = True
         return []
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
 
     # Blank (padding) translations leave nothing to query.
-    claims = gather_evidence(_claims(["", "  "]))
+    claims = gather_evidence(_claims(["", "  "]), literature)
 
     assert [claim.outcome for claim in claims] == ["unsearchable", "unsearchable"]
     assert called is False
@@ -220,14 +234,14 @@ def test_runs_lookups_concurrently(monkeypatch):
         barrier.wait()
         return [{"title": query, "url": f"https://x/{query}"}]
 
-    _patch_sources(monkeypatch, fake_search)
-    update = _investigate(monkeypatch, _claims(["A", "B", "C"]))
+    literature = _sources(fake_search)
+    update = _investigate(monkeypatch, literature, _claims(["A", "B", "C"]))
 
     assert update["evidence_search"] == EvidenceSearch(total=3, covered=3)
     assert len(update["sources"]) == 3
 
 
-def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
+def test_cima_queried_with_drug_term_not_english_query():
     topic_queried: list[str] = []
     cima_queried: list[str] = []
 
@@ -239,10 +253,9 @@ def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
         cima_queried.append(query)
         return [{"title": "ficha", "url": "https://cima/1"}]
 
-    monkeypatch.setattr(investigator_module, "search_europepmc", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_openfda", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_cima", fake_cima)
+    literature = LiteratureSources(
+        europepmc=fake_topic, pubmed=fake_topic, openfda=fake_topic, cima=fake_cima
+    )
 
     update = investigator(
         {
@@ -252,7 +265,8 @@ def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
                 queries=['"ibuprofen" AND "cancer"'],
                 drug_terms=["ibuprofeno"],
             )
-        }
+        },
+        literature,
     )
 
     # CIMA uses the Spanish term and the literature the focused English query.
@@ -261,7 +275,7 @@ def test_cima_queried_with_drug_term_not_english_query(monkeypatch):
     assert [source["url"] for source in update["sources"]] == ["https://cima/1"]
 
 
-def test_cima_skipped_when_no_drug_term(monkeypatch):
+def test_cima_skipped_when_no_drug_term():
     cima_called = False
 
     def fake_topic(query, *, max_results):
@@ -272,10 +286,9 @@ def test_cima_skipped_when_no_drug_term(monkeypatch):
         cima_called = True
         return []
 
-    monkeypatch.setattr(investigator_module, "search_europepmc", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_pubmed", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_openfda", fake_topic)
-    monkeypatch.setattr(investigator_module, "search_cima", fake_cima)
+    literature = LiteratureSources(
+        europepmc=fake_topic, pubmed=fake_topic, openfda=fake_topic, cima=fake_cima
+    )
 
     investigator(
         {
@@ -285,7 +298,8 @@ def test_cima_skipped_when_no_drug_term(monkeypatch):
                 queries=['"diet"'],
                 drug_terms=[""],
             )
-        }
+        },
+        literature,
     )
 
     # Without a named drug, CIMA is not queried.
@@ -296,7 +310,7 @@ def test_judge_receives_the_english_claim_or_its_query(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": query, "url": f"https://x/{query}"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
     judged: list[str] = []
 
     def fake_judge(prompt, claim, evidence):
@@ -307,6 +321,7 @@ def test_judge_receives_the_english_claim_or_its_query(monkeypatch):
 
     gather_evidence(
         _claims(["A-en", ""], originals=["a", "b"], queries=['"qa"', '"qb"']),
+        literature,
         _PROMPTS,
     )
 
@@ -318,7 +333,7 @@ def test_judge_runs_concurrently(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
 
     # The barrier only releases if the 3 judgments overlap, so a sequential run would time out.
     barrier = threading.Barrier(3, timeout=5)
@@ -330,7 +345,9 @@ def test_judge_runs_concurrently(monkeypatch):
     _patch_judge(monkeypatch, fake_judge)
 
     update = investigator(
-        {"claims": _claims(["A", "B", "C"], originals=["a", "b", "c"])}, _PROMPTS
+        {"claims": _claims(["A", "B", "C"], originals=["a", "b", "c"])},
+        literature,
+        _PROMPTS,
     )
 
     assert update["evidence_search"] == EvidenceSearch(total=3, covered=3)
@@ -341,7 +358,7 @@ def test_parallel_judge_isolates_one_unusable_answer(monkeypatch):
     def fake_search(query, *, max_results):
         return [{"title": query, "url": f"https://x/{query}", "abstract": "abs"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
 
     # The judge's answer is unusable for a single claim and in parallel must not drag the rest down.
     def fake_judge(prompt, claim, evidence):
@@ -350,7 +367,9 @@ def test_parallel_judge_isolates_one_unusable_answer(monkeypatch):
     _patch_judge(monkeypatch, fake_judge)
 
     update = investigator(
-        {"claims": _claims(["A-en", "B-en"], originals=["a", "b"])}, _PROMPTS
+        {"claims": _claims(["A-en", "B-en"], originals=["a", "b"])},
+        literature,
+        _PROMPTS,
     )
 
     # The unjudged claim keeps its Evidence without Stances and does not cover, while the other is judged normally.
@@ -371,11 +390,13 @@ def test_reports_judge_failures_when_sources_go_unjudged(monkeypatch):
     def fake_search(query, max_results):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
     _patch_judge(monkeypatch, lambda prompt, claim, evidence: None)
 
     update = investigator(
-        {"claims": _claims(["Claim in English"], originals=["Afirmación"])}, _PROMPTS
+        {"claims": _claims(["Claim in English"], originals=["Afirmación"])},
+        literature,
+        _PROMPTS,
     )
 
     assert update["judge_failures"] == 1
@@ -385,9 +406,9 @@ def test_no_judge_failures_when_every_source_is_judged(monkeypatch):
     def fake_search(query, max_results):
         return [{"url": "u1", "title": "T1", "abstract": "A1"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
     update = _investigate(
-        monkeypatch, _claims(["Claim in English"], originals=["Afirmación"])
+        monkeypatch, literature, _claims(["Claim in English"], originals=["Afirmación"])
     )
 
     assert update["judge_failures"] == 0
@@ -399,10 +420,12 @@ def test_gather_evidence_marks_unjudged_and_unavailable_claims(monkeypatch):
             raise EvidenceRetrievalError("down")
         return [{"title": "t", "url": "https://x/a"}]
 
-    _patch_sources(monkeypatch, fake_search)
+    literature = _sources(fake_search)
     _patch_judge(monkeypatch, lambda prompt, claim, evidence: None)
 
-    claims = gather_evidence(_claims(["A-en", "B-en"], originals=["a", "b"]), _PROMPTS)
+    claims = gather_evidence(
+        _claims(["A-en", "B-en"], originals=["a", "b"]), literature, _PROMPTS
+    )
 
     # Every source failed for the second claim, so no Evidence is available.
     assert [claim.outcome for claim in claims] == ["unjudged", "unavailable"]
@@ -410,11 +433,11 @@ def test_gather_evidence_marks_unjudged_and_unavailable_claims(monkeypatch):
     assert claims[1].evidence == ()
 
 
-def test_gather_evidence_leaves_claims_beyond_the_cap_unsearched(monkeypatch):
-    _patch_sources(monkeypatch, lambda query, *, max_results: [])
+def test_gather_evidence_leaves_claims_beyond_the_cap_unsearched():
+    literature = _sources(lambda query, *, max_results: [])
 
     statements = [f"S{i}" for i in range(EVIDENCE_MAX_STATEMENTS + 2)]
-    claims = gather_evidence(_claims(statements))
+    claims = gather_evidence(_claims(statements), literature)
 
     # With no Sources to judge, the searched claim counts as judged.
     assert [claim.outcome for claim in claims] == [
@@ -426,4 +449,4 @@ def test_gather_evidence_leaves_claims_beyond_the_cap_unsearched(monkeypatch):
 
 
 def test_gather_evidence_is_empty_without_claims():
-    assert gather_evidence([]) == []
+    assert gather_evidence([], _UNSEARCHED) == []
