@@ -58,6 +58,10 @@ _Avoid_: statement, assertion
 A piece of biomedical literature retrieved for an Analysis.
 _Avoid_: hit, article, reference
 
+**Literature source**:
+A database the literature is searched in: Europe PMC, PubMed, openFDA or CIMA.
+_Avoid_: source (a Source is a piece of literature), provider, index
+
 **Evidence**:
 The Sources found for a Claim, each with its Stance.
 _Avoid_: hits, results
@@ -87,7 +91,7 @@ The share of an Analysis's Claims that the literature was judged to speak to; a 
 _Avoid_: coverage ratio, recall
 
 **Evidence outage**:
-A Run in which our services failed to check a searched Claim, because all its literature sources failed or the judge could not be reached; the Run fails rather than calling the Claim uncertain.
+A Run in which our services failed to check a searched Claim, because all its Literature sources failed or the judge could not be reached; the Run fails rather than calling the Claim uncertain.
 _Avoid_: sentinel, blackout
 
 ## History

@@ -11,7 +11,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from app.agents import investigator as investigator_module
+from app.agents.investigator import gather_evidence
+from app.agents.literature_sources import LiteratureSources
 from app.core.claim import Claim, Evidence
 from app.core.config import get_settings
 from app.core.verdict import Verdict
@@ -28,6 +29,21 @@ def _verdict(kind, confidence: float, falsehood: float = 0.5) -> Verdict:
         evidence_coverage=1.0,
         claims=(),
     )
+
+
+def _sources(search) -> LiteratureSources:
+    """The four Literature sources answered by the same double."""
+    return LiteratureSources(
+        europepmc=search, pubmed=search, openfda=search, cima=search
+    )
+
+
+def _unreachable(query: str, *, max_results: int) -> list[dict]:
+    raise AssertionError("una búsqueda grabada no debe ir a la fuente")
+
+
+# Literature sources of the tests whose graph never searches.
+_UNSEARCHED = _sources(_unreachable)
 
 
 def _row(expected: str, predicted: str | None, confidence: float = 0.9) -> ep.EvalRow:
@@ -102,7 +118,9 @@ def test_evaluate_pipeline_records_the_raw_falsehood_the_band_saw() -> None:
         ):
             yield ("values", {"verdict": _verdict("fake", 0.5425, falsehood=0.62)})
 
-    [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+    [row] = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: FakeGraph(), _UNSEARCHED)
+    )
 
     # The falsehood arrives unattenuated, so coverage no longer needs inverting.
     assert (row["predicted"], row["confidence"]) == ("falsa", 0.5425)
@@ -142,7 +160,9 @@ def test_evaluate_pipeline_records_every_claim_evidence_before_the_report_cap() 
                 },
             )
 
-    [row] = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+    [row] = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: FakeGraph(), _UNSEARCHED)
+    )
 
     assert row["claim_evidence"] == [
         {
@@ -258,7 +278,9 @@ def test_evaluate_pipeline_marks_missing_explanation_as_skipped() -> None:
                     },
                 )
 
-    rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: FakeGraph(), _UNSEARCHED)
+    )
 
     assert rows[0]["predicted"] == "falsa"
     assert rows[1]["predicted"] is None
@@ -277,7 +299,9 @@ def test_evaluate_pipeline_records_the_explanation() -> None:
                 {"verdict": _verdict("fake", 0.8), "medical_explanation": "informe"},
             )
 
-    rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph()))
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: FakeGraph(), _UNSEARCHED)
+    )
 
     assert rows[0]["explanation"] == "informe"
 
@@ -357,7 +381,9 @@ def test_evaluate_pipeline_resumes_and_appends(tmp_path) -> None:
             )
 
     graph = FakeGraph()
-    rows = asyncio.run(ep.evaluate_pipeline(samples, graph, path))
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: graph, _UNSEARCHED, path)
+    )
 
     # The already evaluated sample is not run again.
     assert graph.seen == ["nueva"]
@@ -386,7 +412,9 @@ def test_evaluate_pipeline_skips_failed_samples_for_retry(tmp_path) -> None:
                 {"verdict": _verdict("fake", 0.8), "medical_explanation": "ok"},
             )
 
-    rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph(), path))
+    rows = asyncio.run(
+        ep.evaluate_pipeline(samples, lambda _: FakeGraph(), _UNSEARCHED, path)
+    )
 
     # The failing sample is neither included nor persisted, so it is retried on resume.
     assert [r["text"] for r in rows] == ["buena"]
@@ -498,10 +526,6 @@ def _call(source: str, query: str, hits: list[dict] | None) -> ep.EvidenceCall:
     return {"source": source, "query": query, "max_results": 3, "hits": hits}
 
 
-def _unreachable(query: str, *, max_results: int) -> list[dict]:
-    raise AssertionError("una búsqueda grabada no debe ir a la fuente")
-
-
 def test_evidence_tape_records_live_hits_and_failures() -> None:
     tape = ep.EvidenceTape()
 
@@ -550,32 +574,25 @@ def test_evidence_tape_searches_live_what_the_recording_lacks() -> None:
     assert tape.live == 3
 
 
-def test_evidence_tape_intercepts_every_search_of_the_investigator(
-    monkeypatch,
-) -> None:
-    sources = ("europepmc", "pubmed", "openfda", "cima")
-    for name in sources:
-        monkeypatch.setattr(
-            investigator_module,
-            f"search_{name}",
-            lambda query, *, max_results, name=name: [_hit(f"{name}:{query}")],
+def test_evidence_tape_intercepts_every_search_of_the_investigator() -> None:
+    live = LiteratureSources(
+        **{
+            name: lambda query, *, max_results, name=name: [_hit(f"{name}:{query}")]
+            for name in ("europepmc", "pubmed", "openfda", "cima")
+        }
+    )
+    asked = [
+        Claim(
+            index=0,
+            text="El ibuprofeno daña los riñones",
+            text_en="Ibuprofen damages the kidneys",
+            query="ibuprofen kidney damage",
+            drug_term="ibuprofeno",
         )
-    live = {name: getattr(investigator_module, f"search_{name}") for name in sources}
-    state = {
-        "claims": [
-            Claim(
-                index=0,
-                text="El ibuprofeno daña los riñones",
-                text_en="Ibuprofen damages the kidneys",
-                query="ibuprofen kidney damage",
-                drug_term="ibuprofeno",
-            )
-        ]
-    }
+    ]
 
     tape = ep.EvidenceTape()
-    with tape.install():
-        claims = investigator_module.gather_evidence(state["claims"])
+    claims = gather_evidence(asked, tape.over(live))
 
     assert sorted((call["source"], call["query"]) for call in tape.calls) == [
         ("cima", "ibuprofeno"),
@@ -583,56 +600,44 @@ def test_evidence_tape_intercepts_every_search_of_the_investigator(
         ("openfda", "ibuprofen kidney damage"),
         ("pubmed", "ibuprofen kidney damage"),
     ]
-    # On leaving the block the investigator uses its own searches again.
+    # Each recorded call holds what the Literature source of its own name returned.
     assert all(
-        getattr(investigator_module, f"search_{name}") is live[name] for name in sources
+        call["hits"] == [_hit(f"{call['source']}:{call['query']}")]
+        for call in tape.calls
     )
 
-    for name in sources:
-        monkeypatch.setattr(investigator_module, f"search_{name}", _unreachable)
     replay = ep.EvidenceTape(tape.calls)
-    with replay.install():
-        replayed = investigator_module.gather_evidence(state["claims"])
+    replayed = gather_evidence(asked, replay.over(_sources(_unreachable)))
 
     assert replayed == claims
     assert replay.live == 0
 
 
-def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(
-    monkeypatch, tmp_path
-) -> None:
+def test_evaluate_pipeline_records_evidence_that_a_later_run_replays(tmp_path) -> None:
     samples: list[ep.Sample] = [{"text": "afirmacion", "expected": "falsa"}]
+    seen: list[list[dict]] = []
 
     class FakeGraph:
-        def __init__(self) -> None:
-            self.hits: list[dict] = []
+        def __init__(self, literature: LiteratureSources) -> None:
+            self._literature = literature
 
         async def astream(
             self, state: dict, stream_mode: object = None, config: object = None
         ):
-            self.hits = investigator_module.search_pubmed("q", max_results=3)
+            seen.append(self._literature.pubmed("q", max_results=3))
             yield ("values", {"verdict": _verdict("fake", 0.8)})
 
-    monkeypatch.setattr(
-        investigator_module,
-        "search_pubmed",
-        lambda query, *, max_results: [_hit("indice de ayer")],
-    )
+    yesterday = _sources(lambda query, *, max_results: [_hit("indice de ayer")])
     base = tmp_path / "base.jsonl"
-    asyncio.run(ep.evaluate_pipeline(samples, FakeGraph(), base))
+    asyncio.run(ep.evaluate_pipeline(samples, FakeGraph, yesterday, base))
     recorded = ep.load_recorded_evidence(base)
     assert recorded == {"afirmacion": [_call("pubmed", "q", [_hit("indice de ayer")])]}
 
     # The index changes between runs, so the variant must see the base's Evidence.
-    monkeypatch.setattr(
-        investigator_module,
-        "search_pubmed",
-        lambda query, *, max_results: [_hit("indice de hoy")],
-    )
-    graph = FakeGraph()
-    rows = asyncio.run(ep.evaluate_pipeline(samples, graph, replay=recorded))
+    today = _sources(lambda query, *, max_results: [_hit("indice de hoy")])
+    rows = asyncio.run(ep.evaluate_pipeline(samples, FakeGraph, today, replay=recorded))
 
-    assert graph.hits == [_hit("indice de ayer")]
+    assert seen[-1] == [_hit("indice de ayer")]
     assert rows[0]["evidence_live"] == 0
 
 
@@ -751,7 +756,13 @@ def test_a_langfuse_run_links_each_pending_sample_to_its_dataset_item(tmp_path) 
     )
 
     rows = asyncio.run(
-        ep.evaluate_pipeline(samples, _VerdictGraph(), path, run_pending=experiment)
+        ep.evaluate_pipeline(
+            samples,
+            lambda _: _VerdictGraph(),
+            _UNSEARCHED,
+            path,
+            run_pending=experiment,
+        )
     )
 
     nueva, rota = client.experiments

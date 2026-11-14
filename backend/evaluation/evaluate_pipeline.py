@@ -7,8 +7,8 @@ import logging
 import os
 import re
 import subprocess
-from collections.abc import Awaitable, Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Awaitable, Callable
+from functools import partial
 from itertools import count
 from pathlib import Path
 from time import time
@@ -17,8 +17,12 @@ from typing import Any, TypedDict, cast
 import pandas as pd
 from langfuse import Evaluation
 
-from app.agents import investigator as investigator_module
 from app.agents.errors import ainvoke_graph
+from app.agents.literature_sources import (
+    LiteratureSources,
+    Search,
+    live_literature_sources,
+)
 from app.agents.main import create_graph, describe_pipeline
 from app.core.claim import Claim
 from app.core.config import get_settings
@@ -93,15 +97,6 @@ class EvalRow(TypedDict):
     explanation: str
 
 
-# The investigator's searches per source, which the tape replaces while a sample is evaluated.
-_SEARCHES = {
-    "europepmc": "search_europepmc",
-    "pubmed": "search_pubmed",
-    "openfda": "search_openfda",
-    "cima": "search_cima",
-}
-
-
 class EvidenceTape:
     """Record a sample's evidence searches and replay the ones it already had recorded."""
 
@@ -118,9 +113,7 @@ class EvidenceTape:
         """Searches the recording did not cover, which went to the source."""
         return len(self._live)
 
-    def wrap(
-        self, source: str, search: Callable[..., list[dict]]
-    ) -> Callable[..., list[dict]]:
+    def wrap(self, source: str, search: Search) -> Search:
         """Wrap a search, serving the recording if there is one and otherwise querying the source."""
 
         def taped(query: str, *, max_results: int) -> list[dict]:
@@ -146,17 +139,14 @@ class EvidenceTape:
 
         return taped
 
-    @contextmanager
-    def install(self) -> Iterator[None]:
-        """Replace the investigator's searches with the tape's for the duration of the block."""
-        live = {attr: getattr(investigator_module, attr) for attr in _SEARCHES.values()}
-        for source, attr in _SEARCHES.items():
-            setattr(investigator_module, attr, self.wrap(source, live[attr]))
-        try:
-            yield
-        finally:
-            for attr, search in live.items():
-                setattr(investigator_module, attr, search)
+    def over(self, live: LiteratureSources) -> LiteratureSources:
+        """Return the Literature sources as the tape serves them, searching ``live`` for what it lacks."""
+        return LiteratureSources(
+            europepmc=self.wrap("europepmc", live.europepmc),
+            pubmed=self.wrap("pubmed", live.pubmed),
+            openfda=self.wrap("openfda", live.openfda),
+            cima=self.wrap("cima", live.cima),
+        )
 
 
 def _recorded(claim: Claim) -> RecordedClaim:
@@ -335,6 +325,9 @@ EvaluateSample = Callable[[Sample], Awaitable[EvalRow | None]]
 # Runs every pending sample through the evaluation, in order unless an experiment drives it.
 RunPending = Callable[[list[Sample], EvaluateSample], Awaitable[None]]
 
+# Builds the graph that analyses one sample over the Literature sources of its tape.
+BuildGraph = Callable[[LiteratureSources], object]
+
 
 async def run_in_order(pending: list[Sample], evaluate: EvaluateSample) -> None:
     """Evaluate the pending samples one after another."""
@@ -469,12 +462,13 @@ class LangfuseExperiment:
 
 async def evaluate_pipeline(
     samples: list[Sample],
-    graph: object,
+    build_graph: BuildGraph,
+    literature: LiteratureSources,
     checkpoint_path: Path | None = None,
     replay: dict[str, list[EvidenceCall]] | None = None,
     run_pending: RunPending = run_in_order,
 ) -> list[EvalRow]:
-    """Run the graph on each sample, with optional checkpoint, resume and recorded Evidence."""
+    """Run a graph on each sample over its taped ``literature``, with optional checkpoint, resume and recorded Evidence."""
     done: dict[str, EvalRow] = (
         load_checkpoint(checkpoint_path) if checkpoint_path else {}
     )
@@ -491,12 +485,10 @@ async def evaluate_pipeline(
     async def evaluate(sample: Sample) -> EvalRow | None:
         i = next(started_numbers)
         tape = EvidenceTape((replay or {}).get(sample["text"]))
+        graph = build_graph(tape.over(literature))
         started = time()
         try:
-            with tape.install():
-                result = await ainvoke_graph(
-                    graph, _build_initial_state(sample["text"])
-                )
+            result = await ainvoke_graph(graph, _build_initial_state(sample["text"]))
         except Exception:
             logger.exception(
                 "[%d/%d] fallo al analizar; se reintentará al reanudar", i, total
@@ -816,7 +808,6 @@ def main() -> dict[str, float]:
     except CheckpointMismatchError as exc:
         raise SystemExit(str(exc)) from exc
 
-    graph = create_graph(prompts)
     samples = load_samples(args.partition, args.limit, args.seed, data)
     logger.info("Evaluando %d muestras de '%s'", len(samples), source)
 
@@ -836,7 +827,12 @@ def main() -> dict[str, float]:
     start = time()
     rows = asyncio.run(
         evaluate_pipeline(
-            samples, graph, checkpoint_path, replay, experiment or run_in_order
+            samples,
+            partial(create_graph, prompts),
+            live_literature_sources(),
+            checkpoint_path,
+            replay,
+            experiment or run_in_order,
         )
     )
     metrics = compute_metrics(rows)

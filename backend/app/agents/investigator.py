@@ -2,11 +2,12 @@
 
 import logging
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 
 from langchain_core.runnables.config import ContextThreadPoolExecutor
 
 from app.agents.errors import EvidenceUnavailable
+from app.agents.literature_sources import LiteratureSources, Search
 from app.agents.relevance import judge_stances
 from app.agents.state import AgentState
 from app.core.claim import (
@@ -18,24 +19,20 @@ from app.core.claim import (
     with_stances,
 )
 from app.prompts.agents import Prompts
-from app.utils.cima import search_evidence as search_cima
-from app.utils.europepmc import search_evidence as search_europepmc
 from app.utils.evidence import EvidenceRetrievalError
-from app.utils.openfda import search_evidence as search_openfda
-from app.utils.pubmed import search_evidence as search_pubmed
 
 logger = logging.getLogger(__name__)
 
-# Caps that bound the pipeline's latency and cost against the evidence sources.
+# Caps that bound the pipeline's latency and cost against the Literature sources.
 EVIDENCE_MAX_STATEMENTS = 8
 EVIDENCE_RESULTS_PER_STATEMENT = 3
 EVIDENCE_MAX_SOURCES = 12
 
 
 def _search_source(
-    index: int, query: str, search: Callable[..., list[dict]]
+    index: int, query: str, search: Search
 ) -> tuple[int, list[dict] | None]:
-    """Query one source for a claim, with ``None`` in its hits if it fails."""
+    """Query one Literature source for a claim, with ``None`` in its hits if it fails."""
     try:
         return index, search(query, max_results=EVIDENCE_RESULTS_PER_STATEMENT)
     except EvidenceRetrievalError as exc:
@@ -45,26 +42,26 @@ def _search_source(
         return index, None
 
 
-def _search_all(claims: Sequence[Claim]) -> list[Claim]:
-    """Search every claim in all its sources at once and record what they returned."""
+def _search_all(claims: Sequence[Claim], literature: LiteratureSources) -> list[Claim]:
+    """Search every claim in all its Literature sources at once and record what they returned."""
     # Europe PMC, PubMed and openFDA take the focused English query, while CIMA takes the Spanish drug_term when the claim names a drug.
-    topic_sources = (search_europepmc, search_pubmed, search_openfda)
+    topic_sources = (literature.europepmc, literature.pubmed, literature.openfda)
 
     # Each claim and source pair is independent network I/O, so they all run in parallel.
-    tasks: list[tuple[int, str, Callable[..., list[dict]]]] = []
+    tasks: list[tuple[int, str, Search]] = []
     per_claim_attempts = [0] * len(claims)
     for position, claim in enumerate(claims):
         for search in topic_sources:
             tasks.append((position, claim.search_query, search))
             per_claim_attempts[position] += 1
         if claim.drug_term:
-            tasks.append((position, claim.drug_term, search_cima))
+            tasks.append((position, claim.drug_term, literature.cima))
             per_claim_attempts[position] += 1
 
     with ContextThreadPoolExecutor(max_workers=len(tasks)) as pool:
         outcomes = list(pool.map(lambda task: _search_source(*task), tasks))
 
-    # Regroup by claim, where a claim only fails when ALL its queried sources fail.
+    # Regroup by claim, where a claim only fails when ALL its queried Literature sources fail.
     per_claim_hits: list[list[dict]] = [[] for _ in claims]
     per_claim_failures = [0] * len(claims)
     for position, hits in outcomes:
@@ -109,7 +106,9 @@ def _judge_all(claims: Sequence[Claim], judge_prompt: str) -> list[Claim]:
 
 
 def gather_evidence(
-    claims: Sequence[Claim], prompts: Prompts | None = None
+    claims: Sequence[Claim],
+    literature: LiteratureSources,
+    prompts: Prompts | None = None,
 ) -> list[Claim]:
     """Search and judge the claims' Evidence and return them all with their search outcome."""
     # An unusable query would silently degrade the search, so it is logged.
@@ -133,7 +132,7 @@ def gather_evidence(
     if not positions:
         return list(claims)
 
-    found = _search_all([claims[p] for p in positions])
+    found = _search_all([claims[p] for p in positions], literature)
     investigated = _judge_all(found, prompts.judge.text) if prompts else found
 
     for before, after in zip(found, investigated):
@@ -153,13 +152,15 @@ def gather_evidence(
     return result
 
 
-def investigator(state: AgentState, prompts: Prompts | None = None) -> AgentState:
+def investigator(
+    state: AgentState, literature: LiteratureSources, prompts: Prompts | None = None
+) -> AgentState:
     """Retrieve relevant biomedical literature and count how many claims it reaches."""
     logger.info(
         "[Investigador] Buscando evidencia en Europe PMC, PubMed, openFDA y CIMA"
     )
 
-    claims = gather_evidence(state.get("claims", []), prompts)
+    claims = gather_evidence(state.get("claims", []), literature, prompts)
     search = evidence_search(claims)
 
     unreached = sum(1 for claim in claims if claim.outcome == "unavailable")

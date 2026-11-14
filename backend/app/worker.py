@@ -13,6 +13,7 @@ from app.agents.errors import (
     OllamaConnectionError,
     ainvoke_graph,
 )
+from app.agents.literature_sources import live_literature_sources
 from app.agents.main import (
     create_evidence_graph,
     create_graph,
@@ -206,9 +207,10 @@ async def startup(ctx: dict) -> None:
     settings.validate_runtime(web=False)
     ensure_llm_available()
     prompts = load_prompts()
-    ctx["verification_system"] = create_graph(prompts)
+    literature = live_literature_sources()
+    ctx["verification_system"] = create_graph(prompts, literature)
     ctx["pipeline"] = describe_pipeline(prompts)
-    ctx["evidence_system"] = create_evidence_graph(prompts)
+    ctx["evidence_system"] = create_evidence_graph(prompts, literature)
     ctx["analysis_runner"] = AnalysisRunner(
         queue=ArqAnalysisQueue(ctx["redis"]),
         notifier=ResendNotifier(),
