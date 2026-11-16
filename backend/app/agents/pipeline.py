@@ -1,11 +1,10 @@
-"""Run the pipeline on a text, the one way a graph is reached from outside the agents."""
+"""Run the pipeline on a text, the way the worker and the evaluation harness reach a graph."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
 from app.agents.errors import ainvoke_graph
-from app.agents.sanitize import neutralize_delimiters
 from app.agents.state import AgentState, ClaimsState
 from app.core.claim import Claim
 from app.core.verdict import Verdict
@@ -27,14 +26,8 @@ async def check_text(
     text: str,
     on_stage: Callable[[str], Awaitable[None]] | None = None,
 ) -> Checked:
-    """Run the full graph on a text, raising AgentError when our services could not check it."""
-    initial: dict[str, object] = {
-        "input_text": neutralize_delimiters(text),
-        "claims": [],
-        "sources": [],
-        "medical_explanation": "",
-    }
-    final = cast(AgentState, await ainvoke_graph(graph, initial, on_stage))
+    """Run the full graph on a text, raising OllamaConnectionError or EvidenceUnavailable when our services could not check it."""
+    final = cast(AgentState, await ainvoke_graph(graph, {"input_text": text}, on_stage))
     return Checked(
         verdict=final.get("verdict"),
         claims=final.get("claims") or [],
@@ -45,10 +38,6 @@ async def check_text(
 
 
 async def find_evidence(graph: Any, text: str) -> list[Claim]:
-    """Run the evidence-only graph on a text and return its Claims with their Evidence, raising AgentError like check_text."""
-    initial: dict[str, object] = {
-        "input_text": neutralize_delimiters(text),
-        "claims": [],
-    }
-    final = cast(ClaimsState, await ainvoke_graph(graph, initial))
+    """Run the evidence-only graph on a text and return its Claims with their Evidence, raising OllamaConnectionError when the LLM cannot be reached."""
+    final = cast(ClaimsState, await ainvoke_graph(graph, {"input_text": text}))
     return final.get("claims") or []

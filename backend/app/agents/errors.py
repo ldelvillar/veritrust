@@ -13,7 +13,7 @@ from app.utils.llm import LLMUnavailableError
 
 
 class AgentError(Exception):
-    """Our services could not check a text, which a Retry may fix."""
+    """Base error of the agent pipeline."""
 
 
 class OllamaConnectionError(AgentError):

@@ -350,10 +350,9 @@ def recorded_usage(monkeypatch):
     return users
 
 
-def _evidence_ctx(claims=(), error=None) -> dict:
-    """Worker context whose evidence-only graph ends with ``claims`` or raises ``error``."""
-    graph = FakeGraph(error=error) if error else graph_ending_in({"claims": claims})
-    return {"evidence_system": graph}
+def _evidence_ctx(claims) -> dict:
+    """Worker context whose evidence-only graph ends with ``claims``."""
+    return {"evidence_system": graph_ending_in({"claims": claims})}
 
 
 async def test_run_evidence_search_returns_claims(recorded_usage):
@@ -437,7 +436,9 @@ async def test_run_evidence_search_without_claims_reports_no_medical_claims(
 async def test_run_evidence_search_maps_failures_to_error_codes(
     recorded_usage, error, code
 ):
-    result = await worker.run_evidence_search(_evidence_ctx(error=error), "Texto", USER)
+    ctx = {"evidence_system": FakeGraph(error=error)}
+
+    result = await worker.run_evidence_search(ctx, "Texto", USER)
 
     assert result == {"error_code": code}
     assert recorded_usage == []

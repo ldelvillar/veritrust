@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+from app.agents.sanitize import neutralize_delimiters
 from app.agents.state import ClaimsState
 from app.core.claim import Claim
 from app.prompts.agents import Prompts
@@ -71,7 +72,7 @@ def extractor(state: ClaimsState, prompts: Prompts) -> ClaimsState:
     """Take the current state, run the extraction and return the updated state."""
     logger.info("[Extractor] Analizando el texto en busca de afirmaciones médicas")
 
-    input_text = state.get("input_text", "")
+    input_text = neutralize_delimiters(state.get("input_text", ""))
 
     extractor_chain = get_extractor_chain(prompts.extractor.text)
     result = extractor_chain.invoke({"texto": input_text})

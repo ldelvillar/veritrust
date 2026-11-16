@@ -8,7 +8,7 @@ from arq import cron, func, run_worker
 from arq.connections import RedisSettings
 from langfuse import propagate_attributes
 
-from app.agents.errors import AgentError
+from app.agents.errors import EvidenceUnavailable, OllamaConnectionError
 from app.agents.literature_sources import live_literature_sources
 from app.agents.main import (
     create_evidence_graph,
@@ -87,10 +87,11 @@ async def analyse(ctx: dict, run: AnalysisRun) -> Completion:
             checked = await check_text(
                 ctx["verification_system"], text, on_stage=run.stage_finished
             )
-    except AgentError as exc:
-        logger.exception(
-            "[Worker] Nuestros servicios no pudieron comprobar %s", run.analysis_id
-        )
+    except OllamaConnectionError as exc:
+        logger.exception("[Worker] No se pudo conectar al LLM para %s", run.analysis_id)
+        raise AnalysisFailure(ErrorCode.CONNECTION) from exc
+    except EvidenceUnavailable as exc:
+        logger.warning("[Worker] %s en %s", exc, run.analysis_id)
         raise AnalysisFailure(ErrorCode.CONNECTION) from exc
 
     if checked.verdict is None:
@@ -139,7 +140,7 @@ async def run_evidence_search(ctx: dict, claim: str, user_id: str) -> dict:
     except TimeoutError:
         logger.warning("[Worker] La búsqueda de evidencia agotó el tiempo")
         return {"error_code": ErrorCode.SERVICE_UNAVAILABLE.value}
-    except AgentError:
+    except OllamaConnectionError:
         logger.exception("[Worker] No se pudo conectar al LLM en la búsqueda")
         return {"error_code": ErrorCode.CONNECTION.value}
     except Exception:

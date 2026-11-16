@@ -1,4 +1,4 @@
-"""Compiled graph double shared by the test suites."""
+"""Compiled graph double of the app tests."""
 
 
 class FakeGraph:
