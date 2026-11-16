@@ -155,18 +155,14 @@ def _band(falsehood: float, has_evidence: bool) -> tuple[VerdictKind, float]:
 def _overall(
     claims: Sequence[ClaimVerdict], falsehood: float, has_evidence: bool
 ) -> tuple[VerdictKind, float]:
-    """Decide the overall Verdict from each claim's, where a true one never offsets a false one or backs an uncertain one."""
+    """Decide the overall Verdict from each claim's, where a true one never offsets a false one."""
     fake = [claim.confidence for claim in claims if claim.kind == "fake"]
     real = [claim.confidence for claim in claims if claim.kind == "real"]
-    uncertain = [claim.confidence for claim in claims if claim.kind == "uncertain"]
     if fake and real:
         # The warning follows the strongest false claim.
         return "mixed", max(fake)
     if fake:
         return "fake", sum(fake) / len(fake)
-    if real and uncertain:
-        # A text is only true if everything it claims could be verified (ADR-0003).
-        return "uncertain", sum(uncertain) / len(uncertain)
     if real:
         return "real", sum(real) / len(real)
     return _band(falsehood, has_evidence)
