@@ -161,7 +161,7 @@ def _overall(
     uncertain = [claim.confidence for claim in claims if claim.kind == "uncertain"]
     if fake and real:
         # The warning follows the strongest false claim.
-        return "mixed", max(fake)
+        return "mixed", min(fake)
     if fake:
         return "fake", sum(fake) / len(fake)
     if real and uncertain:
