@@ -19,7 +19,7 @@ dependencies = [
     "PyJWT>=2.12",
     "cryptography>=50.0.2",
     # Database
-    "psycopg[binary,pool]>=3.3.6",
+    "psycopg[binary,pool]>=3.3.8",
     # Background job queue + rate limiting
     "arq>=0.26",
     "redis>=5",
