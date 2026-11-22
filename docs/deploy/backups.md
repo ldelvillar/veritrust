@@ -173,18 +173,19 @@ $dir = "$env:USERPROFILE\veritrust-backups"
 $stage = "$dir\.incoming"
 New-Item -ItemType Directory -Force $dir | Out-Null
 foreach ($try in 1..8) {
-    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
-    New-Item -ItemType Directory $stage | Out-Null
-    scp -p -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 'veritrust:backups/veritrust-*.dump.age' "$stage"
-    if ($LASTEXITCODE -eq 0) {
+    try {
+        if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+        New-Item -ItemType Directory $stage | Out-Null
+        & { $ErrorActionPreference = 'Continue'; scp -p -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 'veritrust:backups/veritrust-*.dump.age' "$stage" }
+        if ($LASTEXITCODE -ne 0) { throw "scp exited with $LASTEXITCODE" }
         Move-Item "$stage\*" $dir -Force
         Remove-Item -Recurse -Force $stage
         Get-ChildItem $dir -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
         exit 0
+    } catch {
+        if ($try -lt 8) { Start-Sleep -Seconds 900 }
     }
-    if ($try -lt 8) { Start-Sleep -Seconds 900 }
 }
-Remove-Item -Recurse -Force $stage
 exit 1
 '@
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
@@ -195,12 +196,13 @@ Register-ScheduledTask -TaskName 'VeriTrust backup pull' -Action $action -Trigge
 Start-ScheduledTask -TaskName 'VeriTrust backup pull'
 ```
 
-- The script pulls into `.incoming` and moves the files into place only after scp succeeds, so a run cut off mid-file (sleep, timeout, time limit) never truncates a good copy; the next attempt starts from an empty `.incoming`, and `$ErrorActionPreference = 'Stop'` ends the run with a failure if a file can't be deleted or moved (antivirus or OneDrive holding it), instead of carrying on.
-- It retries a failed pull every 15 minutes for up to 2 hours (the network may not be up yet at a catch-up run), and deletes old copies only after a successful pull, so a broken pull never empties the folder; the SSH timeouts end an attempt stuck on a dead connection (a laptop that slept mid-transfer) within about 90 seconds, and `-ExecutionTimeLimit` stops the whole run after 3 hours, so it can't block the next day's start.
+- The script pulls into `.incoming` and moves the files into place only after scp succeeds, so a run cut off mid-file (sleep, timeout, time limit) never truncates a good copy; each attempt starts from an empty `.incoming`.
+- Each attempt is one `try`: a failed scp, or a file that can't be deleted or moved (antivirus or OneDrive holding it), ends that attempt and costs one retry instead of carrying on; scp runs in its own scope so its warnings on stderr never count as a failure, only its exit code does.
+- It retries a failed attempt every 15 minutes for up to 2 hours (the network may not be up yet at a catch-up run), and deletes old copies only after a successful pull, so a broken pull never empties the folder; the SSH timeouts end an attempt stuck on a dead connection (a laptop that slept mid-transfer) within about 90 seconds, and `-ExecutionTimeLimit` stops the whole run after 3 hours, so it can't block the next day's start.
 - The `StartBoundary` line stores 9:00 without a UTC offset, so the task follows local time through daylight saving; without it, the trigger is a fixed UTC time.
 - `-StartWhenAvailable` runs a missed 9:00 as soon as the machine is on; the battery switches stop a laptop on battery from skipping the day; `-Force` replaces an existing task of the same name.
 - The task runs only while you're logged in, since it needs your loaded key.
-- Check it with `Get-ScheduledTaskInfo -TaskName 'VeriTrust backup pull'`: `LastTaskResult` is `0` on success and `1` when every attempt failed; `267009` only means it's still running, which lasts up to 2 hours while it retries; any other code means the run was stopped, for example by the 3-hour limit, so treat it as a failed pull.
+- Check it with `Get-ScheduledTaskInfo -TaskName 'VeriTrust backup pull'`: `LastTaskResult` is `0` on success and `1` when all 8 attempts failed (scp or a locked file); `267009` only means it's still running, which lasts up to 2 hours while it retries; any other code means the run was stopped, for example by the 3-hour limit, so treat it as a failed pull.
 
 **Linux.** Use a systemd user timer (systemd 244 or later, for `Restart=` on a one-shot service): cron skips a run the machine was off for, while `Persistent=true` runs it at the next login. Create the pull script:
 
