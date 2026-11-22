@@ -134,9 +134,9 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 ## Off-site copies
 
-A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily at 9:00 (a fixed 08:00 UTC, so 10:00 in summer time) with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled job on a workstation (set up as in [Setting up the pull](#setting-up-the-pull-on-a-workstation)) pulls them daily at 9:00 local time with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
 
-Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that. Add this as a second action of the task:
+Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that; the job runs this after each pull:
 
 ```powershell
 Get-ChildItem <folder> -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
@@ -150,3 +150,72 @@ scp veritrust.dump veritrust:/tmp/veritrust.dump
 ```
 
 Once the restore is done, delete both decrypted copies (`Remove-Item veritrust.dump`, then `ssh veritrust rm /tmp/veritrust.dump`): no cleanup rule matches them.
+
+### Setting up the pull on a workstation
+
+The workstation doesn't need to be always on: the job catches up at the next login after a missed 9:00. It must still run at least once every **7 days**, because the VM deletes older dumps; a longer gap loses those days off-site. The pulled files stay encrypted, so the workstation needs neither `age` nor the backup key unless you also restore from it.
+
+1. Give it SSH access as in [vps-setup.md section 1](vps-setup.md#adding-a-workstation-later): its own key, authorized from a machine that already has access, and the `veritrust` alias.
+2. Load the key into the agent, then connect once by hand to accept the host key (`BatchMode` can't answer the fingerprint prompt): `ssh-add`, then `ssh veritrust true`.
+3. Copy the existing `.age` files from the previous workstation's folder into the new one, to keep the 28-day history; a normal copy keeps their modified dates, which the cleanup reads.
+4. Create the job (below), run it once, and check that the newest `.age` file arrived with the VM's early-morning date, not the time of the pull.
+5. On the previous workstation, disable or delete its job.
+
+**Windows.** The agent service ships disabled, so first enable it in an admin PowerShell: `Set-Service ssh-agent -StartupType Automatic; Start-Service ssh-agent`. It keeps added keys across reboots, so `ssh-add` is needed once. Then, as your user:
+
+```powershell
+$dir = "$env:USERPROFILE\veritrust-backups"
+New-Item -ItemType Directory -Force $dir
+$pull = New-ScheduledTaskAction -Execute 'scp.exe' -Argument "-p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age $dir\"
+$cleanup = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"Get-ChildItem '$dir' -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item`""
+$trigger = New-ScheduledTaskTrigger -Daily -At 9:00
+$trigger.StartBoundary = (Get-Date '09:00').ToString('s')
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName 'VeriTrust backup pull' -Action $pull, $cleanup -Trigger $trigger -Settings $settings
+Start-ScheduledTask -TaskName 'VeriTrust backup pull'
+```
+
+- The `StartBoundary` line stores 9:00 without a UTC offset, so the task follows local time through daylight saving; without it, the trigger is a fixed UTC time.
+- `-StartWhenAvailable` runs a missed 9:00 as soon as the machine is on; the battery switches stop a laptop on battery from skipping the day.
+- The task runs only while you're logged in, since it needs your loaded key.
+- Check it with `Get-ScheduledTaskInfo -TaskName 'VeriTrust backup pull'`: `LastTaskResult` is `0` on success, and `267009` only means it's still running.
+
+**Linux.** Use a systemd user timer: cron skips a run the machine was off for, while `Persistent=true` runs it at the next login. Create `~/.config/systemd/user/veritrust-backup-pull.service`:
+
+```ini
+[Unit]
+Description=Pull the VeriTrust off-site backups
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/mkdir -p %h/veritrust-backups
+ExecStart=/usr/bin/scp -p -o BatchMode=yes 'veritrust:backups/veritrust-*.dump.age' %h/veritrust-backups/
+ExecStart=/usr/bin/find %h/veritrust-backups -name 'veritrust-*.dump.age' -mtime +27 -delete
+Restart=on-failure
+RestartSec=15min
+```
+
+and `~/.config/systemd/user/veritrust-backup-pull.timer`:
+
+```ini
+[Unit]
+Description=Daily VeriTrust off-site backup pull
+
+[Timer]
+OnCalendar=*-*-* 09:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now veritrust-backup-pull.timer
+systemctl --user start veritrust-backup-pull.service
+journalctl --user -u veritrust-backup-pull.service -n 20
+```
+
+- `find -mtime +27` matches files at least 28 days old, the same cutoff as the Windows cleanup, and it runs only after a successful pull.
+- The service reaches your key through the agent your desktop session exports: `systemctl --user show-environment | grep SSH_AUTH_SOCK` must print a socket. If it prints nothing, add `systemctl --user import-environment SSH_AUTH_SOCK` to `~/.profile`.
+- Unlike Windows, a plain `ssh-agent` forgets keys at logout, so run `ssh-add` after each login unless your desktop keyring loads it; until then a failed pull retries every 15 minutes.
