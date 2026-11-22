@@ -134,7 +134,7 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 ## Off-site copies
 
-A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled job on a workstation (set up as in [Setting up the pull](#setting-up-the-pull-on-a-workstation)) pulls them daily at 9:00 local time with `scp -p` into a staging folder and moves them into place only once the pull succeeded (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled job on a workstation (set up as in [Setting up the pull](#setting-up-the-pull-on-a-workstation)) pulls them daily at 9:00 local time with `scp -p -o BatchMode=yes` into a staging folder and moves them into place only once the pull succeeded (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
 
 Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that; the Windows job runs this after each successful pull (the Linux job runs the `find` equivalent, in the setup below):
 
@@ -168,22 +168,23 @@ The workstation doesn't need to be always on: the job catches up at the next log
 ```powershell
 $script = "$env:USERPROFILE\veritrust-backup-pull.ps1"
 Set-Content $script @'
+$ErrorActionPreference = 'Stop'
 $dir = "$env:USERPROFILE\veritrust-backups"
 $stage = "$dir\.incoming"
 New-Item -ItemType Directory -Force $dir | Out-Null
 foreach ($try in 1..8) {
-    Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
+    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
     New-Item -ItemType Directory $stage | Out-Null
     scp -p -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 'veritrust:backups/veritrust-*.dump.age' "$stage"
     if ($LASTEXITCODE -eq 0) {
         Move-Item "$stage\*" $dir -Force
-        Remove-Item $stage
+        Remove-Item -Recurse -Force $stage
         Get-ChildItem $dir -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
         exit 0
     }
     if ($try -lt 8) { Start-Sleep -Seconds 900 }
 }
-Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $stage
 exit 1
 '@
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
@@ -194,7 +195,7 @@ Register-ScheduledTask -TaskName 'VeriTrust backup pull' -Action $action -Trigge
 Start-ScheduledTask -TaskName 'VeriTrust backup pull'
 ```
 
-- The script pulls into `.incoming` and moves the files into place only after scp succeeds, so a run cut off mid-file (sleep, timeout, time limit) never truncates a good copy; the next attempt starts from an empty `.incoming`.
+- The script pulls into `.incoming` and moves the files into place only after scp succeeds, so a run cut off mid-file (sleep, timeout, time limit) never truncates a good copy; the next attempt starts from an empty `.incoming`, and `$ErrorActionPreference = 'Stop'` ends the run with a failure if a file can't be deleted or moved (antivirus or OneDrive holding it), instead of carrying on.
 - It retries a failed pull every 15 minutes for up to 2 hours (the network may not be up yet at a catch-up run), and deletes old copies only after a successful pull, so a broken pull never empties the folder; the SSH timeouts end an attempt stuck on a dead connection (a laptop that slept mid-transfer) within about 90 seconds, and `-ExecutionTimeLimit` stops the whole run after 3 hours, so it can't block the next day's start.
 - The `StartBoundary` line stores 9:00 without a UTC offset, so the task follows local time through daylight saving; without it, the trigger is a fixed UTC time.
 - `-StartWhenAvailable` runs a missed 9:00 as soon as the machine is on; the battery switches stop a laptop on battery from skipping the day; `-Force` replaces an existing task of the same name.
