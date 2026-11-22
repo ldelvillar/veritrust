@@ -8,7 +8,7 @@ import aiohttp
 import groq
 import httpx
 
-from app.core.tracing import langfuse, langfuse_handler, tracing_enabled
+from app.core.tracing import get_langfuse, get_langfuse_handler, tracing_enabled
 from app.utils.llm import LLMUnavailableError
 
 
@@ -33,13 +33,15 @@ async def ainvoke_graph(
     final_state = state
     try:
         # One current span, so @observe spans and LangChain's land in the same trace.
-        with langfuse.start_as_current_observation(name="pipeline", as_type="chain"):
+        with get_langfuse().start_as_current_observation(
+            name="pipeline", as_type="chain"
+        ):
             async with aclosing(
                 graph.astream(
                     state,
                     stream_mode=["updates", "values"],
-                    config={"callbacks": [langfuse_handler]}
-                    if tracing_enabled
+                    config={"callbacks": [get_langfuse_handler()]}
+                    if tracing_enabled()
                     else None,
                 )
             ) as stream:
