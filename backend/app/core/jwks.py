@@ -43,7 +43,10 @@ class _CooldownJWKClient(PyJWKClient):
 @lru_cache(maxsize=1)
 def _get_jwks_client(jwks_url: str) -> _CooldownJWKClient:
     """Return a JWKS client cached by URL."""
-    return _CooldownJWKClient(jwks_url, cache_keys=True, lifespan=600)
+    # PyJWT's own unknown-kid cooldown is off, so this class's interval is the only one.
+    return _CooldownJWKClient(
+        jwks_url, cache_keys=True, lifespan=600, cooldown_duration=0
+    )
 
 
 def get_signing_key(token: str) -> str:

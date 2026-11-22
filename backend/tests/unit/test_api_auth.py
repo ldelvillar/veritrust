@@ -203,11 +203,12 @@ def _use_jwks(monkeypatch, serve) -> list[str]:
     )
     downloads: list[str] = []
 
-    def _urlopen(request, timeout=None, context=None):
-        downloads.append(request.full_url)
-        return io.BytesIO(json.dumps(serve()).encode())
+    class _Opener:
+        def open(self, request, timeout=None):
+            downloads.append(request.full_url)
+            return io.BytesIO(json.dumps(serve()).encode())
 
-    monkeypatch.setattr(urllib.request, "urlopen", _urlopen)
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *handlers: _Opener())
     client = jwks_module._get_jwks_client.__wrapped__(_JWKS_URL)
     monkeypatch.setattr(jwks_module, "_get_jwks_client", lambda url: client)
     return downloads

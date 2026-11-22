@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "veritrust"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.11.5"
 dependencies = [
     # API
-    "fastapi>=0.163.1",
+    "fastapi>=0.165.0",
     "uvicorn[standard]>=0.54.0",
     "python-multipart>=0.0.33",
     "python-dotenv>=1.2.4",
@@ -16,7 +16,7 @@ dependencies = [
     "pydantic-settings>=2.16.3",
     "httpx>=0.28",
     # Auth
-    "PyJWT>=2.12",
+    "PyJWT>=2.15.1",
     "cryptography>=50.0.2",
     # Database
     "psycopg[binary,pool]>=3.3.9",
