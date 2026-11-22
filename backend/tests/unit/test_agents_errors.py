@@ -1,5 +1,9 @@
 """Tests of the graph invocation wrapper and the translation of transport errors."""
 
+import subprocess
+import sys
+from pathlib import Path
+
 import groq
 import httpx
 import pytest
@@ -108,3 +112,20 @@ async def test_ainvoke_graph_translates_an_unreachable_provider(error) -> None:
 async def test_ainvoke_graph_lets_our_own_errors_through_as_internal(error) -> None:
     with pytest.raises(type(error)):
         await ainvoke_graph(_FakeGraph(error=error), {})
+
+
+def test_importing_the_agent_errors_reads_no_settings():
+    # A fresh interpreter, since this test process has already read the settings.
+    code = (
+        "import app.agents.errors\n"
+        "from app.core.config import get_settings\n"
+        "assert get_settings.cache_info().currsize == 0\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

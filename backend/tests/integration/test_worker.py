@@ -282,6 +282,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
 
     monkeypatch.setattr(worker, "get_settings", lambda: _FakeSettings())
     monkeypatch.setattr(worker, "ensure_llm_available", lambda: calls.append("llm"))
+    monkeypatch.setattr(worker, "get_langfuse", lambda: calls.append("langfuse"))
     monkeypatch.setattr(worker, "load_prompts", lambda: sentinel_prompts)
     monkeypatch.setattr(worker, "live_literature_sources", lambda: sentinel_literature)
     monkeypatch.setattr(worker, "create_graph", fake_create_graph)
@@ -312,7 +313,7 @@ async def test_startup_wires_graph_prompts_and_pool_into_ctx(monkeypatch):
     assert ctx["pipeline"] == ("run", sentinel_prompts)
     # run_analysis and the reaper use the same lifecycle runner.
     assert isinstance(ctx["analysis_runner"], AnalysisRunner)
-    assert set(calls) == {"llm", "pool"}
+    assert set(calls) == {"langfuse", "llm", "pool"}
 
 
 async def test_shutdown_closes_db_pool(monkeypatch):
@@ -338,7 +339,7 @@ async def test_shutdown_flushes_traces_after_closing_the_pool_even_if_it_fails(
         raise RuntimeError("pool already gone")
 
     monkeypatch.setattr(worker, "close_pool", failing_close_pool)
-    monkeypatch.setattr(worker.langfuse, "flush", lambda: calls.append("flush"))
+    monkeypatch.setattr(worker.get_langfuse(), "flush", lambda: calls.append("flush"))
 
     with pytest.raises(RuntimeError):
         await worker.shutdown({})

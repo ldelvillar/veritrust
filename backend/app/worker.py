@@ -32,7 +32,7 @@ from app.core.analysis_lifecycle import (
 from app.core.claim import evidence_report
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.core.tracing import langfuse
+from app.core.tracing import get_langfuse
 from app.db.billing import record_evidence_search
 from app.db.deleted_users import UserDeleted, prune_expired
 from app.db.pool import DatabaseError, close_pool, get_pool
@@ -205,6 +205,8 @@ async def startup(ctx: dict) -> None:
     """Set up AI resources once when the worker starts."""
     settings = get_settings()
     settings.validate_runtime(web=False)
+    # Registered before any job, so @observe reuses this client instead of building its own.
+    get_langfuse()
     ensure_llm_available()
     prompts = load_prompts()
     literature = live_literature_sources()
@@ -227,7 +229,7 @@ async def shutdown(ctx: dict) -> None:
         await close_pool()
     finally:
         # Last, so a slow Langfuse can only lose traces, never leave the pool open.
-        await asyncio.to_thread(langfuse.flush)
+        await asyncio.to_thread(get_langfuse().flush)
 
 
 class WorkerSettings:

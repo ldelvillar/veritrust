@@ -26,7 +26,7 @@ from app.agents.literature_sources import (
 from app.agents.main import create_graph, describe_pipeline
 from app.core.claim import Claim
 from app.core.config import get_settings
-from app.core.tracing import langfuse
+from app.core.tracing import get_langfuse
 from app.core.verdict import Verdict, kind_of
 from app.prompts.agents import Prompts, load_prompts
 from app.utils.evidence import EvidenceRetrievalError
@@ -748,6 +748,11 @@ def main() -> dict[str, float]:
     )
     args = parser.parse_args()
 
+    # The report is ~1/3 of the tokens per sample and does not affect the metric.
+    if not args.with_explanation:
+        # Set before anything reads the settings, which are cached on first read.
+        os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
+
     if args.langfuse_run:
         if args.data or args.partition not in LANGFUSE_DATASETS:
             raise SystemExit(
@@ -759,11 +764,8 @@ def main() -> dict[str, float]:
                 "--langfuse-run exige LANGFUSE_PUBLIC_KEY y LANGFUSE_SECRET_KEY."
             )
 
-    # The report is ~1/3 of the tokens per sample and does not affect the metric.
-    if not args.with_explanation:
-        os.environ["HEALTH_EXPERT_EXPLANATION_ENABLED"] = "false"
-        # Importing the tracing module already loaded the settings, so they are read again.
-        get_settings.cache_clear()
+    # Registered before any sample, so @observe reuses this client instead of building its own.
+    langfuse = get_langfuse()
 
     # results/ is git-ignored, and the checkpoint lets a long evaluation resume.
     data = Path(args.data) if args.data else None

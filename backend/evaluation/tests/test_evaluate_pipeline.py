@@ -3,9 +3,12 @@
 import argparse
 import asyncio
 import json
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -934,12 +937,14 @@ def test_each_langfuse_run_keeps_its_own_default_checkpoint() -> None:
     )
 
 
-def test_main_turns_the_explanation_off_even_with_settings_already_loaded(
+def test_main_turns_the_explanation_off_before_it_reads_the_settings(
     monkeypatch, tmp_path
 ) -> None:
     monkeypatch.setenv("HEALTH_EXPERT_EXPLANATION_ENABLED", "true")
+    # A Langfuse run reads the settings to check its keys, so the override must come first.
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-dummy")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-dummy")
     get_settings.cache_clear()
-    assert get_settings().health_expert_explanation_enabled
 
     class Stop(Exception):
         pass
@@ -947,9 +952,19 @@ def test_main_turns_the_explanation_off_even_with_settings_already_loaded(
     def stop() -> None:
         raise Stop
 
+    monkeypatch.setattr(ep, "get_langfuse", lambda: None)
     monkeypatch.setattr(ep, "ensure_llm_available", stop)
     monkeypatch.setattr(
-        "sys.argv", ["evaluate_pipeline", "--checkpoint", str(tmp_path / "c.jsonl")]
+        "sys.argv",
+        [
+            "evaluate_pipeline",
+            "--checkpoint",
+            str(tmp_path / "c.jsonl"),
+            "--partition",
+            "gold",
+            "--langfuse-run",
+            "r",
+        ],
     )
 
     with pytest.raises(Stop):
@@ -957,6 +972,23 @@ def test_main_turns_the_explanation_off_even_with_settings_already_loaded(
 
     assert not get_settings().health_expert_explanation_enabled
     get_settings.cache_clear()
+
+
+def test_importing_the_evaluation_reads_no_settings() -> None:
+    # A fresh interpreter, since this test process has already read the settings.
+    code = (
+        "import evaluation.evaluate_pipeline\n"
+        "from app.core.config import get_settings\n"
+        "assert get_settings.cache_info().currsize == 0\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 if __name__ == "__main__":

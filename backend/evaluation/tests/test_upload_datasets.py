@@ -105,7 +105,7 @@ def test_main_refuses_to_run_without_langfuse_keys() -> None:
 
 def test_main_uploads_only_the_named_datasets(monkeypatch) -> None:
     client = FakeLangfuse()
-    monkeypatch.setattr(upload_datasets, "langfuse", client)
+    monkeypatch.setattr(upload_datasets, "get_langfuse", lambda: client)
     monkeypatch.setattr(
         upload_datasets,
         "get_settings",

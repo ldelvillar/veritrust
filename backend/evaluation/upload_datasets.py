@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 import pandas as pd
 
 from app.core.config import get_settings
-from app.core.tracing import langfuse
+from app.core.tracing import get_langfuse
 from evaluation.evaluate_pipeline import LANGFUSE_DATASETS, binary_claims
 from evaluation.load_data import STANCES_PATH, load_dataset, load_jsonl
 
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
     for name in args.datasets or DATASETS:
         description, load_items = DATASETS[name]
         items = load_items()
-        upload(langfuse, name, description, items)
+        upload(get_langfuse(), name, description, items)
         logger.info("Dataset %s: %d ítems", name, len(items))
 
 
