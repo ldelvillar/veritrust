@@ -79,7 +79,7 @@ The coding session can't click through Stripe, so write these steps as a runbook
   - `stripe_price_pro_monthly: str = ""`
   - `stripe_price_pro_yearly: str = ""`
   - `stripe_api_base_url: str | None = None` (only so tests can point the SDK at a stub)
-- `validate_runtime()`: add all four non-optional ones to `missing` (billing is live from launch, so a missing key is a `/healthz` 503, not a checkout 500).
+- `validate_runtime()`: add all four non-optional ones to `missing` (billing is live from launch, so a missing key stops the process at startup, not a checkout 500).
 - Add them to `backend/.env.example`, `docs/deploy/env.md` (the `backend/.env` block) and the compose files only if those pass env explicitly. Tests use dummy values such as `sk_test_dummy` and `whsec_test_dummy`, never real keys.
 - Stripe SDK calls are blocking HTTP unless you use its async methods. Use the `StripeClient` async variants (`…_async`) if the pinned version has them; otherwise wrap calls in `asyncio.to_thread`. Never call the sync SDK inside `async def` (backend AGENTS.md).
 
