@@ -967,11 +967,13 @@ def test_main_turns_the_explanation_off_before_it_reads_the_settings(
         ],
     )
 
-    with pytest.raises(Stop):
-        ep.main()
+    try:
+        with pytest.raises(Stop):
+            ep.main()
 
-    assert not get_settings().health_expert_explanation_enabled
-    get_settings.cache_clear()
+        assert not get_settings().health_expert_explanation_enabled
+    finally:
+        get_settings.cache_clear()
 
 
 def test_importing_the_evaluation_reads_no_settings() -> None:

@@ -1,5 +1,7 @@
 """Tests of the arq worker, which turns a Run's input into its Verdict and dispatches it."""
 
+from types import SimpleNamespace
+
 import pytest
 from arq.connections import RedisSettings
 
@@ -345,6 +347,25 @@ async def test_shutdown_flushes_traces_after_closing_the_pool_even_if_it_fails(
         await worker.shutdown({})
 
     assert calls == ["close", "flush"]
+
+
+async def test_shutdown_builds_no_langfuse_client_when_startup_built_none(
+    monkeypatch,
+):
+    class _Unbuilt:
+        def cache_info(self):
+            return SimpleNamespace(currsize=0)
+
+        def __call__(self):
+            raise AssertionError("shutdown built a Langfuse client")
+
+    async def fake_close_pool():
+        pass
+
+    monkeypatch.setattr(worker, "close_pool", fake_close_pool)
+    monkeypatch.setattr(worker, "get_langfuse", _Unbuilt())
+
+    await worker.shutdown({})
 
 
 def test_main_starts_arq_worker_with_configured_redis(monkeypatch):

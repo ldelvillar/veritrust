@@ -10,6 +10,7 @@ from app.core.config import get_settings
 _DISABLED_KEY = "tracing-disabled"
 
 
+@cache
 def tracing_enabled() -> bool:
     """Return whether the settings turn Langfuse tracing on."""
     return get_settings().langfuse_enabled()

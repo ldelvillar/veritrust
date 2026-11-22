@@ -229,7 +229,8 @@ async def shutdown(ctx: dict) -> None:
         await close_pool()
     finally:
         # Last, so a slow Langfuse can only lose traces, never leave the pool open.
-        await asyncio.to_thread(get_langfuse().flush)
+        if get_langfuse.cache_info().currsize:
+            await asyncio.to_thread(get_langfuse().flush)
 
 
 class WorkerSettings:
