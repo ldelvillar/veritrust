@@ -134,7 +134,7 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 ## Off-site copies
 
-A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
+A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled task on the dev machine pulls them daily at 9:00 (a fixed 08:00 UTC, so 10:00 in summer time) with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
 
 Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that. Add this as a second action of the task:
 
