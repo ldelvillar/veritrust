@@ -136,7 +136,7 @@ The dump is in `pg_dump`'s custom format (compressed, includes `schema_migration
 
 A disk or VM loss takes the local dumps with it, so the encrypted `.age` copies also live off the VM. For now a scheduled job on a workstation (set up as in [Setting up the pull](#setting-up-the-pull-on-a-workstation)) pulls them daily at 9:00 local time with `scp -p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age <folder>` (`-p` keeps each file's original date, which the cleanup below relies on); it needs the SSH key loaded in the agent (`ssh-add`), since a passphrase prompt fails under `BatchMode`. Before pilot data accrues, replace it with an upload of the same files to an EU bucket at another provider, appended to the cron line.
 
-Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that; the job runs this after each pull:
+Off-site copies are kept for **28 days**, in line with the privacy policy's backup cycle of about a month, so the same scheduled task (and later the bucket's lifecycle rule) must delete `.age` files older than that; the job runs this after each successful pull:
 
 ```powershell
 Get-ChildItem <folder> -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
@@ -149,7 +149,9 @@ age -d -i $env:USERPROFILE\.age\veritrust-backup.key.age -o veritrust.dump verit
 scp veritrust.dump veritrust:/tmp/veritrust.dump
 ```
 
-Once the restore is done, delete both decrypted copies (`Remove-Item veritrust.dump`, then `ssh veritrust rm /tmp/veritrust.dump`): no cleanup rule matches them.
+On Linux, the first line is `age -d -i ~/.age/veritrust-backup.key.age -o veritrust.dump veritrust-YYYYMMDD.dump.age`, with the key copied from your password manager to `~/.age/`.
+
+Once the restore is done, delete both decrypted copies (`Remove-Item veritrust.dump`, or `rm veritrust.dump` on Linux, then `ssh veritrust rm /tmp/veritrust.dump`): no cleanup rule matches them.
 
 ### Setting up the pull on a workstation
 
@@ -157,30 +159,42 @@ The workstation doesn't need to be always on: the job catches up at the next log
 
 1. Give it SSH access as in [vps-setup.md section 1](vps-setup.md#adding-a-workstation-later): its own key, authorized from a machine that already has access, and the `veritrust` alias.
 2. Load the key into the agent, then connect once by hand to accept the host key (`BatchMode` can't answer the fingerprint prompt): `ssh-add`, then `ssh veritrust true`.
-3. Copy the existing `.age` files from the previous workstation's folder into the new one, to keep the 28-day history; a normal copy keeps their modified dates, which the cleanup reads.
+3. Copy the existing `.age` files from the previous workstation's folder into the new one, to keep the 28-day history, with a copy that keeps their modified dates, which the cleanup reads: Explorer or `Copy-Item` on Windows, `cp -p`, `scp -p` or `rsync -t` on Linux (plain `cp` or `scp` resets them to now, so old copies outlive the 28 days). Check the dates in the new folder afterwards.
 4. Create the job (below), run it once, and check that the newest `.age` file arrived with the VM's early-morning date, not the time of the pull.
 5. On the previous workstation, disable or delete its job.
 
 **Windows.** The agent service ships disabled, so first enable it in an admin PowerShell: `Set-Service ssh-agent -StartupType Automatic; Start-Service ssh-agent`. It keeps added keys across reboots, so `ssh-add` is needed once. Then, as your user:
 
 ```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\veritrust-backups"
+$script = "$env:USERPROFILE\veritrust-backup-pull.ps1"
+Set-Content $script @'
 $dir = "$env:USERPROFILE\veritrust-backups"
-New-Item -ItemType Directory -Force $dir
-$pull = New-ScheduledTaskAction -Execute 'scp.exe' -Argument "-p -o BatchMode=yes veritrust:backups/veritrust-*.dump.age $dir\"
-$cleanup = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"Get-ChildItem '$dir' -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item`""
+foreach ($try in 1..8) {
+    scp -p -o BatchMode=yes 'veritrust:backups/veritrust-*.dump.age' "$dir"
+    if ($LASTEXITCODE -eq 0) {
+        Get-ChildItem $dir -Filter 'veritrust-*.dump.age' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-28) | Remove-Item
+        exit 0
+    }
+    if ($try -lt 8) { Start-Sleep -Seconds 900 }
+}
+exit 1
+'@
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
 $trigger = New-ScheduledTaskTrigger -Daily -At 9:00
 $trigger.StartBoundary = (Get-Date '09:00').ToString('s')
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName 'VeriTrust backup pull' -Action $pull, $cleanup -Trigger $trigger -Settings $settings
+Register-ScheduledTask -TaskName 'VeriTrust backup pull' -Action $action -Trigger $trigger -Settings $settings -Force
 Start-ScheduledTask -TaskName 'VeriTrust backup pull'
 ```
 
+- The script retries a failed pull every 15 minutes for up to 2 hours (the network may not be up yet at a catch-up run), and deletes old copies only after a successful pull, so a broken pull never empties the folder.
 - The `StartBoundary` line stores 9:00 without a UTC offset, so the task follows local time through daylight saving; without it, the trigger is a fixed UTC time.
-- `-StartWhenAvailable` runs a missed 9:00 as soon as the machine is on; the battery switches stop a laptop on battery from skipping the day.
+- `-StartWhenAvailable` runs a missed 9:00 as soon as the machine is on; the battery switches stop a laptop on battery from skipping the day; `-Force` replaces an existing task of the same name.
 - The task runs only while you're logged in, since it needs your loaded key.
-- Check it with `Get-ScheduledTaskInfo -TaskName 'VeriTrust backup pull'`: `LastTaskResult` is `0` on success, and `267009` only means it's still running.
+- Check it with `Get-ScheduledTaskInfo -TaskName 'VeriTrust backup pull'`: `LastTaskResult` is `0` on success and `1` when every attempt failed; `267009` only means it's still running, which lasts up to 2 hours while it retries.
 
-**Linux.** Use a systemd user timer: cron skips a run the machine was off for, while `Persistent=true` runs it at the next login. Create `~/.config/systemd/user/veritrust-backup-pull.service`:
+**Linux.** Use a systemd user timer (systemd 244 or later, for `Restart=` on a one-shot service): cron skips a run the machine was off for, while `Persistent=true` runs it at the next login. Create `~/.config/systemd/user/veritrust-backup-pull.service`:
 
 ```ini
 [Unit]
