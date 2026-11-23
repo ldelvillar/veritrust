@@ -1,5 +1,6 @@
 """Clerk signing keys, the JWKS client shared by the web API and the MCP server."""
 
+import logging
 import threading
 import time
 from functools import lru_cache
@@ -10,7 +11,9 @@ from jwt import PyJWK, PyJWKClient, PyJWKSet
 
 from app.core.config import get_settings
 
-# A downloaded JWKS is trusted this long, so a key Clerk removes stops verifying once it passes.
+logger = logging.getLogger(__name__)
+
+# A downloaded JWKS is trusted this long, so a key Clerk removes stops verifying once it and the stale grace pass.
 JWKS_CACHE_LIFESPAN_SECONDS = 600.0
 # A known kid keeps verifying against an expired JWKS this long while its refresh runs or fails.
 JWKS_STALE_GRACE_SECONDS = 60.0
@@ -60,7 +63,10 @@ class _CooldownJWKClient(PyJWKClient):
             return expired_key
         try:
             return self._refresh_for(kid)
-        except jwt.PyJWKClientConnectionError:
+        except jwt.PyJWKClientConnectionError as e:
+            logger.warning(
+                "No se pudo refrescar el JWKS de Clerk, se usa la clave caducada: %s", e
+            )
             return expired_key
         finally:
             self._download_lock.release()
@@ -116,7 +122,7 @@ class _CooldownJWKClient(PyJWKClient):
 @lru_cache(maxsize=1)
 def _get_jwks_client(jwks_url: str) -> _CooldownJWKClient:
     """Return a JWKS client cached by URL."""
-    # No per-kid key cache, so a key Clerk removes stops verifying once the JWKS cache expires.
+    # No per-kid key cache, so a key Clerk removes stops verifying once the JWKS cache and its stale grace expire.
     return _CooldownJWKClient(jwks_url, timeout=JWKS_FETCH_TIMEOUT_SECONDS)
 
 

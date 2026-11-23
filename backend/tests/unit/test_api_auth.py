@@ -440,14 +440,16 @@ def test_a_known_kid_keeps_verifying_while_the_expiry_download_runs(monkeypatch)
     clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
 
     first, first_outcome = _start_lookup(client, "clerk-key")
-    assert refreshing.wait(timeout=5)
-    second, second_outcome = _start_lookup(client, "clerk-key")
-    second.join(timeout=1)
-    # The second request uses the expired key at once instead of waiting or starting its own download.
-    assert second_outcome == ["clerk-key"]
-
-    release.set()
-    first.join(timeout=5)
+    try:
+        assert refreshing.wait(timeout=5)
+        second, second_outcome = _start_lookup(client, "clerk-key")
+        second.join(timeout=1)
+        # The second request uses the expired key at once instead of waiting or starting its own download.
+        assert not second.is_alive()
+        assert second_outcome == ["clerk-key"]
+    finally:
+        release.set()
+        first.join(timeout=5)
 
     assert (first_outcome, len(downloads)) == (["clerk-key"], 2)
 
