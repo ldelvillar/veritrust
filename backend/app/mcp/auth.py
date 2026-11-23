@@ -5,9 +5,15 @@ import logging
 
 import jwt
 from mcp.server.auth.provider import AccessToken
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
-from app.core.jwks import AuthMisconfigured, get_signing_key
+from app.core.jwks import (
+    JWKS_RETRY_AFTER_SECONDS,
+    AuthMisconfigured,
+    get_signing_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +40,8 @@ def _decode_oauth_token(token: str) -> AccessToken | None:
                 "require": ["exp", "sub"],
             },
         )
+    except jwt.PyJWKClientConnectionError:
+        raise
     except jwt.PyJWTError:
         return None
     except AuthMisconfigured:
@@ -63,5 +71,52 @@ class ClerkOAuthTokenVerifier:
     """MCP SDK token verifier backed by Clerk's JWKS."""
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        """Return the verified token, or ``None`` if it is not a valid OAuth access token."""
+        """Return the verified token, ``None`` if it is not a valid OAuth access token, or raise if the JWKS is unreachable."""
         return await asyncio.to_thread(_decode_oauth_token, token)
+
+
+class JwksUnavailableMiddleware:
+    """ASGI middleware that answers 503 when Clerk's JWKS cannot be fetched to verify an MCP access token."""
+
+    def __init__(self, app: ASGIApp, public_path: str) -> None:
+        self.app = app
+        self.public_path = public_path
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Run the app, answering a JWKS connection error from the token verifier with 503."""
+        route_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
+        if scope["type"] == "http" and route_path == self.public_path:
+            # The public OAuth metadata ignores the token, so a JWKS outage must not refuse it.
+            scope = {
+                **scope,
+                "headers": [
+                    (name, value)
+                    for name, value in scope.get("headers", [])
+                    if name.lower() != b"authorization"
+                ],
+            }
+            await self.app(scope, receive, send)
+            return
+
+        started = False
+
+        async def _send(message: Message) -> None:
+            nonlocal started
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self.app(scope, receive, _send)
+        except jwt.PyJWKClientConnectionError as e:
+            if started:
+                raise
+            logger.warning("No se pudo descargar el JWKS de Clerk para el MCP: %s", e)
+            response = JSONResponse(
+                {
+                    "error": "temporarily_unavailable",
+                    "error_description": "Could not verify the access token, try again shortly",
+                },
+                status_code=503,
+                headers={"Retry-After": str(JWKS_RETRY_AFTER_SECONDS)},
+            )
+            await response(scope, receive, send)

@@ -33,7 +33,7 @@ from app.core.report_url import build_report_url
 from app.db.billing import get_user_subscription, usage_this_month
 from app.db.history import get_user_analysis_by_id, get_user_analysis_status
 from app.db.pool import DatabaseError
-from app.mcp.auth import ClerkOAuthTokenVerifier
+from app.mcp.auth import ClerkOAuthTokenVerifier, JwksUnavailableMiddleware
 from app.schemas.analysis import (
     MAX_INPUT_TEXT_LENGTH,
     MIN_INPUT_TEXT_LENGTH,
@@ -466,12 +466,12 @@ def build_mcp_server(
 
 
 def build_mcp_http_app(server: MCPServer) -> Starlette:
-    """Return the server's Streamable HTTP app, limited to the configured hosts."""
+    """Return the server's Streamable HTTP app, limited to the configured hosts and answering a JWKS outage with 503."""
     settings = get_settings()
     allowed_hosts = [urlparse(str(settings.mcp_resource_url)).netloc]
     if settings.is_development():
         allowed_hosts += ["localhost:*", "127.0.0.1:*"]
-    return server.streamable_http_app(
+    http_app = server.streamable_http_app(
         streamable_http_path=MCP_PATH,
         # No in-memory session, so any replica serves old-protocol clients.
         stateless_http=True,
@@ -480,3 +480,6 @@ def build_mcp_http_app(server: MCPServer) -> Starlette:
             allowed_origins=settings.cors_origins(),
         ),
     )
+    # Outermost user middleware, so a verifier exception reaches it before Starlette's ServerErrorMiddleware turns it into a 500.
+    http_app.add_middleware(JwksUnavailableMiddleware, public_path=MCP_METADATA_PATH)
+    return http_app
