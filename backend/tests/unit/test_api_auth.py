@@ -291,7 +291,16 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     assert client.get_signing_key("new-key").key_id == "new-key"
 
 
-def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch):
+@pytest.mark.parametrize(
+    ("failure", "raised"),
+    [
+        (URLError("timed out"), jwt.PyJWKClientConnectionError),
+        (ConnectionResetError("reset while reading the body"), ConnectionResetError),
+    ],
+)
+def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(
+    monkeypatch, failure, raised
+):
     clock = _use_clock(monkeypatch)
     clerk = {"up": True, "jwks": {"keys": [_jwk(_rsa_key(), "old-key")]}}
 
@@ -299,7 +308,7 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch):
         if not clerk["up"]:
             # The download times out, so the backoff must count from the failure.
             clock[0] += jwks_module.JWKS_FETCH_TIMEOUT_SECONDS
-            raise URLError("timed out")
+            raise failure
         return clerk["jwks"]
 
     downloads = _use_jwks(monkeypatch, _serve)
@@ -307,7 +316,7 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch):
     client.get_signing_key("old-key")
 
     clerk["up"] = False
-    with pytest.raises(jwt.PyJWKClientConnectionError):
+    with pytest.raises(raised):
         client.get_signing_key("new-key")
     clerk["up"] = True
     clerk["jwks"]["keys"].append(_jwk(_rsa_key(), "new-key"))
@@ -320,10 +329,8 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch):
     assert client.get_signing_key("new-key").key_id == "new-key"
 
 
-def test_a_hanging_forced_refresh_blocks_neither_cached_kids_nor_other_unknown_kids(
-    monkeypatch,
-):
-    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+def _use_hanging_refresh(monkeypatch, jwks: dict):
+    """Serve the JWKS with a forced refresh that hangs until released, returning the client and the two events."""
     refreshing = threading.Event()
     release = threading.Event()
     downloads = _use_jwks(monkeypatch, lambda: _serve())
@@ -336,25 +343,61 @@ def test_a_hanging_forced_refresh_blocks_neither_cached_kids_nor_other_unknown_k
 
     client = jwks_module._get_jwks_client(_JWKS_URL)
     client.get_signing_key("clerk-key")
-    forged = threading.Thread(target=_lookup, args=(client, "forged-1", []))
-    forged.start()
+    return client, downloads, refreshing, release
+
+
+def _start_lookup(client, kid: str) -> tuple[threading.Thread, list[str]]:
+    outcome: list[str] = []
+    thread = threading.Thread(target=_lookup, args=(client, kid, outcome))
+    thread.start()
+    return thread, outcome
+
+
+def test_a_rotated_kid_waits_for_the_refresh_already_running_instead_of_a_401(
+    monkeypatch,
+):
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    client, downloads, refreshing, release = _use_hanging_refresh(monkeypatch, jwks)
+    first, first_outcome = _start_lookup(client, "new-key")
     assert refreshing.wait(timeout=5)
 
-    cached: list[str] = []
-    other_forged: list[str] = []
-    lookups = [
-        threading.Thread(target=_lookup, args=(client, "clerk-key", cached)),
-        threading.Thread(target=_lookup, args=(client, "forged-2", other_forged)),
-    ]
-    for lookup in lookups:
-        lookup.start()
-    for lookup in lookups:
-        lookup.join(timeout=1)
-    outcomes = (list(cached), list(other_forged), len(downloads))
-    release.set()
-    forged.join(timeout=5)
+    cached, cached_outcome = _start_lookup(client, "clerk-key")
+    cached.join(timeout=1)
+    # A cached kid is verified while the refresh still hangs.
+    assert list(cached_outcome) == ["clerk-key"]
+    second, second_outcome = _start_lookup(client, "new-key")
+    second.join(timeout=0.2)
+    assert second.is_alive()
 
-    assert outcomes == (["clerk-key"], ["refused"], 2)
+    jwks["keys"].append(_jwk(_rsa_key(), "new-key"))
+    release.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert (first_outcome, second_outcome, len(downloads)) == (
+        ["new-key"],
+        ["new-key"],
+        2,
+    )
+
+
+def test_an_unknown_kid_stops_waiting_for_a_hanging_refresh_after_the_timeout(
+    monkeypatch,
+):
+    monkeypatch.setattr(jwks_module, "JWKS_FETCH_TIMEOUT_SECONDS", 0.1)
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    client, downloads, refreshing, release = _use_hanging_refresh(monkeypatch, jwks)
+    first, first_outcome = _start_lookup(client, "forged-1")
+    assert refreshing.wait(timeout=5)
+
+    second, second_outcome = _start_lookup(client, "forged-2")
+    second.join(timeout=1)
+    outcome = (list(second_outcome), len(downloads))
+    release.set()
+    first.join(timeout=5)
+
+    assert outcome == (["refused"], 2)
+    assert first_outcome == ["refused"]
 
 
 def _lookup(client, kid: str, outcome: list[str]) -> None:

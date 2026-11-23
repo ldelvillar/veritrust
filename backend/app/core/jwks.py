@@ -33,8 +33,10 @@ class _CooldownJWKClient(PyJWKClient):
         """Return the kid's key, forcing a JWKS refresh only when the interval since the last one has passed."""
         # Cached kids are looked up outside the lock, so a slow forced refresh never delays them.
         signing_key = self.match_kid(self.get_signing_keys(), kid)
-        # An unknown kid that finds a refresh already running is refused rather than queued on a thread.
-        if signing_key is None and self._refresh_lock.acquire(blocking=False):
+        # An unknown kid waits at most one download timeout for a refresh already running, then rechecks.
+        if signing_key is None and self._refresh_lock.acquire(
+            timeout=JWKS_FETCH_TIMEOUT_SECONDS
+        ):
             try:
                 signing_key = self._refresh_for(kid)
             finally:
@@ -53,7 +55,7 @@ class _CooldownJWKClient(PyJWKClient):
             return signing_key
         try:
             signing_keys = self.get_signing_keys(refresh=True)
-        except jwt.PyJWTError:
+        except Exception:
             self._next_forced_refresh = (
                 time.monotonic() + JWKS_FAILED_REFRESH_BACKOFF_SECONDS
             )
