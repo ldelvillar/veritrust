@@ -253,9 +253,19 @@ def test_get_current_user_returns_503_when_the_jwks_is_unreachable(monkeypatch):
     assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
 
 
+def _use_clock(monkeypatch) -> list[float]:
+    """Freeze the monotonic clock the JWKS client times its caches with, advanced by hand."""
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    return clock
+
+
 def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
+    clock = _use_clock(monkeypatch)
     jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
     downloads = _use_jwks(monkeypatch, lambda: jwks)
+    jwks_module._get_jwks_client(_JWKS_URL).get_signing_key("clerk-key")
+    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
 
     for kid in ("forged-1", "forged-2", "forged-3"):
         with pytest.raises(HTTPException) as exc:
@@ -267,11 +277,12 @@ def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
 
 
 def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch):
-    clock = [0.0]
-    monkeypatch.setattr(jwks_module, "monotonic", lambda: clock[0])
+    clock = _use_clock(monkeypatch)
     jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
     _use_jwks(monkeypatch, lambda: jwks)
     client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("old-key")
+    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
@@ -282,6 +293,46 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
 
     clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
     assert client.get_signing_key("new-key").key_id == "new-key"
+
+
+def test_a_failed_forced_refresh_does_not_spend_the_cooldown(monkeypatch):
+    clock = _use_clock(monkeypatch)
+    clerk = {"up": True, "jwks": {"keys": [_jwk(_rsa_key(), "old-key")]}}
+
+    def _serve():
+        if not clerk["up"]:
+            raise URLError("connection refused")
+        return clerk["jwks"]
+
+    _use_jwks(monkeypatch, _serve)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("old-key")
+    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
+
+    clerk["up"] = False
+    with pytest.raises(jwt.PyJWKClientConnectionError):
+        client.get_signing_key("new-key")
+    clerk["up"] = True
+    clerk["jwks"]["keys"].append(_jwk(_rsa_key(), "new-key"))
+
+    assert client.get_signing_key("new-key").key_id == "new-key"
+
+
+def test_a_signing_key_clerk_removes_stops_verifying_once_the_jwks_cache_expires(
+    monkeypatch,
+):
+    clock = _use_clock(monkeypatch)
+    jwks = {"keys": [_jwk(_rsa_key(), "revoked-key"), _jwk(_rsa_key(), "clerk-key")]}
+    _use_jwks(monkeypatch, lambda: jwks)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    assert client.get_signing_key("revoked-key").key_id == "revoked-key"
+
+    jwks["keys"] = [key for key in jwks["keys"] if key["kid"] != "revoked-key"]
+    assert client.jwk_set_cache is not None
+    clock[0] += client.jwk_set_cache.lifespan + 1
+
+    with pytest.raises(jwt.PyJWKClientError):
+        client.get_signing_key("revoked-key")
 
 
 def _api_key_record(**overrides) -> dict:
