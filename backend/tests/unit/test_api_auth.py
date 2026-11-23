@@ -2,6 +2,7 @@
 
 import io
 import json
+import threading
 import time
 import urllib.request
 from urllib.error import URLError
@@ -261,11 +262,8 @@ def _use_clock(monkeypatch) -> list[float]:
 
 
 def test_unknown_kids_refetch_the_jwks_at_most_once_per_cooldown(monkeypatch):
-    clock = _use_clock(monkeypatch)
     jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
     downloads = _use_jwks(monkeypatch, lambda: jwks)
-    jwks_module._get_jwks_client(_JWKS_URL).get_signing_key("clerk-key")
-    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
 
     for kid in ("forged-1", "forged-2", "forged-3"):
         with pytest.raises(HTTPException) as exc:
@@ -281,8 +279,6 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
     _use_jwks(monkeypatch, lambda: jwks)
     client = jwks_module._get_jwks_client(_JWKS_URL)
-    client.get_signing_key("old-key")
-    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
@@ -295,7 +291,7 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     assert client.get_signing_key("new-key").key_id == "new-key"
 
 
-def test_a_failed_forced_refresh_does_not_spend_the_cooldown(monkeypatch):
+def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch):
     clock = _use_clock(monkeypatch)
     clerk = {"up": True, "jwks": {"keys": [_jwk(_rsa_key(), "old-key")]}}
 
@@ -304,18 +300,56 @@ def test_a_failed_forced_refresh_does_not_spend_the_cooldown(monkeypatch):
             raise URLError("connection refused")
         return clerk["jwks"]
 
-    _use_jwks(monkeypatch, _serve)
+    downloads = _use_jwks(monkeypatch, _serve)
     client = jwks_module._get_jwks_client(_JWKS_URL)
     client.get_signing_key("old-key")
-    clock[0] += jwks_module.JWKS_REFRESH_COOLDOWN_SECONDS
 
     clerk["up"] = False
     with pytest.raises(jwt.PyJWKClientConnectionError):
         client.get_signing_key("new-key")
     clerk["up"] = True
     clerk["jwks"]["keys"].append(_jwk(_rsa_key(), "new-key"))
+    with pytest.raises(jwt.PyJWKClientError):
+        client.get_signing_key("new-key")
+    # The cache fill and the failed refresh; the request within the backoff downloads nothing.
+    assert len(downloads) == 2
 
+    clock[0] += jwks_module.JWKS_FAILED_REFRESH_BACKOFF_SECONDS
     assert client.get_signing_key("new-key").key_id == "new-key"
+
+
+def test_a_cached_kid_is_verified_while_a_forced_refresh_hangs(monkeypatch):
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    refreshing = threading.Event()
+    release = threading.Event()
+
+    def _serve():
+        if jwks_module._get_jwks_client(_JWKS_URL).jwk_set_cache.get() is not None:
+            refreshing.set()
+            release.wait(timeout=5)
+        return jwks
+
+    _use_jwks(monkeypatch, _serve)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("clerk-key")
+    forged = threading.Thread(
+        target=lambda: pytest.raises(
+            jwt.PyJWKClientError, client.get_signing_key, "forged"
+        )
+    )
+    forged.start()
+    assert refreshing.wait(timeout=5)
+
+    found: list[str] = []
+    cached = threading.Thread(
+        target=lambda: found.append(client.get_signing_key("clerk-key").key_id)
+    )
+    cached.start()
+    cached.join(timeout=1)
+    release.set()
+    forged.join(timeout=5)
+
+    assert found == ["clerk-key"]
 
 
 def test_a_signing_key_clerk_removes_stops_verifying_once_the_jwks_cache_expires(
