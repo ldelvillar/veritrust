@@ -207,7 +207,10 @@ def _use_jwks(monkeypatch, serve) -> list[str]:
     class _Opener:
         def open(self, request, timeout=None):
             downloads.append(request.full_url)
-            return io.BytesIO(json.dumps(serve()).encode())
+            body = serve()
+            return io.BytesIO(
+                body if isinstance(body, bytes) else json.dumps(body).encode()
+            )
 
     monkeypatch.setattr(urllib.request, "build_opener", lambda *handlers: _Opener())
     client = jwks_module._get_jwks_client.__wrapped__(_JWKS_URL)
@@ -296,7 +299,8 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     [
         URLError("timed out"),
         ConnectionResetError("reset while reading the body"),
-        json.JSONDecodeError("Expecting value", "<html>", 0),
+        b"<html>Mantenimiento</html>",
+        b"\xff\xfe not UTF-8",
     ],
 )
 def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch, failure):
@@ -307,6 +311,8 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch, f
         if not clerk["up"]:
             # The failed download takes the whole timeout, so the backoff must count from the failure.
             clock[0] += jwks_module.JWKS_FETCH_TIMEOUT_SECONDS
+            if isinstance(failure, bytes):
+                return failure
             raise failure
         return clerk["jwks"]
 

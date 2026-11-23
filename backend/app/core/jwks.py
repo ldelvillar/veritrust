@@ -1,5 +1,6 @@
 """Clerk signing keys, the JWKS client shared by the web API and the MCP server."""
 
+import json
 import threading
 import time
 from functools import lru_cache
@@ -33,9 +34,9 @@ class _CooldownJWKClient(PyJWKClient):
         """Download the JWKS, reporting a reset connection or a body that is not JSON as a connection error."""
         try:
             return super().fetch_data()
-        except (OSError, ValueError) as e:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
             raise jwt.PyJWKClientConnectionError(
-                f'Fail to fetch data from the url, err: "{e}"'
+                f'Fail to download or read the JWKS, err: "{e}"'
             ) from e
 
     def get_signing_key(self, kid: str) -> PyJWK:
