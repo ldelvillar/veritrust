@@ -282,6 +282,7 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
     jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
     _use_jwks(monkeypatch, lambda: jwks)
     client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("old-key")
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("new-key")
@@ -325,7 +326,8 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch, f
         client.get_signing_key("new-key")
     clerk["up"] = True
     clerk["jwks"]["keys"].append(_jwk(_rsa_key(), "new-key"))
-    with pytest.raises(jwt.PyJWKClientError):
+    # Within the backoff the JWKS is still known to be unreachable, so the kid is unavailable rather than invalid.
+    with pytest.raises(jwt.PyJWKClientConnectionError):
         client.get_signing_key("new-key")
     # The cache fill and the failed refresh; the request within the backoff downloads nothing.
     assert len(downloads) == 2
@@ -401,14 +403,16 @@ def test_an_unknown_kid_stops_waiting_for_a_hanging_refresh_after_the_timeout(
     release.set()
     first.join(timeout=5)
 
-    assert outcome == (["refused"], 2)
+    assert outcome == (["unavailable"], 2)
     assert first_outcome == ["refused"]
 
 
 def _lookup(client, kid: str, outcome: list[str]) -> None:
-    """Look the kid up, recording its key id or that it was refused, for a test thread."""
+    """Look the kid up, recording its key id or whether it was unavailable or refused, for a test thread."""
     try:
         outcome.append(client.get_signing_key(kid).key_id)
+    except jwt.PyJWKClientConnectionError:
+        outcome.append("unavailable")
     except jwt.PyJWKClientError:
         outcome.append("refused")
 
@@ -423,11 +427,92 @@ def test_a_signing_key_clerk_removes_stops_verifying_once_the_jwks_cache_expires
     assert client.get_signing_key("revoked-key").key_id == "revoked-key"
 
     jwks["keys"] = [key for key in jwks["keys"] if key["kid"] != "revoked-key"]
-    assert client.jwk_set_cache is not None
-    clock[0] += client.jwk_set_cache.lifespan + 1
+    clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
 
     with pytest.raises(jwt.PyJWKClientError):
         client.get_signing_key("revoked-key")
+
+
+def test_requests_at_cache_expiry_share_one_download(monkeypatch):
+    clock = _use_clock(monkeypatch)
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    client, downloads, refreshing, release = _use_hanging_refresh(monkeypatch, jwks)
+    clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
+
+    first, first_outcome = _start_lookup(client, "clerk-key")
+    assert refreshing.wait(timeout=5)
+    second, second_outcome = _start_lookup(client, "clerk-key")
+    second.join(timeout=0.2)
+    # The second request waits for the expiry download already running instead of starting its own.
+    assert second.is_alive()
+
+    release.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert (first_outcome, second_outcome, len(downloads)) == (
+        ["clerk-key"],
+        ["clerk-key"],
+        2,
+    )
+
+
+def test_an_expiry_download_that_fails_is_retried_only_after_the_backoff(monkeypatch):
+    clock = _use_clock(monkeypatch)
+    clerk = {"up": True}
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+
+    def _serve():
+        if not clerk["up"]:
+            raise URLError("connection refused")
+        return jwks
+
+    downloads = _use_jwks(monkeypatch, _serve)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("clerk-key")
+
+    clerk["up"] = False
+    clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
+    for _ in range(3):
+        with pytest.raises(jwt.PyJWKClientConnectionError):
+            client.get_signing_key("clerk-key")
+    # The cache fill and one failed expiry download; the requests within the backoff download nothing.
+    assert len(downloads) == 2
+
+    clerk["up"] = True
+    clock[0] += jwks_module.JWKS_FAILED_REFRESH_BACKOFF_SECONDS
+    assert client.get_signing_key("clerk-key").key_id == "clerk-key"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        [],
+        "maintenance",
+        {},
+        {"keys": []},
+        {"error": "maintenance"},
+        {"keys": [{"kty": "unknown", "kid": "clerk-key"}]},
+        {"keys": [{**_jwk(_rsa_key(), "clerk-key"), "use": "enc"}]},
+    ],
+)
+def test_a_malformed_jwks_answers_503_and_is_not_cached(monkeypatch, body):
+    clock = _use_clock(monkeypatch)
+    jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
+    served = {"body": body}
+    downloads = _use_jwks(monkeypatch, lambda: served["body"])
+
+    with pytest.raises(HTTPException) as exc:
+        get_user_module.get_current_user(f"Bearer {_token('clerk-key')}")
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
+    served["body"] = jwks
+    clock[0] += jwks_module.JWKS_FAILED_REFRESH_BACKOFF_SECONDS
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    assert client.get_signing_key("clerk-key").key_id == "clerk-key"
+    assert len(downloads) == 2
 
 
 def _api_key_record(**overrides) -> dict:
