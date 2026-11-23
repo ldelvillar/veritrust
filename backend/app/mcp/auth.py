@@ -6,11 +6,12 @@ import logging
 import jwt
 from mcp.server.auth.provider import AccessToken
 from starlette.responses import JSONResponse
+from starlette.routing import get_route_path
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.jwks import (
-    JWKS_FAILED_REFRESH_BACKOFF_SECONDS,
+    JWKS_RETRY_AFTER_SECONDS,
     AuthMisconfigured,
     get_signing_key,
 )
@@ -76,16 +77,16 @@ class ClerkOAuthTokenVerifier:
 
 
 class JwksUnavailableMiddleware:
-    """ASGI middleware that answers 503 when Clerk's JWKS cannot be fetched to verify an access token for the protected path."""
+    """ASGI middleware that answers 503 when Clerk's JWKS cannot be fetched to verify an MCP access token."""
 
-    def __init__(self, app: ASGIApp, protected_path: str) -> None:
+    def __init__(self, app: ASGIApp, public_path: str) -> None:
         self.app = app
-        self.protected_path = protected_path
+        self.public_path = public_path
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Run the app, answering a JWKS connection error from the token verifier with 503."""
-        if scope["type"] != "http" or scope["path"] != self.protected_path:
-            # Public routes such as the OAuth metadata ignore the token, so a JWKS outage must not refuse them.
+        if scope["type"] == "http" and get_route_path(scope) == self.public_path:
+            # The public OAuth metadata ignores the token, so a JWKS outage must not refuse it.
             scope = {
                 **scope,
                 "headers": [
@@ -116,6 +117,6 @@ class JwksUnavailableMiddleware:
                     "error_description": "Could not verify the access token, try again shortly",
                 },
                 status_code=503,
-                headers={"Retry-After": str(int(JWKS_FAILED_REFRESH_BACKOFF_SECONDS))},
+                headers={"Retry-After": str(JWKS_RETRY_AFTER_SECONDS)},
             )
             await response(scope, receive, send)

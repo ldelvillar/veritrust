@@ -1,6 +1,7 @@
 """Clerk signing keys, the JWKS client shared by the web API and the MCP server."""
 
 import logging
+import math
 import threading
 import time
 from functools import lru_cache
@@ -21,6 +22,8 @@ JWKS_STALE_GRACE_SECONDS = 60.0
 JWKS_REFRESH_COOLDOWN_SECONDS = 60.0
 # A download that fails is retried after this, so an outage neither spends the interval nor goes unthrottled.
 JWKS_FAILED_REFRESH_BACKOFF_SECONDS = 5.0
+# The Retry-After a JWKS outage answers with, rounded up so a client never retries inside the backoff.
+JWKS_RETRY_AFTER_SECONDS = math.ceil(JWKS_FAILED_REFRESH_BACKOFF_SECONDS)
 JWKS_FETCH_TIMEOUT_SECONDS = 5.0
 
 

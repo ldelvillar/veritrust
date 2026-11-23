@@ -14,7 +14,11 @@ from app.core.api_keys import (
 )
 from app.core.config import get_settings
 from app.core.errors import make_error_detail
-from app.core.jwks import AuthMisconfigured, get_signing_key
+from app.core.jwks import (
+    JWKS_RETRY_AFTER_SECONDS,
+    AuthMisconfigured,
+    get_signing_key,
+)
 from app.schemas.errors import ErrorCode
 
 logger = logging.getLogger(__name__)
@@ -114,6 +118,7 @@ def get_current_user(authorization: str = Header(None)) -> dict[str, str]:
         raise HTTPException(
             status_code=503,
             detail=make_error_detail(ErrorCode.SERVICE_UNAVAILABLE),
+            headers={"Retry-After": str(JWKS_RETRY_AFTER_SECONDS)},
         ) from e
     except jwt.PyJWKClientError as e:
         raise HTTPException(

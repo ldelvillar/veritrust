@@ -255,6 +255,7 @@ def test_get_current_user_returns_503_when_the_jwks_is_unreachable(monkeypatch):
 
     assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "SERVICE_UNAVAILABLE"
+    assert exc.value.headers == {"Retry-After": "5"}
 
 
 def _use_clock(monkeypatch) -> list[float]:

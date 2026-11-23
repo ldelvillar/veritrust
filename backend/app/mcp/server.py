@@ -481,5 +481,5 @@ def build_mcp_http_app(server: MCPServer) -> Starlette:
         ),
     )
     # Outermost user middleware, so a verifier exception reaches it before Starlette's ServerErrorMiddleware turns it into a 500.
-    http_app.add_middleware(JwksUnavailableMiddleware, protected_path=MCP_PATH)
+    http_app.add_middleware(JwksUnavailableMiddleware, public_path=MCP_METADATA_PATH)
     return http_app

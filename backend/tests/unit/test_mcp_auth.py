@@ -107,6 +107,23 @@ async def test_returns_none_when_the_signing_key_is_misconfigured(monkeypatch):
     )
 
 
+async def test_a_jwks_error_after_the_response_started_is_not_answered_twice():
+    sent: list[dict] = []
+
+    async def streaming_app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        raise jwt.PyJWKClientConnectionError("connection refused")
+
+    async def send(message):
+        sent.append(message)
+
+    middleware = auth_module.JwksUnavailableMiddleware(streaming_app, public_path="/x")
+
+    with pytest.raises(jwt.PyJWKClientConnectionError):
+        await middleware({"type": "http", "path": "/mcp"}, None, send)
+    assert [message["status"] for message in sent] == [200]
+
+
 async def test_returns_none_without_an_issuer(monkeypatch):
     monkeypatch.setattr(
         auth_module,
