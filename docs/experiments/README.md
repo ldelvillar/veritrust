@@ -18,18 +18,23 @@ earlier entries cite `ml/`, its path at the time.
 
 Each checkpoint row stores in `evidence` the raw results of every search.
 `--replay-evidence <ckpt>` serves those searches from the recording, failed ones
-included, and only queries live the ones it cannot find:
+included. A query the LLM paraphrased replays the sample's most similar recorded
+query in the same source when they share at least half their words
+(`REPLAY_MIN_QUERY_OVERLAP`); only a query with no such match goes live:
 
 ```bash
 uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipeline --partition gold --limit 100 --checkpoint results/base.jsonl
 uv run --directory backend --extra evaluation python -m evaluation.evaluate_pipeline --partition gold --limit 100 --checkpoint results/variante.jsonl --replay-evidence results/base.jsonl
 ```
 
-- **Changes to the judge or the verdict rule**: the extractor and translator run at
-  temperature 0, so the queries repeat and almost all the Evidence is replayed.
-- **Changes to the extractor or translator**: the queries change and those searches go
-  live. The report line `Evidencia : N/M búsquedas reproducidas` says how many were
-  replayed; if few were, the comparison is not paired on Evidence.
+- **Changes to the judge or the verdict rule**: even at temperature 0 the extractor
+  rewrites queries slightly between runs (only 45% repeated exactly on #144), which the
+  similarity match absorbs: 94% of that run's searches replay with it.
+- **Changes to the extractor or translator**: a query that changed a lot goes live, but
+  one that kept half its words still replays the old query's Evidence, so to measure
+  what a query change retrieves, run both arms without `--replay-evidence`. The report
+  line `Evidencia : N/M búsquedas reproducidas` says how many were replayed; if few
+  were, the comparison is not paired on Evidence.
 - **Long texts do not repeat**: on articles the extractor on Mistral returns different
   Claims at temperature 0, so a rerun of the same config replays only about a third of
   the searches (2026-11-06, extractor v6, in [2026-11.md](2026-11.md)).
