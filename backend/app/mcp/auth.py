@@ -6,7 +6,6 @@ import logging
 import jwt
 from mcp.server.auth.provider import AccessToken
 from starlette.responses import JSONResponse
-from starlette.routing import get_route_path
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
@@ -85,7 +84,8 @@ class JwksUnavailableMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Run the app, answering a JWKS connection error from the token verifier with 503."""
-        if scope["type"] == "http" and get_route_path(scope) == self.public_path:
+        route_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
+        if scope["type"] == "http" and route_path == self.public_path:
             # The public OAuth metadata ignores the token, so a JWKS outage must not refuse it.
             scope = {
                 **scope,
