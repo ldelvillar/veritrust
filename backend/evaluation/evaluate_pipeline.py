@@ -97,16 +97,48 @@ class EvalRow(TypedDict):
     explanation: str
 
 
+# A paraphrased query replays the most similar recorded one when they share at least this share of words.
+REPLAY_MIN_QUERY_OVERLAP = 0.5
+
+
+def query_overlap(a: str, b: str) -> float:
+    """Share of words two queries have in common (Jaccard), ignoring case."""
+    words_a = set(re.findall(r"\w+", a.lower()))
+    words_b = set(re.findall(r"\w+", b.lower()))
+    union = words_a | words_b
+    return len(words_a & words_b) / len(union) if union else 0.0
+
+
 class EvidenceTape:
-    """Record a sample's evidence searches and replay the ones it already had recorded."""
+    """Record a sample's evidence searches and replay a recorded one for each claim's query, even when the LLM paraphrased it."""
 
     def __init__(self, recorded: list[EvidenceCall] | None = None) -> None:
-        self._recorded = {
-            (call["source"], call["query"], call["max_results"]): call["hits"]
-            for call in recorded or []
-        }
+        self._recorded = list(recorded or [])
         self.calls: list[EvidenceCall] = []
         self._live: list[EvidenceCall] = []
+
+    def _recording_for(
+        self, source: str, query: str, max_results: int
+    ) -> EvidenceCall | None:
+        """Return the recorded search a query replays: the same query, else the most similar one in the same source."""
+        candidates = [
+            call
+            for call in self._recorded
+            if call["source"] == source and call["max_results"] == max_results
+        ]
+        for call in candidates:
+            if call["query"] == query:
+                return call
+        best = max(
+            candidates,
+            key=lambda call: query_overlap(query, call["query"]),
+            default=None,
+        )
+        if best is not None and (
+            query_overlap(query, best["query"]) >= REPLAY_MIN_QUERY_OVERLAP
+        ):
+            return best
+        return None
 
     @property
     def live(self) -> int:
@@ -125,9 +157,9 @@ class EvidenceTape:
                 "hits": None,
             }
             self.calls.append(call)
-            key = (source, query, max_results)
-            if key in self._recorded:
-                hits = self._recorded[key]
+            recording = self._recording_for(source, query, max_results)
+            if recording is not None:
+                hits = recording["hits"]
                 if hits is None:
                     # A recorded outage is replayed, so both runs see the same Evidence.
                     raise EvidenceRetrievalError(f"Caída grabada de {source}")

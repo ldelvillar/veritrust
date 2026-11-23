@@ -577,6 +577,43 @@ def test_evidence_tape_searches_live_what_the_recording_lacks() -> None:
     assert tape.live == 3
 
 
+def test_evidence_tape_replays_each_paraphrased_query_from_its_own_claims_recording() -> (
+    None
+):
+    tape = ep.EvidenceTape(
+        [
+            _call(
+                "pubmed", "measles AND (pneumonia OR complications)", [_hit("neumo")]
+            ),
+            _call("pubmed", "measles AND encephalitis", [_hit("encef")]),
+        ]
+    )
+
+    search = tape.wrap("pubmed", _unreachable)
+    assert search("measles AND pneumonia complications", max_results=3) == [
+        _hit("neumo")
+    ]
+    assert search("measles encephalitis risk", max_results=3) == [_hit("encef")]
+    assert tape.live == 0
+
+
+def test_evidence_tape_searches_live_a_query_too_different_from_any_recording() -> None:
+    tape = ep.EvidenceTape(
+        [_call("pubmed", "epileptic seizure AND head protection", [_hit("cabeza")])]
+    )
+
+    def live(query: str, *, max_results: int) -> list[dict]:
+        return [_hit("viva")]
+
+    # A new Claim the recording never had shares too few words to borrow its Evidence.
+    hits = tape.wrap("pubmed", live)(
+        "epileptic seizure AND remove dangerous objects", max_results=3
+    )
+
+    assert hits == [_hit("viva")]
+    assert tape.live == 1
+
+
 def test_evidence_tape_intercepts_every_search_of_the_investigator() -> None:
     live = LiteratureSources(
         **{
