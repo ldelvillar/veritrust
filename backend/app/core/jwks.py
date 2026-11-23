@@ -29,11 +29,20 @@ class _CooldownJWKClient(PyJWKClient):
         self._refresh_lock = threading.Lock()
         self._next_forced_refresh = float("-inf")
 
+    def fetch_data(self) -> Any:
+        """Download the JWKS, reporting a reset connection or a body that is not JSON as a connection error."""
+        try:
+            return super().fetch_data()
+        except (OSError, ValueError) as e:
+            raise jwt.PyJWKClientConnectionError(
+                f'Fail to fetch data from the url, err: "{e}"'
+            ) from e
+
     def get_signing_key(self, kid: str) -> PyJWK:
         """Return the kid's key, forcing a JWKS refresh only when the interval since the last one has passed."""
         # Cached kids are looked up outside the lock, so a slow forced refresh never delays them.
         signing_key = self.match_kid(self.get_signing_keys(), kid)
-        # An unknown kid waits at most one download timeout for a refresh already running, then rechecks.
+        # An unknown kid waits at most one download timeout for a refresh already running, then is refused.
         if signing_key is None and self._refresh_lock.acquire(
             timeout=JWKS_FETCH_TIMEOUT_SECONDS
         ):

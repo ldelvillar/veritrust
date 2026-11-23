@@ -292,21 +292,20 @@ def test_a_rotated_signing_key_is_picked_up_once_the_cooldown_passes(monkeypatch
 
 
 @pytest.mark.parametrize(
-    ("failure", "raised"),
+    "failure",
     [
-        (URLError("timed out"), jwt.PyJWKClientConnectionError),
-        (ConnectionResetError("reset while reading the body"), ConnectionResetError),
+        URLError("timed out"),
+        ConnectionResetError("reset while reading the body"),
+        json.JSONDecodeError("Expecting value", "<html>", 0),
     ],
 )
-def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(
-    monkeypatch, failure, raised
-):
+def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(monkeypatch, failure):
     clock = _use_clock(monkeypatch)
     clerk = {"up": True, "jwks": {"keys": [_jwk(_rsa_key(), "old-key")]}}
 
     def _serve():
         if not clerk["up"]:
-            # The download times out, so the backoff must count from the failure.
+            # The failed download takes the whole timeout, so the backoff must count from the failure.
             clock[0] += jwks_module.JWKS_FETCH_TIMEOUT_SECONDS
             raise failure
         return clerk["jwks"]
@@ -316,7 +315,7 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(
     client.get_signing_key("old-key")
 
     clerk["up"] = False
-    with pytest.raises(raised):
+    with pytest.raises(jwt.PyJWKClientConnectionError):
         client.get_signing_key("new-key")
     clerk["up"] = True
     clerk["jwks"]["keys"].append(_jwk(_rsa_key(), "new-key"))
@@ -330,7 +329,7 @@ def test_a_failed_forced_refresh_is_retried_after_a_short_backoff(
 
 
 def _use_hanging_refresh(monkeypatch, jwks: dict):
-    """Serve the JWKS with a forced refresh that hangs until released, returning the client and the two events."""
+    """Serve the JWKS with a forced refresh that hangs until released, returning the client, the download log and the two events."""
     refreshing = threading.Event()
     release = threading.Event()
     downloads = _use_jwks(monkeypatch, lambda: _serve())
