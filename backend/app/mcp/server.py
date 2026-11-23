@@ -480,6 +480,6 @@ def build_mcp_http_app(server: MCPServer) -> Starlette:
             allowed_origins=settings.cors_origins(),
         ),
     )
-    # Outermost user middleware, so it wraps the SDK's auth middleware, which turns any other verifier exception into a 500.
-    http_app.add_middleware(JwksUnavailableMiddleware)
+    # Outermost user middleware, so a verifier exception reaches it before Starlette's ServerErrorMiddleware turns it into a 500.
+    http_app.add_middleware(JwksUnavailableMiddleware, protected_path=MCP_PATH)
     return http_app

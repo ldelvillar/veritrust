@@ -660,12 +660,7 @@ def test_http_app_requires_a_bearer_token_and_publishes_metadata(env):
 def test_http_app_answers_503_only_when_the_jwks_is_unreachable(
     env, monkeypatch, failure, status
 ):
-    def _signing_key(token):
-        raise failure
-
-    monkeypatch.setattr(auth_module, "get_settings", lambda: env)
-    monkeypatch.setattr(auth_module, "get_signing_key", _signing_key)
-    client = TestClient(server_module.build_mcp_http_app(_server()))
+    client = _http_client_with_jwks_failure(env, monkeypatch, failure)
 
     response = client.post(
         "/mcp", json={}, headers={"Authorization": "Bearer some.oauth.token"}
@@ -674,3 +669,31 @@ def test_http_app_answers_503_only_when_the_jwks_is_unreachable(
     assert response.status_code == status
     if status == 503:
         assert response.json()["error"] == "temporarily_unavailable"
+        assert response.headers["retry-after"] == "5"
+
+
+def test_http_app_serves_the_metadata_with_a_stale_token_while_the_jwks_is_unreachable(
+    env, monkeypatch
+):
+    client = _http_client_with_jwks_failure(
+        env, monkeypatch, jwt.PyJWKClientConnectionError("connection refused")
+    )
+
+    response = client.get(
+        server_module.MCP_METADATA_PATH,
+        headers={"Authorization": "Bearer some.oauth.token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resource"] == "http://testserver/mcp"
+
+
+def _http_client_with_jwks_failure(env, monkeypatch, failure) -> TestClient:
+    """Serve the MCP HTTP app with a token verifier whose signing-key lookup raises ``failure``."""
+
+    def _signing_key(token):
+        raise failure
+
+    monkeypatch.setattr(auth_module, "get_settings", lambda: env)
+    monkeypatch.setattr(auth_module, "get_signing_key", _signing_key)
+    return TestClient(server_module.build_mcp_http_app(_server()))
