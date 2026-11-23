@@ -33,25 +33,33 @@ class _CooldownJWKClient(PyJWKClient):
         """Return the kid's key, forcing a JWKS refresh only when the interval since the last one has passed."""
         # Cached kids are looked up outside the lock, so a slow forced refresh never delays them.
         signing_key = self.match_kid(self.get_signing_keys(), kid)
-        if signing_key is not None:
-            return signing_key
-        with self._refresh_lock:
-            # Another request may have refreshed the JWKS while this one waited for the lock.
-            signing_key = self.match_kid(self.get_signing_keys(), kid)
-            if signing_key is None and time.monotonic() >= self._next_forced_refresh:
-                self._next_forced_refresh = (
-                    time.monotonic() + JWKS_FAILED_REFRESH_BACKOFF_SECONDS
-                )
-                signing_keys = self.get_signing_keys(refresh=True)
-                self._next_forced_refresh = (
-                    time.monotonic() + JWKS_REFRESH_COOLDOWN_SECONDS
-                )
-                signing_key = self.match_kid(signing_keys, kid)
+        # An unknown kid that finds a refresh already running is refused rather than queued on a thread.
+        if signing_key is None and self._refresh_lock.acquire(blocking=False):
+            try:
+                signing_key = self._refresh_for(kid)
+            finally:
+                self._refresh_lock.release()
         if signing_key is None:
             raise jwt.PyJWKClientError(
                 f'Unable to find a signing key that matches: "{kid}"'
             )
         return signing_key
+
+    def _refresh_for(self, kid: str) -> PyJWK | None:
+        """Force a JWKS refresh for an unknown kid unless the cooldown or failure backoff is still running."""
+        # Another request may have refreshed the JWKS since this one looked the kid up.
+        signing_key = self.match_kid(self.get_signing_keys(), kid)
+        if signing_key is not None or time.monotonic() < self._next_forced_refresh:
+            return signing_key
+        try:
+            signing_keys = self.get_signing_keys(refresh=True)
+        except jwt.PyJWTError:
+            self._next_forced_refresh = (
+                time.monotonic() + JWKS_FAILED_REFRESH_BACKOFF_SECONDS
+            )
+            raise
+        self._next_forced_refresh = time.monotonic() + JWKS_REFRESH_COOLDOWN_SECONDS
+        return self.match_kid(signing_keys, kid)
 
 
 @lru_cache(maxsize=1)
