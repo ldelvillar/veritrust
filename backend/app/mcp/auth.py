@@ -5,6 +5,8 @@ import logging
 
 import jwt
 from mcp.server.auth.provider import AccessToken
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.jwks import AuthMisconfigured, get_signing_key
@@ -34,6 +36,8 @@ def _decode_oauth_token(token: str) -> AccessToken | None:
                 "require": ["exp", "sub"],
             },
         )
+    except jwt.PyJWKClientConnectionError:
+        raise
     except jwt.PyJWTError:
         return None
     except AuthMisconfigured:
@@ -63,5 +67,27 @@ class ClerkOAuthTokenVerifier:
     """MCP SDK token verifier backed by Clerk's JWKS."""
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        """Return the verified token, or ``None`` if it is not a valid OAuth access token."""
+        """Return the verified token, ``None`` if it is not a valid OAuth access token, or raise if the JWKS is unreachable."""
         return await asyncio.to_thread(_decode_oauth_token, token)
+
+
+class JwksUnavailableMiddleware:
+    """ASGI middleware that answers 503 when Clerk's JWKS cannot be fetched to verify an MCP access token."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Run the app, answering a JWKS connection error from the token verifier with 503."""
+        try:
+            await self.app(scope, receive, send)
+        except jwt.PyJWKClientConnectionError as e:
+            logger.warning("No se pudo descargar el JWKS de Clerk para el MCP: %s", e)
+            response = JSONResponse(
+                {
+                    "error": "temporarily_unavailable",
+                    "error_description": "Could not verify the access token, try again shortly",
+                },
+                status_code=503,
+            )
+            await response(scope, receive, send)

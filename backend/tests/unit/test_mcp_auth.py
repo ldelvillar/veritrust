@@ -107,6 +107,16 @@ async def test_returns_none_when_the_signing_key_is_misconfigured(monkeypatch):
     )
 
 
+async def test_raises_when_the_jwks_is_unreachable(monkeypatch):
+    def unreachable(token):
+        raise jwt.PyJWKClientConnectionError("connection refused")
+
+    monkeypatch.setattr(auth_module, "get_signing_key", unreachable)
+
+    with pytest.raises(jwt.PyJWKClientConnectionError):
+        await auth_module.ClerkOAuthTokenVerifier().verify_token(_sign(_claims()))
+
+
 async def test_returns_none_without_an_issuer(monkeypatch):
     monkeypatch.setattr(
         auth_module,

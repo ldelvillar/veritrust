@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import fakeredis
+import jwt
 import pytest
 from arq.jobs import JobStatus
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from mcp import Client
 from mcp.server.auth.provider import AccessToken
 from redis.exceptions import RedisError
 
+import app.mcp.auth as auth_module
 import app.mcp.server as server_module
 from app.core import report_url
 from app.core.analysis_lifecycle import Submitter
@@ -645,3 +647,30 @@ def test_http_app_requires_a_bearer_token_and_publishes_metadata(env):
         "https://tenant.clerk.accounts.dev"
     ]
     assert metadata.json()["resource"] == "http://testserver/mcp"
+
+
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [
+        (jwt.PyJWKClientConnectionError("connection refused"), 503),
+        (jwt.PyJWKClientError('Unable to find a signing key that matches: "x"'), 401),
+    ],
+    ids=["jwks-unreachable", "unknown-kid"],
+)
+def test_http_app_answers_503_only_when_the_jwks_is_unreachable(
+    env, monkeypatch, failure, status
+):
+    def _signing_key(token):
+        raise failure
+
+    monkeypatch.setattr(auth_module, "get_settings", lambda: env)
+    monkeypatch.setattr(auth_module, "get_signing_key", _signing_key)
+    client = TestClient(server_module.build_mcp_http_app(_server()))
+
+    response = client.post(
+        "/mcp", json={}, headers={"Authorization": "Bearer some.oauth.token"}
+    )
+
+    assert response.status_code == status
+    if status == 503:
+        assert response.json()["error"] == "temporarily_unavailable"
