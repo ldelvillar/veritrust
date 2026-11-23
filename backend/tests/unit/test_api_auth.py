@@ -433,7 +433,7 @@ def test_a_signing_key_clerk_removes_stops_verifying_once_the_jwks_cache_expires
         client.get_signing_key("revoked-key")
 
 
-def test_requests_at_cache_expiry_share_one_download(monkeypatch):
+def test_a_known_kid_keeps_verifying_while_the_expiry_download_runs(monkeypatch):
     clock = _use_clock(monkeypatch)
     jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
     client, downloads, refreshing, release = _use_hanging_refresh(monkeypatch, jwks)
@@ -442,22 +442,19 @@ def test_requests_at_cache_expiry_share_one_download(monkeypatch):
     first, first_outcome = _start_lookup(client, "clerk-key")
     assert refreshing.wait(timeout=5)
     second, second_outcome = _start_lookup(client, "clerk-key")
-    second.join(timeout=0.2)
-    # The second request waits for the expiry download already running instead of starting its own.
-    assert second.is_alive()
+    second.join(timeout=1)
+    # The second request uses the expired key at once instead of waiting or starting its own download.
+    assert second_outcome == ["clerk-key"]
 
     release.set()
     first.join(timeout=5)
-    second.join(timeout=5)
 
-    assert (first_outcome, second_outcome, len(downloads)) == (
-        ["clerk-key"],
-        ["clerk-key"],
-        2,
-    )
+    assert (first_outcome, len(downloads)) == (["clerk-key"], 2)
 
 
-def test_an_expiry_download_that_fails_is_retried_only_after_the_backoff(monkeypatch):
+def test_an_expired_jwks_serves_known_kids_only_for_the_grace_while_clerk_is_down(
+    monkeypatch,
+):
     clock = _use_clock(monkeypatch)
     clerk = {"up": True}
     jwks = {"keys": [_jwk(_rsa_key(), "clerk-key")]}
@@ -474,14 +471,33 @@ def test_an_expiry_download_that_fails_is_retried_only_after_the_backoff(monkeyp
     clerk["up"] = False
     clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
     for _ in range(3):
-        with pytest.raises(jwt.PyJWKClientConnectionError):
-            client.get_signing_key("clerk-key")
+        assert client.get_signing_key("clerk-key").key_id == "clerk-key"
     # The cache fill and one failed expiry download; the requests within the backoff download nothing.
     assert len(downloads) == 2
+
+    clock[0] += jwks_module.JWKS_STALE_GRACE_SECONDS
+    with pytest.raises(jwt.PyJWKClientConnectionError):
+        client.get_signing_key("clerk-key")
 
     clerk["up"] = True
     clock[0] += jwks_module.JWKS_FAILED_REFRESH_BACKOFF_SECONDS
     assert client.get_signing_key("clerk-key").key_id == "clerk-key"
+
+
+def test_an_expiry_download_leaves_the_unknown_kid_refresh_available(monkeypatch):
+    clock = _use_clock(monkeypatch)
+    jwks = {"keys": [_jwk(_rsa_key(), "old-key")]}
+    downloads = _use_jwks(monkeypatch, lambda: jwks)
+    client = jwks_module._get_jwks_client(_JWKS_URL)
+    client.get_signing_key("old-key")
+
+    clock[0] += jwks_module.JWKS_CACHE_LIFESPAN_SECONDS + 1
+    client.get_signing_key("old-key")
+    jwks["keys"].append(_jwk(_rsa_key(), "new-key"))
+
+    # Clerk rotates right after the expiry download, which did not spend the forced refresh.
+    assert client.get_signing_key("new-key").key_id == "new-key"
+    assert len(downloads) == 3
 
 
 @pytest.mark.parametrize(

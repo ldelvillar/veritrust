@@ -1,6 +1,5 @@
 """Clerk signing keys, the JWKS client shared by the web API and the MCP server."""
 
-import json
 import threading
 import time
 from functools import lru_cache
@@ -13,6 +12,8 @@ from app.core.config import get_settings
 
 # A downloaded JWKS is trusted this long, so a key Clerk removes stops verifying once it passes.
 JWKS_CACHE_LIFESPAN_SECONDS = 600.0
+# A known kid keeps verifying against an expired JWKS this long while its refresh runs or fails.
+JWKS_STALE_GRACE_SECONDS = 60.0
 # An unknown kid forces at most one JWKS download per interval, not one per request.
 JWKS_REFRESH_COOLDOWN_SECONDS = 60.0
 # A download that fails is retried after this, so an outage neither spends the interval nor goes unthrottled.
@@ -39,24 +40,41 @@ class _CooldownJWKClient(PyJWKClient):
         """Return the kid's key, downloading the JWKS only when it expired or the unknown-kid interval has passed."""
         # Cached kids are looked up outside the lock, so a slow download never delays them.
         signing_keys, expires_at = self._cached
-        if time.monotonic() < expires_at:
-            signing_key = self.match_kid(signing_keys, kid)
-            if signing_key is not None:
-                return signing_key
-        # A request waits at most one download timeout for a download already running, then answers unavailable.
-        if not self._download_lock.acquire(timeout=JWKS_FETCH_TIMEOUT_SECONDS):
-            raise jwt.PyJWKClientConnectionError(
-                "Timed out waiting for the JWKS download already running"
-            )
-        try:
-            signing_key = self._refresh_for(kid)
-        finally:
-            self._download_lock.release()
+        cached_key = self.match_kid(signing_keys, kid)
+        now = time.monotonic()
+        if cached_key is not None and now < expires_at:
+            return cached_key
+        if cached_key is not None and now < expires_at + JWKS_STALE_GRACE_SECONDS:
+            signing_key = self._refresh_or_keep(kid, cached_key)
+        else:
+            signing_key = self._refresh_waiting(kid)
         if signing_key is None:
             raise jwt.PyJWKClientError(
                 f'Unable to find a signing key that matches: "{kid}"'
             )
         return signing_key
+
+    def _refresh_or_keep(self, kid: str, expired_key: PyJWK) -> PyJWK | None:
+        """Refresh an expired JWKS for a known kid, keeping its expired key while another download runs or this one fails."""
+        if not self._download_lock.acquire(blocking=False):
+            return expired_key
+        try:
+            return self._refresh_for(kid)
+        except jwt.PyJWKClientConnectionError:
+            return expired_key
+        finally:
+            self._download_lock.release()
+
+    def _refresh_waiting(self, kid: str) -> PyJWK | None:
+        """Refresh the JWKS for a kid with no usable cached key, waiting at most one download timeout for the lock."""
+        if not self._download_lock.acquire(timeout=JWKS_FETCH_TIMEOUT_SECONDS):
+            raise jwt.PyJWKClientConnectionError(
+                "Timed out waiting for the JWKS download already running"
+            )
+        try:
+            return self._refresh_for(kid)
+        finally:
+            self._download_lock.release()
 
     def _refresh_for(self, kid: str) -> PyJWK | None:
         """Download the JWKS for the kid unless another request already did or the cooldown or backoff is running."""
@@ -89,13 +107,7 @@ class _CooldownJWKClient(PyJWKClient):
             return self._get_signing_keys_from_jwk_set(jwk_set)
         except jwt.PyJWKClientConnectionError:
             raise
-        except (
-            OSError,
-            json.JSONDecodeError,
-            UnicodeDecodeError,
-            jwt.PyJWKClientError,
-            jwt.PyJWKSetError,
-        ) as e:
+        except Exception as e:
             raise jwt.PyJWKClientConnectionError(
                 f'Fail to download or read the JWKS, err: "{e}"'
             ) from e
