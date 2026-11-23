@@ -15,8 +15,11 @@ from evaluation.evaluate_pipeline import (
     replay_counts,
 )
 
-# Largest drop each metric may take below main, a few samples wide since n=100 leaves ~5 points of noise.
-GATED = {"accuracy": 0.05, "recall": 0.05, "coverage": 0.10, "claims_found": 0.05}
+# Most extra samples the PR may miss per metric, the worst of no-change runs (docs/experiments/2026-11.md), counted because few samples move the rate.
+GATED_BY_COUNT = {"accuracy": 3, "recall": 2}
+
+# Largest drop each rate may take below main: coverage from no-change runs, claims_found unmeasured since it never moved.
+GATED = {"coverage": 0.04, "claims_found": 0.05}
 
 # Metrics shown beside the gated ones without failing the gate.
 REPORTED = ("precision", "f1_score")
@@ -59,6 +62,11 @@ def _delta(value: float) -> str:
     return f"{value * 100:+.1f} pp"
 
 
+def _misses(metrics: dict[str, float], name: str) -> int:
+    """Samples a count-gated metric misses: the misclassified ones for accuracy and the false negatives for recall."""
+    return int(metrics["fn"] + (metrics["fp"] if name == "accuracy" else 0))
+
+
 def _describe(name: str, arm: Arm) -> str:
     """Report line naming an arm's commit, prompt versions and Langfuse run."""
     run = arm.run or {}
@@ -95,6 +103,10 @@ def evaluate_gate(
         name
         for name, tolerance in GATED.items()
         if before[name] - after[name] > tolerance + 1e-9
+    } | {
+        name
+        for name, allowed in GATED_BY_COUNT.items()
+        if _misses(after, name) - _misses(before, name) > allowed
     }
     incomplete = {arm: n for arm, n in missing.items() if n > MAX_MISSING}
     passed = not regressed and not incomplete and not relabelled
@@ -119,6 +131,14 @@ def evaluate_gate(
         "| Métrica | main | PR | Δ | Tolerancia | |",
         "|---|---|---|---|---|---|",
     ]
+    for name, allowed in GATED_BY_COUNT.items():
+        status = "❌" if name in regressed else "✅"
+        extra = _misses(after, name) - _misses(before, name)
+        lines.append(
+            f"| {name} | {_pct(before[name])} | {_pct(after[name])} | "
+            f"{_delta(after[name] - before[name])} ({extra:+d} fallos) | "
+            f"+{allowed} fallos | {status} |"
+        )
     for name, tolerance in GATED.items():
         status = "❌" if name in regressed else "✅"
         lines.append(

@@ -56,20 +56,55 @@ def test_identical_arms_pass() -> None:
     assert result.report.startswith(gate.MARKER)
 
 
-def test_an_accuracy_drop_beyond_its_tolerance_fails() -> None:
-    samples = _samples(20)
+def test_more_misclassified_samples_than_the_tolerance_fails_on_accuracy() -> None:
+    samples = _samples(40)
 
-    # Two of twenty wrong is a 10-point drop, past the 5-point tolerance.
-    result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, wrong=2))
+    # Four more wrong is one past the 3-sample tolerance, on whichever class they fall.
+    result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, wrong=4))
 
     assert not result.passed
-    assert "| accuracy | 100.0% | 90.0% | -10.0 pp | -5 pp | ❌ |" in result.report
+    assert (
+        "| accuracy | 100.0% | 90.0% | -10.0 pp (+4 fallos) | +3 fallos | ❌ |"
+        in result.report
+    )
 
 
-def test_a_drop_of_exactly_the_tolerance_passes() -> None:
-    samples = _samples(20)
+def test_misclassifying_exactly_the_tolerance_passes() -> None:
+    samples = _samples(40)
 
-    result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, wrong=1))
+    # Three more wrong is exactly accuracy's tolerance.
+    result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, wrong=3))
+
+    assert result.passed
+
+
+def test_more_false_negatives_than_the_tolerance_fails_on_recall() -> None:
+    samples = _samples(40)
+    head = _arm(samples)
+    # Three false samples called true, within accuracy's tolerance but past recall's 2.
+    for sample in [s for s in samples if s["expected"] == "falsa"][:3]:
+        head.rows[sample["text"]]["predicted"] = "verdadera"
+
+    result = gate.evaluate_gate(samples, _arm(samples), head)
+
+    assert not result.passed
+    assert "| recall | 100.0% | 85.0% | -15.0 pp (+3 fallos) | +2 fallos | ❌ |" in (
+        result.report
+    )
+
+
+def test_the_worst_no_change_run_passes() -> None:
+    samples = _samples(100)
+
+    # The worst no-change pair measured: 2 more false negatives, 1 more false positive and 4 more abstentions.
+    head = _arm(samples, uncertain=4)
+    rest = samples[4:]
+    for sample in [s for s in rest if s["expected"] == "falsa"][:2]:
+        head.rows[sample["text"]]["predicted"] = "verdadera"
+    first_true = next(s for s in rest if s["expected"] == "verdadera")
+    head.rows[first_true["text"]]["predicted"] = "falsa"
+
+    result = gate.evaluate_gate(samples, _arm(samples), head)
 
     assert result.passed
 
@@ -81,7 +116,7 @@ def test_abstaining_more_fails_on_coverage() -> None:
     result = gate.evaluate_gate(samples, _arm(samples), _arm(samples, uncertain=3))
 
     assert not result.passed
-    assert "| coverage | 100.0% | 85.0% | -15.0 pp | -10 pp | ❌ |" in result.report
+    assert "| coverage | 100.0% | 85.0% | -15.0 pp | -4 pp | ❌ |" in result.report
 
 
 def test_finding_no_claims_in_more_samples_fails() -> None:
