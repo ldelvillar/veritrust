@@ -41,7 +41,7 @@ dependencies = [
     "PyYAML>=6.0",
     "pypdf>=7.1.1",
     "mcp>=2.3.0",
-    "stripe>=16.1.0",
+    "stripe>=17.1.0",
     "svix>=2.10.0",
     "langfuse>=5.2.0",
 ]
