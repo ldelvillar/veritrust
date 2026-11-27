@@ -1,11 +1,12 @@
 import http.server
+import ipaddress
 import socket
 import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
@@ -224,7 +225,17 @@ def test_connection_pinned_to_validated_ip():
     assert seen["host"] == f"example.test:{port}"
 
 
+@patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 80))])
+def test_public_address_passes_the_guard(mock_getaddrinfo):
+    assert resolve_public_host("http://example.org/") == (
+        "example.org",
+        "93.184.216.34",
+    )
+
+
 @given(st.ip_addresses())
+# The shared address space, which the guard once let through, runs on every draw.
+@example(ipaddress.ip_address("100.64.0.1"))
 def test_only_globally_routable_addresses_pass_the_guard(ip) -> None:
     family, sockaddr = (
         (socket.AF_INET6, (str(ip), 80, 0, 0))
