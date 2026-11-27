@@ -1,4 +1,4 @@
-// Stop hook: runs CI's fast checks on the areas the branch changed and keeps Claude working while they fail.
+// Stop hook: runs CI's fast checks on the files the branch changed and keeps Claude working while they fail.
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,7 +15,31 @@ if (process.env.GITHUB_ACTIONS) process.exit(0);
 const input = JSON.parse(readFileSync(0, 'utf8'));
 
 const git = (...args) =>
-  execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 });
+  execFileSync('git', ['-c', 'core.quotePath=false', ...args], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+
+// The paths of CI's backend_app, backend_evaluation and frontend filters.
+const BACKEND_SHARED = /^backend\/(conftest\.py|uv\.lock|pyproject\.toml|\.python-version)$/;
+const BACKEND_APP = [/^backend\/(app|db|tests)\//, BACKEND_SHARED];
+const BACKEND_EVALUATION = [/^backend\/(evaluation|data)\//, BACKEND_SHARED];
+const FRONTEND = [/^frontend\//];
+
+// Each CI job's fast checks; checks in one area run in order, and the two areas run side by side.
+const CHECKS = [
+  ['backend', [...BACKEND_APP, ...BACKEND_EVALUATION], 'uv run --directory backend ruff check app evaluation tests'],
+  ['backend', [...BACKEND_APP, ...BACKEND_EVALUATION], 'uv run --directory backend ruff format --check app evaluation tests'],
+  ['backend', [...BACKEND_APP, ...BACKEND_EVALUATION], 'uv run --directory backend mypy'],
+  ['backend', BACKEND_APP, 'uv run --directory backend pytest -q tests --cov=app --cov-fail-under=80'],
+  ['backend', BACKEND_EVALUATION, 'uv run --directory backend --extra evaluation pytest -q evaluation/tests --cov=evaluation --cov-fail-under=80'],
+  ['frontend', FRONTEND, 'pnpm --dir frontend lint --cache --cache-location node_modules/.cache/eslint/'],
+  ['frontend', FRONTEND, 'pnpm --dir frontend typecheck'],
+  ['frontend', FRONTEND, 'pnpm --dir frontend format:check --cache'],
+  ['frontend', FRONTEND, 'pnpm --dir frontend test'],
+].map(([area, paths, command]) => ({ area, paths, command }));
 
 function mergeBase() {
   for (const ref of ['origin/main', 'main']) {
@@ -26,89 +50,35 @@ function mergeBase() {
   return 'HEAD';
 }
 
+// What each changed file looks like now: its diff against main, or its content when untracked.
 const base = mergeBase();
-const untracked = git('ls-files', '--others', '--exclude-standard', '--', 'backend', 'frontend')
-  .split('\n')
-  .filter(Boolean);
-const changed = [
-  ...git('diff', '--name-only', base, '--', 'backend', 'frontend').split('\n').filter(Boolean),
-  ...untracked,
-].filter((file) => !file.endsWith('.md'));
+const changes = new Map();
+for (const chunk of git('diff', '--binary', base, '--', 'backend', 'frontend').split(/^(?=diff --git )/m)) {
+  const file = chunk.match(/^diff --git a\/.+ b\/(.+)$/m)?.[1];
+  if (file) changes.set(file, chunk);
+}
+for (const file of git('ls-files', '--others', '--exclude-standard', '--', 'backend', 'frontend').split('\n')) {
+  if (file) changes.set(file, readFileSync(join(root, file)));
+}
 
-// The same areas as CI's path filters, so the hook runs what CI would run.
-const touches = (pattern) => changed.some((file) => pattern.test(file));
-const backendShared = /^backend\/(conftest\.py|uv\.lock|pyproject\.toml|\.python-version)$/;
-const areas = {
-  backend: touches(/^backend\//),
-  backendApp: touches(/^backend\/(app|db|tests)\//) || touches(backendShared),
-  backendEvaluation: touches(/^backend\/(evaluation|data)\//) || touches(backendShared),
-  frontend: touches(/^frontend\//),
-};
+// A check's fingerprint covers only the files its CI filter watches, so editing one area leaves the other's results standing.
+function fingerprint(paths) {
+  const files = [...changes.keys()].filter((file) => paths.some((pattern) => pattern.test(file))).sort();
+  if (files.length === 0) return null;
+  const hash = createHash('sha256');
+  for (const file of files) hash.update(file).update(changes.get(file));
+  return hash.digest('hex');
+}
 
-const groups = [
-  [
-    areas.backend && 'uv run --directory backend ruff check app evaluation tests',
-    areas.backend && 'uv run --directory backend ruff format --check app evaluation tests',
-    areas.backend && 'uv run --directory backend mypy',
-    areas.backendApp &&
-      'uv run --directory backend pytest -q tests --cov=app --cov-fail-under=80',
-    areas.backendEvaluation &&
-      'uv run --directory backend --extra evaluation pytest -q evaluation/tests --cov=evaluation --cov-fail-under=80',
-  ],
-  [
-    areas.frontend && 'pnpm --dir frontend lint',
-    areas.frontend && 'pnpm --dir frontend typecheck',
-    areas.frontend && 'pnpm --dir frontend format:check',
-    areas.frontend && 'pnpm --dir frontend test',
-  ],
-].map((group) => group.filter(Boolean));
+const due = CHECKS.map((check) => ({ ...check, fingerprint: fingerprint(check.paths) })).filter(
+  (check) => check.fingerprint,
+);
+if (due.length === 0) process.exit(0);
 
-if (groups.every((group) => group.length === 0)) process.exit(0);
-
-const hash = createHash('sha256').update(git('diff', '--binary', base, '--', 'backend', 'frontend'));
-for (const file of untracked) hash.update(file).update(readFileSync(join(root, file)));
-const fingerprint = hash.digest('hex');
-
+// Check results outlive the session that produced them, while fix rounds count per session.
 const saved = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : {};
-const state = saved.session === input.session_id ? saved : { session: input.session_id, blocks: 0 };
-const save = (fields) => writeFileSync(stateFile, JSON.stringify({ ...state, ...fields }));
-
-function block(failures, blocks) {
-  save({ fingerprint, failures, blocks, result: 'failed' });
-  const reason = [
-    `Stop hook, round ${blocks} of ${MAX_BLOCKS}: these checks fail on the branch's changes.`,
-    'Fix the root cause in the code, keeping every check, test and threshold as strict as it is, then finish again.',
-    ...failures,
-  ].join('\n\n');
-  console.log(JSON.stringify({ decision: 'block', reason }));
-  process.exit(0);
-}
-
-function handOver(failures) {
-  save({ fingerprint, failures, blocks: 0, result: 'handed-over' });
-  const names = failures.map((failure) => failure.split('\n')[0]).join('; ');
-  console.log(
-    JSON.stringify({
-      systemMessage: `Checks still fail after ${MAX_BLOCKS} fix rounds, so the stop hook hands over to you: ${names}`,
-    }),
-  );
-  process.exit(0);
-}
-
-function settle(failures) {
-  if (failures.length === 0) {
-    save({ fingerprint, failures: [], blocks: 0, result: 'passed' });
-    process.exit(0);
-  }
-  if (state.blocks >= MAX_BLOCKS) handOver(failures);
-  block(failures, state.blocks + 1);
-}
-
-// An unchanged tree keeps its last result, so a turn with no new edits re-runs nothing.
-if (state.fingerprint === fingerprint) {
-  if (state.result === 'failed') settle(state.failures);
-  process.exit(0);
-}
+const state = { checks: {}, ...saved };
+if (state.session !== input.session_id) Object.assign(state, { session: input.session_id, blocks: 0 });
 
 function run(command) {
   return new Promise((resolve) => {
@@ -116,21 +86,48 @@ function run(command) {
     let output = '';
     child.stdout.on('data', (chunk) => (output += chunk));
     child.stderr.on('data', (chunk) => (output += chunk));
-    child.on('close', (code) => resolve({ command, code, output }));
+    child.on('close', (code) => {
+      const tail = output.trimEnd().split('\n').slice(-OUTPUT_TAIL_LINES).join('\n');
+      resolve(code === 0 ? null : `${command}\n${tail}`);
+    });
   });
 }
 
-async function runGroup(commands) {
-  const results = [];
-  for (const command of commands) results.push(await run(command));
-  return results;
+async function runArea(checks) {
+  for (const check of checks) {
+    state.checks[check.command] = { fingerprint: check.fingerprint, failure: await run(check.command) };
+  }
 }
 
-const results = (await Promise.all(groups.map(runGroup))).flat();
-const failures = results
-  .filter((result) => result.code !== 0)
-  .map(
-    ({ command, output }) =>
-      `${command}\n${output.trimEnd().split('\n').slice(-OUTPUT_TAIL_LINES).join('\n')}`,
-  );
-settle(failures);
+// An unchanged file set keeps its last results, so a turn with no new edits re-runs nothing.
+const stale = due.filter((check) => state.checks[check.command]?.fingerprint !== check.fingerprint);
+if (stale.length === 0 && state.blocks === 0) process.exit(0);
+await Promise.all(
+  ['backend', 'frontend'].map((area) => runArea(stale.filter((check) => check.area === area))),
+);
+
+const failures = due.map((check) => state.checks[check.command].failure).filter(Boolean);
+const names = failures.map((failure) => failure.split('\n')[0]).join('; ');
+let output = {};
+let blocks = 0;
+// A round counts only when Claude edited, so stopping again unedited hands a deliberate failure (a TDD red step) to the user.
+if (failures.length > 0 && stale.length === 0) {
+  output = {
+    systemMessage: `Claude stopped without changing the failing files, so the stop hook hands over to you: ${names}`,
+  };
+} else if (failures.length > 0 && state.blocks < MAX_BLOCKS) {
+  blocks = state.blocks + 1;
+  const reason = [
+    `Stop hook, round ${blocks} of ${MAX_BLOCKS}: these checks fail on the branch's changes.`,
+    'Fix the root cause in the code, keeping every check, test and threshold as strict as it is, then finish again.',
+    'When the failure is intended (a TDD red step) or not yours to fix, finish again without editing and say why; the hook then hands over to the user.',
+    ...failures,
+  ].join('\n\n');
+  output = { decision: 'block', reason };
+} else if (failures.length > 0) {
+  output = {
+    systemMessage: `Checks still fail after ${MAX_BLOCKS} fix rounds, so the stop hook hands over to you: ${names}`,
+  };
+}
+writeFileSync(stateFile, JSON.stringify({ ...state, blocks }));
+console.log(JSON.stringify(output));

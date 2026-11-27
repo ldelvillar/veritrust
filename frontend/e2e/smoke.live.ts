@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { LIVE_RUN_WAIT_MS } from './constants';
+
 // The headline of each of the four Verdicts, from getVerdictInfo.
 const VERDICT_HEADLINE =
   /Contenido (verdadero|falso|parcialmente falso|dudoso)/;
@@ -17,7 +19,6 @@ test('a submitted claim runs through the real pipeline and opens its report', as
   const verdict = page.getByRole('heading', { name: VERDICT_HEADLINE });
   const failed = page.getByText('No se pudo completar el análisis');
   // Waits for whichever ending the Run reaches, so a failed Run ends the test at once.
-  await expect(verdict.or(failed)).toBeVisible();
+  await expect(verdict.or(failed)).toBeVisible({ timeout: LIVE_RUN_WAIT_MS });
   await expect(failed).toBeHidden();
-  await expect(verdict).toBeVisible();
 });

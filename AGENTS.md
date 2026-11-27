@@ -12,7 +12,6 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
-- **Running app** — a change to `backend/` or `frontend/` behaviour is done only once the `verify` skill has watched it work in the real stack.
 
 ## Review before opening a PR
 

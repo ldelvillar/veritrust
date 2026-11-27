@@ -16,9 +16,10 @@ Done when `docker compose ps` shows `backend`, `worker` and `frontend` healthy. 
 
 ## 2. Run the smoke
 
-`pnpm --dir frontend e2e:live` signs in the Clerk dev user, submits a claim, and waits for its report for up to the 15-minute pipeline budget. Done when it is green.
+1. `docker compose exec -T postgres psql -U veritrust -d veritrust -c "TRUNCATE public.usage_events"` clears the Usage in compose's own Postgres, so the dev user's Free Allowance (10 analyses a month) never runs out across verify rounds. Run it before every `e2e:live`.
+2. `pnpm --dir frontend e2e:live` signs in the Clerk dev user, submits a claim, and waits for its report for up to the 15-minute pipeline budget.
 
-When it fails with "Has usado todos los análisis de este mes", the dev user has spent the Free Allowance on this local stack. Clear the usage of compose's own Postgres and rerun: `docker compose exec -T postgres psql -U veritrust -d veritrust -c "TRUNCATE public.usage_events"`.
+Done when it is green.
 
 ## 3. Exercise the change
 
