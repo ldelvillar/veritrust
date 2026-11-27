@@ -60,7 +60,8 @@ function fingerprint(paths) {
   const diff = git('diff', '--binary', '--no-renames', base, '--', ...paths);
   const untracked = git('ls-files', '-z', '--others', '--exclude-standard', '--', ...paths)
     .split('\0')
-    .filter(Boolean);
+    // A nested repository is listed as its directory, which has no content to hash.
+    .filter((file) => file && !file.endsWith('/'));
   let result = null;
   if (diff || untracked.length > 0) {
     const hash = createHash('sha256').update(base).update(diff);
@@ -107,24 +108,31 @@ await Promise.all(
   ['backend', 'frontend'].map((area) => runArea(stale.filter((check) => check.area === area))),
 );
 
-const failures = due.map((check) => state.checks[check.command].failure).filter(Boolean);
-const names = failures.map((failure) => failure.split('\n')[0]).join('; ');
+const failureOf = (check) => state.checks[check.command].failure;
+const nameOf = (failure) => failure.split('\n')[0];
+const touched = stale.map(failureOf).filter(Boolean);
+const untouched = due.filter((check) => !stale.includes(check)).map(failureOf).filter(Boolean);
+const failures = [...touched, ...untouched];
+const names = failures.map(nameOf).join('; ');
 let output = {};
 let blocks = 0;
 // A round counts only when a failing check covers Claude's edits, so a failure left untouched (a TDD red step) goes to the user.
-if (failures.length > 0 && !stale.some((check) => state.checks[check.command].failure)) {
+if (failures.length > 0 && touched.length === 0) {
   output = {
     systemMessage: `Claude stopped without changing the files the failing checks cover, so the stop hook hands over to you: ${names}`,
   };
 } else if (failures.length > 0 && state.blocks < MAX_BLOCKS) {
   blocks = state.blocks + 1;
   const reason = [
-    `Stop hook, round ${blocks} of ${MAX_BLOCKS}: these checks fail on the branch's changes.`,
+    `Stop hook, round ${blocks} of ${MAX_BLOCKS}: these checks fail on the files you changed.`,
     'Fix the root cause in the code, keeping every check, test and threshold as strict as it is, then finish again.',
     'When the failure is intended (a TDD red step) or not yours to fix, finish again without editing the files those checks cover and say why; the hook then hands over to the user.',
-    ...failures,
-  ].join('\n\n');
-  output = { decision: 'block', reason };
+    ...touched,
+  ];
+  if (untouched.length > 0) {
+    reason.push(`Left for the user, since they cover none of your edits: ${untouched.map(nameOf).join('; ')}`);
+  }
+  output = { decision: 'block', reason: reason.join('\n\n') };
 } else if (failures.length > 0) {
   output = {
     systemMessage: `Checks still fail after ${MAX_BLOCKS} fix rounds, so the stop hook hands over to you: ${names}`,
