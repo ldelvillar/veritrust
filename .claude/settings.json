@@ -16,6 +16,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-checks.mjs\"",
+            "timeout": 900,
+            "statusMessage": "Running checks..."
+          }
+        ]
+      }
     ]
   }
 }

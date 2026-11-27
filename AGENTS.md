@@ -13,6 +13,10 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
 
+## Run the change before committing
+
+Before committing a change to `backend/` or `frontend/` behaviour, run the `verify` skill to watch it work in the real stack.
+
 ## Review before opening a PR
 
 Every change reaches `main` through a PR (squash-merged; the PR title becomes the commit title), so start work on a branch. When the change implements a GitHub issue, put `Closes #N` in the PR description, so reviewers check it against the issue rather than only the PR's own summary. Before the first push of a **risky** change, run `/code-review` (with no upstream yet, it reviews the branch against `main` plus uncommitted changes). A change is risky when it touches any of:

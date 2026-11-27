@@ -7,5 +7,8 @@ export const MOCK_API_URL = `http://localhost:${MOCK_API_PORT}`;
 // Clerk session that auth.setup.ts saves and the authenticated tests reuse.
 export const AUTH_FILE = 'e2e/.auth/user.json';
 
+// The live stack's pipeline budget (ANALYSIS_JOB_TIMEOUT_SECONDS) plus two minutes of queue, grace and polling.
+export const LIVE_RUN_WAIT_MS = (15 + 2) * 60_000;
+
 // Clerk test user, where the +clerk_test suffix stops Clerk from sending real emails.
 export const E2E_USER_EMAIL = 'e2e+clerk_test@example.com';

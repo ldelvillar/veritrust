@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:live": "playwright test -c playwright.live.config.ts",
     "generate:api-types": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts"
   },
   "dependencies": {
