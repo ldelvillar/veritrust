@@ -1,10 +1,13 @@
 import http.server
+import ipaddress
 import socket
 import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from hypothesis import example, given
+from hypothesis import strategies as st
 
 from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 from app.utils.extract_text_from_url import (
@@ -13,6 +16,7 @@ from app.utils.extract_text_from_url import (
     _read_capped_body,
     extract_text_from_url,
 )
+from app.utils.ssrf import SSRFValidationError, resolve_public_host
 
 
 def test_invalid_scheme():
@@ -219,3 +223,31 @@ def test_connection_pinned_to_validated_ip():
     server.server_close()
     assert "Contenido fijado" in text
     assert seen["host"] == f"example.test:{port}"
+
+
+@patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 80))])
+def test_public_address_passes_the_guard(mock_getaddrinfo):
+    assert resolve_public_host("http://example.org/") == (
+        "example.org",
+        "93.184.216.34",
+    )
+
+
+@given(st.ip_addresses())
+# The shared address space, which the guard once let through, runs on every draw.
+@example(ipaddress.ip_address("100.64.0.1"))
+def test_only_globally_routable_addresses_pass_the_guard(ip) -> None:
+    family, sockaddr = (
+        (socket.AF_INET6, (str(ip), 80, 0, 0))
+        if ip.version == 6
+        else (socket.AF_INET, (str(ip), 80))
+    )
+    resolved = [(family, socket.SOCK_STREAM, 6, "", sockaddr)]
+    with patch("socket.getaddrinfo", return_value=resolved):
+        try:
+            resolve_public_host("http://example.org/")
+        except SSRFValidationError:
+            return
+
+    # Only an address the internet routes to, and not a multicast group, may be fetched.
+    assert ip.is_global and not ip.is_multicast

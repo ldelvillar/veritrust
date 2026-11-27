@@ -62,6 +62,7 @@ dev = [
     "ruff>=0.17.6",
     "mypy>=2.4.1",
     "fakeredis[lua]>=2.40.0",
+    "hypothesis>=6.170.17",
 ]
 
 [tool.pytest.ini_options]
