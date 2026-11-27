@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.schemas.analysis import MAX_INPUT_TEXT_LENGTH
 from app.utils.extract_text_from_url import (
@@ -13,6 +15,7 @@ from app.utils.extract_text_from_url import (
     _read_capped_body,
     extract_text_from_url,
 )
+from app.utils.ssrf import SSRFValidationError, resolve_public_host
 
 
 def test_invalid_scheme():
@@ -219,3 +222,21 @@ def test_connection_pinned_to_validated_ip():
     server.server_close()
     assert "Contenido fijado" in text
     assert seen["host"] == f"example.test:{port}"
+
+
+@given(st.ip_addresses())
+def test_only_globally_routable_addresses_pass_the_guard(ip) -> None:
+    family, sockaddr = (
+        (socket.AF_INET6, (str(ip), 80, 0, 0))
+        if ip.version == 6
+        else (socket.AF_INET, (str(ip), 80))
+    )
+    resolved = [(family, socket.SOCK_STREAM, 6, "", sockaddr)]
+    with patch("socket.getaddrinfo", return_value=resolved):
+        try:
+            resolve_public_host("http://example.org/")
+        except SSRFValidationError:
+            return
+
+    # Only an address the internet routes to, and not a multicast group, may be fetched.
+    assert ip.is_global and not ip.is_multicast

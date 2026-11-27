@@ -48,7 +48,8 @@ class PinnedIPAdapter(HTTPAdapter):
 def is_public_ip(ip_str: str) -> bool:
     """Return True if the IP is public and fit for outbound connections."""
     ip = ipaddress.ip_address(ip_str)
-    return not (
+    # is_global also refuses what is_private misses, such as the shared address space (100.64.0.0/10).
+    return ip.is_global and not (
         ip.is_private
         or ip.is_loopback
         or ip.is_link_local
