@@ -15,18 +15,18 @@ if (process.env.GITHUB_ACTIONS) process.exit(0);
 const input = JSON.parse(readFileSync(0, 'utf8'));
 
 const git = (...args) =>
-  execFileSync('git', ['-c', 'core.quotePath=false', ...args], {
+  execFileSync('git', args, {
     cwd: root,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 
-// The paths of CI's backend_app, backend_evaluation and frontend filters.
-const BACKEND_SHARED = /^backend\/(conftest\.py|uv\.lock|pyproject\.toml|\.python-version)$/;
-const BACKEND_APP = [/^backend\/(app|db|tests)\//, BACKEND_SHARED];
-const BACKEND_EVALUATION = [/^backend\/(evaluation|data)\//, BACKEND_SHARED];
-const FRONTEND = [/^frontend\//];
+// The code paths of CI's backend_app, backend_evaluation and frontend filters, as git pathspecs.
+const BACKEND_SHARED = ['backend/conftest.py', 'backend/uv.lock', 'backend/pyproject.toml', 'backend/.python-version'];
+const BACKEND_APP = ['backend/app', 'backend/db', 'backend/tests', ...BACKEND_SHARED];
+const BACKEND_EVALUATION = ['backend/evaluation', 'backend/data', ...BACKEND_SHARED];
+const FRONTEND = ['frontend'];
 
 // Each CI job's fast checks; checks in one area run in order, and the two areas run side by side.
 const CHECKS = [
@@ -50,24 +50,25 @@ function mergeBase() {
   return 'HEAD';
 }
 
-// What each changed file looks like now: its diff against main, or its content when untracked.
 const base = mergeBase();
-const changes = new Map();
-for (const chunk of git('diff', '--binary', base, '--', 'backend', 'frontend').split(/^(?=diff --git )/m)) {
-  const file = chunk.match(/^diff --git a\/.+ b\/(.+)$/m)?.[1];
-  if (file) changes.set(file, chunk);
-}
-for (const file of git('ls-files', '--others', '--exclude-standard', '--', 'backend', 'frontend').split('\n')) {
-  if (file) changes.set(file, readFileSync(join(root, file)));
-}
+const fingerprints = new Map();
 
-// A check's fingerprint covers only the files its CI filter watches, so editing one area leaves the other's results standing.
+// A check's fingerprint covers main's commit and the changes under its CI paths, so editing one area leaves the other's results standing.
 function fingerprint(paths) {
-  const files = [...changes.keys()].filter((file) => paths.some((pattern) => pattern.test(file))).sort();
-  if (files.length === 0) return null;
-  const hash = createHash('sha256');
-  for (const file of files) hash.update(file).update(changes.get(file));
-  return hash.digest('hex');
+  const key = paths.join('\0');
+  if (fingerprints.has(key)) return fingerprints.get(key);
+  const diff = git('diff', '--binary', '--no-renames', base, '--', ...paths);
+  const untracked = git('ls-files', '-z', '--others', '--exclude-standard', '--', ...paths)
+    .split('\0')
+    .filter(Boolean);
+  let result = null;
+  if (diff || untracked.length > 0) {
+    const hash = createHash('sha256').update(base).update(diff);
+    for (const file of untracked) hash.update(file).update(readFileSync(join(root, file)));
+    result = hash.digest('hex');
+  }
+  fingerprints.set(key, result);
+  return result;
 }
 
 const due = CHECKS.map((check) => ({ ...check, fingerprint: fingerprint(check.paths) })).filter(
@@ -110,17 +111,17 @@ const failures = due.map((check) => state.checks[check.command].failure).filter(
 const names = failures.map((failure) => failure.split('\n')[0]).join('; ');
 let output = {};
 let blocks = 0;
-// A round counts only when Claude edited, so stopping again unedited hands a deliberate failure (a TDD red step) to the user.
-if (failures.length > 0 && stale.length === 0) {
+// A round counts only when a failing check covers Claude's edits, so a failure left untouched (a TDD red step) goes to the user.
+if (failures.length > 0 && !stale.some((check) => state.checks[check.command].failure)) {
   output = {
-    systemMessage: `Claude stopped without changing the failing files, so the stop hook hands over to you: ${names}`,
+    systemMessage: `Claude stopped without changing the files the failing checks cover, so the stop hook hands over to you: ${names}`,
   };
 } else if (failures.length > 0 && state.blocks < MAX_BLOCKS) {
   blocks = state.blocks + 1;
   const reason = [
     `Stop hook, round ${blocks} of ${MAX_BLOCKS}: these checks fail on the branch's changes.`,
     'Fix the root cause in the code, keeping every check, test and threshold as strict as it is, then finish again.',
-    'When the failure is intended (a TDD red step) or not yours to fix, finish again without editing and say why; the hook then hands over to the user.',
+    'When the failure is intended (a TDD red step) or not yours to fix, finish again without editing the files those checks cover and say why; the hook then hands over to the user.',
     ...failures,
   ].join('\n\n');
   output = { decision: 'block', reason };
