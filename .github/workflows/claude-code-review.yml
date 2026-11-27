@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # claude-code-action restores .claude/, CLAUDE.md and AGENTS.md from the base branch but not REVIEW.md, so this step does.
+      # claude-code-action restores .claude/ and the root CLAUDE.md and AGENTS.md from the base branch but not REVIEW.md, so this step does.
       - name: Use the base branch's REVIEW.md
         env:
           BASE: origin/${{ github.base_ref }}
@@ -110,7 +110,7 @@ jobs:
             echo 'EOF_COMMITS'
           } >> "$GITHUB_OUTPUT"
 
-      # claude-code-action restores .claude/, CLAUDE.md and AGENTS.md from the base branch but not REVIEW.md, so this step does.
+      # claude-code-action restores .claude/ and the root CLAUDE.md and AGENTS.md from the base branch but not REVIEW.md, so this step does.
       - name: Use the base branch's REVIEW.md
         if: steps.scope.outputs.found == 'true'
         env:
