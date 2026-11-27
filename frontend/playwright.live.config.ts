@@ -14,6 +14,7 @@ function baseProject(name: string) {
 export default defineConfig({
   ...base,
   webServer: undefined,
+  retries: 0,
   timeout: LIVE_RUN_WAIT_MS + 60_000,
   // The real Clerk, API and database answer slower than the mock, most of all right after the stack starts.
   expect: { timeout: 30_000 },

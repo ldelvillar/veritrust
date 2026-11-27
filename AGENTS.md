@@ -15,7 +15,7 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 
 When the same check still fails after three attempts to fix it (locally, in `verify` or in CI), stop and hand the user the failure with its evidence.
 
-A flaky test (one that passes on a rerun) is a bug in the test or the code: find its root cause and fix it, and keep every test free of skips, sleeps and retries. When no root cause turns up, delete the test and say why in the PR description.
+A flaky test (one that passes on a rerun) is a bug in the test or the code: fix it at its root cause, never by skipping it, adding a sleep or retrying it. When no root cause turns up within three attempts, hand it to the user with its evidence, and delete it only with their OK, saying why in the PR description. A failure traced to an outside service (Clerk, the LLM provider, PubMed) is reported with its evidence rather than treated as a flaky test.
 
 ## Run the change before committing
 
