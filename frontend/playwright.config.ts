@@ -20,7 +20,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
+  // CI retries once only to label a flaky test, and still fails the run on it.
   retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: !!process.env.CI,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: WEB_URL,
