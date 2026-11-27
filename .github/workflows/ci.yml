@@ -347,8 +347,9 @@ jobs:
           uv run --frozen --extra evaluation python -m evaluation.evaluate_pipeline "${sample_args[@]}" \
             --checkpoint "$RESULTS/pr.jsonl" --replay-evidence "$RESULTS/main.jsonl" "${lf[@]}"
 
+      # Main's eval_gate.py scores the PR, so the PR's own edits to the gate don't apply.
       - name: Gate the PR on main's metrics
-        working-directory: pr/backend
+        working-directory: main/backend
         run: |
           read -ra sample_args <<< "$EVAL_ARGS"
           uv run --frozen --extra evaluation python -m evaluation.eval_gate "${sample_args[@]}" \
