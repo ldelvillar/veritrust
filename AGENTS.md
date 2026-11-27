@@ -8,7 +8,7 @@ VeriTrust is an AI-powered medical misinformation detection system: users submit
 
 ## Always verify before declaring done
 
-CI enforces all of these; fix failures at the root cause, never by suppression.
+CI enforces all of these; fix failures at the root cause, never by suppression. When a check still fails after three fix rounds (locally, in `verify` or in CI), stop and hand the user the failure with its evidence.
 
 - **Backend** — ruff check, ruff format `--check`, mypy, and the relevant test suite at ≥80% coverage (exact invocations in `backend/AGENTS.md`).
 - **Frontend** — lint, typecheck (covers tests, which build skips), prettier `--check`, build, and e2e.
