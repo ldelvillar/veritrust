@@ -35,8 +35,6 @@ Done when every behaviour the change adds or alters has been seen in the running
 1. Read the failure where Playwright leaves it, `frontend/test-results/<test>/error-context.md` (the page snapshot) and `test-failed-1.png`, then the worker and backend logs.
 2. Fix the root cause, rebuild with `docker compose up -d --build --wait` (the images still hold the old code), and rerun from step 2.
 
-A failure that passes on a rerun is a bug in the app or the smoke: report it, with its evidence, as a finding.
-
 ## Report
 
 State what ran, the Analysis id and Verdict the smoke reached, and each behaviour you watched with its evidence. Leave the stack running for the next round; `docker compose down` stops it.

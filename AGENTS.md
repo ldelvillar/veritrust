@@ -15,6 +15,8 @@ CI enforces all of these; fix failures at the root cause, never by suppression.
 
 When the same check still fails after three attempts to fix it (locally, in `verify` or in CI), stop and hand the user the failure with its evidence.
 
+A flaky test (one that passes on a rerun) is a bug in the test or the code: find its root cause and fix it, and keep every test free of skips, sleeps and retries. When no root cause turns up, delete the test and say why in the PR description.
+
 ## Run the change before committing
 
 Before committing a change to `backend/` or `frontend/` behaviour, run the `verify` skill to watch it work in the real stack.
