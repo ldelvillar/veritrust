@@ -35,7 +35,6 @@ def _entry_cell(source_type: str, entry: str) -> str:
 def test_an_entry_never_opens_as_a_formula_and_keeps_its_text(
     source_type, entry
 ) -> None:
-    cell = _entry_cell(source_type, entry)
+    neutralized = "'" + entry if entry.startswith(_FORMULA_TRIGGERS) else entry
 
-    assert not cell.startswith(_FORMULA_TRIGGERS)
-    assert cell in (entry, "'" + entry)
+    assert _entry_cell(source_type, entry) == neutralized

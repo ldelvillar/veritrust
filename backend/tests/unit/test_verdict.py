@@ -282,10 +282,10 @@ _SEARCHES = st.integers(0, 8).flatmap(
 _KIND_RANK = {"fake": 0, "uncertain": 1, "real": 2}
 
 
-def _credibility_order(claim: ClaimVerdict) -> tuple[int, float]:
-    """How far a claim's Verdict leans true, by kind first and then by its probability of being true."""
-    truth = 1 - claim.confidence if claim.kind == "fake" else claim.confidence
-    return _KIND_RANK[claim.kind], truth
+def _lean(claim: Claim) -> tuple[int, float]:
+    """How far a claim's Verdict leans true, by kind first and then by how little its literature refutes it."""
+    verdict = decide([claim], _full(1))
+    return _KIND_RANK[verdict.claims[0].kind], -verdict.falsehood
 
 
 @given(_CLAIMS, _SEARCHES)
@@ -308,34 +308,25 @@ def test_each_claim_is_decided_from_its_own_evidence(claims, search) -> None:
 
 
 @pytest.mark.parametrize("stance", ["contradicts", "supports"])
-@given(claims=_CLAIMS, search=_SEARCHES, data=st.data())
-def test_one_more_source_moves_its_claim_only_its_way(
-    stance, claims, search, data
-) -> None:
-    target = data.draw(st.integers(0, len(claims) - 1))
+@given(spec=_CLAIM_SPECS)
+def test_one_more_source_moves_its_claim_its_way(stance, spec) -> None:
+    supports, contradicts, others, text = spec
+    claim = _claim(supports, contradicts, text=text, others=tuple(others))
     extra = Evidence(title="Nueva", url="https://doi.org/10.1/new", stance=stance)
-    more = [
-        replace(claim, evidence=claim.evidence + (extra,))
-        if claim.index == target
-        else claim
-        for claim in claims
-    ]
 
-    before = _credibility_order(decide(claims, search).claims[target])
-    after = _credibility_order(decide(more, search).claims[target])
+    before = _lean(claim)
+    after = _lean(replace(claim, evidence=claim.evidence + (extra,)))
 
-    assert after <= before if stance == "contradicts" else after >= before
+    assert after < before if stance == "contradicts" else after > before
 
 
 @given(_CLAIMS, st.integers(1, 8), st.data())
-def test_less_evidence_coverage_never_raises_the_confidence(
-    claims, total, data
-) -> None:
-    covered = data.draw(st.integers(0, total))
-    fewer = data.draw(st.integers(0, covered))
+def test_less_evidence_coverage_lowers_the_confidence(claims, total, data) -> None:
+    covered = data.draw(st.integers(1, total))
+    fewer = data.draw(st.integers(0, covered - 1))
 
     full = decide(claims, EvidenceSearch(total=total, covered=covered))
     thin = decide(claims, EvidenceSearch(total=total, covered=fewer))
 
     assert thin.kind == full.kind
-    assert thin.confidence <= full.confidence
+    assert thin.confidence < full.confidence
