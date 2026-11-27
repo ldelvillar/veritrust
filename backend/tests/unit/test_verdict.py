@@ -1,6 +1,10 @@
 """Tests of the verdict module, with Stances and search counts in and a typed Verdict out."""
 
+from dataclasses import replace
+
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.core.claim import Claim, Evidence, EvidenceSearch
 from app.core.verdict import (
@@ -81,21 +85,6 @@ def test_inconclusive_or_unjudged_evidence_does_not_count() -> None:
     verdict = decide([_claim(others=("inconclusive", None))], _full(1))
 
     assert (verdict.kind, verdict.confidence) == ("uncertain", 0.5)
-
-
-def test_each_claim_is_decided_from_its_own_evidence() -> None:
-    claims = [
-        _claim(contradicts=3, index=0, text="Misma frase"),
-        _claim(supports=2, index=1, text="Misma frase"),
-    ]
-
-    verdict = decide(claims, _full(2))
-
-    # Matching by text both would share the 5 Sources, while each with its own gives 4/5 and 1/4.
-    assert [(c.kind, c.confidence) for c in verdict.claims] == [
-        ("fake", pytest.approx(0.8)),
-        ("real", pytest.approx(0.75)),
-    ]
 
 
 def test_minority_contradiction_only_lowers_the_confidence() -> None:
@@ -269,3 +258,75 @@ def test_credibility_follows_from_verdict_and_confidence(
 )
 def test_confidence_level_bands_at_inclusive_lower_bounds(confidence, level) -> None:
     assert confidence_level_of(confidence) == level
+
+
+# A claim's supporting and contradicting Sources, the ones that do not rule, and its text.
+_CLAIM_SPECS = st.tuples(
+    st.integers(0, 6),
+    st.integers(0, 6),
+    st.lists(st.sampled_from(["inconclusive", None]), max_size=2),
+    # Two texts only, so claims that read the same show up and must still keep their own Evidence.
+    st.sampled_from(["Misma frase", "Otra frase"]),
+)
+_CLAIMS = st.lists(_CLAIM_SPECS, min_size=1, max_size=6).map(
+    lambda specs: [
+        _claim(supports, contradicts, index=index, text=text, others=tuple(others))
+        for index, (supports, contradicts, others, text) in enumerate(specs)
+    ]
+)
+_SEARCHES = st.integers(0, 8).flatmap(
+    lambda total: st.builds(
+        EvidenceSearch, total=st.just(total), covered=st.integers(0, total)
+    )
+)
+_KIND_RANK = {"fake": 0, "uncertain": 1, "real": 2}
+
+
+def _lean(claim: Claim) -> tuple[int, float]:
+    """How far a claim's Verdict leans true, by kind first and then by how little its literature refutes it."""
+    verdict = decide([claim], _full(1))
+    return _KIND_RANK[verdict.claims[0].kind], -verdict.falsehood
+
+
+@given(_CLAIMS, _SEARCHES)
+def test_the_analysis_reads_true_only_when_every_claim_does(claims, search) -> None:
+    verdict = decide(claims, search)
+    kinds = {claim.kind for claim in verdict.claims}
+
+    # ADR-0002: a false claim makes the Analysis false, or partly false next to a true one.
+    if "fake" in kinds:
+        assert verdict.kind == ("mixed" if "real" in kinds else "fake")
+    # ADR-0003: true only when every claim is true.
+    assert (verdict.kind == "real") == (kinds == {"real"})
+
+
+@given(_CLAIMS, _SEARCHES)
+def test_each_claim_is_decided_from_its_own_evidence(claims, search) -> None:
+    alone = tuple(decide([claim], _full(1)).claims[0] for claim in claims)
+
+    assert decide(claims, search).claims == alone
+
+
+@pytest.mark.parametrize("stance", ["contradicts", "supports"])
+@given(spec=_CLAIM_SPECS)
+def test_one_more_source_moves_its_claim_its_way(stance, spec) -> None:
+    supports, contradicts, others, text = spec
+    claim = _claim(supports, contradicts, text=text, others=tuple(others))
+    extra = Evidence(title="Nueva", url="https://doi.org/10.1/new", stance=stance)
+
+    before = _lean(claim)
+    after = _lean(replace(claim, evidence=claim.evidence + (extra,)))
+
+    assert after < before if stance == "contradicts" else after > before
+
+
+@given(_CLAIMS, st.integers(1, 8), st.data())
+def test_less_evidence_coverage_lowers_the_confidence(claims, total, data) -> None:
+    covered = data.draw(st.integers(1, total))
+    fewer = data.draw(st.integers(0, covered - 1))
+
+    full = decide(claims, EvidenceSearch(total=total, covered=covered))
+    thin = decide(claims, EvidenceSearch(total=total, covered=fewer))
+
+    assert thin.kind == full.kind
+    assert thin.confidence < full.confidence
