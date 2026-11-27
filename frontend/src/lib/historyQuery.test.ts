@@ -1,3 +1,4 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_HISTORY_FILTERS,
@@ -31,11 +32,25 @@ describe('historyQuery', () => {
     );
   });
 
-  it('reads back the filters it wrote into a path', () => {
-    const query = historyPath(FILTERS, 2).split('?')[1];
+  it('reads back any search and page it wrote into a path', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ unit: 'grapheme' }),
+        fc.integer({ min: 1, max: 1_000_000 }),
+        (search, page) => {
+          const query = new URLSearchParams(
+            historyPath({ ...FILTERS, search }, page).split('?')[1]
+          );
 
-    expect(parseHistoryFilters(new URLSearchParams(query))).toEqual(FILTERS);
-    expect(parseHistoryPage(new URLSearchParams(query))).toBe(2);
+          // Surrounding spaces are the one thing the round trip may drop from the search.
+          expect(parseHistoryFilters(query)).toEqual({
+            ...FILTERS,
+            search: search.trim(),
+          });
+          expect(parseHistoryPage(query)).toBe(page);
+        }
+      )
+    );
   });
 
   it('falls back to the defaults for values off the contract', () => {
